@@ -1,0 +1,145 @@
+[gd_scene format=3 uid="uid://yx4k5c2sc0y7"]
+
+[ext_resource type="Script" uid="uid://b07rvoadooyug" path="res://scripts/camera_controller.gd" id="1_cam"]
+[ext_resource type="Script" uid="uid://bnnw7lkj0wb8j" path="res://scripts/game_3d_manager.gd" id="2_mgr"]
+[ext_resource type="PackedScene" uid="uid://e5m3q1dd7fhh" path="res://scenes/hud.tscn" id="3_hud"]
+[ext_resource type="PackedScene" uid="uid://jeacrk45l73w" path="res://assets/monika_-.glb" id="4_eff54"]
+
+[sub_resource type="Environment" id="Environment_3d"]
+background_mode = 1
+background_color = Color(0.02, 0.02, 0.04, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.05, 0.05, 0.1, 1)
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.02
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_table"]
+albedo_color = Color(0.15, 0.08, 0.05, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_slot"]
+size = Vector3(1.1, 0.02, 1.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_slot"]
+albedo_color = Color(0.1, 0.1, 0.1, 1)
+emission_enabled = true
+emission = Color(0.6, 0.1, 0.1, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_slot"]
+size = Vector3(1.1, 0.02, 1.5)
+
+[node name="Game3D" type="Node3D" unique_id=95914643]
+script = ExtResource("2_mgr")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1214043463]
+environment = SubResource("Environment_3d")
+
+[node name="SpookyLight" type="SpotLight3D" parent="." unique_id=1127309380]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, -0.6564045, 3.8133366, 1.0745878)
+light_color = Color(0.8, 0.4, 0.2, 1)
+light_energy = 5.0
+shadow_enabled = true
+spot_range = 10.0
+
+[node name="Table" type="CSGBox3D" parent="." unique_id=602356984]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+use_collision = true
+size = Vector3(7, 1, 5)
+material = SubResource("StandardMaterial3D_table")
+
+[node name="Slots" type="Node3D" parent="." unique_id=181304261]
+
+[node name="ThreatBoard_Slot1" type="MeshInstance3D" parent="Slots" unique_id=1292727957]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.95, 1.01, -0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ThreatBoard_Slot1" unique_id=1739213793]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ThreatBoard_Slot1/StaticBody3D" unique_id=1191365217]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="ThreatBoard_Slot2" type="MeshInstance3D" parent="Slots" unique_id=629462615]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.65, 1.01, -0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ThreatBoard_Slot2" unique_id=677949260]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ThreatBoard_Slot2/StaticBody3D" unique_id=1445847100]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="ThreatBoard_Slot3" type="MeshInstance3D" parent="Slots" unique_id=239714805]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.65, 1.01, -0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ThreatBoard_Slot3" unique_id=1614716752]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ThreatBoard_Slot3/StaticBody3D" unique_id=401312535]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="ThreatBoard_Slot4" type="MeshInstance3D" parent="Slots" unique_id=870302614]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.95, 1.01, -0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ThreatBoard_Slot4" unique_id=418936139]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ThreatBoard_Slot4/StaticBody3D" unique_id=363967812]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="ResponseBoard_Slot1" type="MeshInstance3D" parent="Slots" unique_id=1259272962]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.95, 1.01, 0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ResponseBoard_Slot1" unique_id=1541018746]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ResponseBoard_Slot1/StaticBody3D" unique_id=477926189]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="ResponseBoard_Slot2" type="MeshInstance3D" parent="Slots" unique_id=995279641]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.65, 1.01, 0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ResponseBoard_Slot2" unique_id=1884030244]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ResponseBoard_Slot2/StaticBody3D" unique_id=1976307873]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="ResponseBoard_Slot3" type="MeshInstance3D" parent="Slots" unique_id=1547680837]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.65, 1.01, 0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ResponseBoard_Slot3" unique_id=376450288]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ResponseBoard_Slot3/StaticBody3D" unique_id=1069955719]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="ResponseBoard_Slot4" type="MeshInstance3D" parent="Slots" unique_id=1724042762]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.95, 1.01, 0.9)
+mesh = SubResource("BoxMesh_slot")
+surface_material_override/0 = SubResource("StandardMaterial3D_slot")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Slots/ResponseBoard_Slot4" unique_id=1982962968]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Slots/ResponseBoard_Slot4/StaticBody3D" unique_id=593172588]
+shape = SubResource("BoxShape3D_slot")
+
+[node name="CameraPivot" type="Node3D" parent="." unique_id=1583494174]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 1, 0)
+script = ExtResource("1_cam")
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot" unique_id=523915052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7)
+
+[node name="HUD" parent="." unique_id=1857250272 instance=ExtResource("3_hud")]
+
+[node name="Sketchfab_Scene" parent="." unique_id=1823607782 instance=ExtResource("4_eff54")]
+transform = Transform3D(0.43439636, -0.0019773212, -0.015135866, 0.0028405718, 0.23504256, -0.048038945, 0.010677155, 0.017915439, 0.62857884, 0.05743265, -4.487402, -6.6867294)
+
+[node name="Sketchfab_model2" type="Node3D" parent="Sketchfab_Scene" unique_id=1147313402]
+transform = Transform3D(1, 0, 0, 0, 2.220446e-16, 1, 0, -1, 2.220446e-16, 0, 0, 0)
