@@ -1,0 +1,46 @@
+[
+	{
+		"id": "fire_truck",
+		"name": "Fire Truck",
+		"type": "response",
+		"element": "douse",
+		"cost_type": "energy",
+		"cost": 2,
+		"attack": 2,
+		"health": 3,
+		"count": 2
+	},
+	{
+		"id": "evacuation",
+		"name": "Evacuation Route",
+		"type": "response",
+		"element": "evac",
+		"cost_type": "energy",
+		"cost": 1,
+		"attack": 1,
+		"health": 4,
+		"count": 2
+	},
+	{
+		"id": "debris_clearance",
+		"name": "Debris Clearance",
+		"type": "response",
+		"element": "clearance",
+		"cost_type": "energy",
+		"cost": 1,
+		"attack": 3,
+		"health": 1,
+		"count": 2
+	},
+	{
+		"id": "shelter_brace",
+		"name": "Shelter Brace",
+		"type": "response",
+		"element": "brace",
+		"cost_type": "energy",
+		"cost": 3,
+		"attack": 2,
+		"health": 5,
+		"count": 2
+	}
+]

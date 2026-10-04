@@ -1,0 +1,655 @@
+[gd_scene format=3 uid="uid://e5m3q1dd7fhh"]
+
+[sub_resource type="Gradient" id="Gradient_toqtt"]
+colors = PackedColorArray(0, 0, 0, 0.75, 0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_ahhtf"]
+gradient = SubResource("Gradient_toqtt")
+fill_to = Vector2(0, 1)
+
+[sub_resource type="Gradient" id="Gradient_oo0fn"]
+colors = PackedColorArray(0, 0, 0, 0.75, 0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_5ysmq"]
+gradient = SubResource("Gradient_oo0fn")
+fill_from = Vector2(0, 1)
+fill_to = Vector2(0, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6fi6k"]
+bg_color = Color(0.05, 0.03, 0.04, 0.95)
+corner_radius_top_left = 52
+corner_radius_top_right = 52
+corner_radius_bottom_right = 52
+corner_radius_bottom_left = 52
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_uo2fv"]
+draw_center = false
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 52
+corner_radius_top_right = 52
+corner_radius_bottom_right = 52
+corner_radius_bottom_left = 52
+shadow_color = Color(0, 0, 0, 0.7)
+shadow_size = 8
+
+[sub_resource type="SystemFont" id="SystemFont_047uy"]
+font_names = PackedStringArray("Georgia", "Times New Roman")
+font_weight = 700
+subpixel_positioning = 0
+
+[sub_resource type="SystemFont" id="SystemFont_5pdws"]
+font_names = PackedStringArray("Old English Text MT", "High Tower Text", "Georgia")
+subpixel_positioning = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hd3ao"]
+bg_color = Color(0.05, 0.03, 0.04, 0.95)
+corner_radius_top_left = 52
+corner_radius_top_right = 52
+corner_radius_bottom_right = 52
+corner_radius_bottom_left = 52
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0i1j5"]
+draw_center = false
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 52
+corner_radius_top_right = 52
+corner_radius_bottom_right = 52
+corner_radius_bottom_left = 52
+shadow_color = Color(0, 0, 0, 0.7)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mphia"]
+bg_color = Color(0.1, 0.02, 0.03, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0m4u7"]
+bg_color = Color(0.22, 0.05, 0.06, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_apjy4"]
+bg_color = Color(0.15, 0.03, 0.04, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5n1hp"]
+bg_color = Color(0.32, 0.07, 0.08, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_eld54"]
+bg_color = Color(0.04, 0.03, 0.04, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hpbg"]
+bg_color = Color(0.06, 0.03, 0.03, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.72, 0.55, 0.22, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0, 0, 0, 0.6)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hpfill_enemy"]
+bg_color = Color(0.7, 0.1, 0.1, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hpfill_player"]
+bg_color = Color(0.2, 0.6, 0.3, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hplag"]
+bg_color = Color(0.95, 0.85, 0.6, 0.9)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_hp"]
+[node name="HUD" type="CanvasLayer" unique_id=1091494141]
+
+[node name="Root" type="Control" parent="." unique_id=1482672106]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Vignette_0" type="TextureRect" parent="Root" unique_id=2116371047]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 90.0
+grow_horizontal = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_ahhtf")
+
+[node name="Vignette_1" type="TextureRect" parent="Root" unique_id=2050167896]
+layout_mode = 0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -90.0
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_5ysmq")
+
+[node name="OrbGauge_2" type="Control" parent="Root" unique_id=1960749864]
+anchors_preset = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -144.0
+offset_right = 128.0
+offset_bottom = -40.0
+mouse_filter = 2
+
+[node name="Mask" type="Panel" parent="Root/OrbGauge_2" unique_id=832727814]
+clip_children = 2
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_6fi6k")
+
+[node name="Fill" type="ColorRect" parent="Root/OrbGauge_2/Mask" unique_id=1636091446]
+layout_mode = 0
+offset_right = 104.0
+offset_bottom = 104.0
+mouse_filter = 2
+color = Color(0.15, 0.55, 0.6, 1)
+
+[node name="Shine" type="ColorRect" parent="Root/OrbGauge_2/Mask" unique_id=666762858]
+layout_mode = 0
+offset_left = 23.4
+offset_top = 15.6
+offset_right = 41.6
+offset_bottom = 24.96
+mouse_filter = 2
+color = Color(1, 1, 1, 0.12)
+
+[node name="Ring" type="Panel" parent="Root/OrbGauge_2" unique_id=1614114089]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_uo2fv")
+
+[node name="ValueLabel" type="Label" parent="Root/OrbGauge_2" unique_id=379157667]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_047uy")
+theme_override_font_sizes/font_size = 30
+text = "10/10"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CaptionLabel" type="Label" parent="Root/OrbGauge_2" unique_id=1370183403]
+layout_mode = 0
+offset_left = -40.0
+offset_top = 106.0
+offset_right = 144.0
+offset_bottom = 136.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 20
+text = "Preparedness"
+horizontal_alignment = 1
+
+[node name="OrbGauge_3" type="Control" parent="Root" unique_id=1537243122]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -133.0
+offset_top = -627.0
+offset_right = -29.0
+offset_bottom = -523.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="Mask" type="Panel" parent="Root/OrbGauge_3" unique_id=751687288]
+clip_children = 2
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hd3ao")
+
+[node name="Fill" type="ColorRect" parent="Root/OrbGauge_3/Mask" unique_id=726197720]
+layout_mode = 0
+offset_right = 104.0
+offset_bottom = 104.0
+mouse_filter = 2
+color = Color(0.7, 0.08, 0.08, 1)
+
+[node name="Shine" type="ColorRect" parent="Root/OrbGauge_3/Mask" unique_id=529059379]
+layout_mode = 0
+offset_left = 23.4
+offset_top = 15.6
+offset_right = 41.6
+offset_bottom = 24.96
+mouse_filter = 2
+color = Color(1, 1, 1, 0.12)
+
+[node name="Ring" type="Panel" parent="Root/OrbGauge_3" unique_id=867709686]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_0i1j5")
+
+[node name="ValueLabel" type="Label" parent="Root/OrbGauge_3" unique_id=307697257]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_047uy")
+theme_override_font_sizes/font_size = 30
+text = "10/10"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CaptionLabel" type="Label" parent="Root/OrbGauge_3" unique_id=605614425]
+layout_mode = 0
+offset_left = -40.0
+offset_top = 106.0
+offset_right = 144.0
+offset_bottom = 136.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 20
+text = "Tension"
+horizontal_alignment = 1
+
+[node name="DeckShadow" type="Panel" parent="Root" unique_id=525830074]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -114.0
+offset_top = -141.0
+offset_right = -34.0
+offset_bottom = -31.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_mphia")
+
+[node name="DeckDrawButton" type="Button" parent="Root" unique_id=1842113072]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -120.0
+offset_top = -147.0
+offset_right = -40.0
+offset_bottom = -37.0
+grow_horizontal = 0
+grow_vertical = 0
+tooltip_text = "Draw a card"
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_0m4u7")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_apjy4")
+theme_override_styles/hover = SubResource("StyleBoxFlat_5n1hp")
+
+[node name="DeckCountLabel" type="Label" parent="Root/DeckDrawButton" unique_id=1898814538]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_047uy")
+theme_override_font_sizes/font_size = 34
+text = "15"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DrawCaption" type="Label" parent="Root" unique_id=628836245]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -130.0
+offset_top = -179.0
+offset_right = -30.0
+offset_bottom = -149.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 20
+text = "Draw"
+horizontal_alignment = 1
+
+[node name="TurnPlaque" type="PanelContainer" parent="Root" unique_id=781379965]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -80.0
+offset_top = 10.0
+offset_right = 80.0
+offset_bottom = 56.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_eld54")
+
+[node name="TurnLabel" type="Label" parent="Root/TurnPlaque" unique_id=1113960464]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 28
+text = "Turn 1"
+horizontal_alignment = 1
+
+[node name="HintW" type="Label" parent="Root" unique_id=503125375]
+modulate = Color(1, 1, 1, 0.9)
+layout_mode = 0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 16.0
+offset_bottom = 12.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 18
+text = "W  ·  Gaze  upon the board"
+
+[node name="HintS" type="Label" parent="Root" unique_id=845198651]
+modulate = Color(1, 1, 1, 0.35)
+layout_mode = 0
+offset_left = 16.0
+offset_top = 36.0
+offset_right = 16.0
+offset_bottom = 36.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 18
+text = "S  ·  Return to the Desk"
+
+[node name="PhaseLabel" type="Label" parent="Root" unique_id=1203948571]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 62.0
+offset_right = 300.0
+offset_bottom = 92.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 22
+text = "Coin flip..."
+horizontal_alignment = 1
+
+[node name="EndTurnButton" type="Button" parent="Root" unique_id=1739204856]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -240.0
+offset_right = -10.0
+offset_bottom = -190.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_0m4u7")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_apjy4")
+theme_override_styles/hover = SubResource("StyleBoxFlat_5n1hp")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_mphia")
+text = "End Turn"
+
+[node name="EnemyHealth" type="Control" parent="Root" unique_id=1900000100]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -280.0
+offset_top = 16.0
+offset_right = -20.0
+offset_bottom = 72.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="Caption" type="Label" parent="Root/EnemyHealth" unique_id=1900000101]
+layout_mode = 0
+offset_right = 260.0
+offset_bottom = 26.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 20
+text = "Disaster"
+
+[node name="LagBar" type="ProgressBar" parent="Root/EnemyHealth" unique_id=1900000102]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 260.0
+offset_bottom = 56.0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_hpbg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hplag")
+max_value = 20.0
+value = 20.0
+show_percentage = false
+
+[node name="Bar" type="ProgressBar" parent="Root/EnemyHealth" unique_id=1900000103]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 260.0
+offset_bottom = 56.0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxEmpty_hp")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hpfill_enemy")
+max_value = 20.0
+value = 20.0
+show_percentage = false
+
+[node name="Value" type="Label" parent="Root/EnemyHealth" unique_id=1900000104]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 260.0
+offset_bottom = 56.0
+theme_override_colors/font_color = Color(1, 0.96, 0.88, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_047uy")
+theme_override_font_sizes/font_size = 18
+text = "20 / 20"
+horizontal_alignment = 1
+vertical_alignment = 1
+[node name="PlayerHealth" type="Control" parent="Root" unique_id=1900000200]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -232.0
+offset_right = 280.0
+offset_bottom = -176.0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="Caption" type="Label" parent="Root/PlayerHealth" unique_id=1900000201]
+layout_mode = 0
+offset_right = 260.0
+offset_bottom = 26.0
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 20
+text = "Response"
+
+[node name="LagBar" type="ProgressBar" parent="Root/PlayerHealth" unique_id=1900000202]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 260.0
+offset_bottom = 56.0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_hpbg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hplag")
+max_value = 20.0
+value = 20.0
+show_percentage = false
+
+[node name="Bar" type="ProgressBar" parent="Root/PlayerHealth" unique_id=1900000203]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 260.0
+offset_bottom = 56.0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxEmpty_hp")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hpfill_player")
+max_value = 20.0
+value = 20.0
+show_percentage = false
+
+[node name="Value" type="Label" parent="Root/PlayerHealth" unique_id=1900000204]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 260.0
+offset_bottom = 56.0
+theme_override_colors/font_color = Color(1, 0.96, 0.88, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = SubResource("SystemFont_047uy")
+theme_override_font_sizes/font_size = 18
+text = "20 / 20"
+horizontal_alignment = 1
+vertical_alignment = 1

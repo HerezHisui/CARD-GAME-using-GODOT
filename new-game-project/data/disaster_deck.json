@@ -1,0 +1,46 @@
+[
+	{
+		"id": "wildfire",
+		"name": "Wildfire",
+		"type": "disaster",
+		"element": "fire",
+		"cost_type": "sacrifice",
+		"cost": 1,
+		"attack": 3,
+		"health": 2,
+		"count": 3
+	},
+	{
+		"id": "earthquake",
+		"name": "Tremor",
+		"type": "disaster",
+		"element": "earthquake",
+		"cost_type": "sacrifice",
+		"cost": 2,
+		"attack": 4,
+		"health": 4,
+		"count": 2
+	},
+	{
+		"id": "flash_flood",
+		"name": "Flash Flood",
+		"type": "disaster",
+		"element": "flood",
+		"cost_type": "sacrifice",
+		"cost": 1,
+		"attack": 2,
+		"health": 3,
+		"count": 2
+	},
+	{
+		"id": "hurricane",
+		"name": "Typhoon",
+		"type": "disaster",
+		"element": "typhoon",
+		"cost_type": "sacrifice",
+		"cost": 3,
+		"attack": 5,
+		"health": 5,
+		"count": 1
+	}
+]
