@@ -5,8 +5,8 @@ extends Node3D
 const Card3DScene = preload("res://scenes/card_3d.tscn")
 
 const HAND_SIZE_MAX := 8
-const HAND_DIST := 2.6        # distance of the hand in front of the camera
-const HAND_Y := -1.6          # vertical position of the hand (rests low so board is visible)
+const HAND_DIST := 3.0        # Smaller hand leaves space for the board and HUD.
+const HAND_Y := -1.35         # Keep card names and bottom stats inside the viewport.
 const UPRIGHT := Basis(Vector3.RIGHT, PI / 2.0)
 
 # Palette
@@ -21,6 +21,18 @@ var enemy_hand: Array[Dictionary] = []
 var hand: Array = []
 var turn := 1
 var in_board_view := false
+var run_director: CanvasLayer
+var enemy_max_hp := ENEMY_MAX_HP
+var camera_tween: Tween
+var player_buffs: Dictionary = {}
+var enemy_buffs: Dictionary = {}
+var player_run_buffs: Dictionary = {}
+var enemy_run_buffs: Dictionary = {}
+var encounter_kind := "battle"
+var moving_ally: Node
+var adapted_round := 0
+var pending_utility: Node
+var pending_effect := ""
 
 # ---- Turn system -------------------------------------------------------
 enum Phase { SETUP, PLAYER_DRAW, PLAYER_PLAY, ENEMY, COMBAT, GAME_OVER }
@@ -101,6 +113,70 @@ func _ready() -> void:
 	update_deck_label()
 	_refresh_bars()
 	_refresh_view_hints()
+	run_director = preload("res://scripts/run_director.gd").new()
+	add_child(run_director)
+
+func clear_battle(preserve_result: bool = false) -> void:
+	player_buffs.clear()
+	enemy_buffs.clear()
+	moving_ally = null
+	pending_utility = null
+	pending_effect = ""
+	adapted_round = 0
+	if not preserve_result: _set_phase(Phase.SETUP, "Choose your next room on the school map")
+	for card in get_tree().get_nodes_in_group("cards"):
+		card.remove_from_group("cards")
+		card.queue_free()
+	hand.clear()
+	deck.clear()
+	enemy_deck.clear()
+	enemy_hand.clear()
+	enemy_evolution_deck.clear()
+
+func start_encounter(collection: Array[Dictionary], kind: String, floor_level: int, specialty: int) -> void:
+	clear_battle()
+	encounter_kind = kind
+	run_director.intel_revealed = false
+	turn = 1
+	energy_cap = maxi(1, ENERGY_START + buff_value(true, "energy"))
+	preparedness = energy_cap
+	tension_cap = maxi(1, TENSION_START + buff_value(false, "energy"))
+	tension = tension_cap
+	enemy_max_hp = 20 + (floor_level - 1) * 3 + (4 if kind == "elite" else (8 if kind == "boss" else 0))
+	enemy_hp = enemy_max_hp
+	for definition in collection: deck.append(definition.duplicate(true))
+	var threats: Array[Dictionary] = []
+	load_deck_from_json("res://data/disaster_deck.json", threats)
+	load_deck_from_json("res://data/disaster_expansion.json", threats)
+	var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
+	_enemy_hp_ui.get_node("Caption").text = "JANITOR / %s / %s" % [kind.to_upper(), favored.to_upper()]
+	_enemy_hp_ui.get_node("Caption").add_theme_font_size_override("font_size", 14)
+	for definition in threats:
+		var c: Dictionary = definition.duplicate(true)
+		c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
+		c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
+		if int(c.cost) > 0:
+			enemy_evolution_deck.append(c)
+		else:
+			enemy_deck.append(c)
+			if c.element == favored: enemy_deck.append(c.duplicate(true))
+	# Modest reserves keep encounters from becoming endless reinforcement chains.
+	var base_limit := 20 if kind == "battle" else (21 if kind == "elite" else 22)
+	var evolution_limit := 12 if kind == "battle" else (13 if kind == "elite" else 14)
+	enemy_deck.shuffle()
+	enemy_deck.sort_custom(func(a, b): return a.element == favored and b.element != favored)
+	enemy_deck.resize(mini(base_limit, enemy_deck.size()))
+	enemy_evolution_deck.shuffle()
+	enemy_evolution_deck.resize(mini(evolution_limit, enemy_evolution_deck.size()))
+	if kind == "elite":
+		enemy_evolution_deck.append({"id":"elite_guardian", "name":"Hallway Guardian", "type":"disaster", "element":favored, "cost_type":"sacrifice", "cost":2, "attack":4 + floor_level, "health":5, "modifier":"armored"})
+	if kind == "boss":
+		enemy_evolution_deck.append({"id":"midnight_cataclysm", "name":"Midnight Cataclysm", "type":"disaster", "element":favored, "cost_type":"sacrifice", "cost":3, "attack":6 + floor_level, "health":8, "modifier":"fierce"})
+	deck.shuffle()
+	enemy_deck.shuffle()
+	enemy_evolution_deck.shuffle()
+	_refresh_bars()
+	set_board_view(false)
 	_start_match()
 
 func _load_tex(path: String) -> Texture2D:
@@ -196,13 +272,13 @@ func _build_board() -> void:
 	noise.frequency = 0.04
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 13
-	var felt := Color(0.24, 0.06, 0.07)
+	var felt := Color(0.07, 0.15, 0.18)
 	for y in h:
 		for x in w:
 			var v := noise.get_noise_2d(x, y) * 0.035 + rng.randf_range(-0.012, 0.012)
 			img.set_pixel(x, y, Color(felt.r + v, felt.g + v * 0.4, felt.b + v * 0.4))
 
-	var dark := Color(0.07, 0.02, 0.03)
+	var dark := Color(0.025, 0.055, 0.08)
 	var gold_dim := Color(0.48, 0.35, 0.14)
 	# Outer rim + double gold frame
 	_rect_outline(img, Rect2i(0, 0, w, h), 3, dark)
@@ -230,7 +306,7 @@ func _build_board() -> void:
 				var sw := int(1.1 * PPU)
 				var sh := int(1.5 * PPU)
 				var r := Rect2i(cx - sw / 2, cy - sh / 2, sw, sh)
-				img.fill_rect(r, Color(0.11, 0.025, 0.035))
+				img.fill_rect(r, Color(0.035, 0.085, 0.11))
 				_rect_outline(img, r, 1, gold_dim)
 				# subtle bevel: dark top/left inner edge for an inset look
 				img.fill_rect(Rect2i(r.position.x + 1, r.position.y + 1, sw - 2, 2), Color(0.06, 0.01, 0.02))
@@ -289,7 +365,7 @@ func _build_lighting() -> void:
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 		env.ambient_light_color = Color(0.3, 0.35, 0.45)
 		env.ambient_light_energy = 1.0
-		env.volumetric_fog_enabled = true
+		env.volumetric_fog_enabled = false # Compatibility renderer does not support volumetric fog.
 		env.volumetric_fog_density = 0.02
 		env.volumetric_fog_albedo = Color(0.2, 0.3, 0.4)
 
@@ -305,7 +381,7 @@ func _refresh_bars() -> void:
 	_set_orb(_prep_fill, _prep_label, preparedness, energy_cap)
 	_set_orb(_tension_fill, _tension_label, tension, tension_cap)
 	_set_health(_player_hp_ui, player_hp, PLAYER_MAX_HP, false)
-	_set_health(_enemy_hp_ui, enemy_hp, ENEMY_MAX_HP, false)
+	_set_health(_enemy_hp_ui, enemy_hp, enemy_max_hp, false)
 	update_deck_label()
 
 ## Updates a health widget (HUD/Root/PlayerHealth or EnemyHealth).
@@ -335,7 +411,7 @@ func _damage_side(player_side: bool, amt: int) -> void:
 		_set_health(ui, player_hp, PLAYER_MAX_HP, true)
 	else:
 		enemy_hp = maxi(0, enemy_hp - amt)
-		_set_health(ui, enemy_hp, ENEMY_MAX_HP, true)
+		_set_health(ui, enemy_hp, enemy_max_hp, true)
 	shake_camera(0.12 + amt * 0.02, 0.3)
 
 	# Widget shake + red flash
@@ -371,9 +447,12 @@ func update_deck_label() -> void:
 
 func enemy_draw_cards(count: int) -> void:
 	for i in range(count):
-		if enemy_deck.is_empty():
-			break
-		enemy_hand.append(enemy_deck.pop_back())
+		if enemy_hand.size() >= 6: break
+		var available := enemy_deck.filter(func(c): return not is_sealed(c))
+		if available.is_empty(): break
+		var picked: Dictionary = available.back()
+		enemy_deck.erase(picked)
+		enemy_hand.append(picked)
 	update_deck_label()
 
 func _refresh_view_hints() -> void:
@@ -383,6 +462,7 @@ func _refresh_view_hints() -> void:
 
 # =================================================================== CAMERA & INPUT
 func _unhandled_key_input(event: InputEvent) -> void:
+	if run_director and run_director.modal.visible: return
 	if not (event is InputEventKey) or not event.pressed:
 		return
 	if event.keycode == KEY_SPACE:
@@ -407,7 +487,9 @@ func _apply_view(v: Dictionary) -> void:
 
 func _shift_camera(v: Dictionary, dur: float = 0.55) -> void:
 	var pivot = $CameraPivot
+	if camera_tween: camera_tween.kill()
 	var tween = create_tween().set_parallel(true).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	camera_tween = tween
 	tween.tween_property(pivot, "position", v.pos, dur)
 	tween.tween_property(pivot, "rotation_degrees", v.rot, dur)
 	tween.tween_property(camera, "position", Vector3(0, 0, v.dist), dur)
@@ -476,16 +558,60 @@ func draw_cards(count: int) -> void:
 	for i in range(count):
 		if get_hand_cards().size() >= HAND_SIZE_MAX or deck.is_empty():
 			break
-		var card = Card3DScene.instantiate()
-		hand_container.add_child(card)
-		card.add_to_group("cards")
-		card.setup(deck.pop_back())
-		# Fly in from the deck pile on the right
-		card.position = Vector3(2.6, -0.6, -HAND_DIST)
-		card.transform.basis = UPRIGHT
-		hand.append(card)
+		var available := deck.filter(func(c): return not is_sealed(c))
+		if available.is_empty(): break
+		var picked: Dictionary = available.back()
+		deck.erase(picked)
+		add_card_to_hand(picked)
 	update_deck_label()
 	arrange_hand_centered()
+
+func add_card_to_hand(definition: Dictionary) -> void:
+	var card = Card3DScene.instantiate()
+	hand_container.add_child(card)
+	card.add_to_group("cards")
+	card.setup(definition)
+	card.position = Vector3(2.6, -0.6, -HAND_DIST)
+	card.transform.basis = UPRIGHT
+	hand.append(card)
+	arrange_hand_centered()
+	update_deck_label()
+
+func is_sealed(definition: Dictionary) -> bool:
+	return int(definition.get("locked_until", 0)) > turn
+
+func buffs_for(definition: Dictionary) -> Dictionary:
+	var response: bool = definition.get("type", "response") == "response"
+	return preload("res://scripts/battle_rules.gd").totals(player_buffs if response else enemy_buffs, player_run_buffs if response else enemy_run_buffs)
+
+func buff_value(response: bool, id: String) -> int:
+	return int(buffs_for({"type":"response" if response else "disaster"}).get(id, 0))
+
+func attack_bonus(card: Node) -> int:
+	var buffs := buffs_for(card.card_data)
+	return int(buffs.get("strength", 0)) - (int(buffs.get("isolation", 0)) if card.current_slot != null and _synergy_bonus(card) == 0 else 0)
+
+func prepare_card_data(definition: Dictionary) -> Dictionary:
+	if not definition.get("utility", false): definition.health = maxi(1, int(definition.get("health", 0)) + int(buffs_for(definition).get("health", 0)))
+	return definition
+
+func add_global_buff(response_side: bool, id: String, permanent: bool = false) -> void:
+	var old_health := buff_value(response_side, "health")
+	var old_bleed := buff_value(response_side, "self_bleed")
+	var old_energy := buff_value(response_side, "energy")
+	var buffs := (player_run_buffs if response_side else enemy_run_buffs) if permanent else (player_buffs if response_side else enemy_buffs)
+	buffs[id] = int(buffs.get(id, 0)) + 1
+	var health_delta := buff_value(response_side, "health") - old_health
+	var bleed_delta := buff_value(response_side, "self_bleed") - old_bleed
+	for card in get_tree().get_nodes_in_group("cards"):
+		if (card.card_data.get("type", "response") == "response") != response_side or not card.is_alive(): continue
+		if not card.card_data.get("utility", false):
+			var previous_max: int = card.max_health
+			card.max_health = maxi(1, previous_max + health_delta)
+			card.card_data.health = clampi(int(card.card_data.health) + card.max_health - previous_max, 1, card.max_health)
+			if bleed_delta > 0: card.add_status("bleed", bleed_delta)
+		card._refresh_face()
+	if response_side: energy_cap = maxi(1, energy_cap + buff_value(true, "energy") - old_energy)
 
 func get_hand_cards() -> Array:
 	hand = hand.filter(func(c): return is_instance_valid(c))
@@ -511,26 +637,163 @@ func arrange_hand_centered() -> void:
 ##   and the side that goes first swaps every round.
 
 func can_player_act() -> bool:
-	return phase == Phase.PLAYER_PLAY
+	return phase == Phase.PLAYER_PLAY and (not run_director or not run_director.modal.visible)
 
 func try_play_card(card: Node) -> bool:
-	return can_player_act() and preparedness >= int(card.card_data.get("cost", 0))
+	return can_player_act() and not is_sealed(card.card_data) and preparedness >= int(card.card_data.get("cost", 0))
 
 func on_card_played(card: Node) -> void:
 	hand.erase(card)
 	preparedness = maxi(0, preparedness - int(card.card_data.get("cost", 0)))
 	_refresh_bars()
 	arrange_hand_centered()
+	if not card.card_data.get("utility", false) and card.card_data.get("effect", "") == "draw": draw_cards(int(card.card_data.get("draw_count", 1)))
+	if not card.card_data.get("utility", false):
+		if int(card.card_data.get("on_play_draw", 0)) > 0: draw_cards(int(card.card_data.on_play_draw))
+		apply_formation_effect(card)
+		if card.card_data.get("effect", "") == "move_ally": begin_move_effect(card)
+
+func apply_formation_effect(source: Node) -> void:
+	var effect: String = source.card_data.get("effect", "")
+	var slots := _response_slots() if source.card_data.type == "response" else _threat_slots()
+	for slot in slots:
+		var ally = _get_card_in_slot(slot)
+		if ally == null or ally == source: continue
+		if effect == "heal_all": ally.heal(2)
+		elif effect == "rally_all": ally.add_status("strength", 1)
+
+func begin_move_effect(source: Node) -> void:
+	var allies := _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c != source and c.is_alive())
+	if allies.is_empty() or _response_slots().all(func(s): return _get_card_in_slot(s) != null): return
+	run_director.choose_card("LANE MARSHAL · RELOCATE AN ALLY", allies, select_moving_ally, cancel_move_effect, "Optional: choose another ally, then an empty lane. Skipping keeps the played unit on board.")
+
+func select_moving_ally(card: Node) -> void:
+	moving_ally = card
+	var slots := _response_slots().filter(func(s): return _get_card_in_slot(s) == null)
+	run_director.choose_slot(slots, complete_move_effect, cancel_move_effect)
+
+func complete_move_effect(slot: Node3D) -> void:
+	if is_instance_valid(moving_ally) and _get_card_in_slot(slot) == null: moving_ally.place_on_slot(slot)
+	cancel_move_effect()
+
+func cancel_move_effect() -> void:
+	moving_ally = null
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+
+func try_utility(card: Node, slot: Node3D) -> bool:
+	if not try_play_card(card): return false
+	if slot not in _response_slots() or _get_card_in_slot(slot) != null: return false
+	var effect: String = card.card_data.get("effect", "")
+	if effect == "move":
+		var allies := _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c != card and c.is_alive())
+		if allies.is_empty(): return false
+		allies.sort_custom(func(a, b): return a.global_position.distance_squared_to(slot.global_position) < b.global_position.distance_squared_to(slot.global_position))
+		allies[0].place_on_slot(slot)
+	elif effect in ["tutor", "seal", "tax", "rally", "cleanse"]:
+		var choices: Array = []
+		match effect:
+			"tutor": choices = deck.filter(func(c): return not is_sealed(c))
+			"seal": choices = (enemy_deck + enemy_evolution_deck + enemy_hand).filter(func(c): return not is_sealed(c))
+			"tax": choices = enemy_hand + enemy_evolution_deck
+			"rally", "cleanse": choices = _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
+		if choices.is_empty(): return false
+		pending_utility = card
+		pending_effect = effect
+		if card.get_parent() != hand_container: card.reparent(hand_container, true)
+		arrange_hand_centered()
+		run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
+		return true
+	consume_utility(card)
+	if effect == "draw": draw_cards(2 + int(card.card_data.get("utility_power", 0)))
+	elif effect == "scout": run_director.show_intel()
+	return true
+
+func consume_utility(card: Node) -> void:
+	on_card_played(card)
+	preparedness = mini(energy_cap, preparedness + int(card.card_data.get("refund_energy", 0)))
+	_refresh_bars()
+	card.in_hand = false
+	card.remove_from_group("cards")
+	card.queue_free()
+
+func complete_utility_choice(target: Variant) -> void:
+	if not is_instance_valid(pending_utility): return
+	var power := int(pending_utility.card_data.get("utility_power", 0))
+	match pending_effect:
+		"tutor":
+			deck.erase(target)
+		"seal": target.locked_until = turn + 2 + power
+		"tax":
+			for i in range(1 + power): increase_cost(target)
+		"rally": target.add_status("strength", 2 + power)
+		"cleanse":
+			target.cleanse()
+			if power > 0: target.heal(2 * power)
+	var tutoring := pending_effect == "tutor"
+	consume_utility(pending_utility)
+	pending_utility = null
+	pending_effect = ""
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+	if tutoring: add_card_to_hand(target)
+	_refresh_bars()
+
+func cancel_utility_choice() -> void:
+	pending_utility = null
+	pending_effect = ""
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+	arrange_hand_centered()
+
+func increase_cost(definition: Dictionary) -> void:
+	if definition.get("type", "response") == "response" or int(definition.get("cost", 0)) > 0:
+		definition.cost = int(definition.get("cost", 0)) + 1
+	else:
+		definition.tension_cost = int(definition.get("tension_cost", 1)) + 1
+
+func enemy_utility(definition: Dictionary) -> void:
+	var effect: String = definition.get("effect", "")
+	if effect == "seal":
+		var choices := get_hand_cards().filter(func(c): return not is_sealed(c.card_data))
+		if not choices.is_empty():
+			var target = choices.pick_random()
+			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, false)
+			target.card_data.locked_until = turn + 2
+			target._refresh_face()
+			target.spawn_popup("SEALED · 2 ROUNDS", Color("da857c"))
+		elif not deck.is_empty(): deck.pick_random().locked_until = turn + 2
+	elif effect == "tax":
+		var choices := get_hand_cards()
+		if not choices.is_empty():
+			var target = choices.pick_random()
+			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, true)
+			increase_cost(target.card_data)
+			target.refresh_cost()
+			target.spawn_popup("COST +1", Color("da857c"))
+
+func best_disruption_target(cards: Array, tax: bool) -> Node:
+	var best: Node = cards[0]
+	var best_score := -INF
+	for card in cards:
+		var score: float = card.effective_attack() * 2.0 + float(card.card_data.health) * 0.5
+		if card.card_data.get("utility", false): score += 4
+		if tax and int(card.card_data.cost) <= preparedness and int(card.card_data.cost) + 1 > preparedness: score += 12
+		if score > best_score:
+			best_score = score
+			best = card
+	return best
 
 func _set_phase(p: Phase, text: String = "") -> void:
 	phase = p
+	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
 	if text != "" and _phase_label:
 		_phase_label.text = text
 	if _end_turn_btn:
 		_end_turn_btn.disabled = not (p == Phase.PLAYER_DRAW or p == Phase.PLAYER_PLAY)
 
 func _wait(t: float) -> void:
-	await get_tree().create_timer(t).timeout
+	await get_tree().create_timer(t, false).timeout
 
 func _start_match() -> void:
 	_set_phase(Phase.SETUP, "Flipping a coin...")
@@ -543,18 +806,39 @@ func _start_match() -> void:
 	_begin_round()
 
 func _begin_round() -> void:
+	# A depleted draw pile is still playable while hand or board cards remain.
+	if deck.is_empty() and get_hand_cards().is_empty() and _response_slots().all(func(s): return _get_card_in_slot(s) == null):
+		_set_phase(Phase.GAME_OVER, "No Response cards remain")
+		run_director.battle_finished(false)
+		return
+	if enemy_deck.is_empty() and enemy_hand.is_empty() and _threat_slots().all(func(s): return _get_card_in_slot(s) == null):
+		_set_phase(Phase.GAME_OVER, "The Janitor has no threats left")
+		run_director.battle_finished(true)
+		return
+	if turn % preload("res://scripts/battle_rules.gd").BUFF_INTERVAL == 0 and adapted_round != turn:
+		adapted_round = turn
+		_set_phase(Phase.SETUP, "Choose your adaptation")
+		run_director.show_buff_choices()
+		return
+	continue_round()
+
+func continue_round() -> void:
 	if _turn_label: _turn_label.text = "Turn %d" % turn
 	# Response energy refills to the cap (cap grows by 1 each round)
 	preparedness = energy_cap
 	# Disaster tension refills to the cap (cap grows by 1 each round, starts at 3)
-	tension_cap = mini(TENSION_START + (turn - 1), TENSION_MAX)
+	var bonus := buff_value(false, "energy")
+	tension_cap = clampi(TENSION_START + (turn - 1) + bonus, 1, maxi(1, TENSION_MAX + bonus))
 	tension = tension_cap
+	_refresh_bars()
+	player_hp = mini(PLAYER_MAX_HP, player_hp + buff_value(true, "hero_regen"))
+	enemy_hp = mini(enemy_max_hp, enemy_hp + buff_value(false, "hero_regen"))
 	_refresh_bars()
 
 	# Upkeep phase: Regenerating cards heal 1 HP
 	for c in get_tree().get_nodes_in_group("cards"):
-		if is_instance_valid(c) and c.has_method("has_modifier") and c.has_modifier("regenerating"):
-			c.heal(1)
+		if not c.in_hand: c.status_upkeep()
+		else: c._refresh_face()
 
 	# Disaster modifier escalation based on round count (from GDD)
 	_apply_round_modifiers()
@@ -583,12 +867,14 @@ func _begin_player_turn() -> void:
 		_set_phase(Phase.PLAYER_DRAW, "Your turn - draw a card from the deck")
 
 func _on_draw_button_pressed() -> void:
+	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW:
 		return
-	draw_cards(1)
+	draw_cards(maxi(0, 1 + buff_value(true, "draw")))
 	_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 
 func _on_end_turn_pressed() -> void:
+	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW and phase != Phase.PLAYER_PLAY:
 		return
 	# Don't end the turn while a card is still in the air
@@ -603,7 +889,8 @@ func _on_end_turn_pressed() -> void:
 	if phase == Phase.GAME_OVER: return
 
 	turn += 1
-	energy_cap = mini(energy_cap + 1, ENERGY_MAX)
+	var bonus := buff_value(true, "energy")
+	energy_cap = clampi(energy_cap + maxi(1, 1 + bonus), 1, maxi(1, ENERGY_MAX + bonus))
 	player_first = not player_first
 	_begin_round()
 
@@ -613,6 +900,12 @@ func _pick_smart_threat_slot(empty_slots: Array, card_data: Dictionary) -> Node3
 	var best_score := -999.0
 
 	for s in empty_slots:
+		if encounter_kind in ["elite", "boss"]:
+			var tactical := score_threat(card_data, s)
+			if tactical > best_score:
+				best_score = tactical
+				best_slot = s
+			continue
 		var idx: int = _threat_slots().find(s)
 		var score := 0.0
 		var opp = _get_card_in_slot(_response_slots()[idx])
@@ -642,17 +935,29 @@ func _enemy_turn() -> void:
 
 	# --- Disaster Draw Phase ---
 	if not enemy_deck.is_empty() and enemy_hand.size() < 6:
-		enemy_draw_cards(1)
+		enemy_draw_cards(maxi(0, 1 + buff_value(false, "draw")))
 		_set_phase(Phase.ENEMY, "Disaster draws a card...")
 		await _wait(0.4)
 
 	# --- Disaster Action Phase (Can play multiple cards in one turn!) ---
 	var actions_taken := 0
-	var max_actions := mini(tension, 3) # Can take up to tension actions (max 3 per turn)
+	var max_actions := enemy_action_limit()
 	var played_something := true
 
 	while played_something and actions_taken < max_actions and tension > 0:
 		played_something = false
+		var spells := enemy_hand.filter(func(d): return d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension)
+		if not spells.is_empty():
+			var spell: Dictionary = spells.pick_random()
+			enemy_hand.erase(spell)
+			enemy_utility(spell)
+			tension -= int(spell.get("tension_cost", 1))
+			_set_phase(Phase.ENEMY, "The Janitor casts %s" % spell.name)
+			_refresh_bars()
+			played_something = true
+			actions_taken += 1
+			await _wait(0.5)
+			continue
 
 		var active_threats: Array = []
 		for s in _threat_slots():
@@ -663,18 +968,26 @@ func _enemy_turn() -> void:
 		var empty_slots: Array = _threat_slots().filter(func(s): return _get_card_in_slot(s) == null)
 
 		# 1. Evolution Attempt (Sacrificing existing cards for higher-tier disaster)
-		var evo_candidates := enemy_evolution_deck.filter(func(d): return int(d.get("cost", 1)) <= active_threats.size())
-		var should_evolve := not evo_candidates.is_empty() and (empty_slots.is_empty() or active_threats.size() >= 2 or randf() < 0.4)
+		var evo_candidates := enemy_evolution_deck.filter(func(d): return not is_sealed(d) and int(d.get("cost", 1)) <= active_threats.size())
+		var plan: Dictionary = best_evolution_plan(active_threats, evo_candidates)
+		# Filling a useful empty lane can outperform replacing an established formation.
+		var affordable_bases := enemy_hand.filter(func(d): return int(d.get("cost", 0)) == 0 and not d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension)
+		if not plan.is_empty() and not empty_slots.is_empty() and not affordable_bases.is_empty():
+			var base_gain := -INF
+			for definition in affordable_bases:
+				for slot in empty_slots: base_gain = maxf(base_gain, score_threat(definition, slot))
+			if base_gain > float(plan.gain): plan = {}
+		var should_evolve := not plan.is_empty()
 
 		if should_evolve and not active_threats.is_empty():
-			var evo_card_data: Dictionary = evo_candidates.pick_random()
+			var evo_card_data: Dictionary = plan.card if not plan.is_empty() else evo_candidates.pick_random()
 			enemy_evolution_deck.erase(evo_card_data)
 			var sac_count: int = int(evo_card_data.get("cost", 1))
 
 			# Sacrifice lowest health threats first
 			active_threats.sort_custom(func(a, b): return a.card_data.health < b.card_data.health)
-			var to_sacrifice: Array = active_threats.slice(0, sac_count)
-			var target_slot: Node3D = to_sacrifice[0].current_slot
+			var to_sacrifice: Array = plan.sacrifices if not plan.is_empty() else active_threats.slice(0, sac_count)
+			var target_slot: Node3D = plan.slot if not plan.is_empty() else to_sacrifice[0].current_slot
 
 			_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [to_sacrifice.size(), evo_card_data.get("name", "Apex Threat")])
 			shake_camera(0.08, 0.2)
@@ -689,6 +1002,7 @@ func _enemy_turn() -> void:
 			evo_card.add_to_group("cards")
 			evo_card.setup(evo_card_data)
 			await evo_card.enter_from_above(target_slot)
+			_on_enemy_card_played(evo_card)
 			evo_card.spawn_popup("EVOLVED!", Color(1.0, 0.3, 0.1))
 			shake_camera(0.12, 0.3)
 
@@ -702,12 +1016,10 @@ func _enemy_turn() -> void:
 		# 2. Play Base Card Attempt (Into an empty threat slot)
 		if not empty_slots.is_empty():
 			var card_data_to_play: Dictionary
-			var base_in_hand := enemy_hand.filter(func(d): return int(d.get("cost", 0)) == 0)
+			var base_in_hand := enemy_hand.filter(func(d): return int(d.get("cost", 0)) == 0 and not d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension)
 			if not base_in_hand.is_empty():
-				card_data_to_play = base_in_hand.pick_random()
+				card_data_to_play = choose_base_threat(base_in_hand, empty_slots)
 				enemy_hand.erase(card_data_to_play)
-			elif not enemy_deck.is_empty():
-				card_data_to_play = enemy_deck.pop_back()
 			else:
 				break
 
@@ -727,9 +1039,10 @@ func _enemy_turn() -> void:
 				card.add_modifier(mods.pick_random())
 
 			await card.enter_from_above(target_slot)
+			_on_enemy_card_played(card)
 			shake_camera(0.06, 0.15)
 
-			tension = maxi(0, tension - 1)
+			tension = maxi(0, tension - int(card_data_to_play.get("tension_cost", 1)))
 			_refresh_bars()
 			played_something = true
 			actions_taken += 1
@@ -737,6 +1050,164 @@ func _enemy_turn() -> void:
 
 	_set_phase(Phase.ENEMY, "Disaster concludes its turn.")
 	await _wait(0.4)
+
+func enemy_action_limit() -> int:
+	return mini(tension, clampi(3 + buff_value(false, "energy"), 1, 5))
+
+func _on_enemy_card_played(card: Node) -> void:
+	if card.card_data.get("effect", "") == "draw": enemy_draw_cards(int(card.card_data.get("draw_count", 1)))
+	if int(card.card_data.get("on_play_draw", 0)) > 0: enemy_draw_cards(int(card.card_data.on_play_draw))
+	apply_formation_effect(card)
+	if card.card_data.get("effect", "") == "move_ally": relocate_enemy_ally(card)
+
+func choose_base_threat(candidates: Array, slots: Array) -> Dictionary:
+	if encounter_kind == "battle": return candidates.pick_random()
+	var best: Dictionary = candidates[0]
+	var value := -INF
+	for definition in candidates:
+		for slot in slots:
+			var score := score_threat(definition, slot)
+			if score > value:
+				value = score
+				best = definition
+	return best
+
+func score_threat(definition: Dictionary, slot: Node3D, layout: Dictionary = {}) -> float:
+	var lane := _threat_slots().find(slot)
+	var opponent = _get_card_in_slot(_response_slots()[lane])
+	var element: String = definition.get("element", "")
+	var attack := maxi(0, int(definition.get("attack", 0)) + int(definition.get("strength", 0)) + buff_value(false, "strength"))
+	var health := maxi(1, int(definition.get("health", 1)) + buff_value(false, "health"))
+	if definition.has("evaluated_attack"): attack = int(definition.evaluated_attack)
+	if definition.has("evaluated_health"): health = int(definition.evaluated_health)
+	var slow: bool = definition_has_modifier(definition, "sluggish") or buff_value(false, "sluggish") > 0
+	var pierce: bool = definition_has_modifier(definition, "piercing") or buff_value(false, "piercing") > 0
+	var score := health * 0.45 + attack * (0.8 if slow else 1.3)
+	var condition_target: Variant = opponent
+	var condition_source: Variant = definition.get("evaluated_statuses", {"strength":int(definition.get("strength", 0))})
+	if condition_met(definition.get("condition", {}), condition_source, condition_target): attack += int(definition.condition.get("bonus", 0))
+	if opponent and status_stacks(opponent, "any") >= 3: attack += int(definition.get("status_bonus", 0))
+	var strikes := 2 if condition_met(definition.get("condition", {}), condition_source, condition_target) and int(definition.condition.get("strikes", 1)) > 1 else 1
+	var can_strike := true
+	var hero_damage := attack + (2 if definition_has_modifier(definition, "fierce") else 0)
+	if opponent and opponent.is_alive():
+		var mult: float = TYPE_CHART.get(element, {}).get(opponent.card_data.element, 1.0)
+		var dealt: int = opponent.adjusted_damage(maxi(1, int(attack * mult)))
+		var incoming := maxi(1, int(opponent.effective_attack() * float(TYPE_CHART.get(opponent.card_data.element, {}).get(element, 1.0))))
+		if definition_has_modifier(definition, "armored"): incoming = maxi(1, incoming - int(definition.get("armor_value", 1)))
+		can_strike = not player_first or incoming < health
+		score += minf(dealt, opponent.card_data.health) * (1.7 if can_strike else 0.2)
+		if dealt >= opponent.card_data.health and can_strike: score += 8
+		if not can_strike: score -= 12 # A dead blocker cannot counterattack.
+		else: score += 3
+		if enemy_hp <= opponent.effective_attack() + 2: score += 15 # Cover potentially lethal lanes.
+		for status in definition.get("on_hit", {}): score += int(definition.on_hit[status]) * 0.5
+	else:
+		score += attack * 1.6
+		if hero_damage * strikes >= player_hp: score += 50
+	if pierce and can_strike:
+		score += attack * 1.2
+		if hero_damage * strikes >= player_hp: score += 70
+	for neighbor in [lane - 1, lane + 1]:
+		if neighbor < 0 or neighbor > 3: continue
+		var neighbor_slot: Node3D = _threat_slots()[neighbor]
+		var ally = _get_card_in_slot(neighbor_slot)
+		var adjacent: Dictionary = layout.get(neighbor_slot, {}) if not layout.is_empty() else (ally.card_data if ally else {})
+		if not adjacent.is_empty() and adjacent.element == element: score += 3 + buff_value(false, "synergy")
+	if strikes > 1 and can_strike: score += attack * 2.0
+	if int(definition.get("on_play_draw", 0)) > 0: score += 2 * int(definition.on_play_draw)
+	if definition.get("effect", "") == "draw": score += 3
+	if definition.get("effect", "") in ["heal_all", "rally_all"]: score += 2
+	return score
+
+func definition_has_modifier(definition: Dictionary, modifier: String) -> bool:
+	return definition.get("modifier", "") == modifier or modifier in definition.get("modifiers", [])
+
+func live_ai_definition(card: Node) -> Dictionary:
+	var data: Dictionary = card.card_data.duplicate(true)
+	data.evaluated_attack = card.effective_attack()
+	data.evaluated_health = int(card.card_data.health)
+	data.evaluated_statuses = card.statuses.duplicate()
+	data.modifiers = card.modifiers.duplicate()
+	return data
+
+func board_score(layout: Dictionary) -> float:
+	var value := 0.0
+	for slot in _threat_slots():
+		var definition: Dictionary = layout.get(slot, {})
+		if not definition.is_empty(): value += score_threat(definition, slot, layout)
+		else:
+			var response = _get_card_in_slot(_response_slots()[_threat_slots().find(slot)])
+			if response and response.is_alive() and response.can_attack(turn):
+				var damage: int = response.effective_attack() + _synergy_bonus(response)
+				value -= damage * (5.0 if enemy_hp <= damage else 1.8)
+	return value
+
+func best_evolution_plan(active: Array, candidates: Array) -> Dictionary:
+	var best: Dictionary = {}
+	var best_gain := 1.0
+	var before: Dictionary = {}
+	for card in active: before[card.current_slot] = live_ai_definition(card)
+	var baseline := board_score(before)
+	var opposition := _response_slots().filter(func(slot): return _get_card_in_slot(slot) != null).size()
+	for definition in candidates:
+		var cost := int(definition.cost)
+		if cost < 1 or cost > active.size(): continue
+		for mask in range(1, 1 << active.size()):
+			var sacrifices: Array = []
+			for i in active.size():
+				if mask & (1 << i): sacrifices.append(active[i])
+			if sacrifices.size() != cost: continue
+			for target in sacrifices:
+				var after: Dictionary = before.duplicate(true)
+				for sacrificed in sacrifices: after.erase(sacrificed.current_slot)
+				after[target.current_slot] = definition
+				var gain := board_score(after) - baseline
+				# Board presence buys blockers, future sacrifices and formation bonuses.
+				# Charge more for losing a numerical advantage, unless a lethal attack wins now.
+				var lost := cost - 1
+				gain -= lost * (5.0 if active.size() > opposition else 2.0)
+				if active.size() > opposition and after.size() <= opposition and lost > 0: gain -= 6
+				if gain > best_gain:
+					best_gain = gain
+					best = {"card":definition, "slot":target.current_slot, "sacrifices":sacrifices, "gain":gain}
+	return best
+
+func relocate_enemy_ally(source: Node) -> void:
+	var best_ally: Node
+	var best_slot: Node3D
+	var gain := 1.0
+	var empty := _threat_slots().filter(func(s): return _get_card_in_slot(s) == null)
+	for slot in _threat_slots():
+		var ally = _get_card_in_slot(slot)
+		if ally == null or ally == source: continue
+		for destination in empty:
+			var value := score_threat(ally.card_data, destination) - score_threat(ally.card_data, slot)
+			if value > gain:
+				gain = value
+				best_ally = ally
+				best_slot = destination
+	if best_ally: best_ally.place_on_slot(best_slot)
+
+func choose_ai_buff(options: Array) -> Dictionary:
+	if encounter_kind == "battle": return options.pick_random()
+	var best: Dictionary = options[0]
+	var best_score := -INF
+	var deck_view: Array = enemy_deck + enemy_hand + enemy_evolution_deck
+	for slot in _threat_slots():
+		var card = _get_card_in_slot(slot)
+		if card: deck_view.append(card.card_data)
+	for option in options:
+		var bonus: Dictionary = preload("res://scripts/battle_rules.gd").totals({option.id:1}, {})
+		var score := float(bonus.get("strength", 0)) * 3 + float(bonus.get("health", 0)) * 2 + float(bonus.get("energy", 0)) * 2 + float(bonus.get("draw", 0)) * 2
+		for definition in deck_view:
+			for status in ["burn", "poison", "bleed"]:
+				if definition.get("on_hit", {}).has(status): score += float(bonus.get(status, 0)) * 1.5
+		score += float(bonus.get("piercing", 0)) * 5 + float(bonus.get("regen", 0)) - float(bonus.get("self_bleed", 0)) * 3 - float(bonus.get("sluggish", 0)) * 3
+		if score > best_score:
+			best_score = score
+			best = option
+	return best
 
 # ------------------------------------------------------------------- combat
 const TYPE_CHART := {
@@ -765,12 +1236,23 @@ func _get_card_in_slot(slot: Node3D) -> Node:
 	return null
 
 func _calc_damage(attacker: Node, defender: Node) -> Dictionary:
-	var base: int = attacker.card_data.attack
+	var base: int = attacker.effective_attack() + conditional_attack_bonus(attacker, defender)
 	var atk_elem: String = attacker.card_data.get("element", "")
 	var def_elem: String = defender.card_data.get("element", "")
 	var mult: float = TYPE_CHART.get(atk_elem, {}).get(def_elem, 1.0)
 	var dmg: int = maxi(1, int(base * mult))
+	dmg += _synergy_bonus(attacker)
+	if attacker.has_modifier("rampaging") and ((attacker.card_data.type == "response") != player_first): dmg += 1
 	return {"dmg": dmg, "mult": mult}
+
+func _synergy_bonus(card: Node) -> int:
+	var slots := _response_slots() if card.card_data.type == "response" else _threat_slots()
+	var index: int = slots.find(card.current_slot)
+	for neighbor in [index - 1, index + 1]:
+		if neighbor >= 0 and neighbor < slots.size():
+			var ally = _get_card_in_slot(slots[neighbor])
+			if ally and ally.is_alive() and ally.card_data.element == card.card_data.element: return 1 + int(buffs_for(card.card_data).get("synergy", 0))
+	return 0
 
 func _combat() -> void:
 	var prev_view: bool = in_board_view
@@ -800,7 +1282,10 @@ func _side_attacks(response_side: bool) -> void:
 	var theirs := _threat_slots() if response_side else _response_slots()
 	for i in range(4):
 		var atk = _get_card_in_slot(mine[i])
-		if atk == null or not atk.is_alive() or atk.card_data.attack <= 0:
+		if atk == null or not atk.is_alive() or atk.effective_attack() <= 0:
+			continue
+		if not atk.can_attack(turn):
+			atk.spawn_popup("SLUGGISH · RESTING", Color("9cacb9"))
 			continue
 
 		var def = _get_card_in_slot(theirs[i])
@@ -813,33 +1298,70 @@ func _side_attacks(response_side: bool) -> void:
 		# Dramatic wind-up and lunge strike
 		await atk.attack_lunge(target_pos)
 
-		if def and def.is_alive():
-			var info := _calc_damage(atk, def)
-			var total_dmg: int = info.dmg
-			var defender_hp_before: int = def.card_data.health
-
-			def.take_damage(total_dmg, info.mult)
-			shake_camera(0.08, 0.2)
-
-			# Overkill damage is reduced by the remaining HP of that card
-			if total_dmg > defender_hp_before:
-				var overkill: int = total_dmg - defender_hp_before
-				_damage_side(not response_side, overkill)
-				if _check_game_over(): return
-		else:
-			# Unblocked hit directly on the opposing side's HP
-			var direct_dmg: int = atk.card_data.attack
-			if atk.has_method("has_modifier") and atk.has_modifier("fierce"):
-				direct_dmg += 2 # Fierce: 2 extra damage to player/janitor
-			_damage_side(not response_side, direct_dmg)
-			if _check_game_over(): return
+		resolve_attack(atk, def, response_side)
+		if phase == Phase.GAME_OVER: return
 		await _wait(0.4)
+
+func status_stacks(subject: Variant, status: String) -> int:
+	if subject == null: return 0
+	var values: Dictionary = subject if subject is Dictionary else subject.statuses
+	if status != "any": return int(values.get(status, 0))
+	return int(values.get("burn", 0)) + int(values.get("poison", 0)) + int(values.get("bleed", 0))
+
+func condition_met(condition: Dictionary, source: Variant, target: Variant) -> bool:
+	if condition.is_empty(): return false
+	var subject: Variant = source if condition.get("subject", "target") == "self" else target
+	return subject != null and status_stacks(subject, str(condition.get("status", "any"))) >= int(condition.get("threshold", 3))
+
+func conditional_attack_bonus(attacker: Node, defender: Node) -> int:
+	var condition: Dictionary = attacker.card_data.get("condition", {})
+	var amount := int(condition.get("bonus", 0)) if condition_met(condition, attacker, defender) else 0
+	if defender != null and status_stacks(defender, "any") >= 3: amount += int(attacker.card_data.get("status_bonus", 0))
+	return amount
+
+func attack_strikes(attacker: Node, defender: Node) -> int:
+	var condition: Dictionary = attacker.card_data.get("condition", {})
+	return 2 if condition_met(condition, attacker, defender) and int(condition.get("strikes", 1)) > 1 else 1
+
+func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
+	if not atk.can_attack(turn): return
+	var strikes := attack_strikes(atk, defender)
+	for strike in range(strikes):
+		if not atk.is_alive() or phase == Phase.GAME_OVER: break
+		if strike > 0: atk.spawn_popup("FOLLOW-UP STRIKE", Color("75d6c6"))
+		resolve_single_strike(atk, defender, response_side)
+
+func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
+	var blocked: bool = defender != null and defender.is_alive()
+	if blocked:
+		var info := _calc_damage(atk, defender)
+		defender.take_damage(info.dmg, info.mult)
+		# Effects land only on a surviving card. Normal damage never spills into HP.
+		if defender.is_alive():
+			var inflicted: Dictionary = atk.card_data.get("on_hit", {})
+			var buffs := buffs_for(atk.card_data)
+			for status in inflicted:
+				var extra := int(buffs.get(status, 0)) * (2 if status == "burn" else 1)
+				defender.add_status(status, int(inflicted[status]) + extra)
+		shake_camera(0.08, 0.2)
+	if not blocked or atk.has_modifier("piercing"):
+		var direct: int = atk.effective_attack() + _synergy_bonus(atk) + conditional_attack_bonus(atk, defender if blocked else null)
+		if atk.has_modifier("fierce"): direct += 2
+		_damage_side(not response_side, direct)
+	if int(atk.card_data.get("leech", 0)) > 0: atk.heal(int(atk.card_data.leech))
+	if blocked and defender.is_alive():
+		var thorns := int(buffs_for(defender.card_data).get("thorns", 0)) + int(defender.card_data.get("thorns", 0))
+		if thorns > 0: atk.take_damage(thorns, 1.0, true)
+	atk.after_attack(turn)
+	_check_game_over()
 
 func _check_game_over() -> bool:
 	if player_hp <= 0:
 		_set_phase(Phase.GAME_OVER, "The disaster overwhelms you... (Defeat)")
+		run_director.battle_finished(false)
 		return true
 	if enemy_hp <= 0:
 		_set_phase(Phase.GAME_OVER, "Disaster contained! (Victory)")
+		run_director.battle_finished(true)
 		return true
 	return false
