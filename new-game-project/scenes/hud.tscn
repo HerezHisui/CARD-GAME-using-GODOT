@@ -201,13 +201,18 @@ mouse_filter = 2
 texture = SubResource("GradientTexture2D_5ysmq")
 
 [node name="OrbGauge_2" type="Control" parent="Root" unique_id=1960749864]
-anchors_preset = 0
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
 anchor_top = 1.0
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
+offset_left = -264.0
 offset_top = -144.0
-offset_right = 128.0
+offset_right = -160.0
 offset_bottom = -40.0
+grow_horizontal = 0
+grow_vertical = 0
 mouse_filter = 2
 
 [node name="Mask" type="Panel" parent="Root/OrbGauge_2" unique_id=832727814]
@@ -273,18 +278,14 @@ text = "Preparedness"
 horizontal_alignment = 1
 
 [node name="OrbGauge_3" type="Control" parent="Root" unique_id=1537243122]
-visible = false
 layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
+anchors_preset = 2
 anchor_top = 1.0
-anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -133.0
-offset_top = -627.0
-offset_right = -29.0
-offset_bottom = -523.0
-grow_horizontal = 0
+offset_left = 24.0
+offset_top = -144.0
+offset_right = 128.0
+offset_bottom = -40.0
 grow_vertical = 0
 mouse_filter = 2
 
@@ -528,6 +529,49 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_apjy4")
 theme_override_styles/hover = SubResource("StyleBoxFlat_5n1hp")
 theme_override_styles/disabled = SubResource("StyleBoxFlat_mphia")
 text = "End Turn"
+
+[node name="EnemyDeckPlaque" type="PanelContainer" parent="Root" unique_id=1900000300]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -440.0
+offset_top = 16.0
+offset_right = -295.0
+offset_bottom = 72.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_eld54")
+
+[node name="VBox" type="VBoxContainer" parent="Root/EnemyDeckPlaque" unique_id=1900000301]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Caption" type="Label" parent="Root/EnemyDeckPlaque/VBox" unique_id=1900000302]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.82, 0.68, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 2
+theme_override_constants/outline_size = 4
+theme_override_fonts/font = SubResource("SystemFont_5pdws")
+theme_override_font_sizes/font_size = 15
+text = "Disaster Deck"
+horizontal_alignment = 1
+
+[node name="EnemyDeckCountLabel" type="Label" parent="Root/EnemyDeckPlaque/VBox" unique_id=1900000303]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.45, 0.35, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 2
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = SubResource("SystemFont_047uy")
+theme_override_font_sizes/font_size = 18
+text = "12 cards"
+horizontal_alignment = 1
 
 [node name="EnemyHealth" type="Control" parent="Root" unique_id=1900000100]
 layout_mode = 1

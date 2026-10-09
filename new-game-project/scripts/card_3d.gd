@@ -37,11 +37,13 @@ var in_hand := true
 var current_slot: Node3D = null
 var card_height := CARD_WIDTH * FACE_H / FACE_W
 var max_health := 0
+var modifiers: Array[String] = []
 
 var _tween: Tween
 var _vp: SubViewport
 var _hp_label: Label
 var _atk_label: Label
+var _mod_label: Label
 
 @onready var art_sprite: Sprite3D = $Art
 @onready var mesh: MeshInstance3D = $Mesh
@@ -57,6 +59,9 @@ func setup(data: Dictionary) -> void:
 	for k in ["cost", "attack", "health"]:
 		card_data[k] = int(card_data.get(k, 0))
 	max_health = card_data.health
+	modifiers.clear()
+	if card_data.has("modifier") and str(card_data.modifier) != "":
+		modifiers.append(str(card_data.modifier).to_lower())
 
 	_build_face()
 	art_sprite.texture = _vp.get_texture()
@@ -155,11 +160,19 @@ func _build_face() -> void:
 	# Cost badge (top-left): blue = energy, red = sacrifice
 	var cost_col := Color(0.2, 0.45, 0.9) if card_data.get("cost_type", "energy") == "energy" else Color(0.75, 0.12, 0.12)
 	frame.add_child(_badge(str(card_data.cost), cost_col, Vector2(-6, -6), title_font))
+
+	# Modifiers banner (below element)
+	_mod_label = _face_label(title_font, 13, Color(1, 0.9, 0.3))
+	_mod_label.position = Vector2(10, 270)
+	_mod_label.size = Vector2(FACE_W - 20, 20)
+	_mod_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	frame.add_child(_mod_label)
+
 	# Attack (bottom-left) / Health (bottom-right)
-	var atk := _badge(str(card_data.attack), Color(0.85, 0.45, 0.1), Vector2(16, FACE_H - 78), title_font)
+	var atk := _badge(str(card_data.attack), Color(0.85, 0.45, 0.1), Vector2(16, FACE_H - 80), title_font)
 	_atk_label = atk.get_child(0)
 	frame.add_child(atk)
-	var hp := _badge(str(card_data.health), Color(0.2, 0.6, 0.25), Vector2(FACE_W - 76, FACE_H - 78), title_font)
+	var hp := _badge(str(card_data.health), Color(0.2, 0.6, 0.25), Vector2(FACE_W - 76, FACE_H - 80), title_font)
 	_hp_label = hp.get_child(0)
 	frame.add_child(hp)
 
@@ -169,6 +182,7 @@ func _build_face() -> void:
 	atk_cap.size = Vector2(FACE_W, 20)
 	atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	frame.add_child(atk_cap)
+	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
 	var l := Label.new()
@@ -187,7 +201,7 @@ func _badge(txt: String, col: Color, pos: Vector2, font: Font) -> Panel:
 	s.set_border_width_all(4)
 	s.border_color = Color(0.1, 0.08, 0.06)
 	p.add_theme_stylebox_override("panel", s)
-	var l := _face_label(font, 30, Color.WHITE)
+	var l := _face_label(font, 26, Color.WHITE)
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 6)
 	l.text = txt
@@ -203,6 +217,12 @@ func _refresh_face() -> void:
 		_hp_label.add_theme_color_override("font_color", Color(1, 0.6, 0.6) if card_data.health < max_health else Color.WHITE)
 	if _atk_label:
 		_atk_label.text = str(card_data.attack)
+	if _mod_label:
+		if modifiers.size() > 0:
+			_mod_label.text = "[" + " · ".join(modifiers).to_upper() + "]"
+			_mod_label.visible = true
+		else:
+			_mod_label.visible = false
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 ## Overlay mode: draw on top of the 3D world (hand / dragging).
@@ -301,6 +321,7 @@ func place_on_slot(slot: Node3D) -> void:
 	current_slot = slot
 	_set_overlay(false)
 	set_layer(0)
+	_refresh_face()
 	if _tween: _tween.kill()
 	var land := slot.global_position + Vector3(0, 0.02, 0)
 	var mid := global_position.lerp(land, 0.5) + Vector3(0, 0.5, 0)
@@ -376,8 +397,43 @@ func attack_lunge(target: Vector3) -> void:
 	_tween.tween_property(self, "global_position", home, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	_tween.tween_property(self, "rotation:x", 0.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
+func has_modifier(mod_name: String) -> bool:
+	return mod_name.to_lower() in modifiers
+
+func add_modifier(mod_name: String) -> void:
+	if not has_modifier(mod_name):
+		modifiers.append(mod_name.to_lower())
+		_refresh_face()
+		spawn_popup("+" + mod_name.to_upper(), Color(1.0, 0.85, 0.3))
+
+func heal(amt: int) -> void:
+	if card_data.health <= 0: return
+	card_data.health = mini(max_health, card_data.health + amt)
+	_refresh_face()
+	spawn_popup("+%d HP" % amt, Color(0.3, 1.0, 0.4))
+
+func sacrifice_dissolve() -> void:
+	current_slot = null
+	remove_from_group("cards")
+	if _tween: _tween.kill()
+	mesh.visible = false
+	spawn_popup("SACRIFICED", Color(1.0, 0.25, 0.1))
+	_tween = create_tween().set_parallel(true)
+	_tween.tween_property(art_sprite, "modulate", Color(0.8, 0.1, 0.05, 0.0), 0.45)
+	_tween.tween_property(self, "global_position", global_position + Vector3(0, 0.6, 0), 0.45).set_ease(Tween.EASE_OUT)
+	_tween.tween_property(self, "scale", Vector3.ZERO, 0.45).set_ease(Tween.EASE_IN)
+	await _tween.finished
+	queue_free()
+
 ## mult = type-effectiveness multiplier (for the popup text).
 func take_damage(amt: int, mult: float = 1.0) -> void:
+	# Armored: takes 1 less damage from all attacks
+	if has_modifier("armored"):
+		amt = maxi(1, amt - 1)
+	# Fragile: takes 1 extra damage from all attacks
+	if has_modifier("fragile"):
+		amt += 1
+
 	card_data.health = card_data.health - amt
 	_refresh_face()
 
