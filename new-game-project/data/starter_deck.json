@@ -1,9 +1,20 @@
 [
 	{
-		"id": "fire_truck",
-		"name": "Fire Truck",
+		"id": "quick_dash",
+		"name": "Quick Dash",
 		"type": "response",
-		"element": "douse",
+		"element": "evac",
+		"cost_type": "energy",
+		"cost": 1,
+		"attack": 2,
+		"health": 1,
+		"count": 2
+	},
+	{
+		"id": "fire_drill",
+		"name": "Fire Drill",
+		"type": "response",
+		"element": "evac",
 		"cost_type": "energy",
 		"cost": 2,
 		"attack": 2,
@@ -16,9 +27,20 @@
 		"type": "response",
 		"element": "evac",
 		"cost_type": "energy",
-		"cost": 1,
-		"attack": 1,
+		"cost": 4,
+		"attack": 3,
 		"health": 4,
+		"count": 2
+	},
+	{
+		"id": "fire_truck",
+		"name": "Fire Hose",
+		"type": "response",
+		"element": "douse",
+		"cost_type": "energy",
+		"cost": 2,
+		"attack": 3,
+		"health": 2,
 		"count": 2
 	},
 	{
@@ -28,8 +50,8 @@
 		"element": "clearance",
 		"cost_type": "energy",
 		"cost": 1,
-		"attack": 3,
-		"health": 1,
+		"attack": 2,
+		"health": 2,
 		"count": 2
 	},
 	{
@@ -39,8 +61,9 @@
 		"element": "brace",
 		"cost_type": "energy",
 		"cost": 3,
-		"attack": 2,
+		"attack": 1,
 		"health": 5,
+		"modifier": "armored",
 		"count": 2
 	}
 ]
