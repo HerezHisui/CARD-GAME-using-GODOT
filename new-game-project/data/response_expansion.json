@@ -1,0 +1,269 @@
+[
+  {
+    "id": "needle_team",
+    "name": "Needle Team",
+    "type": "response",
+    "element": "evac",
+    "cost": 3,
+    "attack": 2,
+    "health": 3,
+    "modifier": "piercing"
+  },
+  {
+    "id": "heavy_loader",
+    "name": "Heavy Loader",
+    "type": "response",
+    "element": "clearance",
+    "cost": 3,
+    "attack": 5,
+    "health": 5,
+    "modifier": "sluggish"
+  },
+  {
+    "id": "steam_team",
+    "name": "Steam Team",
+    "type": "response",
+    "element": "douse",
+    "cost": 3,
+    "attack": 2,
+    "health": 4,
+    "on_hit": {
+      "burn": 3
+    }
+  },
+  {
+    "id": "shard_barrier",
+    "name": "Shard Barrier",
+    "type": "response",
+    "element": "brace",
+    "cost": 2,
+    "attack": 1,
+    "health": 4,
+    "on_hit": {
+      "bleed": 2
+    }
+  },
+  {
+    "id": "hazmat_team",
+    "name": "Hazmat Team",
+    "type": "response",
+    "element": "clearance",
+    "cost": 3,
+    "attack": 2,
+    "health": 3,
+    "on_hit": {
+      "poison": 2
+    }
+  },
+  {
+    "id": "runner",
+    "name": "Supply Runner",
+    "type": "response",
+    "element": "evac",
+    "cost": 2,
+    "attack": 1,
+    "health": 2,
+    "effect": "draw",
+    "draw_count": 1
+  },
+  {
+    "id": "captain",
+    "name": "Drill Captain",
+    "type": "response",
+    "element": "brace",
+    "cost": 3,
+    "attack": 1,
+    "health": 4,
+    "strength": 2
+  },
+  {
+    "id": "tutor",
+    "name": "Search and Rescue",
+    "type": "response",
+    "element": "evac",
+    "cost": 1,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "tutor"
+  },
+  {
+    "id": "seal",
+    "name": "Safety Lock",
+    "type": "response",
+    "element": "brace",
+    "cost": 2,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "seal"
+  },
+  {
+    "id": "scout",
+    "name": "Hazard Forecast",
+    "type": "response",
+    "element": "evac",
+    "cost": 1,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "scout"
+  },
+  {
+    "id": "tax",
+    "name": "Containment Order",
+    "type": "response",
+    "element": "clearance",
+    "cost": 2,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "tax"
+  },
+  {
+    "id": "rally",
+    "name": "Rally the Team",
+    "type": "response",
+    "element": "brace",
+    "cost": 1,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "rally"
+  },
+  {
+    "id": "cleanse",
+    "name": "Decontaminate",
+    "type": "response",
+    "element": "douse",
+    "cost": 1,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "cleanse"
+  },
+  {
+    "id": "lane_marshal",
+    "name": "Lane Marshal",
+    "type": "response",
+    "element": "evac",
+    "cost": 2,
+    "attack": 1,
+    "health": 3,
+    "effect": "move_ally"
+  },
+  {
+    "id": "rescue_crane",
+    "name": "Rescue Crane",
+    "type": "response",
+    "element": "clearance",
+    "cost": 4,
+    "attack": 3,
+    "health": 5,
+    "effect": "move_ally",
+    "modifier": "sluggish"
+  },
+  {
+    "id": "field_medic",
+    "name": "Field Medic",
+    "type": "response",
+    "element": "douse",
+    "cost": 3,
+    "attack": 1,
+    "health": 3,
+    "effect": "heal_all"
+  },
+  {
+    "id": "drill_leader",
+    "name": "Drill Leader",
+    "type": "response",
+    "element": "brace",
+    "cost": 4,
+    "attack": 1,
+    "health": 4,
+    "effect": "rally_all"
+  },
+  {
+    "id": "rescue_vamp",
+    "name": "Recovery Team",
+    "type": "response",
+    "element": "douse",
+    "cost": 3,
+    "attack": 2,
+    "health": 4,
+    "leech": 2
+  },
+  {
+    "id": "cutting_crew",
+    "name": "Cutting Crew",
+    "type": "response",
+    "element": "clearance",
+    "cost": 4,
+    "attack": 3,
+    "health": 3,
+    "modifier": "piercing",
+    "on_hit": {
+      "bleed": 1
+    }
+  },
+  {
+    "id": "heat_seeker",
+    "name": "Heat Seeker",
+    "type": "response",
+    "element": "douse",
+    "cost": 3,
+    "attack": 2,
+    "health": 4,
+    "condition": {
+      "subject": "target",
+      "status": "burn",
+      "threshold": 3,
+      "bonus": 3
+    }
+  },
+  {
+    "id": "toxin_hunter",
+    "name": "Toxin Hunter",
+    "type": "response",
+    "element": "clearance",
+    "cost": 4,
+    "attack": 2,
+    "health": 4,
+    "condition": {
+      "subject": "target",
+      "status": "any",
+      "threshold": 3,
+      "strikes": 2
+    }
+  },
+  {
+    "id": "momentum_team",
+    "name": "Momentum Team",
+    "type": "response",
+    "element": "brace",
+    "cost": 3,
+    "attack": 1,
+    "health": 4,
+    "condition": {
+      "subject": "self",
+      "status": "strength",
+      "threshold": 2,
+      "strikes": 2
+    }
+  },
+  {
+    "id": "last_responder",
+    "name": "Last Responder",
+    "type": "response",
+    "element": "evac",
+    "cost": 2,
+    "attack": 2,
+    "health": 3,
+    "condition": {
+      "subject": "self",
+      "status": "any",
+      "threshold": 3,
+      "bonus": 2
+    }
+  }
+]

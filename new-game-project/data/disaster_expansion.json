@@ -1,0 +1,237 @@
+[
+  {
+    "id": "cinder_cloud",
+    "name": "Cinder Cloud",
+    "type": "disaster",
+    "element": "fire",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 1,
+    "health": 3,
+    "on_hit": {
+      "burn": 2
+    }
+  },
+  {
+    "id": "glass_quake",
+    "name": "Glass Quake",
+    "type": "disaster",
+    "element": "earthquake",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 1,
+    "health": 3,
+    "on_hit": {
+      "bleed": 2
+    }
+  },
+  {
+    "id": "toxic_runoff",
+    "name": "Toxic Runoff",
+    "type": "disaster",
+    "element": "flood",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 1,
+    "health": 3,
+    "on_hit": {
+      "poison": 2
+    }
+  },
+  {
+    "id": "needle_gale",
+    "name": "Needle Gale",
+    "type": "disaster",
+    "element": "typhoon",
+    "cost_type": "sacrifice",
+    "cost": 1,
+    "attack": 3,
+    "health": 3,
+    "modifier": "piercing"
+  },
+  {
+    "id": "slow_fault",
+    "name": "Sleeping Fault",
+    "type": "disaster",
+    "element": "earthquake",
+    "cost_type": "sacrifice",
+    "cost": 3,
+    "attack": 6,
+    "health": 6,
+    "modifier": "sluggish"
+  },
+  {
+    "id": "pressure_front",
+    "name": "Pressure Front",
+    "type": "disaster",
+    "element": "typhoon",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 1,
+    "health": 3,
+    "strength": 1,
+    "effect": "draw",
+    "draw_count": 1
+  },
+  {
+    "id": "blocked_exit",
+    "name": "Blocked Exit",
+    "type": "disaster",
+    "element": "earthquake",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "seal"
+  },
+  {
+    "id": "red_tape",
+    "name": "Red Tape",
+    "type": "disaster",
+    "element": "flood",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "tax"
+  },
+  {
+    "id": "crosswind",
+    "name": "Crosswind",
+    "type": "disaster",
+    "element": "typhoon",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 1,
+    "health": 3,
+    "effect": "move_ally"
+  },
+  {
+    "id": "warm_front",
+    "name": "Warm Front",
+    "type": "disaster",
+    "element": "fire",
+    "cost_type": "sacrifice",
+    "cost": 0,
+    "attack": 1,
+    "health": 3,
+    "effect": "heal_all"
+  },
+  {
+    "id": "aftershock",
+    "name": "Aftershock Choir",
+    "type": "disaster",
+    "element": "earthquake",
+    "cost_type": "sacrifice",
+    "cost": 2,
+    "attack": 3,
+    "health": 4,
+    "effect": "rally_all"
+  },
+  {
+    "id": "drain_vortex",
+    "name": "Drain Vortex",
+    "type": "disaster",
+    "element": "flood",
+    "cost_type": "sacrifice",
+    "cost": 3,
+    "attack": 4,
+    "health": 7,
+    "leech": 2
+  },
+  {
+    "id": "black_squall",
+    "name": "Black Squall",
+    "type": "disaster",
+    "element": "typhoon",
+    "cost_type": "sacrifice",
+    "cost": 3,
+    "attack": 5,
+    "health": 5,
+    "modifier": "piercing",
+    "on_hit": {
+      "poison": 2
+    }
+  },
+  {
+    "id": "worldbreaker",
+    "name": "Worldbreaker",
+    "type": "disaster",
+    "element": "earthquake",
+    "cost_type": "sacrifice",
+    "cost": 4,
+    "attack": 8,
+    "health": 9,
+    "modifier": "sluggish",
+    "on_hit": {
+      "bleed": 3
+    }
+  },
+  {
+    "id": "ash_predator",
+    "name": "Ash Predator",
+    "type": "disaster",
+    "element": "fire",
+    "cost": 2,
+    "attack": 3,
+    "health": 4,
+    "condition": {
+      "subject": "target",
+      "status": "burn",
+      "threshold": 3,
+      "strikes": 2
+    },
+    "cost_type": "sacrifice"
+  },
+  {
+    "id": "venom_surge",
+    "name": "Venom Surge",
+    "type": "disaster",
+    "element": "flood",
+    "cost": 1,
+    "attack": 2,
+    "health": 4,
+    "condition": {
+      "subject": "target",
+      "status": "poison",
+      "threshold": 2,
+      "bonus": 3
+    },
+    "cost_type": "sacrifice"
+  },
+  {
+    "id": "pressure_break",
+    "name": "Pressure Break",
+    "type": "disaster",
+    "element": "typhoon",
+    "cost": 2,
+    "attack": 2,
+    "health": 4,
+    "strength": 2,
+    "condition": {
+      "subject": "self",
+      "status": "strength",
+      "threshold": 3,
+      "strikes": 2
+    },
+    "cost_type": "sacrifice"
+  },
+  {
+    "id": "fracture_hunter",
+    "name": "Fracture Hunter",
+    "type": "disaster",
+    "element": "earthquake",
+    "cost": 0,
+    "attack": 1,
+    "health": 3,
+    "condition": {
+      "subject": "target",
+      "status": "any",
+      "threshold": 3,
+      "bonus": 2
+    },
+    "cost_type": "sacrifice"
+  }
+]
