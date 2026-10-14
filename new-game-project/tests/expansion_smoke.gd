@@ -97,6 +97,7 @@ func run() -> void:
 	game.resolve_attack(attacker, defender, false)
 	check(game.player_hp == 17 and defender.card_data.health == 17, "Disaster piercing is symmetric")
 	game.tension = 10
+	game.encounter_kind = "elite"
 	game.add_global_buff(false, "energy")
 	check(game.enemy_action_limit() == 4, "Disaster resource buff grants another action")
 	game.add_global_buff(false, "energy")
@@ -118,22 +119,22 @@ func run() -> void:
 	game.deck.append(definition("needle_team").duplicate(true))
 	game.deck.append(definition("heavy_loader").duplicate(true))
 	var original_energy: int = game.preparedness
+	var tutor_cost: int = int(tutor.card_data.cost)
 	check(game.try_utility(tutor, game._response_slots()[3]), "tutor opens selection")
 	check(paused and director.screen == "choice", "selection pauses")
 	game.cancel_utility_choice()
 	check(game.preparedness == original_energy and is_instance_valid(tutor) and tutor.in_hand, "cancel spends nothing")
 	game.try_utility(tutor, game._response_slots()[3])
 	game.complete_utility_choice(game.deck[0])
-	check(game.deck.size() == 1 and game.preparedness == original_energy - 1, "tutor takes selected card and pays")
+	check(game.deck.size() == 1 and game.preparedness == original_energy - tutor_cost, "tutor takes selected card and pays")
 	var seal = make_card(definition("seal"))
 	game.enemy_deck.append({"name":"Test hazard", "type":"disaster", "element":"fire", "cost":0, "attack":1, "health":3})
+	game.enemy_draw_cards(1)
 	game.try_utility(seal, game._response_slots()[3])
-	game.complete_utility_choice(game.enemy_deck[0])
-	game.enemy_draw_cards(1)
-	check(game.enemy_hand.is_empty() and game.enemy_deck.size() == 1, "sealed deck card cannot be drawn")
+	game.complete_utility_choice(game.enemy_hand[0])
+	check(game.is_sealed(game.enemy_hand[0]), "only held card is sealed")
 	game.turn = 3
-	game.enemy_draw_cards(1)
-	check(game.enemy_hand.size() == 1, "seal expires after two rounds")
+	check(not game.is_sealed(game.enemy_hand[0]), "seal expires after two rounds")
 	var sealed_ally = make_card(definition("runner"))
 	sealed_ally.card_data.locked_until = game.turn + 2
 	check(not game.try_play_card(sealed_ally), "sealed Response cannot be played")
@@ -183,7 +184,7 @@ func run() -> void:
 	await process_frame
 	game = current_scene
 	director = game.run_director
-	check(director.screen == "map" and director.modal.visible and game.player_hp == 20 and director.collection.size() == 12 and director.current == -1, "real New Run button reloads cleanly after defeat")
+	check(director.screen == "title" and director.modal.visible and director.collection.is_empty(), "defeat button returns to starting screen without beginning a run")
 	check(game.player_buffs.is_empty() and game.enemy_buffs.is_empty() and game.energy_cap == 3, "restart clears buffs and resources")
 	print("PASS: title, no overkill, piercing, sluggish, statuses, global buffs, tutors, cancellation, sealing/expiry, taxes, scouting, M toggle, adaptation, actual defeat-button restart")
 	quit(0)

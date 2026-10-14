@@ -32,6 +32,12 @@ static var face_font: SystemFont
 var card_data: Dictionary
 var is_dragging := false
 var is_hovered := false
+var graveyard_recorded := false
+var planned_guard := 0
+var plan_attack_bonus := 0
+var plan_ignore_taunt := false
+var last_evaded_hit := false
+var is_relocating := false
 var in_hand := true
 var current_slot: Node3D = null
 var card_height := CARD_WIDTH * FACE_H / FACE_W
@@ -46,6 +52,7 @@ var _hp_label: Label
 var _atk_label: Label
 var _mod_label: Label
 var _cost_label: Label
+var face_signature := 0
 
 @onready var art_sprite: Sprite3D = $Art
 @onready var mesh: MeshInstance3D = $Mesh
@@ -65,6 +72,7 @@ func setup(data: Dictionary) -> void:
 	modifiers.clear()
 	statuses.clear()
 	last_attack_turn = -1
+	graveyard_recorded = false
 	if int(card_data.get("strength", 0)) > 0: statuses.strength = int(card_data.strength)
 	var self_bleed: int = int(_manager().buffs_for(card_data).get("self_bleed", 0))
 	if self_bleed > 0: statuses.bleed = self_bleed
@@ -224,6 +232,7 @@ func _badge(txt: String, col: Color, pos: Vector2, font: Font) -> Panel:
 	return p
 
 func _refresh_face() -> void:
+	face_signature = current_face_signature()
 	if _cost_label: _cost_label.text = str(card_data.cost)
 	if _hp_label:
 		_hp_label.text = str(maxi(card_data.health, 0))
@@ -231,6 +240,7 @@ func _refresh_face() -> void:
 	if _atk_label:
 		_atk_label.text = str(effective_attack())
 	if _mod_label:
+		_mod_label.text = ""
 		if card_data.get("utility", false):
 			var effect: String = card_data.get("effect", "")
 			_mod_label.text = "UTILITY · " + str(preload("res://scripts/battle_rules.gd").EFFECT_LABELS.get(effect, effect)).to_upper()
@@ -241,22 +251,36 @@ func _refresh_face() -> void:
 		else:
 			_mod_label.visible = false
 		var tokens: PackedStringArray = []
+		if planned_guard > 0: tokens.append("PLAN: BRACE")
+		if plan_attack_bonus > 0: tokens.append("PLAN: +%d ATK" % plan_attack_bonus)
+		if plan_ignore_taunt or card_data.get("ignore_taunt", false): tokens.append("IGNORE TAUNT")
+		if card_data.get("curse", false): tokens.append("CURSE: PAY 1 HP")
 		for status in card_data.get("on_hit", {}): tokens.append("HIT %s %d" % [str(status).to_upper(), int(card_data.on_hit[status])])
 		if not card_data.get("utility", false) and card_data.get("effect", "") == "draw": tokens.append("PLAY: DRAW %d" % int(card_data.get("draw_count", 1)))
 		if card_data.get("effect", "") == "move_ally": tokens.append("PLAY: MOVE AN ALLY")
 		if card_data.get("effect", "") == "heal_all": tokens.append("PLAY: HEAL ALLIES 2")
 		if card_data.get("effect", "") == "rally_all": tokens.append("PLAY: ALLIES +1 STR")
 		if int(card_data.get("leech", 0)) > 0: tokens.append("HEAL ON HIT %d" % int(card_data.leech))
-		var special: String = preload("res://scripts/battle_rules.gd").special_text(card_data)
-		if special != "": tokens.append(special.replace("\n", " · "))
+		if int(card_data.get("on_play_draw", 0)) > 0: tokens.append("PLAY DRAW +%d" % int(card_data.on_play_draw))
+		if int(card_data.get("thorns", 0)) > 0: tokens.append("RETALIATE %d" % int(card_data.thorns))
+		if int(card_data.get("status_bonus", 0)) > 0: tokens.append("TARGET STATUS 3+: +%d ATK" % int(card_data.status_bonus))
+		if int(card_data.get("armor_value", 1)) > 1: tokens.append("ARMOR %d" % int(card_data.armor_value))
+		if int(card_data.get("utility_power", 0)) > 0: tokens.append("ENHANCED +%d" % int(card_data.utility_power))
+		if int(card_data.get("refund_energy", 0)) > 0: tokens.append("REFUND %d ENERGY" % int(card_data.refund_energy))
+		if card_data.has("condition"):
+			var condition: Dictionary = card_data.condition
+			var subject := "SELF" if condition.get("subject", "target") == "self" else "TARGET"
+			var status := "STATUS" if condition.get("status", "any") == "any" else str(condition.status).to_upper()
+			var bonus := "2 STRIKES" if int(condition.get("strikes", 1)) > 1 else "+%d ATK" % int(condition.get("bonus", 0))
+			tokens.append("%s %s %d+: %s" % [subject, status, int(condition.get("threshold", 3)), bonus])
 		for passive in ["piercing", "sluggish"]:
 			if has_modifier(passive) and passive not in modifiers: tokens.append(passive.to_upper())
 		for status in statuses:
-			if int(statuses[status]) > 0: tokens.append("%s %d" % [str(status).to_upper(), int(statuses[status])])
+			if int(statuses[status]) > 0: tokens.insert(0, "%s %d" % [str(status).to_upper(), int(statuses[status])])
 		if int(card_data.get("locked_until", 0)) > _manager().turn: tokens.append("SEALED")
 		if has_modifier("sluggish") and not can_attack(_manager().turn): tokens.append("RESTING")
 		if not tokens.is_empty():
-			_mod_label.text += "\n" + " · ".join(tokens) if _mod_label.visible else " · ".join(tokens)
+			_mod_label.text = (_mod_label.text + "\n" if _mod_label.visible else "") + " · ".join(tokens)
 			_mod_label.visible = true
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
@@ -294,27 +318,38 @@ func _apply_hover() -> void:
 	var pos: Vector3 = get_meta("hand_pos", position)
 	_tween_local(pos + HOVER_LIFT, UPRIGHT, 0.14)
 
-func _on_mouse_entered() -> void:
-	is_hovered = true
-	if in_hand and not is_dragging:
-		_apply_hover()
-
-func _on_mouse_exited() -> void:
-	is_hovered = false
-	if in_hand and not is_dragging and has_meta("hand_pos"):
+func set_hand_hover(hovered: bool) -> void:
+	if is_hovered == hovered: return
+	is_hovered = hovered
+	if not in_hand or is_dragging: return
+	if hovered: _apply_hover()
+	elif has_meta("hand_pos"):
 		set_layer(get_meta("hand_layer", 0))
 		_tween_local(get_meta("hand_pos"), get_meta("hand_basis"), 0.15)
 
+func _on_mouse_entered() -> void:
+	# The manager handles hand hover using stable footprints and visual stacking order.
+	pass
+
+func _on_mouse_exited() -> void:
+	pass
+
 # ---------------------------------------------------------------- dragging
 func _input_event(_camera: Camera3D, event: InputEvent, _pos: Vector3, _n: Vector3, _idx: int) -> void:
-	if in_hand and not is_dragging and event is InputEventMouseButton \
-			and event.button_index == MOUSE_BUTTON_LEFT and event.pressed \
-			and _manager().can_player_act():
-		_start_drag()
+	if not in_hand and is_alive() and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if not _manager().board_input.click_card(self): _manager().run_director.inspect_board_card(self)
 
 func _input(event: InputEvent) -> void:
+	if is_relocating and event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			_manager().board_input.cancel()
+			return
+		if event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			_manager().complete_move_effect(_slot_under_card())
+			return
 	if is_dragging and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		is_dragging = false
+		_manager().end_hand_drag(self)
 		in_hand = true
 		current_slot = null
 		reparent(_manager().hand_parent(), true)
@@ -323,16 +358,22 @@ func _input(event: InputEvent) -> void:
 	if is_dragging and event is InputEventMouseButton \
 			and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		is_dragging = false
+		_manager().end_hand_drag(self)
 		_drop_card()
 
 func _start_drag() -> void:
+	if not _manager().begin_hand_drag(self): return
 	is_dragging = true
 	if _tween: _tween.kill()
 	set_layer(100)
 	reparent(_manager(), true)
 	_manager().arrange_hand_centered()
 
+func current_face_signature() -> int:
+	return hash([card_data, statuses, modifiers, effective_attack(), planned_guard, plan_ignore_taunt, can_attack(_manager().turn), _manager().is_sealed(card_data)])
+
 func _process(delta: float) -> void:
+	if not card_data.is_empty() and current_face_signature() != face_signature: _refresh_face()
 	if not is_dragging:
 		return
 	var cam := get_viewport().get_camera_3d()
@@ -457,11 +498,16 @@ func add_modifier(mod_name: String) -> void:
 
 func heal(amt: int) -> void:
 	if card_data.health <= 0: return
+	if int(statuses.get("healing_reduced", 0)) > 0: amt = maxi(1, floori(amt / 2.0))
+	var before: int = card_data.health
 	card_data.health = mini(max_health, card_data.health + amt)
+	if card_data.health > before: _manager().log_event("%s heals %d HP." % [card_data.name, card_data.health - before])
 	_refresh_face()
 	spawn_popup("+%d HP" % amt, Color(0.3, 1.0, 0.4))
 
 func sacrifice_dissolve() -> void:
+	_manager().sacrifice_reward(self)
+	_manager().record_graveyard(self, "Sacrificed")
 	current_slot = null
 	remove_from_group("cards")
 	if _tween: _tween.kill()
@@ -482,12 +528,29 @@ func adjusted_damage(amt: int) -> int:
 	# Fragile: takes 1 extra damage from all attacks
 	if has_modifier("fragile"):
 		amt += 1
-	return amt
+	return _manager().incoming_damage(card_data.type == "response", amt)
 
 func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> void:
+	last_evaded_hit = false
 	if not bypass_armor: amt = adjusted_damage(amt)
+	else: amt = _manager().incoming_damage(card_data.type == "response", amt)
+	if not bypass_armor and planned_guard > 0:
+		var prevented := mini(planned_guard, amt)
+		amt -= prevented
+		planned_guard = 0
+		_manager().log_event("Brace prevents %d damage to %s." % [prevented, card_data.name])
+	if not bypass_armor and int(statuses.get("barrier", 0)) > 0:
+		var absorbed := mini(int(statuses.barrier), amt)
+		statuses.barrier = int(statuses.barrier) - absorbed
+		amt -= absorbed
+	if amt <= 0:
+		spawn_popup("BARRIER", Color("75d6c6"))
+		_refresh_face()
+		return
 
+	if not bypass_armor and _manager().plans.try_extract(self, amt): return
 	card_data.health = card_data.health - amt
+	_manager().log_event("%s takes %d damage (%d/%d HP)." % [card_data.name, amt, maxi(0, card_data.health), max_health])
 	_refresh_face()
 
 	var popup := "-%d" % amt
@@ -518,6 +581,7 @@ func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> voi
 	_tween.parallel().tween_property(self, "global_position", home, 0.2)
 
 func _die() -> void:
+	_manager().record_graveyard(self, "Destroyed")
 	current_slot = null   # frees the slot immediately
 	remove_from_group("cards")
 	if _tween: _tween.kill()
@@ -556,7 +620,7 @@ func spawn_popup(text: String, col: Color) -> void:
 	t.chain().tween_callback(l.queue_free)
 
 func effective_attack() -> int:
-	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + _manager().attack_bonus(self))
+	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + plan_attack_bonus + _manager().attack_bonus(self))
 
 func refresh_cost() -> void:
 	_refresh_face()
@@ -565,8 +629,9 @@ func can_attack(round_number: int) -> bool:
 	return is_alive() and (not has_modifier("sluggish") or last_attack_turn < 0 or round_number - last_attack_turn >= 2)
 
 func add_status(status: String, amount: int) -> void:
+	_manager().log_event("%s gains %d %s." % [card_data.name, amount, status.capitalize()])
 	if not is_alive() or amount <= 0: return
-	statuses[status] = int(statuses.get(status, 0)) + amount
+	statuses[status] = mini(3, int(statuses.get(status, 0)) + amount) if status == "barrier" else int(statuses.get(status, 0)) + amount
 	_refresh_face()
 	spawn_popup("%s +%d" % [status.to_upper(), amount], Color("da857c") if status != "strength" else Color("75d6c6"))
 
@@ -578,6 +643,7 @@ func status_upkeep() -> void:
 			take_damage(stacks, 1.0, true)
 	var regen: int = int(_manager().buffs_for(card_data).get("regen", 0)) + (1 if has_modifier("regenerating") else 0)
 	if is_alive() and regen > 0: heal(regen)
+	if int(statuses.get("healing_reduced", 0)) > 0: statuses.healing_reduced = int(statuses.healing_reduced) - 1
 	_refresh_face()
 
 func after_attack(round_number: int) -> void:
@@ -589,7 +655,7 @@ func after_attack(round_number: int) -> void:
 	_refresh_face()
 
 func cleanse() -> void:
-	for status in ["burn", "poison", "bleed"]: statuses.erase(status)
+	for status in ["burn", "poison", "bleed", "healing_reduced"]: statuses.erase(status)
 	heal(3)
 	_refresh_face()
 

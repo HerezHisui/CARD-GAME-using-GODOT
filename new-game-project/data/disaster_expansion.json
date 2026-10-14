@@ -10,7 +10,8 @@
     "health": 3,
     "on_hit": {
       "burn": 2
-    }
+    },
+    "on_sacrifice": "burn"
   },
   {
     "id": "glass_quake",
@@ -23,7 +24,8 @@
     "health": 3,
     "on_hit": {
       "bleed": 2
-    }
+    },
+    "on_sacrifice": "draw"
   },
   {
     "id": "toxic_runoff",

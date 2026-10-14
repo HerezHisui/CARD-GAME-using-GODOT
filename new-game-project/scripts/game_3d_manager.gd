@@ -19,6 +19,10 @@ var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
 var hand: Array = []
+var player_graveyard: Array[Dictionary] = []
+var enemy_graveyard: Array[Dictionary] = []
+var hovered_hand_card: Node
+var dragged_hand_card: Node
 var turn := 1
 var in_board_view := false
 var run_director: CanvasLayer
@@ -29,6 +33,14 @@ var enemy_buffs: Dictionary = {}
 var player_run_buffs: Dictionary = {}
 var enemy_run_buffs: Dictionary = {}
 var encounter_kind := "battle"
+var final_boss: Node
+var player_barrier := 0
+var plans: Node
+var battle_log: Array[String] = []
+var moving_source: Node
+var board_input: Node
+var opponent_hand: Node3D
+var plan_hero_barrier := 0
 var moving_ally: Node
 var adapted_round := 0
 var pending_utility: Node
@@ -38,7 +50,7 @@ var pending_effect := ""
 enum Phase { SETUP, PLAYER_DRAW, PLAYER_PLAY, ENEMY, COMBAT, GAME_OVER }
 const STARTING_HAND := 3
 const ENERGY_START := 3
-const ENERGY_MAX := 10
+const ENERGY_MAX := 7
 const TENSION_START := 3
 const TENSION_MAX := 10
 const PLAYER_MAX_HP := 20
@@ -81,10 +93,13 @@ var hand_tuck_tween: Tween
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 
 func _ready() -> void:
+	plans = preload("res://scripts/contingency_rules.gd").new()
+	add_child(plans)
+	plans.setup(self)
 	hand_container = Node3D.new()
 	camera.add_child(hand_container)
 	_apply_view(DESK_VIEW)
-	
+
 	var vp := get_viewport()
 	vp.physics_object_picking = true
 	vp.physics_object_picking_sort = true
@@ -92,6 +107,12 @@ func _ready() -> void:
 
 	_build_environment()
 	_build_board()
+	board_input = preload("res://scripts/board_actions.gd").new()
+	add_child(board_input)
+	board_input.setup(self)
+	opponent_hand = preload("res://scripts/enemy_hand_display.gd").new()
+	add_child(opponent_hand)
+	opponent_hand.setup(self)
 	_build_lighting()
 	$HUD/Root/DeckDrawButton.pressed.connect(_on_draw_button_pressed)
 	_end_turn_btn.pressed.connect(_on_end_turn_pressed)
@@ -109,7 +130,7 @@ func _ready() -> void:
 	deck.shuffle()
 	enemy_deck.shuffle()
 	enemy_evolution_deck.shuffle()
-	
+
 	update_deck_label()
 	_refresh_bars()
 	_refresh_view_hints()
@@ -117,6 +138,18 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	if is_instance_valid(board_input): board_input.clear()
+	if is_instance_valid(plans): plans.reset()
+	if not preserve_result: battle_log.clear()
+	moving_source = null
+	if is_instance_valid(final_boss): final_boss.queue_free()
+	final_boss = null
+	player_barrier = 0
+	clear_hand_hover()
+	dragged_hand_card = null
+	if not preserve_result:
+		player_graveyard.clear()
+		enemy_graveyard.clear()
 	player_buffs.clear()
 	enemy_buffs.clear()
 	moving_ally = null
@@ -133,16 +166,33 @@ func clear_battle(preserve_result: bool = false) -> void:
 	enemy_hand.clear()
 	enemy_evolution_deck.clear()
 
+func log_event(message: String) -> void:
+	battle_log.append("Round %d | %s" % [turn, message])
+	if battle_log.size() > 300: battle_log.pop_front()
+
+func overclock_stacks(response_side: bool) -> int:
+	var temporary := player_buffs if response_side else enemy_buffs
+	var permanent := player_run_buffs if response_side else enemy_run_buffs
+	return int(temporary.get("overclock", 0)) + int(permanent.get("overclock", 0))
+
+func resource_growth(response_side: bool) -> int:
+	return maxi(1, 1 + buff_value(response_side, "energy") - overclock_stacks(response_side))
+
+func incoming_damage(response_side: bool, amount: int) -> int:
+	return ceili(amount * (1.0 + 0.5 * buff_value(response_side, "damage_taken")))
+
 func start_encounter(collection: Array[Dictionary], kind: String, floor_level: int, specialty: int) -> void:
 	clear_battle()
 	encounter_kind = kind
 	run_director.intel_revealed = false
 	turn = 1
+	log_event("Encounter begins: %s, floor %d." % [kind.capitalize(), floor_level])
 	energy_cap = maxi(1, ENERGY_START + buff_value(true, "energy"))
 	preparedness = energy_cap
+	plans.tokens = mini(2, maxi(0, buff_value(true, "plan_start")))
 	tension_cap = maxi(1, TENSION_START + buff_value(false, "energy"))
 	tension = tension_cap
-	enemy_max_hp = 20 + (floor_level - 1) * 3 + (4 if kind == "elite" else (8 if kind == "boss" else 0))
+	enemy_max_hp = 18 + (floor_level - 1) * 2 if kind == "battle" else 20 + (floor_level - 1) * 3 + (4 if kind == "elite" else 8)
 	enemy_hp = enemy_max_hp
 	for definition in collection: deck.append(definition.duplicate(true))
 	var threats: Array[Dictionary] = []
@@ -156,13 +206,13 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
 		c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
 		if int(c.cost) > 0:
-			enemy_evolution_deck.append(c)
+			if kind != "battle" or int(c.cost) <= 2: enemy_evolution_deck.append(c)
 		else:
 			enemy_deck.append(c)
 			if c.element == favored: enemy_deck.append(c.duplicate(true))
 	# Modest reserves keep encounters from becoming endless reinforcement chains.
-	var base_limit := 20 if kind == "battle" else (21 if kind == "elite" else 22)
-	var evolution_limit := 12 if kind == "battle" else (13 if kind == "elite" else 14)
+	var base_limit := 18 if kind == "battle" else (21 if kind == "elite" else 22)
+	var evolution_limit := 8 if kind == "battle" else (13 if kind == "elite" else 14)
 	enemy_deck.shuffle()
 	enemy_deck.sort_custom(func(a, b): return a.element == favored and b.element != favored)
 	enemy_deck.resize(mini(base_limit, enemy_deck.size()))
@@ -177,6 +227,11 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	enemy_evolution_deck.shuffle()
 	_refresh_bars()
 	set_board_view(false)
+	if kind == "boss" and floor_level == 3:
+		final_boss = preload("res://scripts/final_boss.gd").new()
+		add_child(final_boss)
+		final_boss.setup(self)
+		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN / FINAL BOSS"
 	_start_match()
 
 func _load_tex(path: String) -> Texture2D:
@@ -189,142 +244,22 @@ func _load_tex(path: String) -> Texture2D:
 
 # =================================================================== ENVIRONMENT
 func _build_environment() -> void:
-	var tex_room = _load_tex("res://assets/pixel_classroom.jpg")
-	var tex_wood = _load_tex("res://assets/dark_wood_desk.jpg")
-
-	var room := Node3D.new()
-	room.name = "ClassroomEnvironment"
-	add_child(room)
-
-	var mat_walls := StandardMaterial3D.new()
-	mat_walls.albedo_texture = _load_tex("res://assets/creepy_wallpaper.jpg")
-	mat_walls.albedo_color = Color(0.3, 0.3, 0.35)
-	mat_walls.uv1_scale = Vector3(6, 4, 6)
-	mat_walls.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	var walls := CSGBox3D.new()
-	walls.size = Vector3(40, 16, 40)
-	walls.position = Vector3(0, 8, 0)
-	walls.flip_faces = true
-	walls.material_override = mat_walls
-	walls.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	room.add_child(walls)
-
-	var mat_floor := StandardMaterial3D.new()
-	mat_floor.albedo_color = Color(0.05, 0.05, 0.06)
-	var floor_box := CSGBox3D.new()
-	floor_box.size = Vector3(40, 1, 40)
-	floor_box.position = Vector3(0, -0.5, 0)
-	floor_box.material_override = mat_floor
-	room.add_child(floor_box)
-
-	var mat_chalk := StandardMaterial3D.new()
-	mat_chalk.albedo_color = Color(0.1, 0.15, 0.1)
-	var board := CSGBox3D.new()
-	board.size = Vector3(16, 6, 0.5)
-	board.position = Vector3(0, 7, -19.5)
-	board.material_override = mat_chalk
-	room.add_child(board)
-
-	if tex_room:
-		var chalk_art := Sprite3D.new()
-		chalk_art.texture = tex_room
-		chalk_art.pixel_size = 0.03
-		chalk_art.position = Vector3(0, 7, -19.2)
-		chalk_art.modulate = Color(0.5, 1.0, 0.5, 0.8)
-		room.add_child(chalk_art)
-
-	var mat_desk := StandardMaterial3D.new()
-	mat_desk.albedo_texture = tex_wood
-	mat_desk.albedo_color = Color(0.3, 0.25, 0.25)
-	mat_desk.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	for pos in [Vector3(-8, 1.5, -8), Vector3(-12, 1.5, -6), Vector3(9, 1.5, -10),
-			Vector3(14, 1.5, -7), Vector3(-7, 1.5, -15), Vector3(8, 1.5, -16)]:
-		var d := CSGBox3D.new()
-		d.size = Vector3(3, 3, 2.5)
-		d.position = pos
-		d.material_override = mat_desk
-		d.rotation_degrees = Vector3(0, pos.x * 7 + 15, 0)
-		room.add_child(d)
-
+	var school := preload("res://scripts/school_environment.gd").new()
+	add_child(school)
 	var table = get_node_or_null("Table")
-	if table and tex_wood:
-		var mat := StandardMaterial3D.new()
-		mat.albedo_texture = tex_wood
-		mat.albedo_color = Color(0.4, 0.35, 0.35)
-		mat.uv1_scale = Vector3(2, 2, 2)
-		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-		table.material = mat
+	if table:
+		table.material = preload("res://scripts/card_playmat.gd").oak_material()
+		table.size = Vector3(8.0, 0.18, 5.6)
+		table.position.y = 0.91
 
 # =================================================================== BOARD
-## Procedurally paints a crisp pixel-art playmat (burgundy felt, gold trim,
-## slot outlines exactly where the slot colliders are).
+## Builds a cloth playmat with printed zones and stitched edges.
+## Printed zones align with the existing slot colliders.
 const BOARD_W := 6.2
 const BOARD_H := 4.2
 const PPU := 32 # pixels per world unit
-
 func _build_board() -> void:
-	var w := int(BOARD_W * PPU)
-	var h := int(BOARD_H * PPU)
-	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
-
-	var noise := FastNoiseLite.new()
-	noise.seed = 7
-	noise.frequency = 0.04
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 13
-	var felt := Color(0.07, 0.15, 0.18)
-	for y in h:
-		for x in w:
-			var v := noise.get_noise_2d(x, y) * 0.035 + rng.randf_range(-0.012, 0.012)
-			img.set_pixel(x, y, Color(felt.r + v, felt.g + v * 0.4, felt.b + v * 0.4))
-
-	var dark := Color(0.025, 0.055, 0.08)
-	var gold_dim := Color(0.48, 0.35, 0.14)
-	# Outer rim + double gold frame
-	_rect_outline(img, Rect2i(0, 0, w, h), 3, dark)
-	_rect_outline(img, Rect2i(5, 5, w - 10, h - 10), 2, GOLD)
-	_rect_outline(img, Rect2i(9, 9, w - 18, h - 18), 1, gold_dim)
-	for c in [Vector2i(9, 9), Vector2i(w - 10, 9), Vector2i(9, h - 10), Vector2i(w - 10, h - 10)]:
-		_diamond(img, c, 4, GOLD)
-
-	# Dashed divider between the Threat row and the Response row
-	var mid := h / 2
-	for x in range(18, w - 18):
-		if (x / 4) % 2 == 0:
-			img.set_pixel(x, mid, gold_dim)
-	_diamond(img, Vector2i(14, mid), 3, GOLD)
-	_diamond(img, Vector2i(w - 15, mid), 3, GOLD)
-
-	# Slot wells
-	var slots_node = get_node_or_null("Slots")
-	if slots_node:
-		for slot in slots_node.get_children():
-			if slot is MeshInstance3D:
-				slot.visible = false # collider stays active; the art is painted below
-				var cx := int((slot.position.x + BOARD_W / 2.0) * PPU)
-				var cy := int((slot.position.z + BOARD_H / 2.0) * PPU)
-				var sw := int(1.1 * PPU)
-				var sh := int(1.5 * PPU)
-				var r := Rect2i(cx - sw / 2, cy - sh / 2, sw, sh)
-				img.fill_rect(r, Color(0.035, 0.085, 0.11))
-				_rect_outline(img, r, 1, gold_dim)
-				# subtle bevel: dark top/left inner edge for an inset look
-				img.fill_rect(Rect2i(r.position.x + 1, r.position.y + 1, sw - 2, 2), Color(0.06, 0.01, 0.02))
-				img.fill_rect(Rect2i(r.position.x + 1, r.position.y + 1, 2, sh - 2), Color(0.06, 0.01, 0.02))
-
-	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = ImageTexture.create_from_image(img)
-	mat.albedo_color = Color(0.75, 0.72, 0.72)
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	mat.roughness = 0.95
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(BOARD_W, BOARD_H)
-	var board := MeshInstance3D.new()
-	board.name = "Playmat"
-	board.mesh = plane
-	board.material_override = mat
-	board.position = Vector3(0, 1.006, 0)
-	add_child(board)
+	add_child(preload("res://scripts/card_playmat.gd").new())
 
 func _rect_outline(img: Image, r: Rect2i, t: int, col: Color) -> void:
 	img.fill_rect(Rect2i(r.position.x, r.position.y, r.size.x, t), col)
@@ -345,7 +280,7 @@ func _build_lighting() -> void:
 	var light = get_node_or_null("SpookyLight")
 	if light is SpotLight3D:
 		light.light_color = Color(1.0, 0.75, 0.5)
-		light.light_energy = 5.0
+		light.light_energy = 1.8
 		light.spot_angle = 80.0
 		light.spot_range = 25.0
 		light.position = Vector3(0, 5.5, 1.5)
@@ -353,8 +288,8 @@ func _build_lighting() -> void:
 
 	var moon := DirectionalLight3D.new()
 	moon.name = "Moonlight"
-	moon.light_color = Color(0.5, 0.6, 0.8)
-	moon.light_energy = 0.8
+	moon.light_color = Color(1.0, 0.79, 0.54)
+	moon.light_energy = 0.7
 	moon.rotation_degrees = Vector3(-45, 120, 0)
 	moon.shadow_enabled = true
 	add_child(moon)
@@ -363,7 +298,7 @@ func _build_lighting() -> void:
 	if env_node and env_node.environment:
 		var env: Environment = env_node.environment
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		env.ambient_light_color = Color(0.3, 0.35, 0.45)
+		env.ambient_light_color = Color(0.62, 0.60, 0.53)
 		env.ambient_light_energy = 1.0
 		env.volumetric_fog_enabled = false # Compatibility renderer does not support volumetric fog.
 		env.volumetric_fog_density = 0.02
@@ -404,13 +339,27 @@ func _set_health(ui: Control, hp: int, max_hp: int, animate: bool) -> void:
 	t.tween_property(lag, "value", float(hp), 0.45).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 
 ## Unblocked hit on a side's HP: drain bar, shake the widget, float the number.
-func _damage_side(player_side: bool, amt: int) -> void:
+func _damage_side(player_side: bool, amt: int, bypass_barrier: bool = false) -> void:
+	if not bypass_barrier: amt = incoming_damage(player_side, amt)
+	if player_side and plan_hero_barrier > 0 and not bypass_barrier:
+		var protected := mini(plan_hero_barrier, amt)
+		plan_hero_barrier -= protected
+		amt -= protected
+		log_event("Emergency Shelter blocks %d hero damage." % protected)
+	if player_side and player_barrier > 0 and not bypass_barrier:
+		var absorbed := mini(player_barrier, amt)
+		player_barrier -= absorbed
+		amt -= absorbed
+	if not player_side and is_instance_valid(final_boss): amt = final_boss.accept_damage(amt)
+	if amt <= 0: return
 	var ui := _player_hp_ui if player_side else _enemy_hp_ui
 	if player_side:
 		player_hp = maxi(0, player_hp - amt)
+		log_event("Response loses %d health (%d/%d)." % [amt, player_hp, PLAYER_MAX_HP])
 		_set_health(ui, player_hp, PLAYER_MAX_HP, true)
 	else:
 		enemy_hp = maxi(0, enemy_hp - amt)
+		log_event("Disaster loses %d health (%d/%d)." % [amt, enemy_hp, enemy_max_hp])
 		_set_health(ui, enemy_hp, enemy_max_hp, true)
 	shake_camera(0.12 + amt * 0.02, 0.3)
 
@@ -453,7 +402,14 @@ func enemy_draw_cards(count: int) -> void:
 		var picked: Dictionary = available.back()
 		enemy_deck.erase(picked)
 		enemy_hand.append(picked)
+		log_event("Disaster draws a card.")
 	update_deck_label()
+
+func enemy_draw_evolutions(count: int) -> void:
+	for i in range(count):
+		if enemy_hand.size() >= 5 or enemy_evolution_deck.is_empty() or enemy_hand.filter(func(card): return int(card.get("cost", 0)) > 0).size() >= 2: break
+		enemy_hand.append(enemy_evolution_deck.pop_back())
+		log_event("Disaster draws an evolution into its hand.")
 
 func _refresh_view_hints() -> void:
 	if _hint_w:
@@ -523,6 +479,8 @@ func hand_parent() -> Node3D:
 	return hand_container
 
 func _process(delta: float) -> void:
+	if is_instance_valid(opponent_hand): opponent_hand.refresh()
+	update_hand_hover(get_viewport().get_mouse_position())
 	if phase == Phase.COMBAT:
 		if not is_hand_tucked:
 			set_hand_tucked(true)
@@ -533,13 +491,13 @@ func _process(delta: float) -> void:
 		var screen_h = get_viewport().get_visible_rect().size.y
 		# Untuck if hovering in the bottom 25% of the screen
 		var should_tuck = mouse_y < screen_h * 0.75
-		
+
 		# Keep tucked if holding a card (so you can see slots clearly)
 		for c in get_hand_cards():
 			if c.is_dragging:
 				should_tuck = true
 				break
-				
+
 		if should_tuck != is_hand_tucked:
 			set_hand_tucked(should_tuck)
 	else:
@@ -567,6 +525,7 @@ func draw_cards(count: int) -> void:
 	arrange_hand_centered()
 
 func add_card_to_hand(definition: Dictionary) -> void:
+	log_event("Response receives %s." % definition.get("name", "a card"))
 	var card = Card3DScene.instantiate()
 	hand_container.add_child(card)
 	card.add_to_group("cards")
@@ -617,6 +576,79 @@ func get_hand_cards() -> Array:
 	hand = hand.filter(func(c): return is_instance_valid(c))
 	return hand.filter(func(c): return c.in_hand)
 
+func hand_card_polygon(card: Node, resting: bool) -> PackedVector2Array:
+	var transform: Transform3D = card.global_transform
+	if resting: transform = hand_container.global_transform * Transform3D(card.get_meta("hand_basis"), card.get_meta("hand_pos"))
+	var polygon := PackedVector2Array()
+	for corner in [Vector3(-0.55, 0, -card.card_height / 2), Vector3(0.55, 0, -card.card_height / 2), Vector3(0.55, 0, card.card_height / 2), Vector3(-0.55, 0, card.card_height / 2)]:
+		polygon.append(camera.unproject_position(transform * corner))
+	return polygon
+
+func card_at_hand_position(mouse: Vector2) -> Node:
+	# Keep the raised card clickable wherever its visible face is drawn.
+	if is_instance_valid(hovered_hand_card) and hovered_hand_card.in_hand and not hovered_hand_card.is_dragging:
+		if Geometry2D.is_point_in_polygon(mouse, hand_card_polygon(hovered_hand_card, false)): return hovered_hand_card
+	# Resting footprints prevent the lift itself from removing the hover target.
+	var cards := get_hand_cards()
+	cards.reverse()
+	for card in cards:
+		if card.is_dragging or not card.has_meta("hand_pos"): continue
+		if Geometry2D.is_point_in_polygon(mouse, hand_card_polygon(card, true)): return card
+	return null
+
+func clear_hand_hover() -> void:
+	hovered_hand_card = null
+	for card in get_hand_cards(): card.set_hand_hover(false)
+
+func update_hand_hover(mouse: Vector2) -> void:
+	if not board_input.action.is_empty() or is_instance_valid(dragged_hand_card) or phase not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] or (run_director and run_director.modal.visible):
+		clear_hand_hover()
+		return
+	var picked := card_at_hand_position(mouse)
+	if picked == hovered_hand_card: return
+	clear_hand_hover()
+	hovered_hand_card = picked
+	if picked: picked.set_hand_hover(true)
+
+func begin_hand_drag(card: Node) -> bool:
+	if not board_input.action.is_empty() or not can_player_act() or is_instance_valid(dragged_hand_card): return false
+	dragged_hand_card = card
+	clear_hand_hover()
+	return true
+
+func end_hand_drag(card: Node) -> void:
+	if dragged_hand_card == card: dragged_hand_card = null
+	clear_hand_hover()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not board_input.action.is_empty(): return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and can_player_act():
+		update_hand_hover(event.position)
+		if is_instance_valid(hovered_hand_card):
+			hovered_hand_card._start_drag()
+			get_viewport().set_input_as_handled()
+
+func record_graveyard(card: Node, reason: String) -> void:
+	if card.graveyard_recorded: return
+	card.graveyard_recorded = true
+	log_event("%s: %s." % [reason, card.card_data.name])
+	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
+	var entry: Dictionary = card.card_data.duplicate(true)
+	entry.health = card.max_health
+	entry.graveyard_reason = reason
+	entry.graveyard_round = turn
+	entry.statuses = card.statuses.duplicate(true)
+	entry.modifier = ", ".join(card.modifiers)
+	if entry.get("type", "response") == "response": player_graveyard.append(entry)
+	else: enemy_graveyard.append(entry)
+
+func record_enemy_spell(definition: Dictionary) -> void:
+	var entry: Dictionary = definition.duplicate(true)
+	entry.graveyard_reason = "Cast"
+	entry.graveyard_round = turn
+	enemy_graveyard.append(entry)
+	log_event("Janitor casts %s." % definition.get("name", "a utility"))
+
 ## Tight, overlapping, upright hand along the bottom of the screen.
 func arrange_hand_centered() -> void:
 	var active = get_hand_cards().filter(func(c): return not c.is_dragging)
@@ -635,14 +667,14 @@ func arrange_hand_centered() -> void:
 ##   coin flip (once) -> [first side: draw + play] -> [second side: draw + play]
 ##   -> combat (first side attacks first, then the other side) -> next round,
 ##   and the side that goes first swaps every round.
-
 func can_player_act() -> bool:
-	return phase == Phase.PLAYER_PLAY and (not run_director or not run_director.modal.visible)
+	return phase == Phase.PLAYER_PLAY and board_input.action.is_empty() and (not run_director or not run_director.modal.visible)
 
 func try_play_card(card: Node) -> bool:
 	return can_player_act() and not is_sealed(card.card_data) and preparedness >= int(card.card_data.get("cost", 0))
 
 func on_card_played(card: Node) -> void:
+	log_event("Response plays %s." % card.card_data.name)
 	hand.erase(card)
 	preparedness = maxi(0, preparedness - int(card.card_data.get("cost", 0)))
 	_refresh_bars()
@@ -663,23 +695,48 @@ func apply_formation_effect(source: Node) -> void:
 		elif effect == "rally_all": ally.add_status("strength", 1)
 
 func begin_move_effect(source: Node) -> void:
-	var allies := _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c != source and c.is_alive())
-	if allies.is_empty() or _response_slots().all(func(s): return _get_card_in_slot(s) != null): return
-	run_director.choose_card("LANE MARSHAL · RELOCATE AN ALLY", allies, select_moving_ally, cancel_move_effect, "Optional: choose another ally, then an empty lane. Skipping keeps the played unit on board.")
+	if _response_slots().all(func(slot): return _get_card_in_slot(slot) != null): return
+	var allies := _response_slots().map(func(slot): return _get_card_in_slot(slot)).filter(func(card): return card != null and card != source)
+	if allies.is_empty(): return
+	moving_source = source
+	board_input.relocation(source)
 
 func select_moving_ally(card: Node) -> void:
+	if not plans.eligible(card) or card == moving_source or board_input.action.get("kind", "") != "relocate": return
 	moving_ally = card
-	var slots := _response_slots().filter(func(s): return _get_card_in_slot(s) == null)
-	run_director.choose_slot(slots, complete_move_effect, cancel_move_effect)
+	clear_hand_hover()
+	dragged_hand_card = card
+	card.is_dragging = true
+	card.is_relocating = true
+	if card._tween: card._tween.kill()
+	card.set_layer(100)
+	card._set_overlay(true)
 
 func complete_move_effect(slot: Node3D) -> void:
-	if is_instance_valid(moving_ally) and _get_card_in_slot(slot) == null: moving_ally.place_on_slot(slot)
+	if is_instance_valid(moving_ally) and slot in _response_slots() and _get_card_in_slot(slot) == null:
+		moving_ally.is_dragging = false
+		moving_ally.is_relocating = false
+		end_hand_drag(moving_ally)
+		moving_ally.place_on_slot(slot)
+		log_event("Relocated %s." % moving_ally.card_data.name)
+		if is_instance_valid(moving_source) and int(moving_source.card_data.get("move_heal", 0)) > 0: moving_ally.heal(int(moving_source.card_data.move_heal))
+		if is_instance_valid(moving_source) and moving_source.card_data.get("utility", false): consume_utility(moving_source)
 	cancel_move_effect()
 
 func cancel_move_effect() -> void:
+	if is_instance_valid(moving_ally) and moving_ally.is_dragging:
+		moving_ally.is_dragging = false
+		moving_ally.is_relocating = false
+		end_hand_drag(moving_ally)
+		moving_ally.place_on_slot(moving_ally.current_slot)
+	moving_source = null
 	moving_ally = null
+	pending_utility = null
+	pending_effect = ""
+	board_input.clear()
 	run_director.action_cancel = Callable()
 	run_director.close_modal()
+	arrange_hand_centered()
 
 func try_utility(card: Node, slot: Node3D) -> bool:
 	if not try_play_card(card): return false
@@ -688,28 +745,55 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 	if effect == "move":
 		var allies := _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c != card and c.is_alive())
 		if allies.is_empty(): return false
-		allies.sort_custom(func(a, b): return a.global_position.distance_squared_to(slot.global_position) < b.global_position.distance_squared_to(slot.global_position))
-		allies[0].place_on_slot(slot)
+		pending_utility = card
+		pending_effect = effect
+		if card.get_parent() != hand_container: card.reparent(hand_container, true)
+		arrange_hand_centered()
+		begin_move_effect(card)
+		return true
 	elif effect in ["tutor", "seal", "tax", "rally", "cleanse"]:
 		var choices: Array = []
 		match effect:
 			"tutor": choices = deck.filter(func(c): return not is_sealed(c))
-			"seal": choices = (enemy_deck + enemy_evolution_deck + enemy_hand).filter(func(c): return not is_sealed(c))
-			"tax": choices = enemy_hand + enemy_evolution_deck
+			"seal": choices = enemy_hand.filter(func(c): return not is_sealed(c))
+			"tax": choices = enemy_hand
 			"rally", "cleanse": choices = _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if choices.is_empty(): return false
 		pending_utility = card
 		pending_effect = effect
 		if card.get_parent() != hand_container: card.reparent(hand_container, true)
 		arrange_hand_centered()
-		run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
+		if effect in ["rally", "cleanse"]:
+			board_input.pick("Click a friendly deployed card for " + str(card.card_data.name) + ". Esc cancels without spending.", choices, complete_utility_choice, cancel_utility_choice)
+		elif effect in ["seal", "tax"]: run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
+		else: run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
 		return true
 	consume_utility(card)
-	if effect == "draw": draw_cards(2 + int(card.card_data.get("utility_power", 0)))
+	if effect == "draw": draw_cards(int(card.card_data.get("draw_count", 2)) + int(card.card_data.get("utility_power", 0)))
 	elif effect == "scout": run_director.show_intel()
+	elif effect == "blast":
+		for target in _threat_slots().map(func(s): return _get_card_in_slot(s)):
+			if target: target.take_damage(2 + int(card.card_data.get("utility_power", 0)))
+	elif effect == "barrier":
+		player_barrier = mini(3, player_barrier + 2 + int(card.card_data.get("utility_power", 0)))
+		for target in _response_slots().map(func(s): return _get_card_in_slot(s)):
+			if target: target.add_status("barrier", 2 + int(card.card_data.get("utility_power", 0)))
+	elif effect == "herb":
+		for target in _response_slots().map(func(s): return _get_card_in_slot(s)):
+			if target:
+				target.statuses.erase("bleed")
+				target.heal(1 + int(card.card_data.get("utility_power", 0)))
+	elif effect == "tablet":
+		for target in _response_slots().map(func(s): return _get_card_in_slot(s)):
+			if target:
+				target.statuses.erase("healing_reduced")
+				target.heal(2 + int(card.card_data.get("utility_power", 0)))
+	_check_game_over()
 	return true
 
 func consume_utility(card: Node) -> void:
+	if card.card_data.get("curse", false): _damage_side(true, 1, true)
+	record_graveyard(card, "Cast")
 	on_card_played(card)
 	preparedness = mini(energy_cap, preparedness + int(card.card_data.get("refund_energy", 0)))
 	_refresh_bars()
@@ -718,7 +802,11 @@ func consume_utility(card: Node) -> void:
 	card.queue_free()
 
 func complete_utility_choice(target: Variant) -> void:
+	board_input.clear()
 	if not is_instance_valid(pending_utility): return
+	if pending_effect in ["seal", "tax"] and target not in enemy_hand:
+		cancel_utility_choice()
+		return
 	var power := int(pending_utility.card_data.get("utility_power", 0))
 	match pending_effect:
 		"tutor":
@@ -740,6 +828,7 @@ func complete_utility_choice(target: Variant) -> void:
 	_refresh_bars()
 
 func cancel_utility_choice() -> void:
+	board_input.clear()
 	pending_utility = null
 	pending_effect = ""
 	run_director.action_cancel = Callable()
@@ -747,12 +836,21 @@ func cancel_utility_choice() -> void:
 	arrange_hand_centered()
 
 func increase_cost(definition: Dictionary) -> void:
-	if definition.get("type", "response") == "response" or int(definition.get("cost", 0)) > 0:
-		definition.cost = int(definition.get("cost", 0)) + 1
-	else:
-		definition.tension_cost = int(definition.get("tension_cost", 1)) + 1
+	var key := "cost" if definition.get("type", "response") == "response" or int(definition.get("cost", 0)) > 0 else "tension_cost"
+	if not definition.has("tax_original"):
+		definition.tax_original = int(definition.get(key, 1))
+		definition.tax_key = key
+	# Each temporary tax can add at most two cost; repeat casts refresh rather than permanently stacking.
+	definition[key] = mini(int(definition.tax_original) + 2, int(definition.get(key, 1)) + 1)
+	definition.tax_until = turn + 2
+
+func expire_tax(definition: Dictionary) -> void:
+	if definition.has("tax_original") and int(definition.get("tax_until", 0)) <= turn:
+		definition[str(definition.tax_key)] = int(definition.tax_original)
+		for key in ["tax_original", "tax_key", "tax_until"]: definition.erase(key)
 
 func enemy_utility(definition: Dictionary) -> void:
+	record_enemy_spell(definition)
 	var effect: String = definition.get("effect", "")
 	if effect == "seal":
 		var choices := get_hand_cards().filter(func(c): return not is_sealed(c.card_data))
@@ -762,7 +860,6 @@ func enemy_utility(definition: Dictionary) -> void:
 			target.card_data.locked_until = turn + 2
 			target._refresh_face()
 			target.spawn_popup("SEALED · 2 ROUNDS", Color("da857c"))
-		elif not deck.is_empty(): deck.pick_random().locked_until = turn + 2
 	elif effect == "tax":
 		var choices := get_hand_cards()
 		if not choices.is_empty():
@@ -799,6 +896,7 @@ func _start_match() -> void:
 	_set_phase(Phase.SETUP, "Flipping a coin...")
 	draw_cards(STARTING_HAND)
 	enemy_draw_cards(STARTING_HAND)
+	enemy_draw_evolutions(1)
 	await _wait(1.0)
 	player_first = randf() < 0.5
 	_set_phase(Phase.SETUP, "Heads - Response goes first" if player_first else "Tails - Disaster goes first")
@@ -811,7 +909,7 @@ func _begin_round() -> void:
 		_set_phase(Phase.GAME_OVER, "No Response cards remain")
 		run_director.battle_finished(false)
 		return
-	if enemy_deck.is_empty() and enemy_hand.is_empty() and _threat_slots().all(func(s): return _get_card_in_slot(s) == null):
+	if not is_instance_valid(final_boss) and not (enemy_deck + enemy_hand).any(func(card): return int(card.get("cost", 0)) == 0 and not card.get("utility", false)) and _threat_slots().all(func(s): return _get_card_in_slot(s) == null):
 		_set_phase(Phase.GAME_OVER, "The Janitor has no threats left")
 		run_director.battle_finished(true)
 		return
@@ -823,12 +921,14 @@ func _begin_round() -> void:
 	continue_round()
 
 func continue_round() -> void:
+	for definition in deck + enemy_deck + enemy_hand + enemy_evolution_deck: expire_tax(definition)
+	for card in get_tree().get_nodes_in_group("cards"): expire_tax(card.card_data)
 	if _turn_label: _turn_label.text = "Turn %d" % turn
 	# Response energy refills to the cap (cap grows by 1 each round)
 	preparedness = energy_cap
 	# Disaster tension refills to the cap (cap grows by 1 each round, starts at 3)
 	var bonus := buff_value(false, "energy")
-	tension_cap = clampi(TENSION_START + (turn - 1) + bonus, 1, maxi(1, TENSION_MAX + bonus))
+	tension_cap = clampi(TENSION_START + (turn - 1) * (1 + overclock_stacks(false)) + bonus, 1, maxi(1, TENSION_MAX + bonus))
 	tension = tension_cap
 	_refresh_bars()
 	player_hp = mini(PLAYER_MAX_HP, player_hp + buff_value(true, "hero_regen"))
@@ -843,7 +943,11 @@ func continue_round() -> void:
 	# Disaster modifier escalation based on round count (from GDD)
 	_apply_round_modifiers()
 
-	if player_first:
+	if is_instance_valid(final_boss):
+		final_boss.prepare_round()
+		if _check_game_over(): return
+		_begin_player_turn()
+	elif player_first:
 		_begin_player_turn()
 	else:
 		await _enemy_turn()
@@ -851,6 +955,7 @@ func continue_round() -> void:
 			_begin_player_turn()
 
 func _apply_round_modifiers() -> void:
+	if encounter_kind == "battle" or is_instance_valid(final_boss): return
 	if turn >= 7:
 		var threats = _threat_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if not threats.is_empty():
@@ -874,6 +979,7 @@ func _on_draw_button_pressed() -> void:
 	_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 
 func _on_end_turn_pressed() -> void:
+	if not board_input.action.is_empty(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW and phase != Phase.PLAYER_PLAY:
 		return
@@ -881,6 +987,7 @@ func _on_end_turn_pressed() -> void:
 	for c in get_hand_cards():
 		if c.is_dragging: return
 
+	plans.bank_unused_energy()
 	if player_first:
 		# Player went first -> now the Disaster plays its card
 		await _enemy_turn()
@@ -890,12 +997,13 @@ func _on_end_turn_pressed() -> void:
 
 	turn += 1
 	var bonus := buff_value(true, "energy")
-	energy_cap = clampi(energy_cap + maxi(1, 1 + bonus), 1, maxi(1, ENERGY_MAX + bonus))
+	energy_cap = clampi(energy_cap + resource_growth(true), 1, maxi(1, ENERGY_MAX + bonus))
 	player_first = not player_first
 	_begin_round()
 
 func _pick_smart_threat_slot(empty_slots: Array, card_data: Dictionary) -> Node3D:
 	var elem: String = card_data.get("element", "")
+	if encounter_kind == "battle" and randf() < 0.5: return empty_slots.pick_random()
 	var best_slot: Node3D = null
 	var best_score := -999.0
 
@@ -913,15 +1021,15 @@ func _pick_smart_threat_slot(empty_slots: Array, card_data: Dictionary) -> Node3
 			var opp_elem: String = opp.card_data.get("element", "")
 			var mult: float = TYPE_CHART.get(elem, {}).get(opp_elem, 1.0)
 			if mult > 1.0:
-				score += 15.0 # Counters opposing response card!
+				score += 3.0 # Regular encounters use only a mild matchup preference.
 			elif mult == 1.0:
-				score += 8.0  # Contests opposing card directly
+				score += 2.0
 			else:
-				score += 2.0  # Ineffective matchup
+				score += 1.0
 		else:
-			score += 4.0 # Open lane
+			score += 2.0 # Open lane
 		# Slight organic variance
-		score += randf() * 2.0
+		score += randf() * 3.0
 		if score > best_score:
 			best_score = score
 			best_slot = s
@@ -930,6 +1038,10 @@ func _pick_smart_threat_slot(empty_slots: Array, card_data: Dictionary) -> Node3
 
 # ------------------------------------------------------------------- enemy
 func _enemy_turn() -> void:
+	if is_instance_valid(final_boss):
+		_set_phase(Phase.ENEMY, "The Warden prepares its announced pattern")
+		await _wait(0.4)
+		return
 	_set_phase(Phase.ENEMY, "Disaster's turn...")
 	await _wait(0.5)
 
@@ -939,6 +1051,8 @@ func _enemy_turn() -> void:
 		_set_phase(Phase.ENEMY, "Disaster draws a card...")
 		await _wait(0.4)
 
+	if turn % 2 == 0: enemy_draw_evolutions(1)
+
 	# --- Disaster Action Phase (Can play multiple cards in one turn!) ---
 	var actions_taken := 0
 	var max_actions := enemy_action_limit()
@@ -946,7 +1060,7 @@ func _enemy_turn() -> void:
 
 	while played_something and actions_taken < max_actions and tension > 0:
 		played_something = false
-		var spells := enemy_hand.filter(func(d): return d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension)
+		var spells := enemy_hand.filter(func(d): return d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension and (d.get("effect", "") != "seal" or get_hand_cards().any(func(c): return not is_sealed(c.card_data))) and (d.get("effect", "") != "tax" or not get_hand_cards().is_empty()))
 		if not spells.is_empty():
 			var spell: Dictionary = spells.pick_random()
 			enemy_hand.erase(spell)
@@ -968,8 +1082,10 @@ func _enemy_turn() -> void:
 		var empty_slots: Array = _threat_slots().filter(func(s): return _get_card_in_slot(s) == null)
 
 		# 1. Evolution Attempt (Sacrificing existing cards for higher-tier disaster)
-		var evo_candidates := enemy_evolution_deck.filter(func(d): return not is_sealed(d) and int(d.get("cost", 1)) <= active_threats.size())
-		var plan: Dictionary = best_evolution_plan(active_threats, evo_candidates)
+		var evo_candidates := enemy_hand.filter(func(d): return int(d.get("cost", 0)) > 0 and not d.get("utility", false) and not is_sealed(d) and int(d.get("cost", 1)) <= active_threats.size())
+		var plan: Dictionary = {}
+		if encounter_kind != "battle" or (empty_slots.is_empty() and turn >= 3):
+			plan = best_evolution_plan(active_threats, evo_candidates)
 		# Filling a useful empty lane can outperform replacing an established formation.
 		var affordable_bases := enemy_hand.filter(func(d): return int(d.get("cost", 0)) == 0 and not d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension)
 		if not plan.is_empty() and not empty_slots.is_empty() and not affordable_bases.is_empty():
@@ -981,7 +1097,7 @@ func _enemy_turn() -> void:
 
 		if should_evolve and not active_threats.is_empty():
 			var evo_card_data: Dictionary = plan.card if not plan.is_empty() else evo_candidates.pick_random()
-			enemy_evolution_deck.erase(evo_card_data)
+			enemy_hand.erase(evo_card_data)
 			var sac_count: int = int(evo_card_data.get("cost", 1))
 
 			# Sacrifice lowest health threats first
@@ -1003,10 +1119,10 @@ func _enemy_turn() -> void:
 			evo_card.setup(evo_card_data)
 			await evo_card.enter_from_above(target_slot)
 			_on_enemy_card_played(evo_card)
+			major_evolution_entry(evo_card, sac_count)
 			evo_card.spawn_popup("EVOLVED!", Color(1.0, 0.3, 0.1))
 			shake_camera(0.12, 0.3)
 
-			tension = maxi(0, tension - 1)
 			_refresh_bars()
 			played_something = true
 			actions_taken += 1
@@ -1034,7 +1150,7 @@ func _enemy_turn() -> void:
 			card.setup(card_data_to_play)
 
 			# Round 4-6 Janitor modifier chance on spawn
-			if turn in [4, 5, 6] and randf() < 0.5:
+			if encounter_kind != "battle" and turn in [4, 5, 6] and randf() < 0.5:
 				var mods = ["armored", "rampaging", "fierce", "regenerating"]
 				card.add_modifier(mods.pick_random())
 
@@ -1052,9 +1168,12 @@ func _enemy_turn() -> void:
 	await _wait(0.4)
 
 func enemy_action_limit() -> int:
-	return mini(tension, clampi(3 + buff_value(false, "energy"), 1, 5))
+	var base_actions := 2 if encounter_kind == "battle" else 3
+	var maximum := 4 if encounter_kind == "battle" else 5
+	return mini(tension, clampi(base_actions + buff_value(false, "energy"), 1, maximum))
 
 func _on_enemy_card_played(card: Node) -> void:
+	log_event("Disaster plays %s." % card.card_data.name)
 	if card.card_data.get("effect", "") == "draw": enemy_draw_cards(int(card.card_data.get("draw_count", 1)))
 	if int(card.card_data.get("on_play_draw", 0)) > 0: enemy_draw_cards(int(card.card_data.on_play_draw))
 	apply_formation_effect(card)
@@ -1163,6 +1282,10 @@ func best_evolution_plan(active: Array, candidates: Array) -> Dictionary:
 				for sacrificed in sacrifices: after.erase(sacrificed.current_slot)
 				after[target.current_slot] = definition
 				var gain := board_score(after) - baseline
+				if cost >= 3: gain += 3.0
+				for sacrificed in sacrifices:
+					if sacrificed.card_data.get("on_sacrifice", "") == "draw" and not enemy_deck.is_empty(): gain += 2.0
+					if sacrificed.card_data.get("on_sacrifice", "") == "burn": gain += 1.0
 				# Board presence buys blockers, future sacrifices and formation bonuses.
 				# Charge more for losing a numerical advantage, unless a lethal attack wins now.
 				var lost := cost - 1
@@ -1203,7 +1326,7 @@ func choose_ai_buff(options: Array) -> Dictionary:
 		for definition in deck_view:
 			for status in ["burn", "poison", "bleed"]:
 				if definition.get("on_hit", {}).has(status): score += float(bonus.get(status, 0)) * 1.5
-		score += float(bonus.get("piercing", 0)) * 5 + float(bonus.get("regen", 0)) - float(bonus.get("self_bleed", 0)) * 3 - float(bonus.get("sluggish", 0)) * 3
+		score += float(bonus.get("piercing", 0)) * 5 + float(bonus.get("regen", 0)) - float(bonus.get("self_bleed", 0)) * 3 - float(bonus.get("sluggish", 0)) * 3 - float(bonus.get("damage_taken", 0)) * 5
 		if score > best_score:
 			best_score = score
 			best = option
@@ -1258,11 +1381,18 @@ func _combat() -> void:
 	var prev_view: bool = in_board_view
 	set_board_view(true)
 	set_hand_tucked(true)
+	log_event("Combat begins.")
+	plans.apply_combat()
 	_set_phase(Phase.COMBAT, "Combat Phase!")
 	await _wait(0.65)
 
 	# The side that played first this round attacks first
-	if player_first:
+	if is_instance_valid(final_boss):
+		await _side_attacks(true)
+		if phase != Phase.GAME_OVER and is_instance_valid(final_boss):
+			final_boss.resolve_intent()
+			if phase != Phase.GAME_OVER: await _side_attacks(false)
+	elif player_first:
 		await _side_attacks(true)
 		if phase != Phase.GAME_OVER:
 			await _side_attacks(false)
@@ -1271,6 +1401,7 @@ func _combat() -> void:
 		if phase != Phase.GAME_OVER:
 			await _side_attacks(true)
 
+	plans.finish_combat()
 	if phase != Phase.GAME_OVER:
 		await _wait(0.5)
 		set_board_view(prev_view)
@@ -1289,6 +1420,7 @@ func _side_attacks(response_side: bool) -> void:
 			continue
 
 		var def = _get_card_in_slot(theirs[i])
+		if response_side and is_instance_valid(final_boss): def = final_boss.redirect_target(atk, def)
 		var target_pos: Vector3
 		if def and def.is_alive():
 			target_pos = def.global_position
@@ -1328,16 +1460,20 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 	var strikes := attack_strikes(atk, defender)
 	for strike in range(strikes):
 		if not atk.is_alive() or phase == Phase.GAME_OVER: break
-		if strike > 0: atk.spawn_popup("FOLLOW-UP STRIKE", Color("75d6c6"))
+		if strike > 0:
+			var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
+			if lane >= 0: defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
+			atk.spawn_popup("FOLLOW-UP STRIKE", Color("75d6c6"))
 		resolve_single_strike(atk, defender, response_side)
 
 func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
 	var blocked: bool = defender != null and defender.is_alive()
+	log_event("%s attacks %s." % [atk.card_data.name, defender.card_data.name if blocked else ("Disaster health" if response_side else "Response health")])
 	if blocked:
 		var info := _calc_damage(atk, defender)
 		defender.take_damage(info.dmg, info.mult)
 		# Effects land only on a surviving card. Normal damage never spills into HP.
-		if defender.is_alive():
+		if defender.is_alive() and not defender.last_evaded_hit:
 			var inflicted: Dictionary = atk.card_data.get("on_hit", {})
 			var buffs := buffs_for(atk.card_data)
 			for status in inflicted:
@@ -1349,7 +1485,7 @@ func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> vo
 		if atk.has_modifier("fierce"): direct += 2
 		_damage_side(not response_side, direct)
 	if int(atk.card_data.get("leech", 0)) > 0: atk.heal(int(atk.card_data.leech))
-	if blocked and defender.is_alive():
+	if blocked and defender.is_alive() and not defender.last_evaded_hit:
 		var thorns := int(buffs_for(defender.card_data).get("thorns", 0)) + int(defender.card_data.get("thorns", 0))
 		if thorns > 0: atk.take_damage(thorns, 1.0, true)
 	atk.after_attack(turn)
@@ -1365,3 +1501,27 @@ func _check_game_over() -> bool:
 		run_director.battle_finished(true)
 		return true
 	return false
+
+
+func sacrifice_reward(card: Node) -> void:
+	var effect: String = card.card_data.get("on_sacrifice", "")
+	if effect == "draw":
+		enemy_draw_cards(1)
+		log_event("Sacrificing %s draws a disaster card." % card.card_data.name)
+	elif effect == "burn":
+		var lane: int = _threat_slots().find(card.current_slot)
+		if lane >= 0:
+			var target = _get_card_in_slot(_response_slots()[lane])
+			if target: target.add_status("burn", 2)
+		log_event("Sacrificing %s releases 2 Burn in its opposing lane." % card.card_data.name)
+
+
+func major_evolution_entry(card: Node, sacrifices: int) -> void:
+	if sacrifices < 3: return
+	card.add_status("barrier", 3 if sacrifices >= 4 else 2)
+	enemy_draw_cards(1)
+	if sacrifices >= 4:
+		for lane in _response_slots():
+			var target = _get_card_in_slot(lane)
+			if target: target.take_damage(1, 1.0, true)
+	log_event("Major evolution gains entry protection and draws 1; four sacrifices also shock the formation.")
