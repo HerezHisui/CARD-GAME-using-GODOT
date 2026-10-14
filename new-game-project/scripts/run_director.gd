@@ -6,22 +6,26 @@ const Rules = preload("res://scripts/battle_rules.gd")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
-const DECISIONS := ["reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff", "intel", "title", "title_help", "characters", "character_preview"]
+const DECISIONS := ["reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff", "intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove", "remove_confirm", "contingency_reward"]
 const MAP_ROWS := 11
 const MAX_UPGRADES := 2
 const CHARACTERS := [
-	{"name":"Alex · Cadet", "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
-	{"name":"Mika · Route Marshal", "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
-	{"name":"Sam · Hazmat Specialist", "description":"Burn and Poison combinations. Apply +2 Burn and +1 Poison; units lose 1 health.", "buff":"chemist", "deck":["fire_truck", "fire_truck", "steam_team", "steam_team", "hazmat_team", "hazmat_team", "debris_clearance", "debris_clearance", "heat_seeker", "toxin_hunter", "cleanse", "tutor"]},
-	{"name":"Jo · Barricade Captain", "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
+	{"name":"Steve · Student", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
+	{"name":"Evacuation Club · Leader", "available":false, "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
+	{"name":"Science Club · Leader", "available":false, "description":"Burn and Poison combinations. Apply +2 Burn and +1 Poison; units lose 1 health.", "buff":"chemist", "deck":["fire_truck", "fire_truck", "steam_team", "steam_team", "hazmat_team", "hazmat_team", "debris_clearance", "debris_clearance", "heat_seeker", "toxin_hunter", "cleanse", "tutor"]},
+	{"name":"Safety Club · Leader", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
 ]
 var selected_character := 0
-const SORT_KEYS := ["name", "element", "cost", "attack", "health", "modifier"]
+const SORT_KEYS := ["name", "element", "cost", "attack", "health", "modifier", "acquired"]
 const GOLD := Color("c9aa70")
 const TEAL := Color("75d6c6")
 const BG := Color("0c141f")
 var game: Node
 var collection: Array[Dictionary] = []
+var acquisition_serial := 0
+var reward_stock: Array[Dictionary] = []
+var run_active := false
+var persistence: Node
 var catalog: Array[Dictionary] = []
 var rooms: Array = []
 var cleared: Array = []
@@ -47,6 +51,19 @@ var action_cancel: Callable
 var buff_choices: Array = []
 var intel_revealed := false
 var idle_hint: Label
+var boss_intent: Label
+var plans_button: Button
+var remove_origin := ""
+var remove_index := -1
+var board_prompt: PanelContainer
+var board_prompt_label: Label
+var extraction_card: Node
+var unlock_after := "cards"
+var event_key := ""
+var event_type := "locked"
+var event_cards: Array[Dictionary] = []
+var event_resolved := false
+const EVENT_TYPES := ["locked", "radio", "rooftop", "science", "infirmary", "lost_found"]
 var deck_sort := 0
 var upgrade_sort := 0
 var deck_descending := false
@@ -62,10 +79,14 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
 	_build_ui()
+	persistence = preload("res://scripts/run_save.gd").new()
+	add_child(persistence)
+	persistence.setup(self)
+	get_tree().auto_accept_quit = false
 	game.load_deck_from_json("res://data/starter_deck.json", catalog)
 	game.load_deck_from_json("res://data/response_expansion.json", catalog)
 	# Utility cards belong to the reward pool, preserving the original starter deck.
-	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":1, "attack":0, "health":1, "effect":"draw", "utility":true})
+	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "attack":0, "health":1, "effect":"draw", "utility":true})
 	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "attack":0, "health":1, "effect":"move", "utility":true})
 	if start_after_reload:
 		start_after_reload = false
@@ -77,24 +98,60 @@ func _ready() -> void:
 func show_title() -> void:
 	get_tree().paused = false
 	battle_active = false
-	reset_panel("MIDNIGHT DRRILLS", "The school is silent. The Janitor is waiting.", "title")
-	var art := TextureRect.new()
-	art.custom_minimum_size = Vector2(400, 240)
-	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	if ResourceLoader.exists(TITLE_ART_PATH): art.texture = load(TITLE_ART_PATH)
-	content.add_child(art)
-	content.add_child(label("BUILD YOUR RESPONSE. CONTAIN THE DISASTER. SURVIVE THE NIGHT.", 20, TEAL))
-	button("Start a new run", show_characters, content).grab_focus()
-	button("How to play", show_title_help, content)
-	button("Quit", func(): get_tree().quit(), content)
+	reset_panel("MIDNIGHT DRRILLS", "THE SCHOOL AFTER DARK", "title")
+	content.get_child(0).add_theme_font_size_override("font_size", 54)
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 50)
+	content.add_child(body)
+	var menu := VBoxContainer.new()
+	menu.custom_minimum_size.x = 340
+	menu.alignment = BoxContainer.ALIGNMENT_CENTER
+	menu.add_theme_constant_override("separation", 12)
+	body.add_child(menu)
+	var has_save: bool = persistence.has_run()
+	if has_save:
+		var saved: Dictionary = persistence.read_save()
+		menu.add_child(label("UNFINISHED RUN · FLOOR %d" % int(saved.director.floor_number), 17, TEAL))
+		button("Continue run", continue_saved_run, menu).grab_focus()
+		button("Abandon run…", confirm_abandon, menu)
+	else: button("Singleplayer · Start game", show_characters, menu).grab_focus()
+	var multiplayer := button("Multiplayer · Coming soon", Callable(), menu)
+	multiplayer.disabled = true
+	button("How to play", show_title_help, menu)
+	button("Quit", quit_game, menu)
+	var scenery := preload("res://scripts/title_backdrop.gd").new()
+	scenery.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(scenery)
+	if ResourceLoader.exists(TITLE_ART_PATH):
+		var art := TextureRect.new()
+		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.texture = load(TITLE_ART_PATH)
+		scenery.add_child(art)
+	content.add_child(label("BUILD YOUR RESPONSE. CONTAIN THE DISASTER. SURVIVE THE NIGHT.", 16, TEAL))
+
+func continue_saved_run() -> void:
+	if not persistence.resume(): show_title()
+
+func confirm_abandon() -> void:
+	reset_panel("ABANDON THIS RUN?", "Your saved deck, school route and battle progress will be cleared. Start again from character selection.", "title_help")
+	button("Abandon run", abandon_run, content)
+	button("Keep my run", show_title, content)
+
+func abandon_run() -> void:
+	run_active = false
+	persistence.discard()
+	game.clear_battle()
+	collection.clear()
+	show_title()
 
 func show_characters() -> void:
 	reset_panel("CHOOSE YOUR CHARACTER", "Each character has a 12-card starter deck and a permanent starting perk.", "characters")
 	for i in CHARACTERS.size():
 		var character: Dictionary = CHARACTERS[i]
-		button(character.name + "\n" + character.description, show_character_preview.bind(i), content)
+		button(character.name + "\n" + (character.description if character.available else "AVAILABLE SOON · " + character.description), show_character_preview.bind(i), content).disabled = not character.available
 	button("Back", show_title, content)
 
 func character_deck(index: int) -> Array[Dictionary]:
@@ -120,16 +177,22 @@ func show_character_preview(index: int) -> void:
 	grid.add_theme_constant_override("v_separation", 16)
 	scroll.add_child(grid)
 	for card in character_deck(index): _card_tile(card, grid)
-	button("Begin run", func(): selected_character = index; last_character = index; new_run(), content)
+	button("Begin run" if CHARACTERS[index].available else "Available soon", start_character.bind(index), content).disabled = not CHARACTERS[index].available
 	button("Back to characters", show_characters, content)
 
+func start_character(index: int) -> void:
+	if index < 0 or index >= CHARACTERS.size() or not CHARACTERS[index].available: return
+	selected_character = index
+	last_character = index
+	new_run()
+
 func show_title_help() -> void:
-	reset_panel("HOW TO SURVIVE", "Choose connected school rooms, collect cards, and defeat the Janitor at the end of each floor.", "title_help")
+	reset_panel("HOW TO SURVIVE", "Prepare across two school floors, then face the three-phase Midnight Warden on floor three.", "title_help")
 	content.add_child(label("Drag Response cards onto empty lower slots. Draw before playing. Space ends your turn. W / S changes the camera.", 18))
 	content.add_child(label("D views your deck. M opens and closes the map during battle. Esc opens the menu. These screens pause the battle.", 18))
 	content.add_child(label("Blocking cards stop all normal damage. Piercing strikes the blocker AND the opposing health pool. Sluggish skips every other round.", 18))
 	content.add_child(label("Burn: upkeep damage, then halve stacks. Poison: upkeep damage, then lose 1 stack. Bleed: damage after attacking, then lose 1 stack.", 18))
-	content.add_child(label("Every 5 rounds: choose 1 of 3 battle-only adaptations. After a boss: choose a permanent floor reward. Both sides receive buffs.", 18, TEAL))
+	content.add_child(label("P opens Plans: save unused energy and arm a contingency.\nL opens the combat log. Click board cards to inspect them.\nEvery 5 rounds: choose 1 of 3 battle-only adaptations. After a boss: choose a permanent floor reward. Both sides receive buffs.", 18, TEAL))
 	button("Back", show_title, content)
 
 func style(color: Color = BG, border: Color = Color("344550")) -> StyleBoxFlat:
@@ -155,7 +218,7 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(130, 42)
-	b.pressed.connect(action)
+	if action.is_valid(): b.pressed.connect(action)
 	parent.add_child(b)
 	return b
 
@@ -189,6 +252,7 @@ func _build_ui() -> void:
 	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(summary)
 	button("Deck  [D]", show_deck, row)
+	button("Log  [L]", show_battle_log, row)
 	map_button = button("School map  [M]", toggle_map, row)
 	menu_button = button("Menu  [Esc]", show_menu, row)
 	prep = _gauge("PREPAREDNESS", true, TEAL)
@@ -210,6 +274,44 @@ func _build_ui() -> void:
 	idle_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	idle_hint.offset_top = -60
 	idle_hint.offset_bottom = -20
+	var intent_panel := PanelContainer.new()
+	intent_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	intent_panel.offset_left = 245
+	intent_panel.offset_right = -245
+	intent_panel.offset_top = 182
+	intent_panel.offset_bottom = 254
+	intent_panel.add_theme_stylebox_override("panel", style(Color(0.04, 0.07, 0.11, 0.95), GOLD))
+	intent_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(intent_panel)
+	boss_intent = label("", 16, GOLD)
+	boss_intent.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boss_intent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	boss_intent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	intent_panel.add_child(boss_intent)
+	intent_panel.hide()
+	plans_button = button("Plans 0/2  [P]", show_plans, root)
+	plans_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	plans_button.offset_left = -210
+	plans_button.offset_right = -24
+	plans_button.offset_top = -225
+	plans_button.offset_bottom = -183
+	plans_button.tooltip_text = "Save 2 unused energy at End Turn for one Plan. Arm a contingency on a later turn."
+	board_prompt = PanelContainer.new()
+	board_prompt.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	board_prompt.offset_left = 240
+	board_prompt.offset_right = -240
+	board_prompt.offset_top = 178
+	board_prompt.offset_bottom = 257
+	board_prompt.add_theme_stylebox_override("panel", style(BG, TEAL))
+	root.add_child(board_prompt)
+	var action_row := HBoxContainer.new()
+	board_prompt.add_child(action_row)
+	board_prompt_label = label("", 17, TEAL)
+	board_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	board_prompt_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	action_row.add_child(board_prompt_label)
+	button("Cancel [Esc]", func(): game.board_input.cancel(), action_row)
+	board_prompt.hide()
 	_style_battle_hud(theme)
 
 func _gauge(title: String, right: bool, color: Color) -> ProgressBar:
@@ -278,6 +380,16 @@ func _style_battle_hud(theme: Theme) -> void:
 		bar.add_theme_stylebox_override("fill", style(TEAL if health == player else Color("da857c")))
 
 func _process(_delta: float) -> void:
+	board_prompt.visible = battle_active and not modal.visible and not game.board_input.action.is_empty()
+	if board_prompt.visible: board_prompt_label.text = str(game.board_input.action.get("title", "Choose a board target"))
+	game.opponent_hand.visible = battle_active and not modal.visible
+	game.get_node("HUD/Root/EndTurnButton").disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or not game.board_input.action.is_empty() or _dragging()
+	plans_button.visible = battle_active and not modal.visible
+	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
+	plans_button.text = "Plans %d/2  [P]" % game.plans.tokens
+	boss_intent.visible = is_instance_valid(game.final_boss) and battle_active and not modal.visible and game.board_input.action.is_empty()
+	boss_intent.get_parent().visible = boss_intent.visible
+	if boss_intent.visible: boss_intent.text = game.final_boss.intent()
 	summary.text = "Floor %d  /  HP %d  /  %d supplies  /  %d cards" % [floor_number, game.player_hp, coins, collection.size()]
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
@@ -285,27 +397,33 @@ func _process(_delta: float) -> void:
 	threat.value = game.tension
 	prep.get_parent().get_child(0).text = "PREPAREDNESS  %d / %d" % [game.preparedness, game.energy_cap]
 	threat.get_parent().get_child(0).text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
-	threat.get_parent().get_child(2).text = "Deck %d  /  Evolutions %d" % [game.enemy_deck.size(), game.enemy_evolution_deck.size()]
+	threat.get_parent().get_child(2).text = "Deck %d / Hand %d / Evo %d" % [game.enemy_deck.size(), game.enemy_hand.size(), game.enemy_evolution_deck.size()]
 	prep.get_parent().get_child(2).text = "Deck %d  /  Hand %d" % [game.deck.size(), game.get_hand_cards().size()]
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = "Draw · %d left" % game.deck.size()
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
-	map_button.disabled = saved_content != null or screen in DECISIONS
+	map_button.disabled = saved_content != null or screen in DECISIONS or not game.board_input.action.is_empty()
 	menu_button.disabled = map_button.disabled
 	idle_hint.visible = not battle_active and not modal.visible
 	prep.get_parent().visible = battle_active and not modal.visible
 	threat.get_parent().visible = battle_active and not modal.visible
 
 func _input(event: InputEvent) -> void:
+	if not modal.visible and not game.board_input.action.is_empty() and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		game.board_input.cancel()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if screen in ["title", "title_help", "characters", "character_preview"]: return
 		match event.keycode:
 			KEY_D: show_deck()
+			KEY_L: show_battle_log()
+			KEY_P: show_plans()
 			KEY_M: toggle_map()
 			KEY_ESCAPE:
 				if screen == "choice" and action_cancel.is_valid():
 					action_cancel.call()
-				elif screen == "intel": close_modal()
+				elif screen in ["intel", "inspect", "plans", "log"]: close_modal()
 				elif screen == "deck" or (modal.visible and screen in ["map", "menu"] and battle_active):
 					close_modal()
 				else:
@@ -314,6 +432,21 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func reset_panel(title: String, subtitle: String, kind: String) -> void:
+	var title_screen := kind in ["title", "title_help", "characters", "character_preview"]
+	modal.offset_left = 0 if title_screen else 45
+	modal.offset_right = 0 if title_screen else -45
+	modal.offset_top = 0 if title_screen else 94
+	modal.offset_bottom = 0 if title_screen else -28
+	var panel_style := style(BG if title_screen else Color(0.04, 0.07, 0.11, 0.99), GOLD)
+	if title_screen:
+		panel_style.set_border_width_all(0)
+		panel_style.set_corner_radius_all(0)
+		panel_style.content_margin_left = 55
+		panel_style.content_margin_right = 55
+		panel_style.content_margin_top = 45
+		panel_style.content_margin_bottom = 35
+	modal.add_theme_stylebox_override("panel", panel_style)
+	game.clear_hand_hover()
 	if battle_active: get_tree().paused = true
 	for child in content.get_children():
 		content.remove_child(child)
@@ -343,6 +476,8 @@ func close_modal() -> void:
 		show_map()
 
 func new_run() -> void:
+	if selected_character < 0 or selected_character >= CHARACTERS.size() or not CHARACTERS[selected_character].available: selected_character = 0
+	last_character = selected_character
 	get_tree().paused = false
 	if saved_content:
 		saved_content.queue_free()
@@ -351,6 +486,9 @@ func new_run() -> void:
 	saved_screen = ""
 	action_cancel = Callable()
 	intel_revealed = false
+	game.plans.reset_run()
+	event_key = ""
+	event_cards.clear()
 	game.player_buffs.clear()
 	game.enemy_buffs.clear()
 	game.player_run_buffs.clear()
@@ -362,7 +500,11 @@ func new_run() -> void:
 	run_seed = rng.randi()
 	rng.seed = run_seed
 	collection.clear()
-	collection = character_deck(selected_character)
+	acquisition_serial = 0
+	for card in character_deck(selected_character): add_collection_card(card)
+	reward_stock.clear()
+	run_active = true
+	persistence.discard()
 	game.get_node("HUD/Root/PlayerHealth/Caption").text = CHARACTERS[selected_character].name
 	coins = 35
 	floor_number = 1
@@ -376,6 +518,7 @@ func new_run() -> void:
 	game.player_run_buffs[CHARACTERS[selected_character].buff] = 1
 	generate_map()
 	show_map()
+	persistence.checkpoint()
 
 func generate_map() -> void:
 	rooms.clear()
@@ -392,7 +535,7 @@ func generate_map() -> void:
 				kind = "elite" if row == 9 and lane == 1 else "battle"
 			elif row > 0:
 				kind = ["battle", "battle", "event", "shop", "upgrade", "rest"][rng.randi_range(0, 5)]
-			rooms.append({"id":rooms.size(), "row":row, "lane":lane if row < MAP_ROWS - 1 else 1, "kind":kind, "links":[]})
+			rooms.append({"id":rooms.size(), "row":row, "lane":lane if row < MAP_ROWS - 1 else 1, "kind":kind, "links":[], "event":EVENT_TYPES[rng.randi_range(0, EVENT_TYPES.size() - 1)] if kind == "event" else ""})
 	for room in rooms:
 		var candidates: Array = []
 		for next in rooms:
@@ -417,18 +560,19 @@ func show_map() -> void:
 	if _dragging(): return
 	if saved_content: return
 	if screen in DECISIONS: return
-	reset_panel("THE SCHOOL MAP", "11 rooms to the boss. Every route includes at least 4 combat encounters. Scroll sideways to explore.  •  Seed %d" % run_seed, "map")
+	reset_panel("THE SCHOOL MAP", "11 rooms to the boss. Every route includes at least 4 combat encounters. Climb upward to the boss. Scroll to explore.  •  Seed %d" % run_seed, "map")
 	var canvas := RouteCanvas.new()
 	canvas.rooms = rooms
 	canvas.current = current
 	canvas.cleared = cleared
-	canvas.custom_minimum_size = Vector2(1670, 390)
-	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	canvas.custom_minimum_size = Vector2(680, 1660)
+	canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var map_scroll := ScrollContainer.new()
 	map_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(map_scroll)
 	map_scroll.add_child(canvas)
-	if current >= 0: map_scroll.set_deferred("scroll_horizontal", maxi(0, int(rooms[current].row) * 150 - 400))
+	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	map_scroll.set_deferred("scroll_vertical", maxi(0, 1660 - 100 - (int(rooms[current].row) if current >= 0 else 0) * 145 - 280))
 	canvas.resized.connect(func():
 		for b in canvas.get_children():
 			b.position = canvas.point(rooms[int(b.get_meta("room"))]) - b.size / 2
@@ -443,10 +587,13 @@ func show_map() -> void:
 		if not b.disabled: b.add_theme_stylebox_override("normal", style(Color("233a47"), TEAL))
 		if id in cleared: b.add_theme_stylebox_override("disabled", style(Color("28312e"), GOLD))
 		b.tooltip_text = "Room %d · %s" % [room.row + 1, room.kind]
+		if room.kind == "boss" and floor_number == 3:
+			b.text = "FINAL BOSS"
+			b.tooltip_text = "Final boss: three telegraphed phases. Prepare healing, barriers and AoE."
 		b.position = canvas.point(room) - b.size / 2
 	var footer := HBoxContainer.new()
 	content.add_child(footer)
-	footer.add_child(label("Battle  /  Elite  /  Rest  /  Workshop  /  Event  /  Shop  →  JANITOR", 16, TEAL))
+	footer.add_child(label("Battle  /  Elite  /  Rest  /  Workshop  /  Event  /  Shop  ↑  JANITOR", 16, TEAL))
 	if battle_active: button("Return to battle", close_modal, footer)
 	else: button("Close map  [M]", toggle_map, footer)
 
@@ -470,19 +617,23 @@ func visit(id: int) -> void:
 			modal.hide()
 			screen = ""
 			game.start_encounter(collection, encounter, floor_number, rng.randi_range(0, 3))
-		"rest":
-			reset_panel("THE INFIRMARY", "A brief shelter from the night. Recover 7 health, or train a card.", "event")
-			button("Rest · heal 7 HP", rest, content)
-			button("Train · upgrade a card", show_upgrade, content)
+		"rest": show_rest()
 		"upgrade": show_upgrade()
 		"shop": show_shop()
 		"event": show_event()
 
 func finish_room() -> void:
+	reward_stock.clear()
 	if current not in cleared: cleared.append(current)
 	screen = ""
 	game._refresh_bars()
 	show_map()
+
+func show_rest() -> void:
+	reset_panel("THE INFIRMARY", "Choose one: recover 7 health, train a card, or remove one card from your deck.", "event")
+	button("Rest · heal 7 HP", rest, content)
+	button("Train · upgrade a card", show_upgrade, content)
+	button("Retire a card · free", show_remove_cards.bind("rest"), content).disabled = collection.size() <= 5
 
 func rest() -> void:
 	game.player_hp = mini(game.PLAYER_MAX_HP, game.player_hp + 7)
@@ -496,23 +647,64 @@ func battle_finished(won: bool) -> void:
 	game.player_buffs.clear()
 	game.enemy_buffs.clear()
 	if not won:
+		run_active = false
+		persistence.discard()
 		reset_panel("TRAPPED AFTER MIDNIGHT", "Your run has ended. Begin again with a new school layout.", "result")
-		button("Start a new run", restart_scene, content)
+		button("Return to starting screen", return_title, content)
 		return
 	coins += 35 if encounter == "elite" else (60 if encounter == "boss" else 20)
 	if encounter == "boss":
 		game.clear_battle(true)
-		show_floor_buffs()
+		show_contingency_reward("victory" if floor_number == 3 else "floor")
+	elif encounter == "elite": show_contingency_reward("cards")
 	else:
 		show_rewards()
 
+func show_contingency_reward(next_screen: String, restore_offers: bool = false) -> void:
+	unlock_after = next_screen
+	if not restore_offers: buff_choices.clear()
+	var locked: Array = game.plans.TACTICS.filter(func(tactic): return tactic.id not in game.plans.unlocked)
+	if locked.is_empty():
+		finish_unlock_reward()
+		return
+	if not restore_offers:
+		for i in range(mini(3, locked.size())): buff_choices.append(locked.pop_at(rng.randi_range(0, locked.size() - 1)))
+	reset_panel("NEW CONTINGENCY", "Elite and boss victories teach a new tactic. Choose one to unlock for the rest of this run.", "contingency_reward")
+	for tactic in buff_choices: button(tactic.name + " · %d Plan%s\n" % [tactic.cost, "s" if int(tactic.cost) > 1 else ""] + tactic.description, select_contingency_reward.bind(tactic.id), content)
+
+func select_contingency_reward(id: String) -> void:
+	if screen != "contingency_reward" or not buff_choices.any(func(tactic): return tactic.id == id): return
+	game.plans.unlock(id)
+	finish_unlock_reward()
+
+func finish_unlock_reward() -> void:
+	match unlock_after:
+		"floor": show_floor_buffs()
+		"victory": show_run_victory()
+		_: show_rewards()
+
+func show_run_victory() -> void:
+	run_active = false
+	persistence.discard()
+	reset_panel("DAWN AT LAST", "Steve has survived all three floors and contained the Midnight Warden. The school is safe.", "victory")
+	content.add_child(label("RUN COMPLETE · %d cards · %d supplies · %d health remaining" % [collection.size(), coins, game.player_hp], 20, TEAL))
+	button("Return to starting screen", return_title, content)
+	button("Keep exploring · endless floors", show_floor_buffs, content)
+
 func next_floor() -> void:
+	run_active = true
 	floor_number += 1
 	game.player_hp = mini(game.PLAYER_MAX_HP, game.player_hp + 5)
 	game.clear_battle()
 	generate_map()
 	screen = ""
 	show_map()
+
+func add_collection_card(card: Dictionary) -> void:
+	acquisition_serial += 1
+	var copy := card.duplicate(true)
+	copy.acquired = acquisition_serial
+	collection.append(copy)
 
 func offers(count: int) -> Array[Dictionary]:
 	var pool: Array[Dictionary] = []
@@ -533,8 +725,9 @@ func show_rewards() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 24)
 	content.add_child(row)
-	for card in offers(3):
-		_card_tile(card, row, func(): collection.append(card.duplicate(true)); finish_room(), "Take card")
+	if reward_stock.is_empty(): reward_stock = offers(3)
+	for card in reward_stock:
+		_card_tile(card, row, func(): add_collection_card(card.duplicate(true)); finish_room(), "Take card")
 	button("Skip card reward", finish_room, content)
 
 func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), action_text: String = "") -> void:
@@ -560,6 +753,7 @@ func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), a
 	if card.get("modifier", "") != "": traits.push_front(card.modifier)
 	box.add_child(label(" / ".join(traits).capitalize() if not traits.is_empty() else "No modifier", 14, Color("9cacb9")))
 	box.add_child(label("Upgrades %d / 2" % upgrade_level(card), 12, GOLD))
+	if card.has("graveyard_reason"): box.add_child(label("%s · round %d" % [card.graveyard_reason, int(card.graveyard_round)], 13, GOLD))
 	if int(card.get("locked_until", 0)) > game.turn: box.add_child(label("SEALED until round %d" % int(card.locked_until), 13, Color("da857c")))
 	if card.has("on_hit"):
 		var hits: PackedStringArray = []
@@ -609,6 +803,7 @@ func show_deck() -> void:
 	button("Draw pile (%d)" % game.deck.size(), deck_cards.bind(game.deck), tabs).disabled = not battle_active
 	button("Hand (%d)" % game.get_hand_cards().size(), deck_hand, tabs).disabled = not battle_active
 	button("On board", deck_board, tabs).disabled = not battle_active
+	button("Graveyards (%d / %d)" % [game.player_graveyard.size(), game.enemy_graveyard.size()], show_graveyard, tabs)
 	if intel_revealed: button("Janitor hand", func(): deck_cards(game.enemy_hand), tabs)
 	button("Close", close_modal, tabs)
 	add_sort_controls(false)
@@ -617,6 +812,129 @@ func show_deck() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(scroll)
 	deck_cards(collection)
+
+func preserve_pending_decision() -> void:
+	if screen in DECISIONS and saved_content == null:
+		saved_content = content
+		saved_screen = screen
+		modal.remove_child(content)
+		content = VBoxContainer.new()
+		content.add_theme_constant_override("separation", 14)
+		modal.add_child(content)
+
+func inspect_board_card(card: Node) -> void:
+	if not battle_active or modal.visible or _dragging() or not is_instance_valid(card) or card.in_hand: return
+	reset_panel("CARD INSPECTION", "Current battle stats, effects and statuses. Combat is paused while you inspect.", "inspect")
+	_card_tile(live_definition(card), content)
+	button("Return to battle", close_modal, content)
+
+func show_battle_log() -> void:
+	if _dragging() or screen in ["title", "title_help", "characters", "character_preview"]: return
+	if screen == "log":
+		close_modal()
+		return
+	preserve_pending_decision()
+	reset_panel("BATTLE LOG", "Latest 300 events, in order. This encounter's actions, damage, healing and statuses.", "log")
+	var log_view := RichTextLabel.new()
+	log_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_view.add_theme_font_size_override("normal_font_size", 18)
+	log_view.text = "\n".join(game.battle_log) if not game.battle_log.is_empty() else "No battle events yet."
+	content.add_child(log_view)
+	button("Close  [L / Esc]", close_modal, content)
+
+func show_plans() -> void:
+	if not battle_active or _dragging() or not game.board_input.action.is_empty(): return
+	if screen == "plans":
+		close_modal()
+		return
+	if screen in DECISIONS or saved_content != null: return
+	reset_panel("PREPAREDNESS · CONTINGENCIES", "Save 2 unused energy at End Turn for 1 Plan. Unlock more tactics from elite and boss wins.", "plans")
+	content.add_child(label("PLANS %d / 2 · %d TACTICS UNLOCKED" % [game.plans.tokens, game.plans.unlocked.size()], 23, TEAL))
+	var save := CheckButton.new()
+	save.text = "Automatically save 2 unused energy when ending my turn"
+	save.button_pressed = game.plans.auto_save
+	save.toggled.connect(func(enabled): game.plans.auto_save = enabled)
+	content.add_child(save)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 12)
+	scroll.add_child(list)
+	for id in game.plans.unlocked:
+		var tactic: Dictionary = game.plans.definition(id)
+		button(tactic.name + " · %d Plan%s\n" % [tactic.cost, "s" if int(tactic.cost) > 1 else ""] + tactic.description, begin_tactic.bind(id), list).disabled = not tactic_available(id)
+	if not game.plans.armed.is_empty(): content.add_child(label("ARMED: " + str(game.plans.definition(game.plans.armed.kind).name), 18, GOLD))
+	content.add_child(label("One armed tactic per round. Targeted tactics use board clicks. Esc cancels target selection without spending.", 16))
+	button("Return to battle  [P / Esc]", close_modal, content)
+
+func tactic_available(id: String) -> bool:
+	var tactic: Dictionary = game.plans.definition(id)
+	if game.phase != game.Phase.PLAYER_PLAY or game.plans.tokens < int(tactic.cost) or game.plans.committed_round == game.turn: return false
+	var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
+	if id == "coordinate": return not matching_plan_pairs().is_empty()
+	if id == "supply": return not game.deck.is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
+	if id == "shelter": return true
+	if id == "extract": return not allies.is_empty() and game._response_slots().any(func(slot): return game._get_card_in_slot(slot) == null)
+	return not allies.is_empty()
+
+func begin_tactic(id: String) -> void:
+	if not tactic_available(id): return
+	close_modal()
+	if id == "coordinate":
+		game.board_input.pair("Click the first friendly ally for Coordinated Response. Esc cancels.", arm_coordination)
+	elif id == "extract":
+		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
+		game.board_input.pick("Click the ally to protect with Emergency Extraction. Esc cancels.", allies, select_extraction_ally, Callable())
+	elif id in ["supply", "shelter"]: game.plans.arm(id, [])
+	else:
+		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
+		game.board_input.pick("Click a deployed ally for " + str(game.plans.definition(id).name) + ". Esc cancels.", allies, arm_target_tactic.bind(id), Callable())
+
+func arm_target_tactic(card: Node, id: String) -> void: game.plans.arm(id, [card])
+func select_brace() -> void: begin_tactic("brace")
+func arm_brace(card: Node) -> void:
+	game.board_input.clear()
+	game.plans.arm("brace", [card])
+func select_coordination() -> void: begin_tactic("coordinate")
+func arm_coordination(cards: Array) -> void:
+	game.board_input.clear()
+	game.plans.arm("coordinate", cards)
+
+func select_extraction_ally(card: Node) -> void:
+	extraction_card = card
+	game.board_input.destination(card, arm_extraction)
+
+func arm_extraction(slot: Node3D) -> void:
+	game.plans.arm("extract", [extraction_card], slot)
+	extraction_card = null
+
+func matching_plan_pairs() -> Array:
+	var pairs: Array = []
+	var slots: Array = game._response_slots()
+	for i in range(slots.size() - 1):
+		for j in range(i + 1, slots.size()):
+			var first = game._get_card_in_slot(slots[i])
+			var second = game._get_card_in_slot(slots[j])
+			if first and second and game.plans.matching_pair([first, second]): pairs.append([first, second])
+	return pairs
+
+func show_graveyard() -> void:
+	if _dragging(): return
+	reset_panel("BATTLE GRAVEYARDS", "Destroyed units, sacrifices and cast spells stay here until the next encounter. Cards do not return to the draw pile.", "deck")
+	var tabs := HBoxContainer.new()
+	content.add_child(tabs)
+	button("Response (%d)" % game.player_graveyard.size(), deck_cards.bind(game.player_graveyard), tabs)
+	button("Janitor (%d)" % game.enemy_graveyard.size(), deck_cards.bind(game.enemy_graveyard), tabs)
+	button("Back to deck", func(): screen = ""; show_deck(), tabs)
+	button("Close", close_modal, tabs)
+	add_sort_controls(false)
+	var scroll := ScrollContainer.new()
+	scroll.name = "Cards"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(scroll)
+	deck_cards(game.player_graveyard)
 
 func deck_hand() -> void:
 	var cards: Array[Dictionary] = []
@@ -635,6 +953,7 @@ func live_definition(card: Node) -> Dictionary:
 	var definition: Dictionary = card.card_data.duplicate(true)
 	definition.attack = card.effective_attack()
 	definition.modifier = ", ".join(card.modifiers)
+	definition.erase("modifiers")
 	definition.strength = int(card.statuses.get("strength", 0))
 	definition.statuses = card.statuses.duplicate()
 	return definition
@@ -668,6 +987,7 @@ func deck_cards(cards: Array[Dictionary]) -> void:
 	grid.add_theme_constant_override("v_separation", 16)
 	scroll.add_child(grid)
 	for index in sorted_indices(cards, deck_sort, deck_descending): _card_tile(cards[index], grid)
+	if cards.is_empty(): grid.add_child(label("No cards here yet.", 20, TEAL))
 
 func sorted_indices(cards: Array, key_index: int, descending: bool) -> Array:
 	var indices: Array = range(cards.size())
@@ -676,7 +996,11 @@ func sorted_indices(cards: Array, key_index: int, descending: bool) -> Array:
 		var left: Variant = cards[a].get(key, "")
 		var right: Variant = cards[b].get(key, "")
 		var comparison := 0
-		if key in ["cost", "attack", "health"]:
+		if key == "acquired":
+			left = int(cards[a].get(key, a))
+			right = int(cards[b].get(key, b))
+			comparison = -1 if int(left) > int(right) else (1 if int(left) < int(right) else 0)
+		elif key in ["cost", "attack", "health"]:
 			comparison = -1 if int(left) < int(right) else (1 if int(left) > int(right) else 0)
 		else: comparison = str(left).naturalnocasecmp_to(str(right))
 		if comparison == 0: return a < b
@@ -691,7 +1015,7 @@ func add_sort_controls(workshop: bool) -> void:
 	row.add_child(label("Sort by", 16))
 	var picker := OptionButton.new()
 	picker.custom_minimum_size = Vector2(190, 40)
-	for title in ["Name", "Type", "Cost", "Attack", "Health", "Modifier"]: picker.add_item(title)
+	for title in ["Name", "Type", "Cost", "Attack", "Health", "Modifier", "Recently added"]: picker.add_item(title)
 	picker.select(upgrade_sort if workshop else deck_sort)
 	picker.item_selected.connect(change_sort.bind(workshop))
 	row.add_child(picker)
@@ -817,6 +1141,16 @@ func show_shop() -> void:
 	if shop_key != key:
 		shop_key = key
 		shop_stock = offers(4)
+		if floor_number >= 2:
+			var remainder := shop_stock.filter(func(card): return card.id not in ["barrier", "alarm_sweep"])
+			shop_stock.clear()
+			for id in ["barrier", "alarm_sweep"]:
+				for card in catalog:
+					if card.id == id:
+						shop_stock.append(card.duplicate(true))
+						break
+			shop_stock.append(remainder[0])
+			shop_stock.append(remainder[1])
 		shop_purchased.clear()
 	reset_panel("THE SUPPLY ROOM", "Buy as many stocked items as you can afford. Card prices scale with power. Repeatable first aid: 15. Stock stays fixed.", "shop")
 	var row := HBoxContainer.new()
@@ -828,6 +1162,7 @@ func show_shop() -> void:
 		if sold: row.get_child(row.get_child_count() - 1).get_child(0).add_child(label("SOLD OUT", 16, GOLD))
 		elif coins < price: row.get_child(row.get_child_count() - 1).get_child(0).add_child(label("Need %d supplies" % price, 14, Color("9cacb9")))
 	button("First aid · 5 HP · 15 supplies", buy_heal, content).disabled = coins < 15 or game.player_hp >= game.PLAYER_MAX_HP
+	button("Destroy a card · 30 supplies", show_remove_cards.bind("shop"), content).disabled = coins < 30 or collection.size() <= 5
 	button("Leave shop", finish_room, content)
 
 func shop_price(card: Dictionary) -> int:
@@ -847,7 +1182,7 @@ func buy(card: Dictionary) -> void:
 	var price := shop_price(definition)
 	if coins < price: return
 	coins -= price
-	collection.append(definition.duplicate(true))
+	add_collection_card(definition.duplicate(true))
 	shop_purchased.append(definition.id)
 	show_shop()
 
@@ -857,16 +1192,121 @@ func buy_heal() -> void:
 	game.player_hp = mini(game.PLAYER_MAX_HP, game.player_hp + 5)
 	show_shop()
 
-func show_event() -> void:
-	reset_panel("A LOCKED CLASSROOM", "Emergency supplies wait behind broken glass. Take the risk, or search safely.", "event")
-	button("Break the glass · lose 3 HP, gain a card and 30 supplies", event_risk, content).disabled = game.player_hp <= 3
-	button("Search the hallway · gain 10 supplies", func(): coins += 10; finish_room(), content)
+func show_remove_cards(origin: String) -> void:
+	if battle_active or origin not in ["shop", "rest", "event"]: return
+	remove_origin = origin
+	reset_panel("REMOVE A CARD", "Choose the exact copy to retire. Keep at least 5 cards. " + ("Removal costs 30 supplies; the shop stays open." if origin == "shop" else ("This replaces healing or training at this rest node." if origin == "rest" else "Trade one card for 25 supplies.")), "remove")
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	scroll.add_child(grid)
+	for i in sorted_indices(collection, deck_sort, deck_descending): _card_tile(collection[i], grid, preview_remove.bind(i), "Choose this copy")
+	button("Cancel", cancel_remove, content)
 
-func event_risk() -> void:
-	game.player_hp -= 3
-	coins += 30
-	collection.append(offers(1)[0])
+func preview_remove(index: int) -> void:
+	if index < 0 or index >= collection.size(): return
+	remove_index = index
+	reset_panel("DESTROY THIS COPY?", "This removes the card from your run deck. Your other copies are kept.", "remove_confirm")
+	_card_tile(collection[index], content)
+	button("Confirm removal" + (" · 30 supplies" if remove_origin == "shop" else ""), confirm_remove, content).disabled = collection.size() <= 5 or (remove_origin == "shop" and coins < 30)
+	button("Back", show_remove_cards.bind(remove_origin), content)
+
+func confirm_remove() -> void:
+	if screen != "remove_confirm" or collection.size() <= 5 or remove_index < 0 or remove_index >= collection.size(): return
+	if remove_origin == "shop" and coins < 30: return
+	if remove_origin == "shop": coins -= 30
+	collection.remove_at(remove_index)
+	remove_index = -1
+	if remove_origin == "shop": show_shop()
+	else:
+		if remove_origin == "event":
+			coins += 25
+			event_resolved = true
+		finish_room()
+
+func cancel_remove() -> void:
+	if remove_origin == "shop": show_shop()
+	elif remove_origin == "event": show_event()
+	else: show_rest()
+
+func catalog_card(id: String) -> Dictionary:
+	for card in catalog:
+		if card.id == id: return card.duplicate(true)
+	return {}
+
+func show_event() -> void:
+	var key := "%d:%d" % [floor_number, current]
+	if event_key != key:
+		event_key = key
+		event_type = str(rooms[current].get("event", "locked")) if current >= 0 and current < rooms.size() else "locked"
+		if event_type == "": event_type = "locked"
+		event_resolved = false
+		event_cards.clear()
+		if event_type == "locked": event_cards = offers(1)
+		elif event_type == "science":
+			var burn := catalog_card("steam_team")
+			burn.name = "Experimental Steam Team"
+			burn.on_hit.burn = int(burn.on_hit.burn) + 2
+			var poison := catalog_card("hazmat_team")
+			poison.name = "Experimental Hazmat Team"
+			poison.on_hit.poison = int(poison.on_hit.poison) + 1
+			event_cards.assign([burn, poison])
+	match event_type:
+		"radio":
+			reset_panel("THE EMERGENCY RADIO", "A student on the radio offers a scouting kit and a search-and-rescue plan.", "event")
+			button("Buy the kit · 20 supplies · gain Hazard Forecast and Search and Rescue", resolve_event.bind("radio_buy"), content).disabled = coins < 20
+			button("Report the safe route · gain 10 supplies", resolve_event.bind("safe"), content)
+		"rooftop":
+			reset_panel("ROOFTOP DRILLS", "Train ahead of the next disaster. Better preparation comes with fewer resources for immediate plays.", "event")
+			button("Train · start every battle with +1 Plan, but lose 1 energy capacity for the run", resolve_event.bind("training"), content)
+			button("Collect unused equipment · gain 10 supplies", resolve_event.bind("safe"), content)
+		"science":
+			reset_panel("THE SCIENCE LAB", "Unstable experiments offer stronger status cards. Each experiment costs 3 health.", "event")
+			var row := HBoxContainer.new()
+			content.add_child(row)
+			for i in range(event_cards.size()): _card_tile(event_cards[i], row, resolve_event.bind("science_%d" % i) if game.player_hp > 3 else Callable(), "Experiment · 3 HP")
+			button("Leave the experiments · gain 10 supplies", resolve_event.bind("safe"), content)
+		"infirmary":
+			reset_panel("A VOLUNTEER'S OFFER", "The volunteer can patch you up quickly, but accepting the full treatment adds a deadweight card to your deck.", "event")
+			button("Full treatment · heal 8 HP · add Paperwork (spend 1 energy to discard it)", resolve_event.bind("treatment"), content).disabled = game.player_hp >= game.PLAYER_MAX_HP
+			button("Take a short break · heal 3 HP", resolve_event.bind("rest"), content)
+		"lost_found":
+			reset_panel("LOST AND FOUND", "The supply monitor will trade for one card you no longer need.", "event")
+			button("Trade a card · remove one exact copy and gain 25 supplies", show_remove_cards.bind("event"), content).disabled = collection.size() <= 5
+			button("Keep your deck · gain 10 supplies", resolve_event.bind("safe"), content)
+		_:
+			reset_panel("A LOCKED CLASSROOM", "Emergency supplies wait behind broken glass. Take the risk, or search safely.", "event")
+			button("Break the glass · lose 3 HP, gain a card and 30 supplies", event_risk, content).disabled = game.player_hp <= 3
+			button("Search the hallway · gain 10 supplies", resolve_event.bind("safe"), content)
+
+func resolve_event(choice: String) -> void:
+	if screen != "event" or event_resolved: return
+	if choice in ["risk", "science_0", "science_1"] and game.player_hp <= 3: return
+	if choice == "radio_buy" and coins < 20: return
+	event_resolved = true
+	match choice:
+		"risk":
+			game.player_hp -= 3
+			coins += 30
+			add_collection_card(event_cards[0].duplicate(true))
+		"radio_buy":
+			coins -= 20
+			add_collection_card(catalog_card("scout"))
+			add_collection_card(catalog_card("tutor"))
+		"training": game.add_global_buff(true, "drill_tactics", true)
+		"science_0", "science_1":
+			game.player_hp -= 3
+			add_collection_card(event_cards[int(choice.right(1))].duplicate(true))
+		"treatment":
+			game.player_hp = mini(game.PLAYER_MAX_HP, game.player_hp + 8)
+			add_collection_card({"id":"paperwork", "name":"Paperwork", "type":"response", "element":"clearance", "cost":1, "attack":0, "health":1, "utility":true, "effect":"delay"})
+		"rest": game.player_hp = mini(game.PLAYER_MAX_HP, game.player_hp + 3)
+		_: coins += 10
 	finish_room()
+
+func event_risk() -> void: resolve_event("risk")
 
 func show_menu() -> void:
 	if _dragging(): return
@@ -878,27 +1318,33 @@ func show_menu() -> void:
 	content.add_child(label("Piercing also hits health through blockers. Sluggish attacks every other round. Strength adds attack. Periodic statuses bypass armor.", 16))
 	content.add_child(label("BATTLE: " + buff_summary(game.player_buffs) + "\nRUN: " + buff_summary(game.player_run_buffs) + "\nJANITOR BATTLE: " + buff_summary(game.enemy_buffs) + "\nJANITOR RUN: " + buff_summary(game.enemy_run_buffs), 16, TEAL))
 	button("Resume", close_modal, content)
-	button("Restart run…", confirm_restart, content)
+	button("Combat log  [L]", show_battle_log, content)
+	button("Return to starting screen…", confirm_title, content)
 	button("Quit game", quit_game, content)
 
 func quit_game() -> void:
+	persistence.checkpoint()
 	get_tree().paused = false
 	get_tree().quit()
 
-func confirm_restart() -> void:
-	reset_panel("RESTART THIS RUN?", "Your current deck, supplies, and route will be replaced by a fresh run.", "menu")
-	button("Start new run", restart_scene, content)
+func confirm_title() -> void:
+	reset_panel("RETURN TO STARTING SCREEN?", "Your unfinished run is saved. Continue it from the starting screen, or abandon it there.", "menu")
+	button("Return to starting screen", return_title, content)
 	button("Keep playing", close_modal, content)
 
-func _dragging() -> bool:
-	for card in game.get_hand_cards():
-		if card.is_dragging: return true
-	return false
-
-func restart_scene() -> void:
+func return_title() -> void:
+	persistence.checkpoint()
+	run_active = false
 	get_tree().paused = false
-	start_after_reload = true
+	start_after_reload = false
 	get_tree().call_deferred("reload_current_scene")
+
+func confirm_restart() -> void: confirm_title()
+
+func _dragging() -> bool:
+	return is_instance_valid(game.dragged_hand_card) and game.dragged_hand_card.is_dragging
+
+func restart_scene() -> void: return_title()
 
 func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable, subtitle: String = "Choose one card. Cancel keeps your spell and energy.") -> void:
 	reset_panel(title, subtitle, "choice")
@@ -922,6 +1368,30 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 		_card_tile(definition, grid, callback.bind(entry), "Choose")
 	button("Cancel  [Esc]", cancel, content)
 
+func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> void:
+	if intel_revealed:
+		choose_card("CHOOSE AN ENEMY HAND CARD", cards, callback, cancel)
+		return
+	reset_panel("CHOOSE AN ENEMY HAND CARD", "Only cards currently held by the Janitor can be targeted. Cast Hazard Forecast to reveal their faces first.", "choice")
+	action_cancel = cancel
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	scroll.add_child(grid)
+	for i in range(cards.size()):
+		var box := VBoxContainer.new()
+		grid.add_child(box)
+		var back := TextureRect.new()
+		back.texture = CardFace._card_back()
+		back.custom_minimum_size = Vector2(180, 235)
+		back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		box.add_child(back)
+		button("Hand card %d" % (i + 1), callback.bind(cards[i]), box)
+	button("Cancel", cancel, content)
+
 func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
 	reset_panel("CHOOSE AN EMPTY LANE", "Your selected ally moves to this slot. The newly played card stays on board.", "choice")
 	action_cancel = cancel
@@ -943,15 +1413,17 @@ func show_intel() -> void:
 	if game.enemy_hand.is_empty(): row.add_child(label("The Janitor's hand is empty."))
 	button("Return to battle", close_modal, content)
 
-func show_buff_choices() -> void:
-	buff_choices.clear()
+func show_buff_choices(restore_offers: bool = false) -> void:
+	if not restore_offers: buff_choices.clear()
 	var pool: Array = Rules.BUFFS.duplicate(true)
-	for i in range(3):
-		var index := rng.randi_range(0, pool.size() - 1)
-		buff_choices.append(pool.pop_at(index))
+	if not restore_offers:
+		for i in range(3):
+			var index := rng.randi_range(0, pool.size() - 1)
+			buff_choices.append(pool.pop_at(index))
 	var enemy_choice: Dictionary = game.choose_ai_buff(buff_choices)
-	game.add_global_buff(false, enemy_choice.id)
-	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn, "These buffs expire after this battle. The Janitor chose: %s." % enemy_choice.name, "buff")
+	if not restore_offers and not is_instance_valid(game.final_boss): game.add_global_buff(false, enemy_choice.id)
+	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn, "These buffs expire after this battle. The Janitor adaptation is already applied: %s." % enemy_choice.name, "buff")
+	if is_instance_valid(game.final_boss): content.get_child(1).text = "Battle-only adaptations. The final boss keeps its fixed attack pattern."
 	for buff in buff_choices:
 		button(buff.name + "\n" + buff.description, select_buff.bind(buff.id), content)
 	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs) + "\nJANITOR BUFFS: " + buff_summary(game.enemy_buffs), 16, TEAL))
@@ -962,13 +1434,14 @@ func select_buff(id: String) -> void:
 	close_modal()
 	game.continue_round()
 
-func show_floor_buffs() -> void:
-	buff_choices.clear()
+func show_floor_buffs(restore_offers: bool = false) -> void:
+	if not restore_offers: buff_choices.clear()
 	var pool: Array = Rules.RUN_BUFFS.duplicate(true)
-	for i in range(3): buff_choices.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+	if not restore_offers:
+		for i in range(3): buff_choices.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number, "Choose one buff for the entire run, then climb to the next floor. The Janitor also adapts permanently.", "floor_buff")
 	for buff in buff_choices: button(buff.name + "\n" + buff.description, select_floor_buff.bind(buff.id), content)
-	button("Start a new run instead", restart_scene, content)
+	button("Return to starting screen", return_title, content)
 
 func select_floor_buff(id: String) -> void:
 	if screen != "floor_buff" or not buff_choices.any(func(buff): return buff.id == id): return
@@ -987,3 +1460,7 @@ func buff_summary(buffs: Dictionary) -> String:
 				break
 		names.append("%s ×%d" % [title, int(buffs[id])])
 	return "None" if names.is_empty() else " / ".join(names)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and persistence != null: quit_game()

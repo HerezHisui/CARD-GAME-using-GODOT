@@ -41,6 +41,8 @@ func run() -> void:
 	check(game.preparedness == 10, "failed utility does not spend energy")
 	var ally = make_card(director.collection[0], game._response_slots()[0])
 	check(game.try_utility(exit_card, game._response_slots()[2]), "Emergency Exit succeeds")
+	game.select_moving_ally(ally)
+	game.complete_move_effect(game._response_slots()[2])
 	check(ally.current_slot == game._response_slots()[2], "ally moves to chosen slot")
 	check(game.preparedness == 9, "move costs energy")
 	var neighbor = make_card(director.collection[0], game._response_slots()[3])
@@ -88,6 +90,8 @@ func run() -> void:
 	director.encounter = "boss"
 	director.battle_active = true
 	director.battle_finished(true)
+	check(director.screen == "contingency_reward", "boss awards a contingency first")
+	director.select_contingency_reward(director.buff_choices[0].id)
 	check(director.screen == "floor_buff", "boss opens permanent floor reward")
 	director.select_floor_buff(director.buff_choices[0].id)
 	check(director.floor_number == 2 and game.player_hp == 20 and director.current == -1, "next floor heals and generates fresh map")

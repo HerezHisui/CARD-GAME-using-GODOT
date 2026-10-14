@@ -81,7 +81,7 @@
     "name": "Search and Rescue",
     "type": "response",
     "element": "evac",
-    "cost": 1,
+    "cost": 2,
     "attack": 0,
     "health": 1,
     "utility": true,
@@ -103,7 +103,7 @@
     "name": "Hazard Forecast",
     "type": "response",
     "element": "evac",
-    "cost": 1,
+    "cost": 2,
     "attack": 0,
     "health": 1,
     "utility": true,
@@ -265,5 +265,71 @@
       "threshold": 3,
       "bonus": 2
     }
+  },
+  {
+    "id": "herb",
+    "name": "First Aid Herb",
+    "type": "response",
+    "element": "douse",
+    "cost": 0,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "herb"
+  },
+  {
+    "id": "tablet",
+    "name": "Restoration Tablet",
+    "type": "response",
+    "element": "douse",
+    "cost": 1,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "tablet"
+  },
+  {
+    "id": "barrier",
+    "name": "Barrier Generator",
+    "type": "response",
+    "element": "brace",
+    "cost": 2,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "barrier"
+  },
+  {
+    "id": "alarm_sweep",
+    "name": "Alarm Sweep",
+    "type": "response",
+    "element": "clearance",
+    "cost": 2,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "blast"
+  },
+  {
+    "id": "containment_lance",
+    "name": "Containment Lance",
+    "type": "response",
+    "element": "clearance",
+    "cost": 3,
+    "attack": 2,
+    "health": 4,
+    "ignore_taunt": true
+  },
+  {
+    "id": "silent_runner",
+    "name": "Silent Runner",
+    "type": "response",
+    "element": "evac",
+    "cost": 3,
+    "attack": 2,
+    "health": 3,
+    "ignore_taunt": true,
+    "effect": "draw",
+    "draw_count": 1
   }
 ]

@@ -65,8 +65,9 @@ func run() -> void:
 		check(starter.size() == 12, "each character has a complete starter deck")
 		director.selected_character = i
 		director.new_run()
-		check(game.player_run_buffs.has(director.CHARACTERS[i].buff), "character perk assigned")
-		check(director.collection == starter, "chosen character deck assigned")
+		check(game.player_run_buffs.has("cadet"), "unavailable characters fall back to Steve")
+		var identities: Array = director.collection.map(func(card): return card.id)
+		check(identities == director.character_deck(0).map(func(card): return card.id), "only available character starts a run")
 		check(game.enemy_run_buffs.is_empty(), "character perks belong to player")
 	director.show_character_preview(2)
 	await capture("character_deck")
@@ -157,18 +158,19 @@ func run() -> void:
 	director.coins = 150
 	director.show_shop()
 	await capture("priced_shop")
-	director.show_character_preview(1)
+	director.show_character_preview(0)
 	for child in director.content.get_children():
 		if child is Button and child.text == "Begin run": child.pressed.emit()
-	check(director.selected_character == 1 and game.player_run_buffs.has("marshal"), "actual character selection button starts its deck")
+	check(director.selected_character == 0 and game.player_run_buffs.has("cadet"), "actual character selection button starts its deck")
 	director.restart_scene()
 	await process_frame
 	await process_frame
 	game = current_scene
 	director = game.run_director
-	check(director.selected_character == 1 and game.player_run_buffs.has("marshal") and director.collection == director.character_deck(1), "restart retains selected character and starter perk")
+	check(director.screen == "title", "restart shortcut returns to title")
+	director.start_character(0)
 	game.start_encounter(director.character_deck(0), "elite", 1, 0)
-	check(game.enemy_max_hp == 24 and game.enemy_deck.size() + game.enemy_hand.size() == 21 and game.enemy_evolution_deck.size() == 14, "elite health and deck reductions")
+	check(game.enemy_max_hp == 24 and game.enemy_deck.size() + game.enemy_hand.filter(func(card): return int(card.cost) == 0).size() == 21 and game.enemy_evolution_deck.size() + game.enemy_hand.filter(func(card): return int(card.cost) > 0).size() == 14, "elite health and deck reductions")
 	# Avoid launching a second encounter while the first coinflip coroutine is active.
 	print("PASS: 300 exhaustive route checks, four starter characters/perks, two-tier unique upgrades, powered spells, conditional bonuses/double strikes/bleed, priced shops, board-preserving and lethal AI, reduced encounter size")
 	quit(0)

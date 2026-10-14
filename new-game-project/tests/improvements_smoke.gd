@@ -84,7 +84,7 @@ func run() -> void:
 	var ally = make_card({"name":"Ally", "type":"response", "element":"evac", "cost":1, "attack":2, "health":4}, game._response_slots()[0])
 	var marshal = make_card({"name":"Marshal", "type":"response", "element":"evac", "cost":2, "attack":1, "health":3, "effect":"move_ally"}, game._response_slots()[1])
 	game.on_card_played(marshal)
-	check(director.screen == "choice" and paused, "summon opens optional move choice")
+	check(not game.board_input.action.is_empty() and not paused, "summon opens direct board relocation")
 	game.select_moving_ally(ally)
 	game.complete_move_effect(game._response_slots()[3])
 	check(ally.current_slot == game._response_slots()[3] and marshal.current_slot == game._response_slots()[1] and not paused, "another card moves, source stays")
@@ -116,7 +116,8 @@ func run() -> void:
 	director.battle_active = true
 	game._set_phase(game.Phase.GAME_OVER)
 	director.battle_finished(true)
-	check(director.screen == "floor_buff" and game.phase == game.Phase.GAME_OVER, "boss reward preserves combat termination")
+	check(director.screen == "contingency_reward" and game.phase == game.Phase.GAME_OVER, "boss reward preserves combat termination")
+	director.select_contingency_reward(director.buff_choices[0].id)
 	await capture("floor_reward")
 	director.select_floor_buff(director.buff_choices[0].id)
 	check(director.floor_number == 2 and not game.player_run_buffs.is_empty() and not game.enemy_run_buffs.is_empty(), "floor awards persistent buff to both sides")
