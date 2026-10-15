@@ -52,6 +52,7 @@ func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
+	game.presentation.automated_choice = 0
 	await process_frame
 	director = game.run_director
 	check(director.screen == "title", "boots to title")
@@ -59,9 +60,9 @@ func run() -> void:
 	director.new_run()
 	check(director.screen == "map" and director.collection.size() == 12, "title starts a fresh run")
 	director.toggle_map()
-	check(not director.modal.visible and director.screen == "", "M can close map between encounters")
+	check(director.modal.visible and director.screen == "map", "map stays home between encounters")
 	director.toggle_map()
-	check(director.modal.visible and director.screen == "map", "M reopens map between encounters")
+	check(director.modal.visible and director.screen == "map", "M cannot expose an idle battlefield")
 	battle_fixture()
 	var attacker = make_card({"name":"Heavy", "type":"response", "element":"brace", "cost":1, "attack":8, "health":20}, game._response_slots()[0])
 	var defender = make_card({"name":"Blocker", "type":"disaster", "element":"earthquake", "cost":0, "attack":1, "health":1}, game._threat_slots()[0])

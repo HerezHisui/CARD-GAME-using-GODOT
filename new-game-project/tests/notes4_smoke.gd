@@ -33,6 +33,7 @@ func run() -> void:
 	var scene = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
+	scene.presentation.automated_choice = 0
 	game = scene
 	director = game.run_director
 	game.set_process(false)

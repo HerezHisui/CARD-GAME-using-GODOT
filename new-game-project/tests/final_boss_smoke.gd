@@ -43,9 +43,10 @@ func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
+	game.presentation.automated_choice = 0
 	await process_frame
 	director = game.run_director
-	check(game.has_node("SchoolEnvironment/Chalkboard") and (game.has_node("SchoolEnvironment/MoonlitGlass") or game.has_node("SchoolEnvironment/NightGlass")), "3D room has chalkboard and windows")
+	check(game.has_node("SchoolEnvironment/SuppliedClassroom/OriginalRoom") and game.has_node("SchoolEnvironment/OpponentPosition"), "current supplied classroom and opponent position are retained")
 	director.show_characters()
 	check(director.CHARACTERS[0].name == "Steve · Student", "starter renamed Steve")
 	var locked := 0

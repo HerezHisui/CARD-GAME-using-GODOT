@@ -6,7 +6,7 @@ const Card3DScene = preload("res://scenes/card_3d.tscn")
 
 const HAND_SIZE_MAX := 8
 const HAND_DIST := 3.0        # Smaller hand leaves space for the board and HUD.
-const HAND_Y := -1.35         # Keep card names and bottom stats inside the viewport.
+const HAND_Y := -1.2          # Keep names visible while the compact hand rests below the board.
 const UPRIGHT := Basis(Vector3.RIGHT, PI / 2.0)
 
 # Palette
@@ -24,7 +24,15 @@ var enemy_graveyard: Array[Dictionary] = []
 var hovered_hand_card: Node
 var dragged_hand_card: Node
 var turn := 1
+var presentation: Node
+var coin_result := -1
+var coin_pick := -1
+var encounter_serial := 0
+enum View { WIDE, DESK, BOARD }
+var view_mode: View = View.DESK
 var in_board_view := false
+const BOARD_SCALE := 0.7
+const HAND_SCALE := 0.8
 var run_director: CanvasLayer
 var enemy_max_hp := ENEMY_MAX_HP
 var camera_tween: Tween
@@ -67,8 +75,9 @@ var player_hp := PLAYER_MAX_HP
 var enemy_hp := ENEMY_MAX_HP
 
 # ---- Camera views (pivot position, pivot rotation in degrees, camera distance)
-const DESK_VIEW := {"pos": Vector3(0, 1.25, 0.4), "rot": Vector3(-42, 0, 0), "dist": 6.2}
-const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "dist": 4.8}
+const DESK_VIEW := {"pos": Vector3(0, 2.1, -0.7), "rot": Vector3(-15, 0, 0), "dist": 7.2, "fov":62.0}
+const WIDE_VIEW := {"pos": Vector3(-0.8, 2.4, -1.0), "rot": Vector3(-12, -12, 0), "dist":10.0, "fov":68.0}
+const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "dist": 3.8, "fov":56.0}
 
 # HUD references
 @onready var _deck_count: Label = $HUD/Root/DeckDrawButton/DeckCountLabel
@@ -93,6 +102,14 @@ var hand_tuck_tween: Tween
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 
 func _ready() -> void:
+	presentation = preload("res://scripts/game_presentation.gd").new()
+	add_child(presentation)
+	presentation.setup(self)
+	# Enable temporal smoothing only on the renderer that supports it.
+	get_viewport().use_taa = RenderingServer.get_current_rendering_method() == "forward_plus"
+	get_viewport().msaa_3d = Viewport.MSAA_4X
+	get_viewport().scaling_3d_scale = 1.0
+	_build_visual_finish()
 	plans = preload("res://scripts/contingency_rules.gd").new()
 	add_child(plans)
 	plans.setup(self)
@@ -138,6 +155,8 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	encounter_serial += 1
+	if is_instance_valid(presentation): presentation.cancel_coin()
 	if is_instance_valid(board_input): board_input.clear()
 	if is_instance_valid(plans): plans.reset()
 	if not preserve_result: battle_log.clear()
@@ -244,13 +263,15 @@ func _load_tex(path: String) -> Texture2D:
 
 # =================================================================== ENVIRONMENT
 func _build_environment() -> void:
-	var school := preload("res://scripts/school_environment.gd").new()
+	var school := preload("res://scripts/supplied_classroom.gd").new()
 	add_child(school)
 	var table = get_node_or_null("Table")
 	if table:
-		table.material = preload("res://scripts/card_playmat.gd").oak_material()
-		table.size = Vector3(8.0, 0.18, 5.6)
-		table.position.y = 0.91
+		# Keep the old table node as a board reference; the visible desk is in the FBX.
+		table.hide()
+		table.use_collision = false
+		table.size = school.TABLE_SIZE
+		table.position.y = 1.0 - school.TABLE_SIZE.y / 2
 
 # =================================================================== BOARD
 ## Builds a cloth playmat with printed zones and stitched edges.
@@ -259,6 +280,10 @@ const BOARD_W := 6.2
 const BOARD_H := 4.2
 const PPU := 32 # pixels per world unit
 func _build_board() -> void:
+	for slot in $Slots.get_children():
+		slot.position.x *= BOARD_SCALE
+		slot.position.z *= BOARD_SCALE
+		slot.scale = Vector3(BOARD_SCALE, 1, BOARD_SCALE)
 	add_child(preload("res://scripts/card_playmat.gd").new())
 
 func _rect_outline(img: Image, r: Rect2i, t: int, col: Color) -> void:
@@ -279,30 +304,69 @@ func _diamond(img: Image, c: Vector2i, rad: int, col: Color) -> void:
 func _build_lighting() -> void:
 	var light = get_node_or_null("SpookyLight")
 	if light is SpotLight3D:
-		light.light_color = Color(1.0, 0.75, 0.5)
-		light.light_energy = 1.8
+		light.light_color = Color(0.65, 0.76, 1.0)
+		light.light_energy = 0.0
 		light.spot_angle = 80.0
 		light.spot_range = 25.0
 		light.position = Vector3(0, 5.5, 1.5)
 		light.shadow_enabled = true
 
-	var moon := DirectionalLight3D.new()
-	moon.name = "Moonlight"
-	moon.light_color = Color(1.0, 0.79, 0.54)
-	moon.light_energy = 0.7
-	moon.rotation_degrees = Vector3(-45, 120, 0)
-	moon.shadow_enabled = true
-	add_child(moon)
-
 	var env_node = get_node_or_null("WorldEnvironment")
 	if env_node and env_node.environment:
 		var env: Environment = env_node.environment
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		env.ambient_light_color = Color(0.62, 0.60, 0.53)
-		env.ambient_light_energy = 1.0
-		env.volumetric_fog_enabled = false # Compatibility renderer does not support volumetric fog.
-		env.volumetric_fog_density = 0.02
-		env.volumetric_fog_albedo = Color(0.2, 0.3, 0.4)
+		env.ambient_light_color = Color("9fa8af")
+		env.ambient_light_energy = 0.24
+		# Preserve the supplied metallic lockers' colour with soft environment
+		# reflections, while the visible background and diffuse room stay dark.
+		var reflection_sky := Sky.new()
+		var reflection_material := ProceduralSkyMaterial.new()
+		reflection_material.sky_top_color = Color(.55, .59, .64)
+		reflection_material.sky_horizon_color = Color(.61, .63, .65)
+		reflection_material.ground_horizon_color = Color(.36, .38, .39)
+		reflection_material.ground_bottom_color = Color(.27, .28, .29)
+		reflection_sky.sky_material = reflection_material
+		env.sky = reflection_sky
+		env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+		env.tonemap_mode = Environment.TONE_MAPPER_ACES
+		env.adjustment_enabled = true
+		env.adjustment_contrast = 1.04
+		env.adjustment_saturation = 0.82
+		var enhanced := RenderingServer.get_current_rendering_method() == "forward_plus"
+		env.ssao_enabled = enhanced
+		env.ssao_radius = 0.65
+		env.ssao_intensity = 1.3
+		env.ssao_power = 1.15
+		env.ssao_detail = 0.8
+		env.ssil_enabled = enhanced
+		env.ssil_radius = 3.0
+		env.ssil_intensity = 0.65
+		env.volumetric_fog_enabled = enhanced
+		env.volumetric_fog_density = 0.002
+		env.volumetric_fog_albedo = Color("b4b4a3")
+		env.volumetric_fog_anisotropy = 0.55
+		env.glow_enabled = enhanced
+		env.glow_intensity = 0.65
+		env.glow_bloom = 0.0
+		env.glow_hdr_threshold = 1.2
+		env.glow_hdr_scale = 1.4
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+		for level in 7: env.set_glow_level(level, [0.8, 0.65, 0.4, 0.2, 0.1, 0.0, 0.0][level])
+
+func _build_visual_finish() -> void:
+	# Grade only the rendered world. The higher HUD/menus stay crisp and unfiltered.
+	var layer := CanvasLayer.new()
+	layer.name = "ClassroomFinish"
+	layer.layer = 0
+	add_child(layer)
+	var effect := ColorRect.new()
+	effect.name = "ClarityAndSharpness"
+	effect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	effect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://assets/abandoned_classroom/classroom_finish.gdshader")
+	effect.material = material
+	layer.add_child(effect)
 
 func _set_orb(fill: ColorRect, value_label: Label, amount: int, max_amount: int) -> void:
 	if not fill or not value_label: return
@@ -413,33 +477,45 @@ func enemy_draw_evolutions(count: int) -> void:
 
 func _refresh_view_hints() -> void:
 	if _hint_w:
-		_hint_w.modulate.a = 0.35 if in_board_view else 0.9
-		_hint_s.modulate.a = 0.9 if in_board_view else 0.35
+		_hint_w.text = "W · " + ("Table view" if view_mode == View.WIDE else "Overhead view")
+		_hint_w.modulate.a = 0.35 if view_mode == View.BOARD else 0.9
+	if _hint_s:
+		_hint_s.text = "S · " + ("Table view" if view_mode == View.BOARD else "Wide view")
+		_hint_s.modulate.a = 0.35 if view_mode == View.WIDE else 0.9
 
-# =================================================================== CAMERA & INPUT
+# W and S move one step through Room <-> Table <-> Overhead.
 func _unhandled_key_input(event: InputEvent) -> void:
-	if run_director and run_director.modal.visible: return
-	if not (event is InputEventKey) or not event.pressed:
-		return
+	if presentation.blocking: return
+	if run_director and (run_director.modal.visible or not run_director.battle_active): return
+	if not (event is InputEventKey) or not event.pressed or event.echo: return
 	if event.keycode == KEY_SPACE:
 		_on_end_turn_pressed()
-	elif phase == Phase.COMBAT:
-		return   # the camera is busy showing the fight
-	elif event.keycode == KEY_W and not in_board_view:
-		set_board_view(true)
-	elif event.keycode == KEY_S and in_board_view:
-		set_board_view(false)
+		return
+	if phase == Phase.COMBAT or is_instance_valid(dragged_hand_card) or not board_input.action.is_empty(): return
+	if event.keycode == KEY_W: step_view(1)
+	elif event.keycode == KEY_S: step_view(-1)
+
+func view_settings(mode: int) -> Dictionary:
+	return [WIDE_VIEW, DESK_VIEW, BOARD_VIEW][clampi(mode, View.WIDE, View.BOARD)]
+
+func step_view(direction: int) -> void:
+	set_view(clampi(int(view_mode) + direction, View.WIDE, View.BOARD))
+
+func set_view(mode: int) -> void:
+	view_mode = clampi(mode, View.WIDE, View.BOARD) as View
+	in_board_view = view_mode == View.BOARD
+	_shift_camera(view_settings(view_mode))
+	_refresh_view_hints()
 
 func set_board_view(on: bool) -> void:
-	in_board_view = on
-	_shift_camera(BOARD_VIEW if on else DESK_VIEW)
-	_refresh_view_hints()
+	set_view(View.BOARD if on else View.DESK)
 
 func _apply_view(v: Dictionary) -> void:
 	$CameraPivot.position = v.pos
 	$CameraPivot.rotation_degrees = v.rot
 	camera.position = Vector3(0, 0, v.dist)
 	camera.rotation = Vector3.ZERO
+	camera.fov = float(v.get("fov", 55.0))
 
 func _shift_camera(v: Dictionary, dur: float = 0.55) -> void:
 	var pivot = $CameraPivot
@@ -450,6 +526,7 @@ func _shift_camera(v: Dictionary, dur: float = 0.55) -> void:
 	tween.tween_property(pivot, "rotation_degrees", v.rot, dur)
 	tween.tween_property(camera, "position", Vector3(0, 0, v.dist), dur)
 	tween.tween_property(camera, "rotation", Vector3.ZERO, dur)
+	tween.tween_property(camera, "fov", float(v.get("fov", 55.0)), dur)
 
 ## Screen shake using the camera's view offsets (doesn't fight the view tweens).
 func shake_camera(strength: float, duration: float) -> void:
@@ -486,6 +563,9 @@ func _process(delta: float) -> void:
 			set_hand_tucked(true)
 		return
 
+	if view_mode == View.WIDE:
+		if not is_hand_tucked: set_hand_tucked(true)
+		return
 	if in_board_view:
 		var mouse_y = get_viewport().get_mouse_position().y
 		var screen_h = get_viewport().get_visible_rect().size.y
@@ -531,7 +611,7 @@ func add_card_to_hand(definition: Dictionary) -> void:
 	card.add_to_group("cards")
 	card.setup(definition)
 	card.position = Vector3(2.6, -0.6, -HAND_DIST)
-	card.transform.basis = UPRIGHT
+	card.transform.basis = UPRIGHT.scaled(Vector3.ONE * HAND_SCALE)
 	hand.append(card)
 	arrange_hand_centered()
 	update_deck_label()
@@ -578,7 +658,9 @@ func get_hand_cards() -> Array:
 
 func hand_card_polygon(card: Node, resting: bool) -> PackedVector2Array:
 	var transform: Transform3D = card.global_transform
-	if resting: transform = hand_container.global_transform * Transform3D(card.get_meta("hand_basis"), card.get_meta("hand_pos"))
+	if resting:
+		var basis: Basis = card.get_meta("hand_basis")
+		transform = hand_container.global_transform * Transform3D(basis.scaled(Vector3.ONE * HAND_SCALE), card.get_meta("hand_pos"))
 	var polygon := PackedVector2Array()
 	for corner in [Vector3(-0.55, 0, -card.card_height / 2), Vector3(0.55, 0, -card.card_height / 2), Vector3(0.55, 0, card.card_height / 2), Vector3(-0.55, 0, card.card_height / 2)]:
 		polygon.append(camera.unproject_position(transform * corner))
@@ -799,7 +881,7 @@ func consume_utility(card: Node) -> void:
 	_refresh_bars()
 	card.in_hand = false
 	card.remove_from_group("cards")
-	card.queue_free()
+	card.discard_to_pile()
 
 func complete_utility_choice(target: Variant) -> void:
 	board_input.clear()
@@ -882,7 +964,12 @@ func best_disruption_target(cards: Array, tax: bool) -> Node:
 	return best
 
 func _set_phase(p: Phase, text: String = "") -> void:
+	var previous := phase
 	phase = p
+	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking:
+		if p in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] and previous not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: presentation.banner("YOUR TURN", "Round %d" % turn, Color("75d6c6"))
+		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("JANITOR'S TURN", "Watch the opposing formation")
+		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
 	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
 	if text != "" and _phase_label:
 		_phase_label.text = text
@@ -893,14 +980,24 @@ func _wait(t: float) -> void:
 	await get_tree().create_timer(t, false).timeout
 
 func _start_match() -> void:
-	_set_phase(Phase.SETUP, "Flipping a coin...")
+	_set_phase(Phase.SETUP, "Call Heads or Tails")
 	draw_cards(STARTING_HAND)
 	enemy_draw_cards(STARTING_HAND)
 	enemy_draw_evolutions(1)
-	await _wait(1.0)
-	player_first = randf() < 0.5
-	_set_phase(Phase.SETUP, "Heads - Response goes first" if player_first else "Tails - Disaster goes first")
-	await _wait(1.4)
+	coin_result = randi_range(0, 1)
+	coin_pick = -1
+	resume_coin()
+
+func resume_coin() -> void:
+	var serial := encounter_serial
+	run_director.screen = "coin"
+	var pick: int = await presentation.choose_coin(coin_result, coin_pick)
+	if pick < 0 or serial != encounter_serial: return
+	coin_pick = pick
+	player_first = coin_pick == coin_result
+	log_event("Coin: called %s, landed %s. %s takes the first turn." % ["Heads" if coin_pick == 0 else "Tails", "Heads" if coin_result == 0 else "Tails", "Response" if player_first else "The Janitor"])
+	run_director.screen = ""
+	_set_phase(Phase.SETUP, "You take the first turn" if player_first else "The Janitor takes the first turn")
 	_begin_round()
 
 func _begin_round() -> void:
@@ -1378,7 +1475,7 @@ func _synergy_bonus(card: Node) -> int:
 	return 0
 
 func _combat() -> void:
-	var prev_view: bool = in_board_view
+	var prev_view: View = view_mode
 	set_board_view(true)
 	set_hand_tucked(true)
 	log_event("Combat begins.")
@@ -1404,7 +1501,7 @@ func _combat() -> void:
 	plans.finish_combat()
 	if phase != Phase.GAME_OVER:
 		await _wait(0.5)
-		set_board_view(prev_view)
+		set_view(prev_view)
 		await _wait(0.6)
 
 ## response_side = true -> the player's row attacks the Disaster row.

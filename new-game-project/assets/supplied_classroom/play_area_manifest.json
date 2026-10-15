@@ -1,0 +1,22 @@
+{
+  "removed_chairs": [
+    "chair|chair_L_chair.blend|Dupli|",
+    "chair.001|chair_L_chair.blend|Dupli|",
+    "chair.005|chair_L_chair.blend|Dupli|",
+    "chair.006|chair_L_chair.blend|Dupli|",
+    "chair.010|chair_L_chair.blend|Dupli|",
+    "chair.011|chair_L_chair.blend|Dupli|",
+    "chair.015|chair_L_chair.blend|Dupli|",
+    "chair.016|chair_L_chair.blend|Dupli|"
+  ],
+  "removed_chair_count": 8,
+  "remaining_chair_count": 12,
+  "removed_back_row_desks": 2,
+  "removed_desk_faces": 1460,
+  "remaining_original_meshes": 58,
+  "added_game_tables": 1,
+  "player_side_in_reference": "left",
+  "janitor_side_in_reference": "right",
+  "source_unchanged": "Classroom_PBR.blend and classroom.glb remain unchanged",
+  "runtime_glb_sha256": "18b5d0222f87200232d8ca4ad3490ac41cb2e8cf01b7c96b010c2d147544832c"
+}

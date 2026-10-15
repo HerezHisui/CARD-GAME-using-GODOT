@@ -1,0 +1,29 @@
+{
+  "downsized": false,
+  "files": {
+    "source/old_abandoned_classroom.glb": {
+      "sha256": "6ab29f9b127279bfdd4d20f2965666c7358ae70985b92c2bc55eb546c9fcc493",
+      "bytes": 18662276
+    },
+    "source/classroom.fbx": {
+      "sha256": "d4ada4f938ae001cf5dc90028e903c725bb99571139ee4866ff981b529a581c1",
+      "bytes": 6356720
+    },
+    "textures/Bitmap2Material_3_Base_Color.tga.png": {
+      "sha256": "88ca2a56b99dee419aafc90266be64c1aed884c284999eed759a9fc797d167fd",
+      "bytes": 8150025
+    },
+    "textures/Bitmap2Material_3_Normal.tga.png": {
+      "sha256": "40150d0820b995f1e15356610519bce2dc64196c917b75915a9927d6f7c3f476",
+      "bytes": 6510159
+    },
+    "textures/Bitmap2Material_3_Roughness.tga.png": {
+      "sha256": "9596232569582ae7da03f9ed1301b748b10944f98c8fff3c1822804809fc2948",
+      "bytes": 3008458
+    },
+    "textures/internal_ground_ao_texture.jpeg": {
+      "sha256": "e25509eb188d37ba0ebfd72154376c38bf2f0acfdad914b86954a5485b8b1df4",
+      "bytes": 22550
+    }
+  }
+}
