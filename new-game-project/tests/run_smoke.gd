@@ -16,6 +16,7 @@ func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
+	game.presentation.automated_choice = 0
 	await process_frame
 	director = game.run_director
 	director.new_run()

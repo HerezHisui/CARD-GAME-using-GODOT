@@ -1,0 +1,22 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Shader" path="res://assets/abandoned_classroom/drill_slate.gdshader" id="1"]
+[sub_resource type="StandardMaterial3D" id="Wood"]
+albedo_color = Color(0.14, 0.095, 0.06, 1)
+roughness = 0.86
+[sub_resource type="BoxMesh" id="Frame"]
+size = Vector3(4.49, 0.024, 2.62)
+material = SubResource("Wood")
+[sub_resource type="PlaneMesh" id="Slate"]
+size = Vector2(4.34, 2.5)
+[sub_resource type="ShaderMaterial" id="Chalk"]
+shader = ExtResource("1")
+
+[node name="SchoolDrillBoard" type="Node3D"]
+[node name="WoodFrame" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.005, 0)
+mesh = SubResource("Frame")
+[node name="WornSlate" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.018, 0)
+mesh = SubResource("Slate")
+material_override = SubResource("Chalk")

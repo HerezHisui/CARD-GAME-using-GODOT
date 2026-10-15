@@ -3,14 +3,12 @@
 [ext_resource type="Script" uid="uid://b07rvoadooyug" path="res://scripts/camera_controller.gd" id="1_cam"]
 [ext_resource type="Script" uid="uid://bnnw7lkj0wb8j" path="res://scripts/game_3d_manager.gd" id="2_mgr"]
 [ext_resource type="PackedScene" uid="uid://e5m3q1dd7fhh" path="res://scenes/hud.tscn" id="3_hud"]
-[ext_resource type="PackedScene" uid="uid://jeacrk45l73w" path="res://assets/monika_-.glb" id="4_eff54"]
 
 [sub_resource type="Environment" id="Environment_3d"]
 background_mode = 1
 background_color = Color(0.02, 0.02, 0.04, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.05, 0.05, 0.1, 1)
-volumetric_fog_enabled = false
 volumetric_fog_density = 0.02
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_table"]
@@ -137,9 +135,3 @@ script = ExtResource("1_cam")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7)
 
 [node name="HUD" parent="." unique_id=1857250272 instance=ExtResource("3_hud")]
-
-[node name="Sketchfab_Scene" parent="." unique_id=1823607782 instance=ExtResource("4_eff54")]
-transform = Transform3D(0.43439636, -0.0019773212, -0.015135866, 0.0028405718, 0.23504256, -0.048038945, 0.010677155, 0.017915439, 0.62857884, 0.05743265, -4.487402, -6.6867294)
-
-[node name="Sketchfab_model2" type="Node3D" parent="Sketchfab_Scene" unique_id=1147313402]
-transform = Transform3D(1, 0, 0, 0, 2.220446e-16, 1, 0, -1, 2.220446e-16, 0, 0, 0)

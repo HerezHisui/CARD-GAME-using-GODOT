@@ -2,7 +2,7 @@ extends Node
 ## Only stable decisions and player turns are checkpointed; animation coroutines are never serialized.
 const PATH := "user://unfinished_run_v1.json"
 const DIRECTOR_FIELDS := ["collection", "acquisition_serial", "reward_stock", "rooms", "cleared", "current", "coins", "floor_number", "run_seed", "selected_character", "encounter", "battle_active", "buff_choices", "intel_revealed", "unlock_after", "event_key", "event_type", "event_cards", "event_resolved", "shop_key", "shop_stock", "shop_purchased", "deck_sort", "upgrade_sort", "deck_descending", "upgrade_descending"]
-const GAME_FIELDS := ["deck", "enemy_deck", "enemy_evolution_deck", "enemy_hand", "player_graveyard", "enemy_graveyard", "turn", "player_first", "energy_cap", "preparedness", "tension_cap", "tension", "player_hp", "enemy_hp", "enemy_max_hp", "player_buffs", "enemy_buffs", "player_run_buffs", "enemy_run_buffs", "encounter_kind", "player_barrier", "plan_hero_barrier", "adapted_round", "battle_log", "in_board_view"]
+const GAME_FIELDS := ["deck", "enemy_deck", "enemy_evolution_deck", "enemy_hand", "player_graveyard", "enemy_graveyard", "turn", "player_first", "energy_cap", "preparedness", "tension_cap", "tension", "player_hp", "enemy_hp", "enemy_max_hp", "player_buffs", "enemy_buffs", "player_run_buffs", "enemy_run_buffs", "encounter_kind", "player_barrier", "plan_hero_barrier", "adapted_round", "battle_log", "in_board_view", "view_mode", "coin_result", "coin_pick"]
 const CARD_FIELDS := ["max_health", "statuses", "modifiers", "last_attack_turn", "planned_guard", "plan_attack_bonus", "plan_ignore_taunt"]
 const BOSS_FIELDS := ["stage", "changed_round", "pillars_spawned", "pulse_resolved", "last_resolved_round", "last_prepared_round"]
 var director: Node
@@ -69,8 +69,8 @@ func checkpoint() -> bool:
 	if director._dragging() or not game.board_input.action.is_empty() or is_instance_valid(game.pending_utility): return false
 	var destination: String = director.screen
 	if director.battle_active:
-		if destination != "buff" and game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: return false
-		if destination != "buff": destination = "battle"
+		if destination not in ["buff", "coin"] and game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: return false
+		if destination not in ["buff", "coin"]: destination = "battle"
 	elif destination not in ["map", "shop", "event", "upgrade", "reward", "contingency_reward", "floor_buff"]:
 		return false
 	var cards: Array = []
@@ -139,7 +139,9 @@ func resume() -> bool:
 	game._enemy_hp_ui.get_node("Caption").text = snapshot.enemy_caption
 	game._player_hp_ui.get_node("Caption").text = director.CHARACTERS[director.selected_character].name
 	game._turn_label.text = "Turn %d" % game.turn
-	game._apply_view(game.BOARD_VIEW if game.in_board_view else game.DESK_VIEW)
+	if not snapshot.game.has("view_mode"): game.view_mode = game.View.BOARD if game.in_board_view else game.View.DESK
+	game.in_board_view = game.view_mode == game.View.BOARD
+	game._apply_view(game.view_settings(game.view_mode))
 	game._refresh_view_hints()
 	game._refresh_bars()
 	game.update_deck_label()
@@ -148,6 +150,7 @@ func resume() -> bool:
 	director.screen = ""
 	director.modal.hide()
 	match str(snapshot.screen):
+		"coin": game.resume_coin()
 		"battle": pass
 		"map": director.show_map()
 		"shop": director.show_shop()

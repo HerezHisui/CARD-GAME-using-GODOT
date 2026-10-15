@@ -3,6 +3,8 @@ extends Node3D
 @onready var camera: Camera3D = $Camera3D
 
 func _unhandled_input(event: InputEvent) -> void:
+	var game = get_tree().current_scene
+	if game and game.get("run_director") and (game.run_director.modal.visible or game.presentation.blocking): return
 	# The camera is now completely fixed as requested.
 	# We still allow left click for raycasting (if needed by the scene), 
 	# but card.gd primarily handles its own dragging via Area3D's _input_event.

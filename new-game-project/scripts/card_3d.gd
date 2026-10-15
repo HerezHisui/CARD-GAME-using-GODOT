@@ -39,6 +39,7 @@ var plan_ignore_taunt := false
 var last_evaded_hit := false
 var is_relocating := false
 var in_hand := true
+var preview_only := false
 var current_slot: Node3D = null
 var card_height := CARD_WIDTH * FACE_H / FACE_W
 var max_health := 0
@@ -64,7 +65,7 @@ func _ready() -> void:
 # ---------------------------------------------------------------- setup
 func setup(data: Dictionary) -> void:
 	card_data = data.duplicate(true)
-	card_data = _manager().prepare_card_data(card_data)
+	if not preview_only: card_data = _manager().prepare_card_data(card_data)
 	# JSON numbers load as floats -> normalise to ints
 	for k in ["cost", "attack", "health"]:
 		card_data[k] = int(card_data.get(k, 0))
@@ -74,7 +75,7 @@ func setup(data: Dictionary) -> void:
 	last_attack_turn = -1
 	graveyard_recorded = false
 	if int(card_data.get("strength", 0)) > 0: statuses.strength = int(card_data.strength)
-	var self_bleed: int = int(_manager().buffs_for(card_data).get("self_bleed", 0))
+	var self_bleed: int = 0 if preview_only else int(_manager().buffs_for(card_data).get("self_bleed", 0))
 	if self_bleed > 0: statuses.bleed = self_bleed
 	if card_data.has("modifier") and str(card_data.modifier) != "":
 		modifiers.append(str(card_data.modifier).to_lower())
@@ -286,6 +287,7 @@ func _refresh_face() -> void:
 
 ## Overlay mode: draw on top of the 3D world (hand / dragging).
 func _set_overlay(on: bool) -> void:
+	scale = Vector3.ONE * (_manager().HAND_SCALE if on else _manager().BOARD_SCALE)
 	art_sprite.no_depth_test = on
 	mesh.visible = not on
 	art_sprite.position.y = 0.012 if not on else 0.0
@@ -308,10 +310,11 @@ func move_in_hand(pos: Vector3, basis_target: Basis, layer: int) -> void:
 func _tween_local(pos: Vector3, b: Basis, dur: float) -> void:
 	if _tween: _tween.kill()
 	_tween = create_tween().set_parallel(true).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	_tween.tween_property(self, "position", pos, dur)
+	var origin := position
+	_tween.tween_method(func(t: float): position = origin.bezier_interpolate(origin + Vector3(0, 0.18, 0.1), pos + Vector3(0, 0.1, 0), pos, t), 0.0, 1.0, dur)
 	_tween.tween_property(self, "quaternion", b.get_rotation_quaternion(), dur)
 
-const HOVER_LIFT := Vector3(0, 0.95, 0.3)
+const HOVER_LIFT := Vector3(0, 0.78, 0.24)
 
 func _apply_hover() -> void:
 	set_layer(100)
@@ -419,8 +422,8 @@ func place_on_slot(slot: Node3D) -> void:
 	_tween.tween_property(self, "global_position", mid, 0.12).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
 	_tween.tween_property(self, "quaternion", Quaternion.IDENTITY, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	_tween.chain().tween_property(self, "global_position", land, 0.12).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
-	_tween.chain().tween_property(self, "scale", Vector3.ONE * 1.08, 0.06)
-	_tween.chain().tween_property(self, "scale", Vector3.ONE, 0.14).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_tween.chain().tween_property(self, "scale", Vector3.ONE * _manager().BOARD_SCALE * 1.08, 0.06)
+	_tween.chain().tween_property(self, "scale", Vector3.ONE * _manager().BOARD_SCALE, 0.14).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
 ## Disaster cards: flip in face-down from above the slot and slam down.
 func enter_from_above(slot: Node3D) -> void:
@@ -435,8 +438,8 @@ func enter_from_above(slot: Node3D) -> void:
 	_tween = create_tween().set_parallel(true)
 	_tween.tween_property(self, "global_position", land, 0.42).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	_tween.tween_property(self, "rotation", Vector3.ZERO, 0.42).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	_tween.chain().tween_property(self, "scale", Vector3.ONE * 1.1, 0.05)
-	_tween.chain().tween_property(self, "scale", Vector3.ONE, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_tween.chain().tween_property(self, "scale", Vector3.ONE * _manager().BOARD_SCALE * 1.1, 0.05)
+	_tween.chain().tween_property(self, "scale", Vector3.ONE * _manager().BOARD_SCALE, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	await _tween.finished
 
 func _slot_under_card() -> Node3D:
@@ -488,7 +491,7 @@ func attack_lunge(target: Vector3) -> void:
 
 func has_modifier(mod_name: String) -> bool:
 	var key := mod_name.to_lower()
-	return key in modifiers or (key in ["piercing", "sluggish"] and int(_manager().buffs_for(card_data).get(key, 0)) > 0)
+	return key in modifiers or (not preview_only and key in ["piercing", "sluggish"] and int(_manager().buffs_for(card_data).get(key, 0)) > 0)
 
 func add_modifier(mod_name: String) -> void:
 	if not has_modifier(mod_name):
@@ -517,6 +520,19 @@ func sacrifice_dissolve() -> void:
 	_tween.tween_property(art_sprite, "modulate", Color(0.8, 0.1, 0.05, 0.0), 0.45)
 	_tween.tween_property(self, "global_position", global_position + Vector3(0, 0.6, 0), 0.45).set_ease(Tween.EASE_OUT)
 	_tween.tween_property(self, "scale", Vector3.ONE * 0.001, 0.45).set_ease(Tween.EASE_IN)
+	await _tween.finished
+	queue_free()
+
+func discard_to_pile() -> void:
+	in_hand = false
+	input_ray_pickable = false
+	collision_layer = 0
+	if _tween: _tween.kill()
+	reparent(_manager().hand_parent(), true)
+	_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_tween.tween_property(self, "position", Vector3(-2.6, -0.9, -3.0), 0.32)
+	_tween.tween_property(self, "scale", Vector3.ONE * 0.08, 0.32)
+	_tween.tween_property(art_sprite, "modulate:a", 0.0, 0.32)
 	await _tween.finished
 	queue_free()
 
@@ -586,10 +602,15 @@ func _die() -> void:
 	remove_from_group("cards")
 	if _tween: _tween.kill()
 	mesh.visible = false
+	var dissolve := ShaderMaterial.new()
+	dissolve.shader = preload("res://assets/card_dissolve.gdshader")
+	dissolve.set_shader_parameter("card_face", _vp.get_texture())
+	art_sprite.material_override = dissolve
 	_tween = create_tween().set_parallel(true)
 	_tween.tween_property(art_sprite, "modulate", Color(0.25, 0.05, 0.02, 1.0), 0.15)
 	_tween.tween_property(self, "global_position", global_position + Vector3(0, 0.6, 0), 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	_tween.tween_property(self, "rotation", Vector3(0.4, 0.0, randf_range(-1.2, 1.2)), 0.5)
+	_tween.tween_method(func(amount: float): dissolve.set_shader_parameter("progress", amount), 0.0, 1.0, 0.65)
 	_tween.chain().tween_property(self, "scale", Vector3.ONE * 0.05, 0.25).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_BACK)
 	_tween.parallel().tween_property(art_sprite, "modulate:a", 0.0, 0.25)
 	await _tween.finished
@@ -620,7 +641,7 @@ func spawn_popup(text: String, col: Color) -> void:
 	t.chain().tween_callback(l.queue_free)
 
 func effective_attack() -> int:
-	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + plan_attack_bonus + _manager().attack_bonus(self))
+	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + plan_attack_bonus + (0 if preview_only else _manager().attack_bonus(self)))
 
 func refresh_cost() -> void:
 	_refresh_face()

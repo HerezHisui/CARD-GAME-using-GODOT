@@ -14,10 +14,10 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 - Drag a hand card onto an empty lower Response slot. Right-click cancels a drag.
 - Draw once during the draw phase using the lower-right draw button.
-- Space or **End turn** submits your turn. The coin flip determines the first side, alternating each round.
-- W shows the board from above; S returns to the desk.
+- At encounter start, call **Heads** or **Tails** on the full-screen coin event. A matching toss gives you the first turn; otherwise the Janitor plays first. The starting side alternates each round afterward. Space or **End turn** submits your turn.
+- W steps from Room → Table → Overhead; S steps back. Battles start in the central Table view. Transitions ease position, rotation, distance and field of view. Room view hides your hand to show the opponent and classroom; return to Table to play. Camera changes are blocked during combat, dragging and board targeting.
 - D opens the collection, unordered remaining draw pile, hand, and deployed Response cards. Sort by Name, Type, Cost, Attack, Health, Modifier, or Recently added, in either direction. Recent sorting defaults to newest first. Sorting never changes draw order or your collection.
-- M opens and closes the school map during battles and between encounters. When you close it between rooms, a reminder directs you back to M to choose the next room. Next rooms unlock after completing the encounter and reward choice.
+- M opens and closes the school map during battles. Between encounters, the full-screen map stays open and the board is hidden. Next rooms unlock after completing the encounter and reward choice. Deck and menu overlays return to this map when closed.
 - Esc opens the menu. Deck, map, and menu overlays pause an active encounter. Close or Resume continues it.
 - Return to starting screen saves the unfinished run. Continue resumes it; Abandon clears it after confirmation and enables a fresh Singleplayer game.
 - The battle menu includes **Quit game**, which closes the game. Stable decisions and player turns are saved to disk; closing during an animation resumes the last stable checkpoint.
@@ -26,7 +26,7 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 Workshops have the same sorting controls as the deck browser. **Preview upgrade** shows the current card beside its upgraded version; only **Confirm upgrade** changes the collection. **Every card copy can upgrade at most twice**, shown as 0/2, 1/2, or 2/2. Evac gains attack and on-play draw, then health and a cheaper energy cost. Douse gains attack and Burn, then health and healing after each strike. Clearance gains attack and Poison, then health and +2 attack against targets with three harmful status stacks. Brace gains health and stronger armor, then health and retaliation. Spells first become cheaper; later upgrades strengthen draw, seal, tax, rally, or cleanse. Movement, tutor, and scouting upgrades refund energy instead. Zero-cost spells can improve their abilities. Duplicate cards retain their original identity when sorted, so only the selected copy changes.
 
-Shops offer four distinct cards, each with one copy in stock. Buying one marks it sold and keeps the shop open; remaining stock does not reroll. Healing can be purchased repeatedly until health is full or supplies run out. The room is completed only when you press **Leave shop**.
+Shops offer four distinct cards, each with one copy in stock. Buying one marks it sold and keeps the shop open; remaining stock does not reroll. Healing can be purchased repeatedly until health is full or supplies run out. Labels show actual healing and the supplies spent, for example **First aid · +1 HP · -15 supplies** when only one health is missing. Full-health healing is disabled. Removal shows **Destroy 1 card · -30 supplies**; infirmary removal is explicitly free. The room is completed only when you press **Leave shop**. Infirmaries also offer an exit if you prefer to skip their service.
 
 ## Cards
 
@@ -113,7 +113,7 @@ Bonus attack is applied before type effectiveness. Target conditions require a b
 
 ## School setting and final boss
 
-Based on the [game notes](https://docs.google.com/document/d/17LhbrulIVWbfTn7mcwgJ0ZM8OXo5ZEPA-1WGeAwMo2M/edit), the classroom now uses native 3D walls, windows, lockers, desks, chairs, a chalkboard and lights. The tiled floor is rendered in two batches. Card artwork remains blank; the current enemy model remains a placeholder.
+The classroom uses the supplied abandoned-school GLB with its native PBR materials, original walls, peeling plaster, windows, desks, chairs and chalkboard. The front-right desk marked with a red X in the reference is the actual game table. Its top is aligned to the eight card lanes and playmat; the old procedural table is hidden. Matching outer panels close the model's cut-away edges. Window light and opaque exterior backing keep the room complete in all three camera views. Desktop rendering uses Forward+ with contact shadows, indirect lighting, light haze, 4× MSAA and temporal anti-aliasing at full rendering resolution. Native texture filtering, restrained clarity/sharpness and HDR bloom improve definition and light highlights; menus and HUD sit above the grading pass. Source assets have not been downsized; the supplied main textures are already 2048×2048. Card artwork remains blank; the current enemy model remains a placeholder.
 
 The **Midnight Warden** is the final encounter on **floor three**, with 34 HP. Floors one and two provide preparation and still award permanent floor buffs. Steve plays and attacks before the final boss's announced special pattern resolves. The boss uses a fixed pattern instead of random enemy decks.
 
@@ -125,7 +125,7 @@ New preparation cards: **First Aid Herb** removes Bleed and heals 1 across deplo
 
 Healing Reduced halves healing (minimum 1) until it expires or is removed. Barrier absorbs attack damage and is consumed; periodic Burn, Poison and Bleed bypass it. Generic Cleanse also removes Healing Reduced. The reference's large HP/damage numbers, speed system and party-wide card deletion have been adapted to this game's scale.
 
-Victory opens **Dawn at Last**. Return to the starting screen or choose **Keep exploring** to receive the floor reward and continue into endless floors. Final-boss graveyards remain inspectable until the next encounter.
+Victory opens **Dawn at Last**. Return to the starting screen or choose **Keep exploring** to receive the floor reward and continue into endless floors. Graveyards can be inspected only during an active battle.
 
 `res://tests/final_boss_smoke.gd` adds checks for locked clubs, the 3D classroom, preparation cards, boss phases, shields, taunt, barriers, healing, curses, recoil, sealing, victory and the actual final encounter startup.
 
@@ -156,7 +156,7 @@ One contingency may be armed each round. Tokens, armed plans and temporary boost
 
 Hand selection follows the visible stacking order using each card’s resting footprint. Only one card rises at a time. Lifting a card does not remove its resting hover region, preventing repeated pop-up/reset behavior. Its raised face stays clickable. While dragging, all other hover lifts are suppressed. Right-click cancels a drag; failed placement also restores the hand. Opening a modal clears hover.
 
-Open **Deck [D] → Graveyards** to inspect separate Response and Janitor graveyards. Destroyed units, sacrificed disasters and successfully cast spells appear with their reason and round, including separate copies of the same card. Failed/cancelled spells remain in hand. Entries are battle snapshots with maximum health displayed; battlefield status changes do not rewrite them. The viewer supports sorting and pauses combat. Graveyards remain inspectable in result screens and reset at the next encounter or new run. Clearing the battlefield between rooms does not count as a death. Graveyard cards are not automatically reshuffled or playable again.
+During battle, open **Deck [D] → Graveyards** to inspect separate Response and Janitor graveyards. Destroyed units, sacrificed disasters and successfully cast spells appear with their reason and round, including separate copies of the same card. Failed/cancelled spells remain in hand. Entries are battle snapshots with maximum health displayed; battlefield status changes do not rewrite them. The viewer supports sorting and pauses combat. Graveyard access disappears outside battle, including results, shops, events and the map; the next encounter or new run resets its entries. Clearing the battlefield between rooms does not count as a death. Graveyard cards are not automatically reshuffled or playable again.
 
 
 ## Notes /3: contingencies, targeting and encounters
@@ -185,3 +185,30 @@ Disaster evolutions pay sacrifices without an additional tension payment. Cinder
 This is a balance playtest, not a guarantee of equal win rates. Track how often each side runs out of playable cards, whether keeping a formation beats evolving, and whether a major evolution leaves a reasonable response turn. No existing card or core deck mechanic was removed.
 
 `res://tests/notes4_smoke.gd` checks upward routes, newest-copy sorting, mixed and gapped coordination, live card values, protection and tax limits, sacrifice rewards, major evolution entry effects, atomic save replacement, scene-reload continuation, fixed card/tactic/floor/adaptation offers, boss persistence and confirmed abandonment.
+
+## Notes /5: map, clarity and three camera views
+
+Outside battle, an opaque full-screen map replaces the idle board. Shops, events and the collection also hide battle geometry. M still toggles the map during a battle, while Esc closes the between-room menu back to the map. Graveyards are accessible only in active encounters. Shop, healing, event and removal choices show explicit gains and costs; healing labels account for missing health.
+
+How to Play now has four scrollable categories: Start a run, Battle and Plans, Cards and effects, and Controls. The slimmer table, smaller playmat and deployed cards share matching lane and collider proportions. Hand cards are also smaller, with hover footprints matching their visible scale. The existing modular classroom and placeholder opponent remain in use; illustration windows stay blank.
+
+The three camera states are Room (S), normal Table, and Overhead (W). W and S move one step at a time, ignoring key repeats and clamping at either end. An interrupted transition continues smoothly from its current transform. Combat uses Overhead and restores your chosen view afterward; Continue retains all three view states and accepts older two-view checkpoints. The abandoned classroom integration checks camera paths inside the finished room and screens for visible void at 16:10, 16:9 and ultrawide sizes.
+
+`res://tests/notes5_smoke.gd` checks map coverage and navigation, battle-only graveyard access, actual healing and removal prices, full-health rest exit, help categories, camera blending/interruption/limits, saved views and deployed scale. A graphical run also captures each help page, the map, shop, three views and a live encounter for visual review. The classroom lighting correction enables desktop anti-aliasing; texture downsizing remains later work.
+
+
+## October 15 notes /1 and /2: presentation and game feel
+
+The existing bloom, anti-aliasing, clarity, sharpness, anisotropic filtering and lighting remain active with the current supplied classroom. Source textures and models have not been downsized as part of this update.
+
+Each encounter begins with an interactive full-screen Heads/Tails call. The toss animates and shows the landed side before the first turn starts. Calls lock immediately to reject double clicks. Both an unresolved call and a toss already underway can be continued from a checkpoint; the saved outcome and chosen side are retained. The coin outcome is recorded in the combat log. Returning from an older stable battle checkpoint does not replay its opening toss.
+
+Normal battle rewards display three native card faces centered on a darkened, frozen battlefield. Click a face or Take card to acquire that exact card once, or Skip card reward to continue. Background shortcuts, card interaction and camera raycasts are blocked while choosing. Offers remain fixed through saves. Preview cards render once, stay out of gameplay groups and collisions, and are freed with their modal.
+
+Click a deployed card to inspect its current face, enlarged at its native aspect ratio. Current attack, health, modifiers and status stacks are available in the scrollable details below it. Click outside the card, use Return to battle or press Esc to dismiss. Combat pauses during inspection. Opening the deck and closing it restores the same inspection and backdrop.
+
+Short menu/shop fades, button press/hover feedback and reward-card hover states complement the existing stable hand hover. Cards follow eased curves into the hand. Cast utility cards fly to the discard pile; defeated cards burn away with an ember dissolve. Slots, costs, graveyards and rewards update immediately, independently of cosmetic cleanup. Existing attack lunges, impact shakes, damage and status pop-ups remain. Turn/clash and victory banners clarify combat; node entry, map scrolling and floor changes have brief transitions. These effects use event-driven, short-lived tweens rather than new continuously running UI animation loops.
+
+The board is now the reusable native 3D asset `scenes/school_drill_board.tscn`: a worn school slate in a dark wood frame with brass corner caps and faint lane registration marks. It fits the current table and existing slot colliders. It has no Threat Zone or Response Zone labels and leaves card illustration windows blank. Unlike the previous mat, it does not generate a large image pixel by pixel when an encounter scene loads.
+
+`res://tests/oct15_smoke.gd` checks manual calls, matching and losing calls, duplicate prevention, mid-toss and unresolved Continue, overlay cleanup, native card proportions, outside-click dismissal, centered exclusive rewards, exact single-copy acquisition, saved offers, shop animation completion, board labels and defeat cleanup. Existing regression fixtures explicitly select a coin side through the same action; normal play always waits for the player's selection.
