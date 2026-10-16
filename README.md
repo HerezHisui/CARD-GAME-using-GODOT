@@ -21,11 +21,11 @@ The repository copies of the design documents are snapshots from 14 October 2026
 - Updated title screen, Continue and Abandon Run, recent-card sorting, and live card stats.
 - Preparedness energy and protection limits, temporary cost disruption, sacrifice rewards, and major evolution entry effects.
 
-The source folder is the current version. Existing ZIP archives are older snapshots.
+The source folder is the current version. Obsolete ZIP snapshots and the unused standalone drag-script sample have been removed. The active project is approximately 7.82 MB, with unused environments removed and all active classroom geometry and textures preserved. See [optimization details](new-game-project/OPTIMIZATION.md) for measurements and validation. The whole-workspace cleanup also removed bundled tools, replaced asset projects, caches and recovery folders; removed local files went to the Windows Recycle Bin.
 
 ### Verification
 
-Run Godot with `--headless --path new-game-project --script res://tests/<suite>_smoke.gd`. Suites: `run`, `mechanics`, `expansion`, `improvements`, `variety`, `hover_graveyard`, `final_boss`, `plans_notes`, `notes3`, and `notes4`.
+Run Godot with `--headless --path new-game-project --script res://tests/<suite>_smoke.gd`. Gameplay suites include `run`, `mechanics`, `expansion`, `improvements`, `variety`, `hover_graveyard`, `final_boss`, `plans_notes`, `notes3`, `notes4`, `notes5`, `oct15` and `optimization`. Use a graphical renderer for `classroom_integration`, `camera_controls` and `visual_quality` captures. Run `python new-game-project/tools/asset_audit.py` for dependency and lossless asset verification.
 
 ---
 

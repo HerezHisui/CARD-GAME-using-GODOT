@@ -274,31 +274,13 @@ func _build_environment() -> void:
 		table.position.y = 1.0 - school.TABLE_SIZE.y / 2
 
 # =================================================================== BOARD
-## Builds a cloth playmat with printed zones and stitched edges.
-## Printed zones align with the existing slot colliders.
-const BOARD_W := 6.2
-const BOARD_H := 4.2
-const PPU := 32 # pixels per world unit
+## The framed slate aligns with the existing slot colliders.
 func _build_board() -> void:
 	for slot in $Slots.get_children():
 		slot.position.x *= BOARD_SCALE
 		slot.position.z *= BOARD_SCALE
 		slot.scale = Vector3(BOARD_SCALE, 1, BOARD_SCALE)
 	add_child(preload("res://scripts/card_playmat.gd").new())
-
-func _rect_outline(img: Image, r: Rect2i, t: int, col: Color) -> void:
-	img.fill_rect(Rect2i(r.position.x, r.position.y, r.size.x, t), col)
-	img.fill_rect(Rect2i(r.position.x, r.end.y - t, r.size.x, t), col)
-	img.fill_rect(Rect2i(r.position.x, r.position.y, t, r.size.y), col)
-	img.fill_rect(Rect2i(r.end.x - t, r.position.y, t, r.size.y), col)
-
-func _diamond(img: Image, c: Vector2i, rad: int, col: Color) -> void:
-	for dy in range(-rad, rad + 1):
-		for dx in range(-rad, rad + 1):
-			if abs(dx) + abs(dy) <= rad:
-				var p := c + Vector2i(dx, dy)
-				if p.x >= 0 and p.y >= 0 and p.x < img.get_width() and p.y < img.get_height():
-					img.set_pixelv(p, col)
 
 # =================================================================== LIGHTING
 func _build_lighting() -> void:
@@ -364,7 +346,7 @@ func _build_visual_finish() -> void:
 	effect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	effect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var material := ShaderMaterial.new()
-	material.shader = preload("res://assets/abandoned_classroom/classroom_finish.gdshader")
+	material.shader = preload("res://assets/classroom_finish.gdshader")
 	effect.material = material
 	layer.add_child(effect)
 

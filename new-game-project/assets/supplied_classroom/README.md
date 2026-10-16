@@ -1,6 +1,8 @@
 # Supplied classroom and marked play area
 
-The complete supplied FBX conversion remains unchanged in `classroom.glb`. The active game now uses `classroom_play_area.glb`, derived from the same source specifically for the annotated rear area.
+The active game uses `classroom_play_area.glb`, derived from the supplied source specifically for the annotated rear area. The unused complete-room conversion has been removed from the runtime project; editable originals remain in the workspace's `classroom-assets` directory and the earlier conversion remains in Git history.
+
+October 16 optimization externalizes the GLB's 33 embedded PNGs into the existing, byte-identical `classroom_play_area_*.png` files. Keep those files beside the GLB. All geometry buffers, UVs, materials, image dimensions and pixel data are unchanged. The GLB falls from 7,330,500 to 2,023,492 bytes. `play_area_manifest.json` records original and current GLB checksums, geometry checksum, and texture hashes/dimensions. Run `python tools/asset_audit.py` from the project directory to verify the dependencies and integrity. Rebuilding from Blender requires running the audit and updating the optimization manifest before publishing.
 
 Eight chairs in the two rear rows are removed; all 12 chairs outside that strip remain in their authored positions. Two central rear desks are cleared where they overlap the dedicated table. The other desks, bookshelf, lockers, windows, walls and props retain their original layout and PBR materials.
 

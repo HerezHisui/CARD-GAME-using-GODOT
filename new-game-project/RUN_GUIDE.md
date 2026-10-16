@@ -212,3 +212,9 @@ Short menu/shop fades, button press/hover feedback and reward-card hover states 
 The board is now the reusable native 3D asset `scenes/school_drill_board.tscn`: a worn school slate in a dark wood frame with brass corner caps and faint lane registration marks. It fits the current table and existing slot colliders. It has no Threat Zone or Response Zone labels and leaves card illustration windows blank. Unlike the previous mat, it does not generate a large image pixel by pixel when an encounter scene loads.
 
 `res://tests/oct15_smoke.gd` checks manual calls, matching and losing calls, duplicate prevention, mid-toss and unresolved Continue, overlay cleanup, native card proportions, outside-click dismissal, centered exclusive rewards, exact single-copy acquisition, saved offers, shop animation completion, board labels and defeat cleanup. Existing regression fixtures explicitly select a coin side through the same action; normal play always waits for the player's selection.
+
+## October 16: smaller project and runtime cleanup
+
+Unused environments, duplicate model/textures, obsolete scripts and generated previews are removed from the active project. The current classroom and its 33 original textures retain their geometry and image quality; the model references the existing texture files to avoid storing each image twice. Material instances are shared, fallback card-face checks are bounded, and identical enemy backs are not unnecessarily rebuilt. Card effects, animated dragging, lighting and anti-aliasing remain enabled.
+
+See `OPTIMIZATION.md` for measured sizes, recovery-copy location and validation. Run `python tools/asset_audit.py` to check dependencies and original texture/geometry integrity. The Windows export preset excludes development-only files and explicitly includes card JSON data. Test captures stay ignored by both Git and Godot.

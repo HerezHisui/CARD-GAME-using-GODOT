@@ -1,6 +1,6 @@
 extends Node3D
 var game: Node
-var signature := ""
+var signature := -1
 var material: StandardMaterial3D
 var face: QuadMesh
 
@@ -14,10 +14,9 @@ func setup(manager: Node) -> void:
 
 func refresh() -> void:
 	var count: int = game.enemy_hand.size()
-	var sealed: int = game.enemy_hand.filter(func(card): return game.is_sealed(card)).size()
-	var next := "%d:%d" % [count, sealed]
-	if signature == next: return
-	signature = next
+	# Face-down backs only display count; seals do not change their appearance.
+	if signature == count: return
+	signature = count
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()

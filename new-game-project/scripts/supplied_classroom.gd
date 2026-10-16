@@ -20,18 +20,28 @@ func _ready() -> void:
 	var source: Node3D = ROOM.instantiate()
 	source.name = "OriginalRoom"
 	room_frame.add_child(source)
+	# Imported desk/chair instances share materials. Adapt each unique material
+	# once instead of allocating a copy for every mesh surface.
+	var material_cache: Dictionary = {}
 	for mesh in source.find_children("*", "MeshInstance3D", true, false):
 		for surface in mesh.mesh.get_surface_count():
 			var imported: Material = mesh.get_active_material(surface)
 			if not imported is StandardMaterial3D: continue
+			if material_cache.has(imported):
+				mesh.set_surface_override_material(surface, material_cache[imported])
+				if imported.resource_name in ["godray", "glass"]:
+					mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				continue
 			if imported.resource_name == "godray":
 				var beam := ShaderMaterial.new()
 				beam.shader = preload("res://assets/supplied_classroom/godray.gdshader")
 				beam.set_shader_parameter("beam_texture", imported.albedo_texture)
+				material_cache[imported] = beam
 				mesh.set_surface_override_material(surface, beam)
 				mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				continue
 			var material: StandardMaterial3D = imported.duplicate()
+			material_cache[imported] = material
 			material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 			if imported.resource_name == "glass":
 				material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

@@ -54,6 +54,8 @@ var _atk_label: Label
 var _mod_label: Label
 var _cost_label: Label
 var face_signature := 0
+const FACE_CHECK_INTERVAL := 0.1
+var face_check_elapsed := 0.0
 
 @onready var art_sprite: Sprite3D = $Art
 @onready var mesh: MeshInstance3D = $Mesh
@@ -376,7 +378,12 @@ func current_face_signature() -> int:
 	return hash([card_data, statuses, modifiers, effective_attack(), planned_guard, plan_ignore_taunt, can_attack(_manager().turn), _manager().is_sealed(card_data)])
 
 func _process(delta: float) -> void:
-	if not card_data.is_empty() and current_face_signature() != face_signature: _refresh_face()
+	# Direct damage/status methods refresh immediately. This bounded fallback
+	# catches external buffs/turn changes without hashing every card every frame.
+	face_check_elapsed += delta
+	if face_check_elapsed >= FACE_CHECK_INTERVAL:
+		face_check_elapsed = fmod(face_check_elapsed, FACE_CHECK_INTERVAL)
+		if not card_data.is_empty() and current_face_signature() != face_signature: _refresh_face()
 	if not is_dragging:
 		return
 	var cam := get_viewport().get_camera_3d()

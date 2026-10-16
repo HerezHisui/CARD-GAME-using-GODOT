@@ -8,7 +8,7 @@ func check(value: bool, message: String) -> void:
 
 func run() -> void:
 	var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://assets/supplied_classroom/play_area_manifest.json"))
-	check(FileAccess.get_sha256("res://assets/supplied_classroom/classroom_play_area.glb") == manifest.runtime_glb_sha256, "supplied classroom conversion remains unchanged")
+	check(FileAccess.get_sha256("res://assets/supplied_classroom/classroom_play_area.glb") == manifest.runtime_glb_sha256, "optimized classroom matches its integrity manifest")
 	var game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
@@ -26,9 +26,15 @@ func run() -> void:
 	check(not game.has_node("Sketchfab_Scene"), "base game excludes Monika")
 	var materials := 0
 	var normal_maps := 0
+	var shared_materials: Dictionary = {}
 	for node in room.find_children("*", "MeshInstance3D", true, false):
 		for i in node.mesh.get_surface_count():
 			var material = node.get_active_material(i)
+			var original = node.mesh.surface_get_material(i)
+			if original:
+				if shared_materials.has(original):
+					check(material == shared_materials[original], "authored material instances share one runtime override")
+				else: shared_materials[original] = material
 			if not material is StandardMaterial3D: continue
 			check(material.texture_filter == BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC, "original PBR materials use anisotropic filtering")
 			if material.albedo_texture: materials += 1
