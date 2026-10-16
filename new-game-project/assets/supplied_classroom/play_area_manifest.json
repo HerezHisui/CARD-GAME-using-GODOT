@@ -17,6 +17,178 @@
   "added_game_tables": 1,
   "player_side_in_reference": "left",
   "janitor_side_in_reference": "right",
-  "source_unchanged": "Classroom_PBR.blend and classroom.glb remain unchanged",
-  "runtime_glb_sha256": "18b5d0222f87200232d8ca4ad3490ac41cb2e8cf01b7c96b010c2d147544832c"
+  "source_unchanged": "Original editable sources remain outside the runtime project in classroom-assets; original runtime conversion is preserved in Git history.",
+  "runtime_glb_sha256": "4f30a79ec2f9569e859a06a3ab29d507b04f294969e83351a4cfc4b2d9f01fba",
+  "original_embedded_glb_sha256": "18b5d0222f87200232d8ca4ad3490ac41cb2e8cf01b7c96b010c2d147544832c",
+  "optimization": "Lossless: embedded PNG bufferViews replaced with references to byte-identical existing extracted PNGs; geometry, UVs, materials and image resolution unchanged.",
+  "runtime_texture_sha256": {
+    "classroom_play_area_ground Normal.png": "11f7b5aff7a5eb18d51a34bf29b7a648d66ae941b02760bb9ad9de033809b288",
+    "classroom_play_area_ground Base Color.png": "65a0992516af253df39017a53f00b5537267eef6d0a2615527c8be5057b5e7b0",
+    "classroom_play_area_ground Roughness.png": "5018f3ae17445fd718303db27b2d21900d74394969b6390d4e46776a8a3ba363",
+    "classroom_play_area_wallConcrete Base Color.png": "a621f15c165e7b8a18c0ab2f7891e2f189bd88ccc88fa51c504660026dab872c",
+    "classroom_play_area_wallConcrete Roughness.png": "169662c5159c3ecd790ffda71d8f652925286396ff4c4f03407a340c8cd0daa1",
+    "classroom_play_area_ceilling Normal.png": "90199b894e6a08009104ca845629f1c472197762cf9491dc695cc33c59eea6a8",
+    "classroom_play_area_ceilling Base Color.png": "b99511b4463d150368d3140551e4bd97004b33f54705690ac2ddef9216fe1ac1",
+    "classroom_play_area_ceilling Roughness.png": "0dd7aa4e35a407a08fa01ae9a04a4fa53b5d808edbc5e1c5c751727680b24e1a",
+    "classroom_play_area_GrandCasier Base Color.png": "517862a86fa294e4018d1c7e47fc96f1f4c8faf4384ab966e429cbebdabffac5",
+    "classroom_play_area_GrandCasier Roughness.png": "ee91a15b33e5eedd56afa80dc273aa142a2890c41642c1aa35ae7a6c9a25f19f",
+    "classroom_play_area_Desk Normal.png": "57f58c5585ad846aa197867715740e7a406b2c093d2c58aa63d51e22b0093d0c",
+    "classroom_play_area_Desk Base Color.png": "a568097c6332b4fd9cbefc0fd5ff4f54fa8148ec05e6e432f30359b1951e607b",
+    "classroom_play_area_Desk Metallic-Desk Roughness.png": "c9498c24eeb63e34f3a7ee971767daa45e2848dab3a0a5a4f6042d3f0aea4a20",
+    "classroom_play_area_board Base Color.png": "21dd5d23aa347a9de34c43c1beb3fa7dc317b13a6ca0df1a50d3ce5d70e9baea",
+    "classroom_play_area_board Roughness.png": "24421b866723f3e41f42e9c36648341fc2cbc6599f99c328c7e9e599e052787c",
+    "classroom_play_area_clock Base Color.png": "c786815d1ed9e6fd8cf97a5e034c0bac061f1488ed4d017e72184218c3578902",
+    "classroom_play_area_teacherDesk Base Color.png": "8998b98720e8902a8a87998783d2b8eb774f325929ea6641eb56ec204fb66e82",
+    "classroom_play_area_Rideau Base Color.png": "9983c9705dd240e97dbe3bea9508d080b920f3da234e90c12d2d687473d18e9c",
+    "classroom_play_area_WindowWoodPlate Base Color.png": "91032ed4f92341397474fa4d24f83e1d766276057be77627ffea491de94a2972",
+    "classroom_play_area_WindowWoodPlate Roughness.png": "6af9c661b1589c90183010c04f6f6dec2e718fcf38c3e20dc432ee9c3776d08d",
+    "classroom_play_area_casiers Normal.png": "a5c43079b658996aedfa06cbec06169e980cfe0a7a635f1ba6ec10c3b28cd5a8",
+    "classroom_play_area_casiers Base Color.png": "280638b039ba9067de630bcbabbfb28e8aa3818df906753b225b8b510a149c20",
+    "classroom_play_area_casiers Roughness.png": "7fdf3bff405a60bc6cf04c62c619fd322174ed2074c2f864949cbb8231777418",
+    "classroom_play_area_neon Base Color.png": "041d0ada4922bf2754577f704ff257634c0b7a30b4a7f2067451ff38cc98d7d4",
+    "classroom_play_area_neon Metallic-neon Roughness.png": "5dffbe94b8b21c782d6d8fed843cd72a4d3eb8d336c19937144789cf0c65f897",
+    "classroom_play_area_door Base Color.png": "1b42b43e2d48980c1136110b812e103bf79e32441138891d749272ab2138d401",
+    "classroom_play_area_door Roughness.png": "52e0f280b5cc2f6de22f9a260145824d52d59a4054bfabb8fc4110adf9508889",
+    "classroom_play_area_radiateur Base Color.png": "a5190a4ffdf3cf15ca3f51ce580253e53fc2dd4eb56e5fd15a059bc8a9a42fcb",
+    "classroom_play_area_godray.png": "9abac8cdbf1d5c6e43ed96194cc63481e40283853d46bb9cb8ae72360647b255",
+    "classroom_play_area_chair Base Color.png": "502217d22f60fc2b400a60c863046d173cbebf5f15d9820ee26a7ea414e50414",
+    "classroom_play_area_chair Metallic-chair Roughness.png": "b8e00ed0b19205d8a461f38b754271f31892bf34bc0c8dd6f6e6e6c88e010638",
+    "classroom_play_area_etagere Base Color.png": "60dc2f94568efa5f10314fd2b03c0edca166af1d923ffa00ed15b4ed89554288",
+    "classroom_play_area_etagere Roughness.png": "9eb65826ca3f5ec273504020cc3dbe922d52fa600ad99056dad364a001e876b4"
+  },
+  "geometry_buffer_sha256": "7049a743caaa23463d0b8fdb32e590c8afe1973bd73ab833fc38821cf3ed2cd8",
+  "runtime_texture_dimensions": {
+    "classroom_play_area_ground Normal.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_ground Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_ground Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_wallConcrete Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_wallConcrete Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_ceilling Normal.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_ceilling Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_ceilling Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_GrandCasier Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_GrandCasier Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_Desk Normal.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_Desk Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_Desk Metallic-Desk Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_board Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_board Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_clock Base Color.png": [
+      128,
+      128
+    ],
+    "classroom_play_area_teacherDesk Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_Rideau Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_WindowWoodPlate Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_WindowWoodPlate Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_casiers Normal.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_casiers Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_casiers Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_neon Base Color.png": [
+      256,
+      256
+    ],
+    "classroom_play_area_neon Metallic-neon Roughness.png": [
+      256,
+      256
+    ],
+    "classroom_play_area_door Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_door Roughness.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_radiateur Base Color.png": [
+      256,
+      256
+    ],
+    "classroom_play_area_godray.png": [
+      256,
+      256
+    ],
+    "classroom_play_area_chair Base Color.png": [
+      256,
+      256
+    ],
+    "classroom_play_area_chair Metallic-chair Roughness.png": [
+      256,
+      256
+    ],
+    "classroom_play_area_etagere Base Color.png": [
+      512,
+      512
+    ],
+    "classroom_play_area_etagere Roughness.png": [
+      512,
+      512
+    ]
+  }
 }

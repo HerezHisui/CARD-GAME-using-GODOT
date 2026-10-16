@@ -13,7 +13,8 @@ func run() -> void:
 	game.run_director.root.hide()
 	game.get_node("HUD/Root").hide()
 	game.visible = true
-	game.get_node("Sketchfab_Scene").hide()
+	var opponent = game.get_node_or_null("Sketchfab_Scene")
+	if opponent: opponent.hide()
 	game.get_viewport().use_taa = RenderingServer.get_current_rendering_method() == "forward_plus"
 	for mode in [game.View.WIDE, game.View.DESK]:
 		game._apply_view(game.view_settings(mode))
