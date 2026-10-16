@@ -1,12 +1,14 @@
-<!-- Snapshot of the Google Doc on 14 October 2026. -->
+<!-- Local singleplayer reference updated 16 October 2026. -->
 
 [Editable Google Doc](https://docs.google.com/document/d/10zsNwhLedizfDTOK4vlviINSWIs5Ac2iJCXESA2Og0c/edit)
 
+The linked Google Doc is a separate copy. This local revision includes the October 15 and 16 work.
+
 # Midnight DRRills Singleplayer Design and Development History
 
-Consolidated game reference and development record through 14 October 2026
+Rules and development record updated 16 October 2026
 
-Midnight DRRills is a school-themed card roguelike where Steve uses Preparedness cards against Disaster encounters and the Janitor. This document brings together the original game concept, the changes requested during development, the current playable rules, card and buff catalogs, and remaining work. The implemented baseline is the completed /4 update and the first economy balance pass. The new /5 notes and later visual refinements remain pending.
+Midnight DRRills is a school-themed card roguelike where Steve uses Preparedness cards against Disaster encounters and the Janitor. This reference covers the current singleplayer rules, development changes, card and buff catalogs, and unfinished work. It includes notes /5, the October 15 presentation updates and the October 16 resource cleanup.
 
 Status language: Implemented means present in the current project. Playtest means implemented but still requiring balance feedback. Planned means recorded for future development. The Multiplayer button is currently a placeholder; the multiplayer proposal belongs in its separate document.
 
@@ -18,7 +20,7 @@ Status language: Implemented means present in the current project. Playtest mean
 
 - Current singleplayer rulebook
 
-- Latest pending notes and deferred work
+- Current status and remaining work
 
 - Card catalog
 
@@ -103,9 +105,21 @@ Lowered Preparedness base energy ceiling to seven, capped Barrier stacking, incr
 
 ### Notes section 5
 
-New requests in the supplied Word notes: battle-only graveyard visibility, clearer HP and supplies labels, clearer card-removal costs, and full-screen map presentation outside combat. Planned.
+Implemented battle-only graveyard access, explicit HP and supplies labels, visible card-removal costs, a full-screen map outside combat, four help categories and three eased camera views. Rest removal remains free; shop removal displays its supplies cost.
 
-Repository handoff: the early work was pushed to HerezHisui/CARD-GAME-using-GODOT at commit 4503d2880a91e0feab57c0f2d735b348495a3f71. Later improvements are local unless separately committed and pushed. Documentation creation does not publish new game code.
+### October 15 presentation
+
+Added a full-screen Heads/Tails call and animated toss, centered card rewards, enlarged card inspection with outside-click dismissal, card and menu transitions, turn and victory banners, and a framed slate board without zone labels. Continue preserves pending coin choices and outcomes.
+
+### Supplied classroom
+
+Adapted the supplied classroom around the marked rear play area and a dedicated table. The active room retains 59 mesh instances, including the table, and 12 chairs outside the cleared strip. Player and Janitor positions are empty markers. Forward+ lighting, bloom, anti-aliasing and clarity grading remain active.
+
+### October 16 optimization
+
+Removed unused environments and duplicate resources, shared repeated classroom materials, bounded fallback card-face checks and avoided rebuilding identical enemy backs. The active project source is about 7.82 MB. A separate whole-folder cleanup reduced the local workspace from 5.64 GB to about 345 MB, including retained Git history.
+
+The October 15 presentation work was pushed to main at commit 605b6b5401416906e330f4d1bfb502fb34cba9fe. Resource cleanup and runtime optimization were pushed at commit 04d88c77eb58049dec813bab83eac2dd74355ed6.
 
 ## Current singleplayer rulebook
 
@@ -125,13 +139,13 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 - Draw once during the draw phase using the lower-right draw button.
 
-- Space or End turn submits your turn. The coin flip determines the first side, alternating each round.
+- At encounter start, call Heads or Tails on the full-screen coin event. A matching toss gives you the first turn; otherwise the Janitor plays first. The starting side alternates each round afterward. Space or End turn submits your turn.
 
-- W shows the board from above; S returns to the desk.
+- W steps from Room to Table to Overhead; S steps back. Battles start in the central Table view. Transitions ease position, rotation, distance and field of view. Room view hides your hand to show the opponent and classroom; return to Table to play. Camera changes are blocked during combat, dragging and board targeting.
 
 - D opens the collection, unordered remaining draw pile, hand, and deployed Response cards. Sort by Name, Type, Cost, Attack, Health, Modifier, or Recently added, in either direction. Recent sorting defaults to newest first. Sorting never changes draw order or your collection.
 
-- M opens and closes the school map during battles and between encounters. When you close it between rooms, a reminder directs you back to M to choose the next room. Next rooms unlock after completing the encounter and reward choice.
+- M opens and closes the school map during battles. Between encounters, the full-screen map stays open and the board is hidden. Next rooms unlock after completing the encounter and reward choice. Deck and menu overlays return to this map when closed.
 
 - Esc opens the menu. Deck, map, and menu overlays pause an active encounter. Close or Resume continues it.
 
@@ -143,7 +157,7 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 Workshops have the same sorting controls as the deck browser. Preview upgrade shows the current card beside its upgraded version; only Confirm upgrade changes the collection. Every card copy can upgrade at most twice, shown as 0/2, 1/2, or 2/2. Evac gains attack and on-play draw, then health and a cheaper energy cost. Douse gains attack and Burn, then health and healing after each strike. Clearance gains attack and Poison, then health and +2 attack against targets with three harmful status stacks. Brace gains health and stronger armor, then health and retaliation. Spells first become cheaper; later upgrades strengthen draw, seal, tax, rally, or cleanse. Movement, tutor, and scouting upgrades refund energy instead. Zero-cost spells can improve their abilities. Duplicate cards retain their original identity when sorted, so only the selected copy changes.
 
-Shops offer four distinct cards, each with one copy in stock. Buying one marks it sold and keeps the shop open; remaining stock does not reroll. Healing can be purchased repeatedly until health is full or supplies run out. The room is completed only when you press Leave shop.
+Shops offer four distinct cards, each with one copy in stock. Buying one marks it sold and keeps the shop open; remaining stock does not reroll. Healing can be purchased repeatedly until health is full or supplies run out. Labels show actual healing and the supplies spent, for example First aid · +1 HP · -15 supplies when only one health is missing. Full-health healing is disabled. Removal shows Destroy 1 card · -30 supplies; infirmary removal is explicitly free. The room is completed only when you press Leave shop. Infirmaries also offer an exit if you prefer to skip their service.
 
 ### Cards
 
@@ -239,7 +253,7 @@ Bonus attack is applied before type effectiveness. Target conditions require a b
 
 ### School setting and final boss
 
-Based on the game notes (https://docs.google.com/document/d/17LhbrulIVWbfTn7mcwgJ0ZM8OXo5ZEPA-1WGeAwMo2M/edit), the classroom now uses native 3D walls, windows, lockers, desks, chairs, a chalkboard and lights. The tiled floor is rendered in two batches. Card artwork remains blank; the current enemy model remains a placeholder.
+The classroom uses the supplied rear play-area model with its original PBR materials, windows, lockers, desks and chairs. A dedicated table occupies the marked area. The playable room has 59 mesh instances, including that table, and retains 12 chairs outside the cleared strip. The eight card lanes sit on a framed slate board. Camera paths stay inside the finished room, with a dark exterior behind the windows. Desktop Forward+ rendering uses contact shadows, indirect lighting, light haze, 4x MSAA and temporal anti-aliasing at full rendering resolution. Bloom and restrained clarity grading affect the world beneath the HUD. The optimization preserves all geometry and 33 original textures without resizing. Player and Janitor positions are empty markers; card illustration windows remain blank.
 
 The Midnight Warden is the final encounter on floor three, with 34 HP. Floors one and two provide preparation and still award permanent floor buffs. Steve plays and attacks before the final boss's announced special pattern resolves. The boss uses a fixed pattern instead of random enemy decks.
 
@@ -253,7 +267,7 @@ New preparation cards: First Aid Herb removes Bleed and heals 1 across deployed 
 
 Healing Reduced halves healing (minimum 1) until it expires or is removed. Barrier absorbs attack damage and is consumed; periodic Burn, Poison and Bleed bypass it. Generic Cleanse also removes Healing Reduced. The reference's large HP/damage numbers, speed system and party-wide card deletion have been adapted to this game's scale.
 
-Victory opens Dawn at Last. Return to the starting screen or choose Keep exploring to receive the floor reward and continue into endless floors. Final-boss graveyards remain inspectable until the next encounter.
+Victory opens Dawn at Last. Return to the starting screen or choose Keep exploring to receive the floor reward and continue into endless floors. Graveyards can be inspected only during an active battle.
 
 ### Preparedness playtest and notes 2
 
@@ -281,7 +295,7 @@ Starting screen: the battle menu offers Return to starting screen with confirmat
 
 Hand selection follows the visible stacking order using each card's resting footprint. Only one card rises at a time. Lifting a card does not remove its resting hover region, preventing repeated pop-up/reset behavior. Its raised face stays clickable. While dragging, all other hover lifts are suppressed. Right-click cancels a drag; failed placement also restores the hand. Opening a modal clears hover.
 
-Open Deck [D] to Graveyards to inspect separate Response and Janitor graveyards. Destroyed units, sacrificed disasters and successfully cast spells appear with their reason and round, including separate copies of the same card. Failed/cancelled spells remain in hand. Entries are battle snapshots with maximum health displayed; battlefield status changes do not rewrite them. The viewer supports sorting and pauses combat. Graveyards remain inspectable in result screens and reset at the next encounter or new run. Clearing the battlefield between rooms does not count as a death. Graveyard cards are not automatically reshuffled or playable again.
+During battle, open Deck [D] to Graveyards to inspect separate Response and Janitor graveyards. Destroyed units, sacrificed disasters and successfully cast spells appear with their reason and round, including separate copies of the same card. Failed/cancelled spells remain in hand. Entries are battle snapshots with maximum health displayed; battlefield status changes do not rewrite them. The viewer supports sorting and pauses combat. Graveyard access disappears outside battle, including results, shops, events and the map; the next encounter or new run resets its entries. Clearing the battlefield between rooms does not count as a death. Graveyard cards are not automatically reshuffled or playable again.
 
 ### Notes 3 contingencies targeting and encounters
 
@@ -305,6 +319,34 @@ Disaster evolutions pay sacrifices without an additional tension payment. Cinder
 
 This is a balance playtest, not a guarantee of equal win rates. Track how often each side runs out of playable cards, whether keeping a formation beats evolving, and whether a major evolution leaves a reasonable response turn. No existing card or core deck mechanic was removed.
 
+### Notes 5 map clarity and three camera views
+
+Outside battle, an opaque full-screen map replaces the idle board. Shops, events and the collection also hide battle geometry. M still toggles the map during a battle, while Esc closes the between-room menu back to the map. Graveyards are accessible only in active encounters. Shop, healing, event and removal choices show explicit gains and costs; healing labels account for missing health.
+
+How to Play now has four scrollable categories: Start a run, Battle and Plans, Cards and effects, and Controls. The board and deployed cards share matching lane and collider proportions. Hand hover footprints match the visible card scale. The supplied classroom and dedicated rear table replace the earlier modular room; character positions are empty markers and illustration windows stay blank.
+
+The three camera states are Room (S), normal Table, and Overhead (W). W and S move one step at a time, ignoring key repeats and clamping at either end. An interrupted transition continues smoothly from its current transform. Combat uses Overhead and restores your chosen view afterward; Continue retains all three view states and accepts older two-view checkpoints. The classroom integration checks camera paths inside the finished room and screens for visible void at 16:10, 16:9 and ultrawide sizes.
+
+### October 15 notes 1 and 2 presentation and game feel
+
+The existing bloom, anti-aliasing, clarity, sharpness, anisotropic filtering and lighting remain active with the current supplied classroom. Source textures and models have not been downsized as part of this update.
+
+Each encounter begins with an interactive full-screen Heads/Tails call. The toss animates and shows the landed side before the first turn starts. Calls lock immediately to reject double clicks. Both an unresolved call and a toss already underway can be continued from a checkpoint; the saved outcome and chosen side are retained. The coin outcome is recorded in the combat log. Returning from an older stable battle checkpoint does not replay its opening toss.
+
+Normal battle rewards display three native card faces centered on a darkened, frozen battlefield. Click a face or Take card to acquire that exact card once, or Skip card reward to continue. Background shortcuts, card interaction and camera raycasts are blocked while choosing. Offers remain fixed through saves. Preview cards render once, stay out of gameplay groups and collisions, and are freed with their modal.
+
+Click a deployed card to inspect its current face, enlarged at its native aspect ratio. Current attack, health, modifiers and status stacks are available in the scrollable details below it. Click outside the card, use Return to battle or press Esc to dismiss. Combat pauses during inspection. Opening the deck and closing it restores the same inspection and backdrop.
+
+Short menu/shop fades, button press/hover feedback and reward-card hover states complement the existing stable hand hover. Cards follow eased curves into the hand. Cast utility cards fly to the discard pile; defeated cards burn away with an ember dissolve. Slots, costs, graveyards and rewards update immediately, independently of cosmetic cleanup. Existing attack lunges, impact shakes, damage and status pop-ups remain. Turn/clash and victory banners clarify combat; node entry, map scrolling and floor changes have brief transitions. These effects use event-driven, short-lived tweens rather than new continuously running UI animation loops.
+
+The board is now the reusable native 3D asset scenes/school_drill_board.tscn: a worn school slate in a dark wood frame with brass corner caps and faint lane registration marks. It fits the current table and existing slot colliders. It has no Threat Zone or Response Zone labels and leaves card illustration windows blank. Unlike the previous mat, it does not generate a large image pixel by pixel when an encounter scene loads.
+
+### October 16 smaller project and runtime cleanup
+
+Unused environments, duplicate model/textures, obsolete scripts and generated previews are removed from the active project. The current classroom and its 33 original textures retain their geometry and image quality; the model references the existing texture files to avoid storing each image twice. Material instances are shared, fallback card-face checks are bounded, and identical enemy backs are not unnecessarily rebuilt. Card effects, animated dragging, lighting and anti-aliasing remain enabled.
+
+See OPTIMIZATION.md for measured sizes, cleanup details and validation. Run python tools/asset_audit.py to check dependencies and original texture/geometry integrity. The Windows export preset excludes development-only files and explicitly includes card JSON data. Test captures stay ignored by both Git and Godot.
+
 ### Current balance direction
 
 Preparedness should excel at steady deployment, rescue, protection and planned answers, while having limited sudden damage and an opportunity cost for utility cards. Disasters should excel at stronger individual threats, sacrifice combos and sudden pressure, while losing board coverage and needing time to rebuild. Equal win rates have not been established by the regression tests.
@@ -321,31 +363,27 @@ The economy pass keeps all existing cards and core mechanics. A one- or two-sacr
 
 Type identity remains a design direction: Evac for rescue and movement, Douse for pressure reduction and cleansing, Clearance for removing threats and breaking defenses, and Brace for holding lanes and retaliation. This is not yet an enforced restriction on the existing card pool. Reducing how widely Response gains strong Burn, Poison and Piercing is a future balance decision, not a completed removal.
 
-## Latest pending notes and deferred work
+## Current status and remaining work
 
-### Notes section 5
+### Completed interface and classroom work
 
-- Show graveyards only while in battle. This will change the currently implemented result-screen graveyard access.
+- Graveyards are available during battle. HP, supplies and card-removal costs are explicit; shop removal costs supplies while rest removal remains free.
 
-- Use clearer outcome labels for HP and supplies, including explicit signs and costs rather than vague choices.
+- The map fills the screen outside combat. How to Play has four categories, and three camera views use smooth transitions within the room.
 
-- Make Destroy card and its supplies cost clear. Decide whether this changes the current free removal at rest nodes before implementing it.
+- Each encounter waits for a Heads/Tails call. Rewards show three centered cards, and deployed-card inspection preserves the native card proportions.
 
-- Outside battle, present the full map screen rather than the battlefield behind it.
+- The active classroom uses the supplied rear play area and dedicated table. The framed board has eight working lanes and no Threat Zone or Response Zone labels.
 
-- Clean up the related menus and presentation. The attached examples are reference direction; no new prices or unspecified numerical rules are assumed.
+- The optimized model references 33 byte-identical PNG textures instead of storing a second embedded copy. Geometry, UVs, materials and texture dimensions were preserved.
 
-### Later visual refinements
+### Remaining artwork and balance work
 
-- Make the table thinner and smaller with more believable scale relative to the room, characters and cards.
+- Final title artwork and card illustrations have not been supplied. Card illustration windows remain blank, and the title uses native school scenery.
 
-- Add more environment detail and improve lighting, materials and visual depth. Preserve the current scene work while refining it.
+- Player and Janitor character models have not been added to the current classroom. Their positions are reserved by empty markers.
 
-- Add a third camera state that emphasizes the Janitor and environment. Keep a close board view for play, with smooth transitions among three views.
-
-- Replace temporary title and card illustration placeholders with the final supplied artwork.
-
-The attachment also contains an unfilled technical-art audit prompt labelled unknown dont procces. It is retained as future reference rather than treated as an instruction or an implemented task.
+- Balance still needs repeated playtests across both economies, encounter tiers and buff combinations. Regression tests check rules and state changes, not equal win rates.
 
 ### Other planned systems
 
@@ -359,76 +397,76 @@ These are base card definitions in the current project, before upgrades, charact
 
 | Card and type | Cost | ATK / HP | Abilities |
 | --- | --- | --- | --- |
-| Quick DashEvac | 1 energy | 2 / 1 | No special ability |
-| Fire DrillEvac | 2 energy | 2 / 3 | No special ability |
-| Evacuation RouteEvac | 4 energy | 3 / 5 | Relocate another ally; Relocated ally heals 2 |
-| Fire HoseDouse | 2 energy | 3 / 2 | No special ability |
-| Debris ClearanceClearance | 1 energy | 2 / 2 | No special ability |
-| Shelter BraceBrace | 3 energy | 1 / 5 | armored |
-| Needle TeamEvac | 3 energy | 2 / 3 | piercing |
-| Heavy LoaderClearance | 3 energy | 5 / 5 | sluggish |
-| Steam TeamDouse | 3 energy | 2 / 4 | On hit burn 3 |
-| Shard BarrierBrace | 2 energy | 1 / 4 | On hit bleed 2 |
-| Hazmat TeamClearance | 3 energy | 2 / 3 | On hit poison 2 |
-| Supply RunnerEvac | 2 energy | 1 / 2 | On play draw 1 |
-| Drill CaptainBrace | 3 energy | 1 / 4 | Starting Strength 2 |
-| Search and RescueEvac | 2 energy | 0 / 1 | Utility; Search draw pile |
-| Safety LockBrace | 2 energy | 0 / 1 | Utility; Seal held card |
-| Hazard ForecastEvac | 2 energy | 0 / 1 | Utility; Reveal enemy hand |
-| Containment OrderClearance | 2 energy | 0 / 1 | Utility; Temporarily raise held-card cost |
-| Rally the TeamBrace | 1 energy | 0 / 1 | Utility; Give ally 2 Strength |
-| DecontaminateDouse | 1 energy | 0 / 1 | Utility; Heal ally 3 and cleanse |
-| Lane MarshalEvac | 2 energy | 1 / 3 | Relocate another ally |
-| Rescue CraneClearance | 4 energy | 3 / 5 | sluggish; Relocate another ally |
-| Field MedicDouse | 3 energy | 1 / 3 | Heal other allies 2 |
-| Drill LeaderBrace | 4 energy | 1 / 4 | Other allies gain 1 Strength |
-| Recovery TeamDouse | 3 energy | 2 / 4 | Heal after attack 2 |
-| Cutting CrewClearance | 4 energy | 3 / 3 | piercing; On hit bleed 1 |
-| Heat SeekerDouse | 3 energy | 2 / 4 | target burn stacks >= 3: +3 attack |
-| Toxin HunterClearance | 4 energy | 2 / 4 | target any stacks >= 3: attack twice |
-| Momentum TeamBrace | 3 energy | 1 / 4 | self strength stacks >= 2: attack twice |
-| Last ResponderEvac | 2 energy | 2 / 3 | self any stacks >= 3: +2 attack |
-| First Aid HerbDouse | 0 energy | 0 / 1 | Utility; Clear Bleed and heal allies 1 |
-| Restoration TabletDouse | 1 energy | 0 / 1 | Utility; Clear Healing Reduced and heal allies 2 |
-| Barrier GeneratorBrace | 2 energy | 0 / 1 | Utility; Formation and hero gain 2 Barrier |
-| Alarm SweepClearance | 2 energy | 0 / 1 | Utility; Damage all enemy units 2 |
-| Containment LanceClearance | 3 energy | 2 / 4 | Ignore guardian Taunt |
-| Silent RunnerEvac | 3 energy | 2 / 3 | On play draw 1; Ignore guardian Taunt |
-| Supply CacheClearance | 2 energy | 0 / 1 | Utility; On play draw 2 |
-| Emergency ExitEvac | 1 energy | 0 / 1 | Utility; Drag ally to empty lane |
+| Quick Dash<br>Evac | 1 energy | 2 / 1 | No special ability |
+| Fire Drill<br>Evac | 2 energy | 2 / 3 | No special ability |
+| Evacuation Route<br>Evac | 4 energy | 3 / 5 | Relocate another ally; Relocated ally heals 2 |
+| Fire Hose<br>Douse | 2 energy | 3 / 2 | No special ability |
+| Debris Clearance<br>Clearance | 1 energy | 2 / 2 | No special ability |
+| Shelter Brace<br>Brace | 3 energy | 1 / 5 | armored |
+| Needle Team<br>Evac | 3 energy | 2 / 3 | piercing |
+| Heavy Loader<br>Clearance | 3 energy | 5 / 5 | sluggish |
+| Steam Team<br>Douse | 3 energy | 2 / 4 | On hit burn 3 |
+| Shard Barrier<br>Brace | 2 energy | 1 / 4 | On hit bleed 2 |
+| Hazmat Team<br>Clearance | 3 energy | 2 / 3 | On hit poison 2 |
+| Supply Runner<br>Evac | 2 energy | 1 / 2 | On play draw 1 |
+| Drill Captain<br>Brace | 3 energy | 1 / 4 | Starting Strength 2 |
+| Search and Rescue<br>Evac | 2 energy | 0 / 1 | Utility; Search draw pile |
+| Safety Lock<br>Brace | 2 energy | 0 / 1 | Utility; Seal held card |
+| Hazard Forecast<br>Evac | 2 energy | 0 / 1 | Utility; Reveal enemy hand |
+| Containment Order<br>Clearance | 2 energy | 0 / 1 | Utility; Temporarily raise held-card cost |
+| Rally the Team<br>Brace | 1 energy | 0 / 1 | Utility; Give ally 2 Strength |
+| Decontaminate<br>Douse | 1 energy | 0 / 1 | Utility; Heal ally 3 and cleanse |
+| Lane Marshal<br>Evac | 2 energy | 1 / 3 | Relocate another ally |
+| Rescue Crane<br>Clearance | 4 energy | 3 / 5 | sluggish; Relocate another ally |
+| Field Medic<br>Douse | 3 energy | 1 / 3 | Heal other allies 2 |
+| Drill Leader<br>Brace | 4 energy | 1 / 4 | Other allies gain 1 Strength |
+| Recovery Team<br>Douse | 3 energy | 2 / 4 | Heal after attack 2 |
+| Cutting Crew<br>Clearance | 4 energy | 3 / 3 | piercing; On hit bleed 1 |
+| Heat Seeker<br>Douse | 3 energy | 2 / 4 | target burn stacks >= 3: +3 attack |
+| Toxin Hunter<br>Clearance | 4 energy | 2 / 4 | target any stacks >= 3: attack twice |
+| Momentum Team<br>Brace | 3 energy | 1 / 4 | self strength stacks >= 2: attack twice |
+| Last Responder<br>Evac | 2 energy | 2 / 3 | self any stacks >= 3: +2 attack |
+| First Aid Herb<br>Douse | 0 energy | 0 / 1 | Utility; Clear Bleed and heal allies 1 |
+| Restoration Tablet<br>Douse | 1 energy | 0 / 1 | Utility; Clear Healing Reduced and heal allies 2 |
+| Barrier Generator<br>Brace | 2 energy | 0 / 1 | Utility; Formation and hero gain 2 Barrier |
+| Alarm Sweep<br>Clearance | 2 energy | 0 / 1 | Utility; Damage all enemy units 2 |
+| Containment Lance<br>Clearance | 3 energy | 2 / 4 | Ignore guardian Taunt |
+| Silent Runner<br>Evac | 3 energy | 2 / 3 | On play draw 1; Ignore guardian Taunt |
+| Supply Cache<br>Clearance | 2 energy | 0 / 1 | Utility; On play draw 2 |
+| Emergency Exit<br>Evac | 1 energy | 0 / 1 | Utility; Drag ally to empty lane |
 
 ### Disasters
 
 | Card and type | Cost | ATK / HP | Abilities |
 | --- | --- | --- | --- |
-| EmberFire | 1 tension | 2 / 2 | No special ability |
-| TremorEarthquake | 1 tension | 2 / 3 | No special ability |
-| Rising TideFlood | 1 tension | 2 / 2 | No special ability |
-| GustTyphoon | 1 tension | 2 / 2 | No special ability |
-| WildfireFire | 2 sac. | 4 / 3 | fierce |
-| FissureEarthquake | 2 sac. | 4 / 4 | rampaging |
-| Flash FloodFlood | 2 sac. | 3 / 4 | regenerating |
-| Gale ForceTyphoon | 2 sac. | 4 / 3 | armored |
-| InfernoFire | 3 sac. | 7 / 5 | fierce; Major evolution entry protection and draw |
-| TsunamiFlood | 3 sac. | 6 / 6 | regenerating; Major evolution entry protection and draw |
-| Cinder CloudFire | 1 tension | 1 / 3 | On hit burn 2; On sacrifice: opposing lane gains 2 Burn |
-| Glass QuakeEarthquake | 1 tension | 1 / 3 | On hit bleed 2; On sacrifice: draw 1 |
-| Toxic RunoffFlood | 1 tension | 1 / 3 | On hit poison 2 |
-| Needle GaleTyphoon | 1 sac. | 3 / 3 | piercing |
-| Sleeping FaultEarthquake | 3 sac. | 6 / 6 | sluggish; Major evolution entry protection and draw |
-| Pressure FrontTyphoon | 1 tension | 1 / 3 | On play draw 1; Starting Strength 1 |
-| Blocked ExitEarthquake | 1 tension | 0 / 1 | Utility; Seal held card |
-| Red TapeFlood | 1 tension | 0 / 1 | Utility; Temporarily raise held-card cost |
-| CrosswindTyphoon | 1 tension | 1 / 3 | Relocate another ally |
-| Warm FrontFire | 1 tension | 1 / 3 | Heal other allies 2 |
-| Aftershock ChoirEarthquake | 2 sac. | 3 / 4 | Other allies gain 1 Strength |
-| Drain VortexFlood | 3 sac. | 4 / 7 | Heal after attack 2; Major evolution entry protection and draw |
-| Black SquallTyphoon | 3 sac. | 5 / 5 | piercing; On hit poison 2; Major evolution entry protection and draw |
-| WorldbreakerEarthquake | 4 sac. | 8 / 9 | sluggish; On hit bleed 3; Major evolution entry protection and draw |
-| Ash PredatorFire | 2 sac. | 3 / 4 | target burn stacks >= 3: attack twice |
-| Venom SurgeFlood | 1 sac. | 2 / 4 | target poison stacks >= 2: +3 attack |
-| Pressure BreakTyphoon | 2 sac. | 2 / 4 | Starting Strength 2; self strength stacks >= 3: attack twice |
-| Fracture HunterEarthquake | 1 tension | 1 / 3 | target any stacks >= 3: +2 attack |
+| Ember<br>Fire | 1 tension | 2 / 2 | No special ability |
+| Tremor<br>Earthquake | 1 tension | 2 / 3 | No special ability |
+| Rising Tide<br>Flood | 1 tension | 2 / 2 | No special ability |
+| Gust<br>Typhoon | 1 tension | 2 / 2 | No special ability |
+| Wildfire<br>Fire | 2 sac. | 4 / 3 | fierce |
+| Fissure<br>Earthquake | 2 sac. | 4 / 4 | rampaging |
+| Flash Flood<br>Flood | 2 sac. | 3 / 4 | regenerating |
+| Gale Force<br>Typhoon | 2 sac. | 4 / 3 | armored |
+| Inferno<br>Fire | 3 sac. | 7 / 5 | fierce; Major evolution entry protection and draw |
+| Tsunami<br>Flood | 3 sac. | 6 / 6 | regenerating; Major evolution entry protection and draw |
+| Cinder Cloud<br>Fire | 1 tension | 1 / 3 | On hit burn 2; On sacrifice: opposing lane gains 2 Burn |
+| Glass Quake<br>Earthquake | 1 tension | 1 / 3 | On hit bleed 2; On sacrifice: draw 1 |
+| Toxic Runoff<br>Flood | 1 tension | 1 / 3 | On hit poison 2 |
+| Needle Gale<br>Typhoon | 1 sac. | 3 / 3 | piercing |
+| Sleeping Fault<br>Earthquake | 3 sac. | 6 / 6 | sluggish; Major evolution entry protection and draw |
+| Pressure Front<br>Typhoon | 1 tension | 1 / 3 | On play draw 1; Starting Strength 1 |
+| Blocked Exit<br>Earthquake | 1 tension | 0 / 1 | Utility; Seal held card |
+| Red Tape<br>Flood | 1 tension | 0 / 1 | Utility; Temporarily raise held-card cost |
+| Crosswind<br>Typhoon | 1 tension | 1 / 3 | Relocate another ally |
+| Warm Front<br>Fire | 1 tension | 1 / 3 | Heal other allies 2 |
+| Aftershock Choir<br>Earthquake | 2 sac. | 3 / 4 | Other allies gain 1 Strength |
+| Drain Vortex<br>Flood | 3 sac. | 4 / 7 | Heal after attack 2; Major evolution entry protection and draw |
+| Black Squall<br>Typhoon | 3 sac. | 5 / 5 | piercing; On hit poison 2; Major evolution entry protection and draw |
+| Worldbreaker<br>Earthquake | 4 sac. | 8 / 9 | sluggish; On hit bleed 3; Major evolution entry protection and draw |
+| Ash Predator<br>Fire | 2 sac. | 3 / 4 | target burn stacks >= 3: attack twice |
+| Venom Surge<br>Flood | 1 sac. | 2 / 4 | target poison stacks >= 2: +3 attack |
+| Pressure Break<br>Typhoon | 2 sac. | 2 / 4 | Starting Strength 2; self strength stacks >= 3: attack twice |
+| Fracture Hunter<br>Earthquake | 1 tension | 1 / 3 | target any stacks >= 3: +2 attack |
 
 ### Encounter and event cards
 
@@ -504,27 +542,29 @@ Coordinated Response selects the nearest allies on either side, including differ
 
 ## Verification and source record
 
-Ten regression suites passed after the /4 and economy changes. They cover map connectivity and mandatory combat, duplicate-safe sorting and upgrades, shops, spells, statuses, targeting, hover and graveyards, encounter AI, Plans, boss phases and saved-run round trips. Visual previews of the new title, Continue screen and vertical map were inspected. Automated correctness checks do not establish balance, multiplayer reliability or final artwork quality.
+The October 16 optimization checks passed ten suites: run, mechanics, hover_graveyard, notes4, notes5, final_boss, oct15, optimization, visual_quality and classroom_integration. They cover combat rules, saves, targeting, hover, graveyards, camera paths, coin calls, rewards, card inspection, classroom materials and bounded display updates. Graphical checks used Forward+. The exported game-data pack also passed the mechanics suite. Earlier expansion, improvements, variety, plans_notes and notes3 suites passed during their respective updates; they were not all rerun for the cleanup.
+
+The asset audit checks 63 runtime files, verifies the geometry checksum and all 33 original texture hashes and dimensions, and fails on missing or unreferenced runtime resources. After the whole-folder cleanup, both project copies passed the audit and the optimization suite passed again. These results do not establish balance, multiplayer reliability or final artwork quality.
 
 - tests/run_smoke.gd
 
 - tests/mechanics_smoke.gd
 
-- tests/expansion_smoke.gd
-
-- tests/improvements_smoke.gd
-
-- tests/variety_smoke.gd
-
 - tests/hover_graveyard_smoke.gd
+
+- tests/notes4_smoke.gd
+
+- tests/notes5_smoke.gd
 
 - tests/final_boss_smoke.gd
 
-- tests/plans_notes_smoke.gd
+- tests/oct15_smoke.gd
 
-- tests/notes3_smoke.gd
+- tests/optimization_smoke.gd
 
-- tests/notes4_smoke.gd
+- tests/visual_quality_smoke.gd
+
+- tests/classroom_integration_smoke.gd
 
 ### Project and source references
 
@@ -534,7 +574,7 @@ Ten regression suites passed after the /4 and economy changes. They cover map co
 
 - Development notes: https://docs.google.com/document/d/17LhbrulIVWbfTn7mcwgJ0ZM8OXo5ZEPA-1WGeAwMo2M/edit
 
-- Supplied Word notes: notes for Drr card game (1).docx, including the latest /5 requests and deferred visual refinements.
+- Supplied Word notes: notes for Drr card game (1).docx, including /5 and the classroom references. Completed items are recorded above; final artwork and multiplayer remain unfinished.
 
 - Current project reference: RUN_GUIDE.md; card data in starter_deck.json, response_expansion.json, disaster_deck.json and disaster_expansion.json; runtime rules in battle_rules.gd, contingency_rules.gd, game_3d_manager.gd, run_director.gd, final_boss.gd and run_save.gd.
 
