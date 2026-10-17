@@ -17,10 +17,6 @@ func pick(title: String, cards: Array, callback: Callable, cancel_callback: Call
 	game.clear_hand_hover()
 	action = {"kind":"pick", "title":title, "cards":cards.duplicate(), "callback":callback, "cancel":cancel_callback}
 
-func pair(title: String, callback: Callable) -> void:
-	game.clear_hand_hover()
-	action = {"kind":"pair", "title":title, "first":null, "callback":callback, "cancel":Callable()}
-
 func relocation(source: Node) -> void:
 	game.clear_hand_hover()
 	action = {"kind":"relocate", "title":"Drag another friendly card onto an empty lane. Esc skips movement.", "source":source, "cancel":game.cancel_move_effect}
@@ -38,17 +34,6 @@ func click_card(card: Node) -> bool:
 				var callback: Callable = action.callback
 				clear()
 				callback.call(card)
-		"pair":
-			if not game.plans.eligible(card): return true
-			if not is_instance_valid(action.first):
-				action.first = card
-				action.title = "Click the nearest ally on either side. Esc cancels."
-				card.spawn_popup("FIRST ALLY", Color("75d6c6"))
-			elif game.plans.matching_pair([action.first, card]):
-				var cards: Array = [action.first, card]
-				var callback: Callable = action.callback
-				clear()
-				callback.call(cards)
 	return true
 
 func choose_slot(slot: Node3D) -> void:

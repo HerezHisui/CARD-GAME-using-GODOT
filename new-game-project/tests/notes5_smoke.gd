@@ -45,11 +45,8 @@ func run() -> void:
 	game.presentation.automated_choice = 0
 	director = game.run_director
 	director.persistence.discard()
-	for page in 4:
-		director.show_title_help(page)
-		await capture("help_%d" % page)
-		check(buttons().filter(func(b): return b.disabled).size() == 1, "one help category is selected")
-		check(director.content.find_children("*", "ScrollContainer", true, false).size() == 1, "help topics have their own scroll area")
+	director.show_title()
+	check(not buttons().any(func(b): return b.text == "How to play"), "obsolete help entry removed")
 	director.start_character(0)
 	await process_frame
 	check(not game.visible, "world is hidden outside battle")
@@ -92,9 +89,9 @@ func run() -> void:
 	await create_timer(0.7).timeout
 	check(game.visible, "battle makes world visible")
 	director.show_deck()
-	check(has_button("Graveyards"), "graveyard remains available in battle")
+	check(not has_button("Graveyards"), "graveyard has its own compact HUD button instead of a deck tab")
 	director.show_graveyard()
-	check(director.content.get_child(0).text == "BATTLE GRAVEYARDS", "battle graveyard opens")
+	check(director.content.get_child(0).text.begins_with("RESPONSE GRAVEYARD"), "battle graveyard opens")
 	director.close_modal()
 	director.toggle_map()
 	check(director.screen == "map", "M opens battle map")
@@ -138,11 +135,7 @@ func run() -> void:
 	var card = game._get_card_in_slot(game._response_slots()[0])
 	check(is_equal_approx(card.scale.x, game.BOARD_SCALE), "deployed cards retain their smaller world scale after Continue")
 	check(is_equal_approx(game._response_slots()[0].scale.x, game.BOARD_SCALE), "lane colliders scale with the board")
-	var table = game.get_node("Table")
-	check(table.size.is_equal_approx(game.get_node("SchoolEnvironment").TABLE_SIZE), "board reference retains the current supplied table dimensions")
-	for leg in game.get_node("SchoolEnvironment").get_children():
-		if str(leg.name).begins_with("PlayTableLeg"):
-			check(absf(leg.position.x) < table.size.x / 2 and absf(leg.position.z) < table.size.z / 2, "table supports fit beneath resized tabletop")
+	check(not game.has_node("Table"), "obsolete board reference model is removed")
 	game.clear_battle()
 	game._set_phase(game.Phase.PLAYER_PLAY)
 	await game._combat()
@@ -170,5 +163,5 @@ func run() -> void:
 	if failures:
 		quit(1)
 		return
-	print("PASS: full-screen map, battle-only graveyards, explicit actual costs, rest exit, four help categories, three eased camera views, interruption, clamps and view persistence")
+	print("PASS: full-screen map, battle-only graveyards, explicit actual costs, rest exit, removed help entry, three eased camera views, interruption, clamps and view persistence")
 	quit(0)

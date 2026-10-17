@@ -1,29 +1,34 @@
 extends Control
-## A board of connected school rooms. Coordinates scale with the available space.
+## Static route drawing. Only resize and route changes require a redraw.
+const UI = preload("res://scripts/ui_theme.gd")
 var rooms: Array = []
 var current := -1
 var cleared: Array = []
 
 func point(room: Dictionary) -> Vector2:
-	return Vector2(100 + float(room.lane) * (size.x - 200) / 2.0, size.y - 100 - float(room.row) * (size.y - 210) / float(maxi(1, int(rooms.back().row))))
+	var spread := minf(560, size.x - 190)
+	return Vector2(size.x / 2 + (float(room.lane) - 1) * spread / 2, size.y - 100 - float(room.row) * (size.y - 210) / float(maxi(1, int(rooms.back().row))))
 
 func _draw() -> void:
+	if rooms.is_empty(): return
+	draw_rect(Rect2(Vector2.ZERO, size), UI.INSET)
+	for y in range(0, int(size.y), 32):
+		draw_line(Vector2(0, y), Vector2(size.x, y), Color(UI.BRONZE, 0.035), 1)
 	for room in rooms:
+		if int(room.lane) == 0:
+			var p := point(room)
+			draw_string(UI.font(true), Vector2(12, p.y + 7), "%02d" % (int(room.row) + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, UI.BRONZE)
 		for next_id in room.links:
 			var next: Dictionary = rooms[next_id]
 			var visited: bool = room.id in cleared and (next_id in cleared or next_id == current)
 			var start := point(room)
 			var finish := point(next)
-			var distance := start.distance_to(finish)
-			for step in range(int(distance / 14)):
-				var t := float(step * 14) / distance
-				draw_line(start.lerp(finish, t), start.lerp(finish, minf(1, t + 7 / distance)), Color("c9aa70") if visited else Color("566572"), 3.0 if visited else 2.0, true)
-	for room in rooms:
-		var p := point(room)
-		draw_circle(p, 47, Color("101e29"))
-		draw_arc(p, 48, 0, TAU, 64, Color("c9aa70") if room.id == current else Color("344550"), 2, true)
-		if room.id == current:
-			draw_circle(p + Vector2(0, -59), 5, Color("75d6c6"))
+			draw_line(start, finish, UI.RAISED, 7, true)
+			draw_line(start, finish, UI.GOLD if visited else UI.BRONZE.darkened(0.35), 2, true)
+			draw_circle(start.lerp(finish, 0.5), 3, UI.GOLD if visited else UI.BRONZE)
+	if current >= 0:
+		var p := point(rooms[current])
+		draw_string(UI.font(true), p + Vector2(-62, -48), "CURRENT ROOM", HORIZONTAL_ALIGNMENT_CENTER, 124, 13, UI.GOLD)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:

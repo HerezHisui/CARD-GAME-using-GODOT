@@ -23,6 +23,8 @@ func run() -> void:
 	director.new_run()
 	await create_timer(0.6).timeout
 	director.visit(0)
+	check(game.presentation.blocking and game.phase == game.Phase.SETUP, "battle entry animation blocks input")
+	await create_timer(1.2).timeout
 	check(game.presentation.blocking and director.screen == "coin" and game.phase == game.Phase.SETUP, "real encounter waits for a coin selection")
 	check(game.presentation.choice_buttons.size() == 2 and game.coin_pick == -1, "both Heads and Tails are interactive")
 	await create_timer(0.25).timeout
@@ -53,7 +55,8 @@ func run() -> void:
 	await create_timer(0.25).timeout
 	var face: TextureRect = director.inspected_face
 	check(is_equal_approx(face.size.x / face.size.y, float(card.FACE_W) / card.FACE_H), "inspection preserves native aspect ratio")
-	check(absf(face.get_global_rect().get_center().x - root.get_visible_rect().size.x / 2) < 2, "inspected card is centered horizontally")
+	var inspection_row: Control = face.get_parent().get_parent()
+	check(absf(inspection_row.get_global_rect().get_center().x - root.get_visible_rect().size.x / 2) < 2, "card and side description are centered together")
 	await capture("inspection")
 	var inside := InputEventMouseButton.new()
 	inside.pressed = true
@@ -86,9 +89,10 @@ func run() -> void:
 	check(director.persistence.checkpoint() and director.persistence.resume() and director.reward_stock == director.persistence.normalize(offers), "centered reward offers remain stable through Continue")
 	var before: int = director.collection.size()
 	var chosen_id: String = director.reward_stock[0].id
-	var take = director.content.find_children("*", "Button", true, false).filter(func(button): return button.text == "Take card")[0]
-	take.pressed.emit()
-	take.pressed.emit()
+	director.select_reward(0)
+	check(director.collection.size() == before and director.reward_selection == 0, "first reward click inspects without acquisition")
+	director.select_reward(0)
+	director.select_reward(0)
 	check(director.collection.size() == before + 1 and director.collection.back().id == chosen_id and director.screen == "map", "chosen reward is acquired exactly once even on double click")
 	director.current = 3
 	director.show_shop()
@@ -117,6 +121,7 @@ func run() -> void:
 	director.screen = ""
 	director.battle_active = true
 	game.start_encounter(director.collection, "battle", 1, 0)
+	await create_timer(1.2).timeout
 	var losing_pick: int = 1 - game.coin_result
 	game.presentation.choice_buttons[losing_pick].pressed.emit()
 	for i in 70:

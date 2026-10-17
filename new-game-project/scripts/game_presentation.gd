@@ -1,4 +1,5 @@
 extends CanvasLayer
+const UI = preload("res://scripts/ui_theme.gd")
 ## Short, event-driven UI tweens. No polling, gameplay timers or game-state ownership.
 signal coin_chosen(side: int)
 var game: Node
@@ -19,7 +20,7 @@ func setup(owner_game: Node) -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for side in ["H", "T"]:
 		var letter := "M87 78h20v40h42V78h20v100h-20v-40h-42v40H87z" if side == "H" else "M84 78h88v20h-34v80h-20V98H84z"
-		var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><defs><radialGradient id="g"><stop stop-color="#e7ca82"/><stop offset=".75" stop-color="#ac8243"/><stop offset="1" stop-color="#574126"/></radialGradient></defs><circle cx="128" cy="128" r="121" fill="url(#g)" stroke="#ebd5a0" stroke-width="5"/><circle cx="128" cy="128" r="103" fill="none" stroke="#72552c" stroke-width="3"/><circle cx="128" cy="128" r="94" fill="none" stroke="#d5b474" stroke-width="2"/><path d="%s" fill="#594124"/></svg>' % letter
+		var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><defs><radialGradient id="g"><stop stop-color="#%s"/><stop offset=".75" stop-color="#%s"/><stop offset="1" stop-color="#%s"/></radialGradient></defs><circle cx="128" cy="128" r="121" fill="url(#g)" stroke="#%s" stroke-width="5"/><circle cx="128" cy="128" r="103" fill="none" stroke="#%s" stroke-width="3"/><circle cx="128" cy="128" r="94" fill="none" stroke="#%s" stroke-width="2"/><path d="%s" fill="#%s"/></svg>' % [UI.GOLD.to_html(false), UI.BRONZE.to_html(false), UI.BRONZE.darkened(0.55).to_html(false), UI.TEXT.to_html(false), UI.BRONZE.darkened(0.5).to_html(false), UI.GOLD.to_html(false), letter, UI.INSET.to_html(false)]
 		var image := Image.new()
 		image.load_svg_from_string(svg)
 		coin_textures.append(ImageTexture.create_from_image(image))
@@ -33,7 +34,7 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	var event_root := coin_root
 	coin_root.name = "CoinFlip"
 	coin_root.theme = game.run_director.root.theme
-	coin_root.color = Color(0.025, 0.04, 0.055, 1.0)
+	coin_root.color = UI.BACKGROUND
 	coin_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	coin_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(coin_root)
@@ -51,7 +52,7 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
 	var coin_space := CenterContainer.new()
-	coin_space.custom_minimum_size = Vector2(600, 280)
+	coin_space.custom_minimum_size = Vector2(600, 340)
 	box.add_child(coin_space)
 	coin_sprite = TextureRect.new()
 	coin_sprite.texture = coin_textures[0]
@@ -67,6 +68,8 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	for side in 2:
 		var button = game.run_director.button("Heads" if side == 0 else "Tails", select_coin.bind(side), buttons)
 		button.custom_minimum_size = Vector2(200, 56)
+		button.theme_type_variation = "TerminalButton"
+		UI.decorate(button)
 		choice_buttons.append(button)
 	reveal(box)
 	game.run_director.persistence.checkpoint()
@@ -79,7 +82,7 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	var toss := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	toss.tween_method(func(t: float):
 		if epoch != coin_epoch: return
-		coin_sprite.position = rest + Vector2(0, -100 * sin(t * PI))
+		coin_sprite.position = rest + Vector2(0, -70 * sin(t * PI))
 		var angle := t * (TAU * 4 + PI * result)
 		coin_sprite.scale.x = maxf(0.06, absf(cos(angle)))
 		coin_sprite.rotation = sin(t * TAU) * 0.12
@@ -138,34 +141,42 @@ func clear_banner() -> void:
 
 func button_feedback(button: Button) -> void:
 	var tween: Array = [null]
+	var reference: WeakRef = weakref(button)
 	var animate := func(scale_value: float, color: Color):
+		var live_button = reference.get_ref()
+		if not is_instance_valid(live_button) or live_button.is_queued_for_deletion(): return
 		if tween[0]: tween[0].kill()
-		button.pivot_offset = button.size / 2
-		tween[0] = button.create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		tween[0].tween_property(button, "scale", Vector2.ONE * scale_value, 0.10)
-		tween[0].tween_property(button, "modulate", color, 0.10)
+		live_button.pivot_offset = live_button.size / 2
+		tween[0] = live_button.create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween[0].tween_property(live_button, "scale", Vector2.ONE * scale_value, 0.10)
+		tween[0].tween_property(live_button, "modulate", color, 0.10)
 	button.mouse_entered.connect(func():
-		if not button.disabled: animate.call(1.025, Color(1.12, 1.10, 1.03))
+		var live_button = reference.get_ref()
+		if is_instance_valid(live_button) and not live_button.disabled: animate.call(1.0, Color(1.12, 1.10, 1.03))
 	)
 	button.mouse_exited.connect(func(): animate.call(1.0, Color.WHITE))
-	button.button_down.connect(func(): animate.call(0.975, Color.WHITE))
+	button.button_down.connect(func(): animate.call(1.0, Color(0.9, 0.86, 0.8)))
 	button.button_up.connect(func(): animate.call(1.0, Color.WHITE))
 
 func card_feedback(face: Control) -> void:
 	var tween: Array = [null]
+	var reference: WeakRef = weakref(face)
 	var animate := func(amount: float):
+		var live_face = reference.get_ref()
+		if not is_instance_valid(live_face) or live_face.is_queued_for_deletion(): return
 		if tween[0]: tween[0].kill()
-		face.pivot_offset = face.size / 2
-		tween[0] = face.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		tween[0].tween_property(face, "scale", Vector2.ONE * amount, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		live_face.pivot_offset = live_face.size / 2
+		tween[0] = live_face.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween[0].tween_property(live_face, "scale", Vector2.ONE * amount, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	face.mouse_entered.connect(func(): animate.call(1.025))
 	face.mouse_exited.connect(func(): animate.call(1.0))
 
-func banner(title: String, subtitle: String = "", color: Color = Color("c9aa70")) -> void:
-	if blocking: return
+func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry: bool = false) -> void:
+	if blocking and not entry: return
 	if banner_tween: banner_tween.kill()
 	if is_instance_valid(banner_node): banner_node.queue_free()
 	var panel := PanelContainer.new()
+	panel.theme = UI.get_theme()
 	banner_node = panel
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -173,8 +184,9 @@ func banner(title: String, subtitle: String = "", color: Color = Color("c9aa70")
 	panel.offset_right = -350
 	panel.offset_top = 85
 	panel.offset_bottom = 172
-	panel.add_theme_stylebox_override("panel", game.run_director.style(Color(0.025, 0.04, 0.055, 0.96), color))
+	panel.add_theme_stylebox_override("panel", UI.panel(UI.CRIMSON if entry else UI.PANEL, color))
 	add_child(panel)
+	UI.decorate(panel, entry)
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(box)
@@ -188,6 +200,8 @@ func banner(title: String, subtitle: String = "", color: Color = Color("c9aa70")
 	banner_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	banner_tween.tween_property(panel, "modulate:a", 1.0, 0.16)
 	banner_tween.parallel().tween_property(panel, "offset_top", 96.0, 0.2).from(75.0).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if entry:
+		banner_tween.parallel().tween_property(panel, "offset_left", 350.0, 0.2).from(550.0).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	banner_tween.tween_interval(0.65)
 	banner_tween.tween_property(panel, "modulate:a", 0.0, 0.2)
 	banner_tween.tween_callback(panel.queue_free)

@@ -36,9 +36,8 @@ func run() -> void:
 	check(player_local.x < school.DESK_CENTER.x and janitor_local.x > school.DESK_CENTER.x, "player on reference left and janitor on reference right")
 
 	check(school.source_point_to_world(school.DESK_CENTER).is_equal_approx(Vector3(0, 1, 0)), "marked desk top aligns exactly with board origin")
-	var table = game.get_node("Table")
-	check(not table.visible and not table.use_collision, "old procedural desk is hidden and cannot intercept input")
-	check(table.size.x > game.get_node("Playmat").WIDTH and table.size.z > game.get_node("Playmat").DEPTH, "playmat stays within marked desk")
+	check(not game.has_node("Table") and not game.has_node("SpookyLight"), "obsolete table and disabled light are removed")
+	check(school.TABLE_SIZE.x > game.get_node("Playmat").WIDTH and school.TABLE_SIZE.z > game.get_node("Playmat").DEPTH, "playmat stays within marked desk")
 	game.run_director.new_run()
 	game.run_director.visit(0)
 	for i in 200:

@@ -50,8 +50,8 @@ func run() -> void:
 	director.show_characters()
 	check(director.CHARACTERS[0].name == "Steve · Student", "starter renamed Steve")
 	var locked := 0
-	for child in director.content.get_children():
-		if child is Button and child.disabled and child.text.contains("AVAILABLE SOON"): locked += 1
+	for child in director.content.find_children("*", "Button", true, false):
+		if child.disabled and child.get_parent().get_child(1).text.contains("AVAILABLE SOON"): locked += 1
 	check(locked == 3, "three club leaders disabled and marked soon")
 	await capture("steve_selection")
 	director.start_character(1)
@@ -155,7 +155,9 @@ func run() -> void:
 	director.screen = ""
 	director.modal.hide()
 	game.start_encounter(director.collection, "boss", 3, 0)
-	await create_timer(3).timeout
+	for i in 100:
+		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
+		await create_timer(0.1).timeout
 	check(is_instance_valid(game.final_boss) and game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY], "actual final encounter starts through coinflip and does not count empty enemy reserve as victory")
 	await capture("final_boss_live")
 	game._on_draw_button_pressed()

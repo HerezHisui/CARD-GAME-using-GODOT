@@ -321,6 +321,27 @@
     "ignore_taunt": true
   },
   {
+    "id": "recovery_detail",
+    "name": "Recovery Detail",
+    "type": "response",
+    "element": "evac",
+    "cost": 2,
+    "attack": 0,
+    "health": 1,
+    "utility": true,
+    "effect": "recover"
+  },
+  {
+    "id": "relief_crew",
+    "name": "Relief Crew",
+    "type": "response",
+    "element": "brace",
+    "cost": 3,
+    "attack": 2,
+    "health": 4,
+    "effect": "grave_guard"
+  },
+  {
     "id": "silent_runner",
     "name": "Silent Runner",
     "type": "response",
