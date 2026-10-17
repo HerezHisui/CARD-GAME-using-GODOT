@@ -229,7 +229,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		else:
 			enemy_deck.append(c)
 			if c.element == favored: enemy_deck.append(c.duplicate(true))
-	# Modest reserves keep encounters from becoming endless reinforcement chains.
+	# Keep the reserves small so fights don't drag on.
 	var base_limit := 18 if kind == "battle" else (21 if kind == "elite" else 22)
 	var evolution_limit := 8 if kind == "battle" else (13 if kind == "elite" else 14)
 	enemy_deck.shuffle()
@@ -340,7 +340,7 @@ func _build_lighting() -> void:
 		for level in 7: env.set_glow_level(level, [0.8, 0.65, 0.4, 0.2, 0.1, 0.0, 0.0][level])
 
 func _build_visual_finish() -> void:
-	# Grade only the rendered world. The higher HUD/menus stay crisp and unfiltered.
+	# Only color-grade the 3D world, not the HUD.
 	var layer := CanvasLayer.new()
 	layer.name = "ClassroomFinish"
 	layer.layer = 0
@@ -554,7 +554,7 @@ func set_hand_tucked(tucked: bool) -> void:
 	is_hand_tucked = tucked
 	if hand_tuck_tween: hand_tuck_tween.kill()
 	hand_tuck_tween = create_tween().set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-	# Drop the entire container by 1.6 units to hide it safely off-screen
+	# Move the container down 1.6 to hide it off-screen
 	var target_y = -1.6 if tucked else 0.0
 	hand_tuck_tween.tween_property(hand_container, "position:y", target_y, 0.35)
 
@@ -724,7 +724,7 @@ func recoverable_units() -> Array:
 
 func recovered_definition(entry: Dictionary) -> Dictionary:
 	var result: Dictionary = entry.get("recovery", entry).duplicate(true)
-	# Old checkpoints have no pre-buff definition. Their recorded HP is maximum HP.
+	# Old saves have no pre-buff data, so use the saved HP as the max.
 	if not entry.has("recovery"):
 		result.health = maxi(1, int(entry.health) - int(buffs_for(entry).get("health", 0)))
 		for definition in run_director.collection:
@@ -939,7 +939,7 @@ func increase_cost(definition: Dictionary) -> void:
 	if not definition.has("tax_original"):
 		definition.tax_original = int(definition.get(key, 1))
 		definition.tax_key = key
-	# Each temporary tax can add at most two cost; repeat casts refresh rather than permanently stacking.
+	# A tax adds at most 2 cost. Casting it again refreshes it instead of stacking.
 	definition[key] = mini(int(definition.tax_original) + 2, int(definition.get(key, 1)) + 1)
 	definition.tax_until = turn + 2
 
