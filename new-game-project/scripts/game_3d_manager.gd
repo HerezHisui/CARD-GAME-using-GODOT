@@ -1,4 +1,6 @@
 extends Node3D
+const BattleEngine = preload("res://scripts/battle_engine.gd")
+const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 ## Main game manager: builds the creepy classroom, the pixel-art board,
 ## the gothic HUD, and controls the deck + fanned card hand.
@@ -187,18 +189,16 @@ func log_event(message: String) -> void:
 	if battle_log.size() > 300: battle_log.pop_front()
 
 func overclock_stacks(response_side: bool) -> int:
-	var temporary := player_buffs if response_side else enemy_buffs
-	var permanent := player_run_buffs if response_side else enemy_run_buffs
-	return int(temporary.get("overclock", 0)) + int(permanent.get("overclock", 0))
+	return BattleEngine.overclock_stacks(BattleQueries.context(self), response_side)
 
 func resource_growth(response_side: bool) -> int:
-	return maxi(1, 1 + buff_value(response_side, "energy") - overclock_stacks(response_side))
+	return BattleEngine.resource_growth(BattleQueries.context(self), response_side)
 
 func hero_max_hp() -> int:
 	return PLAYER_MAX_HP
 
 func incoming_damage(response_side: bool, amount: int) -> int:
-	return ceili(amount * (1.0 + 0.5 * buff_value(response_side, "damage_taken")))
+	return BattleEngine.incoming_damage(BattleQueries.context(self), response_side, amount)
 
 func start_encounter(collection: Array[Dictionary], kind: String, floor_level: int, specialty: int) -> void:
 	clear_battle()
@@ -583,18 +583,16 @@ func add_card_to_hand(definition: Dictionary) -> void:
 	update_deck_label()
 
 func is_sealed(definition: Dictionary) -> bool:
-	return int(definition.get("locked_until", 0)) > turn
+	return BattleEngine.is_sealed(definition, turn)
 
 func buffs_for(definition: Dictionary) -> Dictionary:
-	var response: bool = definition.get("type", "response") == "response"
-	return preload("res://scripts/battle_rules.gd").totals(player_buffs if response else enemy_buffs, player_run_buffs if response else enemy_run_buffs)
+	return BattleEngine.buffs_for(BattleQueries.context(self), definition)
 
 func buff_value(response: bool, id: String) -> int:
-	return int(buffs_for({"type":"response" if response else "disaster"}).get(id, 0))
+	return BattleEngine.buff_value(BattleQueries.context(self), response, id)
 
 func attack_bonus(card: Node) -> int:
-	var buffs := buffs_for(card.card_data)
-	return int(buffs.get("strength", 0)) - (int(buffs.get("isolation", 0)) if card.current_slot != null and _synergy_bonus(card) == 0 else 0)
+	return BattleEngine.attack_bonus(BattleQueries.context(self), BattleQueries.card(self, card))
 
 func prepare_card_data(definition: Dictionary) -> Dictionary:
 	if not definition.get("utility", false): definition.health = maxi(1, int(definition.get("health", 0)) + int(buffs_for(definition).get("health", 0)))
@@ -1385,7 +1383,7 @@ func score_threat(definition: Dictionary, slot: Node3D, layout: Dictionary = {})
 	return score
 
 func definition_has_modifier(definition: Dictionary, modifier: String) -> bool:
-	return definition.get("modifier", "") == modifier or modifier in definition.get("modifiers", [])
+	return BattleEngine.definition_has_modifier(definition, modifier)
 
 func live_ai_definition(card: Node) -> Dictionary:
 	var data: Dictionary = card.card_data.duplicate(true)
@@ -1478,18 +1476,7 @@ func choose_ai_buff(options: Array) -> Dictionary:
 	return best
 
 # ------------------------------------------------------------------- combat
-const TYPE_CHART := {
-	# Response attacking Disaster
-	"evac": {"earthquake": 2.0, "flood": 0.5},
-	"douse": {"fire": 2.0, "typhoon": 0.5},
-	"clearance": {"flood": 2.0, "earthquake": 0.5},
-	"brace": {"typhoon": 2.0, "fire": 0.5},
-	# Disaster attacking Response
-	"flood": {"evac": 2.0, "clearance": 0.5},
-	"earthquake": {"clearance": 2.0, "evac": 0.5},
-	"typhoon": {"douse": 2.0, "brace": 0.5},
-	"fire": {"brace": 2.0, "douse": 0.5},
-}
+const TYPE_CHART = BattleEngine.TYPE_CHART
 
 func _threat_slots() -> Array:
 	return [$Slots/ThreatBoard_Slot1, $Slots/ThreatBoard_Slot2, $Slots/ThreatBoard_Slot3, $Slots/ThreatBoard_Slot4]
@@ -1504,23 +1491,11 @@ func _get_card_in_slot(slot: Node3D) -> Node:
 	return null
 
 func _calc_damage(attacker: Node, defender: Node) -> Dictionary:
-	var base: int = attacker.effective_attack() + conditional_attack_bonus(attacker, defender)
-	var atk_elem: String = attacker.card_data.get("element", "")
-	var def_elem: String = defender.card_data.get("element", "")
-	var mult: float = TYPE_CHART.get(atk_elem, {}).get(def_elem, 1.0)
-	var dmg: int = maxi(1, int(base * mult))
-	dmg += _synergy_bonus(attacker)
-	if attacker.has_modifier("rampaging") and ((attacker.card_data.type == "response") != player_first): dmg += 1
-	return {"dmg": dmg, "mult": mult}
+	return BattleEngine.calc_damage(BattleQueries.context(self),
+		BattleQueries.card(self, attacker), BattleQueries.card(null, defender))
 
 func _synergy_bonus(card: Node) -> int:
-	var slots := _response_slots() if card.card_data.type == "response" else _threat_slots()
-	var index: int = slots.find(card.current_slot)
-	for neighbor in [index - 1, index + 1]:
-		if neighbor >= 0 and neighbor < slots.size():
-			var ally = _get_card_in_slot(slots[neighbor])
-			if ally and ally.is_alive() and ally.card_data.element == card.card_data.element: return 1 + int(buffs_for(card.card_data).get("synergy", 0))
-	return 0
+	return BattleEngine.synergy_bonus(BattleQueries.context(self), BattleQueries.card(self, card))
 
 func _combat() -> void:
 	for card in get_tree().get_nodes_in_group("cards"):
@@ -1583,25 +1558,18 @@ func _side_attacks(response_side: bool) -> void:
 		await _wait(0.4)
 
 func status_stacks(subject: Variant, status: String) -> int:
-	if subject == null: return 0
-	var values: Dictionary = subject if subject is Dictionary else subject.statuses
-	if status != "any": return int(values.get(status, 0))
-	return int(values.get("burn", 0)) + int(values.get("poison", 0)) + int(values.get("bleed", 0))
+	return BattleEngine.status_stacks(BattleQueries.statuses(subject), status)
 
 func condition_met(condition: Dictionary, source: Variant, target: Variant) -> bool:
-	if condition.is_empty(): return false
-	var subject: Variant = source if condition.get("subject", "target") == "self" else target
-	return subject != null and status_stacks(subject, str(condition.get("status", "any"))) >= int(condition.get("threshold", 3))
+	return BattleEngine.condition_met(condition, BattleQueries.statuses(source), BattleQueries.statuses(target))
 
 func conditional_attack_bonus(attacker: Node, defender: Node) -> int:
-	var condition: Dictionary = attacker.card_data.get("condition", {})
-	var amount := int(condition.get("bonus", 0)) if condition_met(condition, attacker, defender) else 0
-	if defender != null and status_stacks(defender, "any") >= 3: amount += int(attacker.card_data.get("status_bonus", 0))
-	return amount
+	var target: Variant = null if defender == null else BattleQueries.card(null, defender)
+	return BattleEngine.conditional_attack_bonus(BattleQueries.card(null, attacker), target)
 
 func attack_strikes(attacker: Node, defender: Node) -> int:
-	var condition: Dictionary = attacker.card_data.get("condition", {})
-	return 2 if condition_met(condition, attacker, defender) and int(condition.get("strikes", 1)) > 1 else 1
+	var target: Variant = null if defender == null else BattleQueries.card(null, defender)
+	return BattleEngine.attack_strikes(BattleQueries.card(null, attacker), target)
 
 func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 	if not atk.can_attack(turn): return
