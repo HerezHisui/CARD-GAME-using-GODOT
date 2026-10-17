@@ -1,5 +1,7 @@
 @tool
 extends Area3D
+const BattleEngine = preload("res://scripts/battle_engine.gd")
+const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 ## A single playable card.
 ## While in hand it is parented to the Camera3D so it always faces the player
 ## (like a classic 2D card game hand). While dragged it floats over the table
@@ -543,9 +545,11 @@ func attack_lunge(target: Vector3) -> void:
 	_tween.tween_property(self, "global_position", home, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	_tween.tween_property(self, "rotation:x", 0.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
+func _battle_context() -> Dictionary:
+	return {} if preview_only else BattleQueries.context(_manager())
+
 func has_modifier(mod_name: String) -> bool:
-	var key := mod_name.to_lower()
-	return key in modifiers or (not preview_only and key in ["piercing", "sluggish"] and int(_manager().buffs_for(card_data).get(key, 0)) > 0)
+	return BattleEngine.has_modifier(_battle_context(), BattleQueries.card(null, self), mod_name)
 
 func add_modifier(mod_name: String) -> void:
 	if not has_modifier(mod_name):
@@ -592,13 +596,7 @@ func discard_to_pile() -> void:
 
 ## mult = type-effectiveness multiplier (for the popup text).
 func adjusted_damage(amt: int) -> int:
-	# Armored: takes 1 less damage from all attacks
-	if has_modifier("armored"):
-		amt = maxi(1, amt - int(card_data.get("armor_value", 1)))
-	# Fragile: takes 1 extra damage from all attacks
-	if has_modifier("fragile"):
-		amt += 1
-	return _manager().incoming_damage(card_data.type == "response", amt)
+	return BattleEngine.adjusted_damage(BattleQueries.context(_manager()), BattleQueries.card(null, self), amt)
 
 func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> void:
 	last_evaded_hit = false
@@ -699,14 +697,14 @@ func spawn_popup(text: String, col: Color) -> void:
 	t.chain().tween_callback(l.queue_free)
 
 func effective_attack() -> int:
-	if preview_only and card_data.has("preview_attack"): return int(card_data.preview_attack)
-	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + plan_attack_bonus + (0 if preview_only else _manager().attack_bonus(self)))
+	var game: Node = null if preview_only else _manager()
+	return BattleEngine.effective_attack(_battle_context(), BattleQueries.card(game, self))
 
 func refresh_cost() -> void:
 	_refresh_face()
 
 func can_attack(round_number: int) -> bool:
-	return is_alive() and (not has_modifier("sluggish") or last_attack_turn < 0 or round_number - last_attack_turn >= 2)
+	return BattleEngine.can_attack(_battle_context(), BattleQueries.card(null, self), round_number)
 
 func add_status(status: String, amount: int) -> void:
 	_manager().log_event("%s gains %d %s." % [card_data.name, amount, status.capitalize()])
