@@ -151,6 +151,7 @@ func _build_face() -> void:
 	name_lbl.size = Vector2(FACE_W - 80, 48)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	UI.outline(name_lbl)
 	frame.add_child(name_lbl)
 
 	# Art window

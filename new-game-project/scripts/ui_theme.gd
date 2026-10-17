@@ -115,6 +115,10 @@ static func decorate(control: Control, hazard: bool = false) -> void:
 	control.add_child(trim)
 	trim.setup(control, BRONZE, AMBER, hazard)
 
+static func outline(label: Control, size: int = 2) -> void:
+	label.add_theme_color_override("font_outline_color", BACKGROUND)
+	label.add_theme_constant_override("outline_size", size)
+
 static func get_theme() -> Theme:
 	if shared_theme != null: return shared_theme
 	var theme := Theme.new()
