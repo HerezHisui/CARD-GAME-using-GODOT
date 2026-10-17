@@ -218,7 +218,7 @@ The board is now the reusable native 3D asset `scenes/school_drill_board.tscn`: 
 
 Unused environments, duplicate model/textures, obsolete scripts and generated previews are removed from the active project. The current classroom and its 33 original textures retain their geometry and image quality; the model references the existing texture files to avoid storing each image twice. Material instances are shared, fallback card-face checks are bounded, and identical enemy backs are not unnecessarily rebuilt. Card effects, animated dragging, lighting and anti-aliasing remain enabled.
 
-See `OPTIMIZATION.md` for measured sizes, cleanup details and validation. Run `python tools/asset_audit.py` to check dependencies and original texture/geometry integrity. The Windows export preset excludes development-only files and explicitly includes card JSON data. Test captures stay ignored by both Git and Godot.
+Run `python tools/asset_audit.py` to check dependencies and original texture/geometry integrity. The Windows export preset excludes development-only files and explicitly includes card JSON data. Test captures stay ignored by both Git and Godot.
 
 
 ## October 16 notes 1
