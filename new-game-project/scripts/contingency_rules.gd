@@ -1,8 +1,9 @@
 extends Node
+const UI = preload("res://scripts/ui_theme.gd")
 ## Response trades unused energy for a limited, delayed combat plan.
 const TACTICS := [
 	{"id":"brace", "name":"Brace", "cost":1, "description":"One ally blocks up to 2 damage from its next attack hit this combat."},
-	{"id":"coordinate", "name":"Coordinated Response", "cost":1, "description":"Two neighboring allies gain +1 attack this combat."},
+	{"id":"coordinate", "name":"Coordinated Response", "cost":1, "description":"Choose one ally. It and the nearest ally on each side gain +1 attack this combat."},
 	{"id":"medicine", "name":"Field Medicine", "cost":1, "description":"At combat start, heal one ally 3 and remove its Bleed."},
 	{"id":"supply", "name":"Supply Line", "cost":1, "description":"Draw 1 card at combat start to prepare your next turn."},
 	{"id":"flank", "name":"Flanking Route", "cost":1, "description":"One ally ignores guardian Taunt for this combat."},
@@ -53,23 +54,29 @@ func bank_unused_energy() -> bool:
 func eligible(card: Variant) -> bool:
 	return is_instance_valid(card) and card.is_alive() and not card.in_hand and card.current_slot in game._response_slots()
 
-func matching_pair(cards: Array) -> bool:
-	if cards.size() != 2 or cards[0] == cards[1] or not eligible(cards[0]) or not eligible(cards[1]): return false
-	var slots: Array = game._response_slots()
-	var a: int = slots.find(cards[0].current_slot)
-	var b: int = slots.find(cards[1].current_slot)
-	for lane in range(mini(a, b) + 1, maxi(a, b)):
-		if game._get_card_in_slot(slots[lane]) != null: return false
-	return true
-
 func can_arm() -> bool:
 	return tokens > 0 and game.can_player_act() and committed_round != game.turn and armed.is_empty() and not game.get_hand_cards().any(func(card): return card.is_dragging)
+
+func coordination_targets(center: Node) -> Array:
+	if not eligible(center): return []
+	var result: Array = [center]
+	var slots: Array = game._response_slots()
+	var origin: int = slots.find(center.current_slot)
+	for direction in [-1, 1]:
+		var lane: int = origin + direction
+		while lane >= 0 and lane < slots.size():
+			var ally = game._get_card_in_slot(slots[lane])
+			if eligible(ally):
+				result.append(ally)
+				break
+			lane += direction
+	return result
 
 func arm(kind: String, cards: Array, destination: Node3D = null) -> bool:
 	var tactic := definition(kind)
 	if not can_arm() or kind not in unlocked or tactic.is_empty() or tokens < int(tactic.cost): return false
 	if kind == "coordinate":
-		if not matching_pair(cards): return false
+		if cards.size() != 1 or not eligible(cards[0]): return false
 	elif kind in ["brace", "medicine", "flank", "precision", "extract"]:
 		if cards.size() != 1 or not eligible(cards[0]): return false
 		if kind == "extract" and (destination not in game._response_slots() or game._get_card_in_slot(destination) != null): return false
@@ -91,7 +98,7 @@ func try_extract(card: Node, damage: int) -> bool:
 	card.place_on_slot(slot)
 	card.last_evaded_hit = true
 	game.log_event("Emergency Extraction saves %s from a lethal attack." % card.card_data.name)
-	card.spawn_popup("EXTRACTED", Color("75d6c6"))
+	card.spawn_popup("EXTRACTED", UI.RESPONSE)
 	return true
 
 func apply_combat() -> void:
@@ -101,11 +108,11 @@ func apply_combat() -> void:
 		targets[0].planned_guard = 2
 		targets[0]._refresh_face()
 		game.log_event("Brace protects %s against its next attack this combat." % targets[0].card_data.name)
-	elif armed.kind == "coordinate" and matching_pair(targets):
-		for card in targets:
+	elif armed.kind == "coordinate" and not targets.is_empty() and eligible(targets[0]):
+		for card in coordination_targets(targets[0]):
 			card.plan_attack_bonus = 1
 			card._refresh_face()
-		game.log_event("Coordinated Response grants both allies +1 attack for this combat.")
+		game.log_event("Coordinated Response grants the chosen ally and its nearest neighbors +1 attack for this combat.")
 	elif armed.kind == "medicine" and eligible(targets[0]):
 		targets[0].statuses.erase("bleed")
 		targets[0].heal(3)

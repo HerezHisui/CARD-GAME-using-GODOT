@@ -92,7 +92,7 @@ func run() -> void:
 	game.add_global_buff(true, "glass")
 	check(ally.effective_attack() == 4 and ally.max_health == 3, "strong battle buff has health downside")
 	game.add_global_buff(true, "blood_pact")
-	check(ally.statuses.bleed == 2, "blood pact applies its downside")
+	check(ally.effective_attack() == 6 and ally.statuses.get("bleed", 0) == 0, "Blood Pact adds two Strength without the removed Bleed downside")
 	game.add_global_buff(true, "beacon", true)
 	director.battle_finished(true)
 	check(game.player_buffs.is_empty() and game.enemy_buffs.is_empty() and game.player_run_buffs.beacon == 1, "battle buffs expire, permanent buff remains")

@@ -49,15 +49,17 @@ func run() -> void:
 	var school := game.get_node("SchoolEnvironment")
 	var enemy_position: Vector3 = school.get_node("OpponentPosition").global_position + Vector3.UP * 6.2
 	var window_position: Vector3 = school.source_point_to_world(Vector3(3.94, 2, -3.0))
-	for point in [enemy_position, window_position]:
-		check(not game.camera.is_position_behind(point), "enemy/window remain in front of the normal camera")
-		var screen: Vector2 = game.camera.unproject_position(point)
-		check(root.get_visible_rect().grow(-80).has_point(screen), "normal view frames the enemy's upper body and window")
+	for slot in game._response_slots() + game._threat_slots():
+		var screen: Vector2 = game.camera.unproject_position(slot.global_position)
+		check(root.get_visible_rect().grow(-80).has_point(screen), "normal view frames all eight playable lanes")
 	await capture("normal")
 	await key(KEY_S)
 	check(game.view_mode == game.View.WIDE, "S opens the wider view")
 	await settle()
 	check(absf(game.get_node("CameraPivot").rotation_degrees.y) <= 15, "S keeps the opponent-facing side instead of orbiting 90 degrees")
+	for point in [enemy_position, window_position]:
+		check(not game.camera.is_position_behind(point), "enemy/window remain in front of the wide camera")
+		check(root.get_visible_rect().grow(-80).has_point(game.camera.unproject_position(point)), "wide view retains enemy and window framing")
 	await capture("s_view")
 	await key(KEY_S)
 	check(game.view_mode == game.View.WIDE, "S at the outer limit stays wide")
@@ -87,5 +89,5 @@ func run() -> void:
 	if failures:
 		quit(1)
 		return
-	print("PASS: enemy/window framing, actual W/S keys, view limits, echo suppression, smooth contained transitions, rapid reversals, modal guard and overhead camera")
+	print("PASS: eight-lane normal framing, enemy/window wide framing, actual W/S keys, view limits, echo suppression, contained transitions, rapid reversals, modal guard and overhead camera")
 	quit()

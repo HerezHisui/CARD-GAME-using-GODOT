@@ -2,8 +2,8 @@ extends Node
 ## Only stable decisions and player turns are checkpointed; animation coroutines are never serialized.
 const PATH := "user://unfinished_run_v1.json"
 const DIRECTOR_FIELDS := ["collection", "acquisition_serial", "reward_stock", "rooms", "cleared", "current", "coins", "floor_number", "run_seed", "selected_character", "encounter", "battle_active", "buff_choices", "intel_revealed", "unlock_after", "event_key", "event_type", "event_cards", "event_resolved", "shop_key", "shop_stock", "shop_purchased", "deck_sort", "upgrade_sort", "deck_descending", "upgrade_descending"]
-const GAME_FIELDS := ["deck", "enemy_deck", "enemy_evolution_deck", "enemy_hand", "player_graveyard", "enemy_graveyard", "turn", "player_first", "energy_cap", "preparedness", "tension_cap", "tension", "player_hp", "enemy_hp", "enemy_max_hp", "player_buffs", "enemy_buffs", "player_run_buffs", "enemy_run_buffs", "encounter_kind", "player_barrier", "plan_hero_barrier", "adapted_round", "battle_log", "in_board_view", "view_mode", "coin_result", "coin_pick"]
-const CARD_FIELDS := ["max_health", "statuses", "modifiers", "last_attack_turn", "planned_guard", "plan_attack_bonus", "plan_ignore_taunt"]
+const GAME_FIELDS := ["deck", "enemy_deck", "enemy_evolution_deck", "enemy_hand", "player_graveyard", "graveyard_serial", "turn", "player_first", "energy_cap", "preparedness", "tension_cap", "tension", "player_hp", "enemy_hp", "enemy_max_hp", "player_buffs", "enemy_buffs", "player_run_buffs", "enemy_run_buffs", "encounter_kind", "player_barrier", "plan_hero_barrier", "adapted_round", "battle_log", "in_board_view", "view_mode", "coin_result", "coin_pick"]
+const CARD_FIELDS := ["max_health", "statuses", "modifiers", "last_attack_turn", "planned_guard", "plan_attack_bonus", "plan_ignore_taunt", "base_definition"]
 const BOSS_FIELDS := ["stage", "changed_round", "pillars_spawned", "pulse_resolved", "last_resolved_round", "last_prepared_round"]
 var director: Node
 var clock := 0.0
@@ -109,6 +109,7 @@ func resume() -> bool:
 	director.run_active = true
 	director.rng.state = int(snapshot.rng)
 	apply_fields(game, snapshot.game, GAME_FIELDS)
+	game.player_hp = clampi(game.player_hp, 0, game.hero_max_hp())
 	apply_fields(game.plans, snapshot.plans, ["tokens", "auto_save", "saved_round", "committed_round", "unlocked"])
 	for entry in snapshot.cards:
 		var card = game.Card3DScene.instantiate()
@@ -117,6 +118,9 @@ func resume() -> bool:
 		card.setup(entry.data)
 		card.card_data = entry.data.duplicate(true)
 		apply_fields(card, entry.runtime, CARD_FIELDS)
+		if not entry.runtime.has("base_definition"):
+			card.base_definition = entry.data.duplicate(true)
+			if not card.card_data.get("utility", false): card.base_definition.health = maxi(1, card.max_health - int(game.buffs_for(card.card_data).get("health", 0)))
 		if entry.side == "hand":
 			card.reparent(game.hand_parent())
 			game.hand.append(card)
@@ -134,6 +138,7 @@ func resume() -> bool:
 	if not snapshot.armed.is_empty():
 		var targets: Array = []
 		for lane in snapshot.armed.targets: targets.append(game._get_card_in_slot(game._response_slots()[int(lane)]))
+		if snapshot.armed.kind == "coordinate" and targets.size() > 1: targets.resize(1)
 		game.plans.armed = {"kind":snapshot.armed.kind, "triggered":snapshot.armed.triggered, "targets":targets, "destination":game._response_slots()[int(snapshot.armed.destination)] if int(snapshot.armed.destination) >= 0 else null}
 	game._set_phase(snapshot.phase, "Continue your turn" if director.battle_active else "Choose your next school room")
 	game._enemy_hp_ui.get_node("Caption").text = snapshot.enemy_caption
@@ -145,7 +150,7 @@ func resume() -> bool:
 	game._refresh_view_hints()
 	game._refresh_bars()
 	game.update_deck_label()
-	game.opponent_hand.signature = ""
+	game.opponent_hand.signature = -1
 	game.opponent_hand.refresh()
 	director.screen = ""
 	director.modal.hide()

@@ -76,7 +76,7 @@ func run() -> void:
 	game.plans.tokens = 1
 	director.show_plans()
 	director.select_coordination()
-	director.arm_coordination([first, second])
+	game.board_input.click_card(first)
 	check(game.plans.tokens == 0 and not paused, "actual coordination choice works")
 	game.plans.apply_combat()
 	check(first.effective_attack() == 3 and second.effective_attack() == 3, "both matching allies gain one temporary attack")
@@ -109,8 +109,10 @@ func run() -> void:
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
+	Input.parse_input_event(click)
 	ally._input_event(game.camera, click, Vector3.ZERO, Vector3.ZERO, 0)
-	check(paused and director.screen == "inspect", "board click opens paused inspection")
+	await create_timer(0.4).timeout
+	check(paused and director.screen == "inspect", "board hold opens paused inspection")
 	await capture("board_inspection")
 	director.show_deck()
 	director.close_modal()

@@ -19,6 +19,7 @@ func fixture() -> void:
 	game.enemy_run_buffs.clear()
 	game.turn = 1
 	game.encounter_kind = "battle"
+	director.floor_number = 1
 	game.player_hp = 20
 	game.enemy_hp = 20
 	game.preparedness = 10
@@ -106,7 +107,7 @@ func run() -> void:
 	check(game.player_graveyard.size() == 2, "separate copies are tracked separately")
 	var sacrifice = card(data("Sacrifice", "disaster"), game._threat_slots()[0])
 	await sacrifice.sacrifice_dissolve()
-	check(game.enemy_graveyard.size() == 1 and game.enemy_graveyard[0].graveyard_reason == "Sacrificed", "evolution sacrifice enters Janitor graveyard")
+	check(game.player_graveyard.size() == 2 and game.battle_log.any(func(line): return "Sacrificed: Sacrifice" in line), "enemy sacrifice stays in the log without entering the Response graveyard")
 	var spell_data := data("Cache")
 	spell_data.utility = true
 	spell_data.effect = "draw"
@@ -115,7 +116,7 @@ func run() -> void:
 	check(game.try_utility(spell, game._response_slots()[3]), "cast utility succeeds")
 	check(game.player_graveyard.size() == 3 and game.player_graveyard[2].graveyard_reason == "Cast", "cast spell enters graveyard")
 	game.enemy_utility({"id":"Tax", "name":"Tax", "type":"disaster", "element":"flood", "cost":0, "attack":0, "health":1, "utility":true, "effect":"tax"})
-	check(game.enemy_graveyard.size() == 2, "enemy spell enters its own graveyard")
+	check(game.player_graveyard.size() == 3 and game.battle_log.any(func(line): return "Janitor casts Tax" in line), "enemy spell is logged without entering the Response graveyard")
 	var failed := data("Failed Exit")
 	failed.utility = true
 	failed.effect = "move"
@@ -127,38 +128,75 @@ func run() -> void:
 	director.change_sort(0, false)
 	director.reverse_sort(false)
 	await capture("response_graveyard")
-	director.deck_cards(game.enemy_graveyard)
-	check(director.viewed_cards.size() == 2, "Janitor graveyard can be viewed")
-	await capture("janitor_graveyard")
+	director.refresh_graveyard()
+	check(director.viewed_cards.size() == 3, "refresh stays on the Response graveyard")
 	director.close_modal()
 	check(not paused, "closing graveyard resumes battle")
 	game.clear_battle(true)
 	check(game.player_graveyard.size() == 3, "end-of-boss cleanup preserves graveyard for results")
 	game.clear_battle()
-	check(game.player_graveyard.is_empty() and game.enemy_graveyard.is_empty(), "new encounter clears both graveyards")
+	check(game.player_graveyard.is_empty(), "new encounter clears the Response graveyard")
 	fixture()
-	game.tension = 10
-	check(game.enemy_action_limit() == 2, "regular encounters play two actions")
-	game.enemy_buffs.energy = 10
-	check(game.enemy_action_limit() == 4, "regular adaptation action cap is four")
-	game.encounter_kind = "boss"
-	check(game.enemy_action_limit() == 5, "boss action cap unchanged")
+	for floor_number in [1, 2, 3]:
+		director.floor_number = floor_number
+		for kind in ["battle", "elite", "boss"]:
+			game.encounter_kind = kind
+			for round_number in [1, 2, 3, 4, 8]:
+				game.turn = round_number
+				for energy in [0, 10]:
+					game.enemy_buffs.energy = energy
+					var cap := (1 if round_number <= 3 else 2) if floor_number == 1 and kind == "battle" else (mini(4, 2 + energy) if kind == "battle" else mini(5, 3 + energy))
+					for resource in [0, 1, 10]:
+						game.tension = resource
+						check(game.enemy_action_limit() == mini(resource, cap), "action ramp scope, round boundary, tension and buff cap")
 	fixture()
 	game.turn = 2
 	game.tension = 3
 	for i in range(4): card(data("Small", "disaster"), game._threat_slots()[i])
 	game.enemy_hand.append({"name":"Evolution", "type":"disaster", "element":"earthquake", "cost":1, "attack":6, "health":7})
 	await game._enemy_turn()
-	check(game.enemy_graveyard.is_empty() and game.enemy_hand.size() == 1, "regular AI does not rush early evolutions")
+	check(game.enemy_hand.size() == 1, "regular AI does not rush early evolutions")
 	game.turn = 3
 	game.tension = 3
 	await game._enemy_turn()
-	check(game.enemy_graveyard.size() == 1 and game.enemy_hand.is_empty(), "regular AI can still make worthwhile later evolutions")
+	check(game.enemy_hand.is_empty(), "regular AI can still make worthwhile later evolutions")
 	game.start_encounter(director.character_deck(0), "battle", 1, 0)
 	check(game.enemy_max_hp == 18 and game.enemy_deck.size() + game.enemy_hand.filter(func(card): return int(card.cost) == 0).size() == 18, "normal health and reserve nerfs")
 	check(game.enemy_evolution_deck.size() + game.enemy_hand.filter(func(card): return int(card.cost) > 0).size() <= 8 and game.enemy_evolution_deck.all(func(d): return int(d.cost) <= 2), "normal reserves exclude apex evolutions")
+	await hover_bounds()
 	if failed_checks > 0:
 		quit(1)
 		return
-	print("PASS: stable single-card hover/picking, drag suppression/cancel, modal reset, deaths/duplicates/sacrifices/spells/failures, separate sortable graveyards/reset, regular action/health/deck/evolution nerfs")
+	print("PASS: stable single-card hover/picking, drag suppression/cancel, modal reset, deaths/duplicates/sacrifices/spells/failures, Response-only sortable graveyard/reset, regular action/health/deck/evolution nerfs")
 	quit(0)
+
+func slot_polygon(slot: MeshInstance3D) -> PackedVector2Array:
+	var polygon := PackedVector2Array()
+	var box := slot.get_aabb()
+	for corner in [Vector3(box.position.x, 0, box.position.z), Vector3(box.end.x, 0, box.position.z), Vector3(box.end.x, 0, box.end.z), Vector3(box.position.x, 0, box.end.z)]:
+		polygon.append(game.camera.unproject_position(slot.to_global(corner)))
+	return polygon
+
+func hover_bounds() -> void:
+	game.clear_battle()
+	await process_frame
+	fixture()
+	if game.camera_tween: game.camera_tween.kill()
+	game._apply_view(game.DESK_VIEW)
+	for viewport in [Vector2i(1280, 800), Vector2i(1440, 900), Vector2i(1906, 932)]:
+		root.size = viewport
+		await process_frame
+		for count in range(1, game.HAND_SIZE_MAX + 1):
+			game.add_card_to_hand(data("Hover " + str(count)))
+			await create_timer(0.27).timeout
+			for subject in game.get_hand_cards():
+				subject.set_hand_hover(true)
+				for frame in 10:
+					await create_timer(0.016).timeout
+					var polygon: PackedVector2Array = game.hand_card_polygon(subject, false)
+					for slot in game._response_slots() + game._threat_slots():
+						check(Geometry2D.intersect_polygons(polygon, slot_polygon(slot)).is_empty(), "hover stays below %s at hand size %d, viewport %s; hand %s, slot %s" % [slot.name, count, viewport, polygon, slot_polygon(slot)])
+				subject.set_hand_hover(false)
+				await create_timer(0.16).timeout
+		game.clear_battle()
+		await process_frame

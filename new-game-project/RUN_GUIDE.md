@@ -1,6 +1,6 @@
 # Midnight DRRills
 
-Open `project.godot` in Godot 4.7 and run the main scene. The game begins on a title screen with Singleplayer, a disabled Multiplayer placeholder, How to Play, and Quit. A saved run instead offers Continue and Abandon. Start opens character selection; preview a starter deck before beginning. Future start-screen artwork can be placed at `assets/title_screen.png`; the title screen uses it automatically after Godot imports it. All card art windows remain blank.
+Open `project.godot` in Godot 4.7 and run the main scene. The game begins on a title screen with Singleplayer, a disabled Multiplayer placeholder, and Quit. A saved run instead offers Continue and Abandon. Start opens character selection; preview a starter deck before beginning. Future start-screen artwork can be placed at `assets/title_screen.png`; the title screen uses it automatically after Godot imports it. All card art windows remain blank.
 
 ## The run
 
@@ -14,6 +14,7 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 - Drag a hand card onto an empty lower Response slot. Right-click cancels a drag.
 - Draw once during the draw phase using the lower-right draw button.
+- G or the compact Graveyard button opens the Response battle graveyard. G, Esc, Close, or an outside click returns to battle.
 - At encounter start, call **Heads** or **Tails** on the full-screen coin event. A matching toss gives you the first turn; otherwise the Janitor plays first. The starting side alternates each round afterward. Space or **End turn** submits your turn.
 - W steps from Room → Table → Overhead; S steps back. Battles start in the central Table view. Transitions ease position, rotation, distance and field of view. Room view hides your hand to show the opponent and classroom; return to Table to play. Camera changes are blocked during combat, dragging and board targeting.
 - D opens the collection, unordered remaining draw pile, hand, and deployed Response cards. Sort by Name, Type, Cost, Attack, Health, Modifier, or Recently added, in either direction. Recent sorting defaults to newest first. Sorting never changes draw order or your collection.
@@ -30,7 +31,7 @@ Shops offer four distinct cards, each with one copy in stock. Buying one marks i
 
 ## Cards
 
-The original twelve-card starter deck and existing disaster cards are preserved. Card illustration windows are deliberately empty. Assign future illustrations in the `ART` dictionary in `scripts/card_3d.gd`. Backs have four corner element marks and a central double ring.
+The twelve-card starter deck now contains three Quick Dash, three Fire Drill, two Fire Hose, two Debris Clearance, one Evacuation Route and one Shelter Brace. Existing saves retain their collections. Card illustration windows are deliberately empty. Assign future illustrations in the `ART` dictionary in `scripts/card_3d.gd`. Backs have four corner element marks and a central double ring.
 
 Evac counters Earthquake, Douse counters Fire, Clearance counters Flood, and Brace counters Typhoon at 2× damage. Weak matchups deal half damage. Two adjacent deployed cards of the same element receive +1 attack (not cumulative across both neighbors). Armored reduces incoming attack damage by one (minimum one), Fragile adds one, Regenerating heals up to maximum health, Fierce adds two to hero hits, and Rampaging adds one when attacking a card as the second side of the round.
 
@@ -59,7 +60,7 @@ Rally and Cleanse target allies by clicking them on the board. Emergency Exit us
 
 At the start of rounds **5, 10, 15, ...** of each encounter, both sides receive a **battle-only adaptation**. You choose one of three randomly offered buffs; the Janitor chooses one of the same three, shown on screen. The battle pauses until you choose. Deck viewing preserves the exact offers. Adaptations expire when the encounter ends.
 
-There are fifteen battle adaptations. Strong options have explicit tradeoffs: Glass Cannon adds two attack but removes one maximum health; Overclock grants two capacity immediately and doubles ordinary capacity growth to two per round, but increases incoming damage by 50% (rounded up); Blood Pact adds three attack but applies two Bleed on selection and entry; Patient Formation regenerates two health but makes units Sluggish; Toxic Ward strengthens Poison while reducing attack; Close Ranks rewards matching neighbors but penalizes isolation; Piercing Formation grants Piercing while reducing attack; Bristling Defense retaliates for one fixed damage while reducing health. Smaller stat, status, and draw buffs remain available without drawbacks.
+There are fifteen battle adaptations. Strong options have explicit tradeoffs: Glass Cannon adds two attack but removes one maximum health; Overclock grants two capacity immediately and doubles ordinary capacity growth to two per round, but increases incoming damage by 50% (rounded up); Blood Pact adds two Strength but destroys each deployed unit that did not kill a card during combat at combat end; hero hits and resting do not count, and hand cards are exempt; Patient Formation regenerates two health but makes units Sluggish; Toxic Ward strengthens Poison while reducing attack; Close Ranks rewards matching neighbors but penalizes isolation; Piercing Formation grants Piercing while reducing attack; Bristling Defense retaliates for one fixed damage while reducing health. Smaller stat, status, and draw buffs remain available without drawbacks.
 
 After the **first two floor bosses**, choose one of three **permanent run rewards** from an eight-option pool. The Janitor also chooses a permanent reward. These stack across later battles and floors; a new run clears them. Examples include Signal Beacon (extra draws), School Bulwark (health for reduced attack), Buddy System (adjacency bonuses with an isolation penalty), Field School (resources and draws for less health), Hazard Manual (stronger statuses for reduced resources), and Infirmary Network (hero healing for reduced unit attack).
 
@@ -136,7 +137,7 @@ The latest [notes /2](https://docs.google.com/document/d/17LhbrulIVWbfTn7mcwgJ0Z
 **Plans:** end a turn with at least 2 unused energy to automatically spend 2 and save 1 Plan token. Save at most once per round and hold at most 2. Press **P** or the Plans button before ending a later turn to arm one contingency for its listed token cost. Draw first if still in the draw phase. Automatic saving can be disabled in this panel.
 
 - **Brace:** select one deployed ally; prevent up to 2 incoming damage from its next attack hit this combat. Periodic status damage bypasses it. Unused protection expires after combat.
-- **Coordinated Response:** select two nearest deployed allies on either side, including mixed types and gaps with no intervening ally; each gets +1 attack for this combat. The boost is temporary and does not add Strength stacks. If the formation is changed before combat, the contingency expires without its bonus.
+- **Coordinated Response:** select one deployed ally. At combat start, it and the nearest ally on each side gain +1 attack for that combat, including across empty lanes. It costs one Plan and does not add Strength stacks. If the chosen ally is no longer deployed, the contingency expires.
 
 One contingency may be armed each round. Tokens, armed plans and temporary boosts reset between encounters. Start with Brace and Coordinated Response; elite and boss victories offer three locked tactics to choose from. Unlock one for the rest of the run. Unlocks reset on a new run. The resource saving and temporary effects are recorded in the combat log.
 
@@ -144,7 +145,7 @@ One contingency may be armed each round. Tokens, armed plans and temporary boost
 
 **Evacuation Route:** still costs 4 energy, now has 3 attack / 5 health. On play, optionally move another deployed ally to an empty lane and heal that ally by 2. The unit stays in its original slot; skipping movement does not undo its summon.
 
-**Inspection and log:** click a deployed card on either board to inspect its current stats, effects and statuses while combat pauses. Press **L**, use the Log button, or choose Combat log in the menu for a chronological backlog of up to 300 encounter events. The log resets with the next encounter. Sealed labels are rebuilt on refresh and disappear when the seal expires.
+**Inspection and log:** hold the left mouse button on a deployed card for 0.35 seconds to inspect its current stats, effects and statuses beside the enlarged card. Release to return to battle. Targeting actions retain their direct clicks. Press **L**, use the Log button, or choose Combat log in the menu for a chronological backlog of up to 300 encounter events. The log resets with the next encounter. Sealed labels are rebuilt on refresh and disappear when the seal expires.
 
 **Deck removal:** shops can destroy an exact selected card copy for 30 supplies and remain open afterward. Rest nodes can retire one card for free instead of healing or training; this completes that node. Removal previews require confirmation, preserve other duplicates and keep at least 5 cards in the collection. These run edits do not add a card to a battle graveyard.
 
@@ -156,7 +157,7 @@ One contingency may be armed each round. Tokens, armed plans and temporary boost
 
 Hand selection follows the visible stacking order using each card’s resting footprint. Only one card rises at a time. Lifting a card does not remove its resting hover region, preventing repeated pop-up/reset behavior. Its raised face stays clickable. While dragging, all other hover lifts are suppressed. Right-click cancels a drag; failed placement also restores the hand. Opening a modal clears hover.
 
-During battle, open **Deck [D] → Graveyards** to inspect separate Response and Janitor graveyards. Destroyed units, sacrificed disasters and successfully cast spells appear with their reason and round, including separate copies of the same card. Failed/cancelled spells remain in hand. Entries are battle snapshots with maximum health displayed; battlefield status changes do not rewrite them. The viewer supports sorting and pauses combat. Graveyard access disappears outside battle, including results, shops, events and the map; the next encounter or new run resets its entries. Clearing the battlefield between rooms does not count as a death. Graveyard cards are not automatically reshuffled or playable again.
+During battle, open **Graveyard [G]** to inspect the Response graveyard. Enemy deaths, sacrifices and spells remain in the combat log. Destroyed Response units and successfully cast Response spells appear with their reason and round, including separate copies of the same card. Failed/cancelled spells remain in hand. Entries are battle snapshots with maximum health displayed; battlefield status changes do not rewrite them. The viewer supports sorting and pauses combat. Graveyard access disappears outside battle, including results, shops, events and the map; the next encounter or new run resets its entries. Clearing the battlefield between rooms does not count as a death. Graveyard cards are not automatically reshuffled; returning them requires an effect such as Recovery Detail.
 
 
 ## Notes /3: contingencies, targeting and encounters
@@ -203,9 +204,9 @@ The existing bloom, anti-aliasing, clarity, sharpness, anisotropic filtering and
 
 Each encounter begins with an interactive full-screen Heads/Tails call. The toss animates and shows the landed side before the first turn starts. Calls lock immediately to reject double clicks. Both an unresolved call and a toss already underway can be continued from a checkpoint; the saved outcome and chosen side are retained. The coin outcome is recorded in the combat log. Returning from an older stable battle checkpoint does not replay its opening toss.
 
-Normal battle rewards display three native card faces centered on a darkened, frozen battlefield. Click a face or Take card to acquire that exact card once, or Skip card reward to continue. Background shortcuts, card interaction and camera raycasts are blocked while choosing. Offers remain fixed through saves. Preview cards render once, stay out of gameplay groups and collisions, and are freed with their modal.
+Normal battle rewards display three native card faces centered on a darkened, frozen battlefield. Click a face to inspect it, then click the enlarged face again to acquire that exact card once. Clicking outside returns to the same three offers. Skip card reward remains available in the three-card view. Background shortcuts, card interaction and camera raycasts are blocked while choosing. Offers remain fixed through saves. Preview cards render once, stay out of gameplay groups and collisions, and are freed with their modal.
 
-Click a deployed card to inspect its current face, enlarged at its native aspect ratio. Current attack, health, modifiers and status stacks are available in the scrollable details below it. Click outside the card, use Return to battle or press Esc to dismiss. Combat pauses during inspection. Opening the deck and closing it restores the same inspection and backdrop.
+Hold a deployed card, or hold a hand card without moving the pointer, to inspect its face at its native aspect ratio. Moving a hand card starts normal dragging. The side dossier separates permanent upgrades, current statuses, combat effects and full rules. Release to close the inspection and resume. Catalog previews in the deck, shop and workshop use the same hold gesture. Reward cards retain their separate two-press inspection and claim flow.
 
 Short menu/shop fades, button press/hover feedback and reward-card hover states complement the existing stable hand hover. Cards follow eased curves into the hand. Cast utility cards fly to the discard pile; defeated cards burn away with an ember dissolve. Slots, costs, graveyards and rewards update immediately, independently of cosmetic cleanup. Existing attack lunges, impact shakes, damage and status pop-ups remain. Turn/clash and victory banners clarify combat; node entry, map scrolling and floor changes have brief transitions. These effects use event-driven, short-lived tweens rather than new continuously running UI animation loops.
 
@@ -218,3 +219,56 @@ The board is now the reusable native 3D asset `scenes/school_drill_board.tscn`: 
 Unused environments, duplicate model/textures, obsolete scripts and generated previews are removed from the active project. The current classroom and its 33 original textures retain their geometry and image quality; the model references the existing texture files to avoid storing each image twice. Material instances are shared, fallback card-face checks are bounded, and identical enemy backs are not unnecessarily rebuilt. Card effects, animated dragging, lighting and anti-aliasing remain enabled.
 
 See `OPTIMIZATION.md` for measured sizes, cleanup details and validation. Run `python tools/asset_audit.py` to check dependencies and original texture/geometry integrity. The Windows export preset excludes development-only files and explicitly includes card JSON data. Test captures stay ignored by both Git and Godot.
+
+
+## October 16 notes 1
+
+The Graveyard button beside the battle controls, or G, opens a compact sortable list with Response cards only. Enemy cards are not stored in a graveyard. It is hidden outside encounters. Select an entry for its snapshot stats and full rules; close the panel or click outside to resume.
+
+The default Table camera now keeps the eight lanes above the resting hand. Hand cards are smaller and fully visible; the dedicated table is 6% smaller horizontally, with its surface still aligned to the board. Room and Overhead views remain available. Dragged hand cards and relocation targets stay within a small boundary around the board. Invalid drops and right-click cancellation still restore the card.
+
+Coordinated Response requires one board click. At combat start it grants +1 attack to the selected ally and the nearest deployed ally on each side. Empty lanes do not block this search; an intervening ally does. All bonuses expire after combat.
+
+Early normal encounters retain their original health and reserve sizes. Their base piles contain at most two special-effect cards on floor one and four on floor two. Basic disasters fill the remaining reserve slots. Normal encounters from floor three onward, elites, bosses and the existing evolution restrictions retain their previous generation rules.
+
+Two Response cards join rewards and shops. Recovery Detail costs 2 energy and returns one destroyed Response unit to hand at its normal replay cost. It consumes that graveyard entry, clears temporary statuses and taxes, and preserves permanent upgrades. Each unit can be recovered once per battle; cancelled or unavailable targets spend nothing. The spell itself is recorded as Cast. Relief Crew costs 3 energy, has base 2 attack and 4 health, and gains one Barrier per destroyed allied unit still in the graveyard, up to two, when played. Neither changes the starter deck.
+
+Card rewards use inspect, cancel and confirm. The first click enlarges a card and shows its full rules. Clicking outside restores the same three offers. Clicking the enlarged face confirms that exact reward once. There are no Take card buttons. Continue restores unclaimed offers without rerolling them or silently granting a reward.
+
+`tests/oct16_smoke.gd` covers the compact graveyard, recovery limits and full hands, temporary-state cleanup, Continue, one-click coordination, hand clearance, drag limits and cancellation, real reward input, and early-floor-only deck tuning. Existing save loading also resets the opponent-hand display with its current numeric state value.
+
+
+## October 16 notes 2
+
+The graveyard belongs to Response only. Enemy deaths, sacrifices and spells still resolve normally and stay in the combat log, but no longer allocate graveyard snapshots. New checkpoints omit enemy history; older checkpoints ignore that field while retaining Response entries and recovery limits. The enemy pile counts below Tension are removed; the Tension bar and its current value remain visible.
+
+Threat Zone and Response Zone text is absent from the current slate. The editor HUD now stores the current health, turn, draw and end-turn layout and shares its theme with the runtime menus. Obsolete orb gauges, the old enemy deck plaque, deck shadow and draw caption are removed together with their unused update code. The hidden prototype table and disabled spotlight are also removed. The supplied classroom and its textures are unchanged.
+
+Opening `scenes/card_3d.tscn` in the editor now previews the current Quick Dash card face, with its art window left empty. This preview uses the existing card renderer, disables gameplay processing, and does not require a running battle. At runtime cards continue to use their actual definitions.
+
+Run `tests/oct16_cleanup_smoke.gd` to check the Response-only graveyard, HUD cleanup, event logging and compatibility with older saves. The card preview can also be checked in Godot's editor; the normal editor startup check closes cleanly.
+
+## October 16, section 3
+
+The default camera is closer and the hand sits lower to leave the board visible. Overhead view keeps the hand tucked even when the cursor reaches the bottom edge. New battles animate from the wide view into the table before the coin selection.
+
+Press F3 during a player turn, or use Menu > Debug values, then enter `*****` (five asterisks) in the masked dialog to edit player/enemy HP, energy and tension capacities, current resources, supplies and Plans. Apply values clamps energy and tension to their capacities. The live-card status row edits the selected card immediately; amount 0 removes that status. Cancel closes the panel without applying unsubmitted resource fields. Applied edits belong to the current run and are included in normal autosaves.
+
+Menus, the HUD and card previews share the obsidian/gunmetal, crimson and burnished brass theme in `scripts/ui_theme.gd`. Hazard trim marks unavailable identities and sealed cards. Affinity accents distinguish all eight elements alongside their text labels. The bottom dashboard contains energy, Plans/Contingency, Combat Log, the Response Graveyard, Draw and End Turn. Card art remains intentionally blank.
+
+## Early encounters and recovery
+
+Steve starts each run at 20 HP, with a maximum of 20. Floor 1 normal encounters allow the Janitor one action per round through round 3, then up to two from round 4. Available tension still limits those actions. Later floors, Elites and Bosses retain their existing action rules.
+
+For Floor 1 normal encounters, the opening hand includes a 1-cost Quick Dash or Debris Clearance when an eligible copy remains in the deck. This reorders an existing card without adding copies or changing the collection. Every normal combat victory restores up to 3 HP, capped at 20; Elite and Boss victories do not grant this triage. Older saves resume with HP capped at 20. F3 debug values remain available during stable player turns.
+
+Run `tests/balance_simulation.gd` to compare the previous rules with opening smoothing, the action ramp, triage and their combination across the same 20 seeds. Results are written to `tests/artifacts/`. Add `-- --triage-paths` for carried-HP route comparisons.
+
+
+## Card inspection and compact menus
+
+Hold the left mouse button on a card for 0.28 seconds without moving to open its inspection and side dossier. The overlay stays open after release. Click the enlarged card or the surrounding backdrop, or press Esc, to close it. The dossier shows the selected card's effects, upgrades and any active statuses or Plan bonuses. Quick clicks and drags keep their normal behavior; reward cards still require inspection followed by a second click to claim.
+
+Hand hover stays below the board slots. The Deck Browser contains the main Deck and Response Graveyard views; effects that ask you to select a held or deployed card still use their own pickers. Pause, utility choices, Plans, the log and debug dialogs use centered compact panels with scrolling. Deck, map, shop, workshop, rewards and card inspection keep their wider layouts.
+
+The debug password is required each time debug opens, including from F3 and the Pause menu. Enter exactly five asterisks; extra characters or spaces are rejected. Esc or Cancel closes the password prompt without changing the run. Card faces show the corner cost badge, ATK, HP and active statuses below the element banner. The center window is reserved for artwork. Upgrade levels appear below grid previews and in the side dossier, which also explains exact resource costs. Disaster units with a positive sacrifice cost consume that many allies; base units and Disaster utilities show their Tension cost instead.

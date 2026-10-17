@@ -1,3 +1,4 @@
+@tool
 extends Area3D
 ## A single playable card.
 ## While in hand it is parented to the Camera3D so it always faces the player
@@ -8,21 +9,13 @@ extends Area3D
 ## a SubViewport and shown on the Art sprite, so the whole face is ONE texture
 ## and always layers correctly.
 
+const UI = preload("res://scripts/ui_theme.gd")
 const CARD_WIDTH := 1.1
 const UPRIGHT := Basis(Vector3.RIGHT, PI / 2.0) # card face (+Y) -> camera (+Z)
 const FACE_W := 264
 const FACE_H := 360
 
-const ELEMENT_COLORS := {
-	"fire": Color(0.75, 0.25, 0.1),
-	"flood": Color(0.15, 0.35, 0.75),
-	"earthquake": Color(0.5, 0.35, 0.2),
-	"typhoon": Color(0.3, 0.55, 0.55),
-	"douse": Color(0.2, 0.6, 0.85),
-	"clearance": Color(0.8, 0.65, 0.15),
-	"brace": Color(0.5, 0.5, 0.55),
-	"evac": Color(0.2, 0.65, 0.3),
-}
+const ELEMENT_COLORS := UI.AFFINITIES
 
 ## Intentionally blank until final artwork is supplied.
 const ART := {}
@@ -30,6 +23,7 @@ static var back_texture: Texture2D
 static var face_font: SystemFont
 
 var card_data: Dictionary
+var base_definition: Dictionary = {}
 var is_dragging := false
 var is_hovered := false
 var graveyard_recorded := false
@@ -53,19 +47,30 @@ var _hp_label: Label
 var _atk_label: Label
 var _mod_label: Label
 var _cost_label: Label
+var _status_row: VBoxContainer
+var _cost_caption: Label
 var face_signature := 0
 const FACE_CHECK_INTERVAL := 0.1
 var face_check_elapsed := 0.0
+var popup_stack := 0
+var last_popup_msec := -1000
 
 @onready var art_sprite: Sprite3D = $Art
 @onready var mesh: MeshInstance3D = $Mesh
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		preview_only = true
+		in_hand = false
+		setup({"name":"Quick Dash", "type":"response", "element":"evac", "cost":1, "attack":2, "health":1})
+		set_process(false)
+		return
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 
 # ---------------------------------------------------------------- setup
 func setup(data: Dictionary) -> void:
+	base_definition = data.duplicate(true)
 	card_data = data.duplicate(true)
 	if not preview_only: card_data = _manager().prepare_card_data(card_data)
 	# JSON numbers load as floats -> normalise to ints
@@ -105,7 +110,10 @@ func setup(data: Dictionary) -> void:
 	shape.size = Vector3(CARD_WIDTH, 0.04, card_height)
 	$CollisionShape3D.shape = shape
 
-	_set_overlay(true)
+	if Engine.is_editor_hint():
+		art_sprite.position.y = 0.026
+	else:
+		_set_overlay(true)
 
 func _build_face() -> void:
 	_vp = SubViewport.new()
@@ -115,44 +123,50 @@ func _build_face() -> void:
 	add_child(_vp)
 
 	var elem: String = card_data.get("element", "")
-	var accent: Color = ELEMENT_COLORS.get(elem, Color(0.4, 0.4, 0.4))
+	var accent: Color = UI.affinity_color(elem)
 	var is_disaster: bool = card_data.get("type", "") == "disaster"
 
-	if not face_font:
-		face_font = SystemFont.new()
-		face_font.font_names = PackedStringArray(["Segoe UI", "Arial"])
-		face_font.font_weight = 600
+	if not face_font: face_font = UI.font(true)
 	var title_font := face_font
 
 	# Frame
 	var frame := Panel.new()
 	frame.size = Vector2(FACE_W, FACE_H)
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = Color("162936") if not is_disaster else Color("302029")
-	fs.set_border_width_all(4)
-	fs.border_color = accent.lightened(0.15)
-	fs.set_corner_radius_all(14)
-	frame.add_theme_stylebox_override("panel", fs)
+	frame.add_theme_stylebox_override("panel", UI.card_frame(is_disaster))
 	_vp.add_child(frame)
+	UI.decorate(frame)
 
-	var text_col := Color("e9e3d6")
+	var text_col := UI.TEXT
 
 	# Name
 	var name_lbl := _face_label(title_font, 19, text_col)
-	name_lbl.text = card_data.get("name", "?")
-	name_lbl.position = Vector2(56, 12)
-	name_lbl.size = Vector2(FACE_W - 68, 30)
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	name_lbl.name = "CardName"
+	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_lbl.clip_text = true
+	name_lbl.add_theme_font_size_override("font_size", 17 if str(card_data.get("name", "")).length() > 17 else 19)
+	name_lbl.text = card_data.get("name", "?")
+	name_lbl.position = Vector2(70, 10)
+	name_lbl.size = Vector2(FACE_W - 80, 48)
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	frame.add_child(name_lbl)
 
 	# Art window
 	var art_bg := ColorRect.new()
-	art_bg.color = Color("0e1922")
-	art_bg.position = Vector2(18, 46)
-	art_bg.size = Vector2(FACE_W - 36, 170)
+	art_bg.color = UI.INSET
+	art_bg.position = Vector2(18, 72)
+	art_bg.size = Vector2(FACE_W - 36, 144)
 	frame.add_child(art_bg)
+	var affinity_line := ColorRect.new()
+	affinity_line.color = accent
+	affinity_line.position = Vector2(18, 63)
+	affinity_line.size = Vector2(FACE_W - 36, 3)
+	frame.add_child(affinity_line)
+	_status_row = VBoxContainer.new()
+	_status_row.position = Vector2(22, 264)
+	_status_row.size = Vector2(FACE_W - 44, 14)
+	_status_row.add_theme_constant_override("separation", 2)
+	frame.add_child(_status_row)
 	var art_path: String = ART.get(card_data.get("name", ""), "")
 	if art_path != "":
 		var tr := TextureRect.new()
@@ -170,32 +184,35 @@ func _build_face() -> void:
 	elem_lbl.position = Vector2(18, 222)
 	elem_lbl.size = Vector2(FACE_W - 36, 26)
 	elem_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var eb := StyleBoxFlat.new()
-	eb.bg_color = accent
-	eb.set_corner_radius_all(6)
-	elem_lbl.add_theme_stylebox_override("normal", eb)
+	elem_lbl.add_theme_stylebox_override("normal", UI.affinity_band(elem))
 	frame.add_child(elem_lbl)
 
-	# Cost badge (top-left): blue = energy, red = sacrifice
-	var cost_col := Color(0.2, 0.45, 0.9) if card_data.get("cost_type", "energy") == "energy" else Color(0.75, 0.12, 0.12)
-	var cost_badge := _badge(str(card_data.cost), cost_col, Vector2(-6, -6), title_font)
+	# Sacrifice costs use the same crimson action color as the interface.
+	var cost_col := UI.RAISED if card_data.get("cost_type", "energy") == "energy" else UI.CRIMSON
+	var cost_badge := _badge(str(card_data.cost), cost_col, Vector2(6, 6), title_font)
 	_cost_label = cost_badge.get_child(0)
 	frame.add_child(cost_badge)
+	_cost_caption = _face_label(title_font, 10, UI.TEXT)
+	_cost_caption.text = ""
+	_cost_caption.position = Vector2(0, 41)
+	_cost_caption.size = Vector2(60, 14)
+	_cost_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cost_badge.add_child(_cost_caption)
 
 	# Modifiers banner (below element)
-	_mod_label = _face_label(title_font, 11, Color(1, 0.9, 0.3))
-	_mod_label.position = Vector2(10, 251)
-	_mod_label.size = Vector2(FACE_W - 20, 28)
-	_mod_label.max_lines_visible = 2
+	_mod_label = _face_label(title_font, 11, UI.GOLD)
+	_mod_label.position = Vector2(10, 250)
+	_mod_label.size = Vector2(FACE_W - 20, 13)
+	_mod_label.max_lines_visible = 1
 	_mod_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_mod_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	frame.add_child(_mod_label)
 
 	# Attack (bottom-left) / Health (bottom-right)
-	var atk := _badge(str(card_data.attack), Color(0.85, 0.45, 0.1), Vector2(16, FACE_H - 80), title_font)
+	var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
 	_atk_label = atk.get_child(0)
 	frame.add_child(atk)
-	var hp := _badge(str(card_data.health), Color(0.2, 0.6, 0.25), Vector2(FACE_W - 76, FACE_H - 80), title_font)
+	var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
 	_hp_label = hp.get_child(0)
 	frame.add_child(hp)
 
@@ -218,15 +235,10 @@ func _badge(txt: String, col: Color, pos: Vector2, font: Font) -> Panel:
 	var p := Panel.new()
 	p.position = pos
 	p.size = Vector2(60, 60)
-	var s := StyleBoxFlat.new()
-	s.bg_color = col
-	s.set_corner_radius_all(30)
-	s.set_border_width_all(4)
-	s.border_color = Color(0.1, 0.08, 0.06)
-	p.add_theme_stylebox_override("panel", s)
-	var l := _face_label(font, 26, Color.WHITE)
+	p.add_theme_stylebox_override("panel", UI.badge_style(col))
+	var l := _face_label(font, 26, UI.TEXT)
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_constant_override("outline_size", 2)
 	l.text = txt
 	l.size = p.size
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -236,12 +248,40 @@ func _badge(txt: String, col: Color, pos: Vector2, font: Font) -> Panel:
 
 func _refresh_face() -> void:
 	face_signature = current_face_signature()
-	if _cost_label: _cost_label.text = str(card_data.cost)
+	var trim := _vp.get_child(0).get_node("IndustrialTrim")
+	trim.hazard = not preview_only and _manager().is_sealed(card_data)
+	trim.queue_redraw()
+	var disaster: bool = card_data.get("type", "response") == "disaster"
+	var sacrifice: bool = disaster and not card_data.get("utility", false) and int(card_data.get("cost", 0)) > 0
+	var cost: int = int(card_data.get("tension_cost", 1)) if disaster and not sacrifice else int(card_data.get("cost", 0))
+	if _cost_label: _cost_label.text = str(cost)
+	if _cost_caption: _cost_caption.text = "SAC" if sacrifice else ""
+
 	if _hp_label:
 		_hp_label.text = str(maxi(card_data.health, 0))
-		_hp_label.add_theme_color_override("font_color", Color(1, 0.6, 0.6) if card_data.health < max_health else Color.WHITE)
+		_hp_label.add_theme_color_override("font_color", UI.DANGER if card_data.health < max_health else UI.TEXT)
 	if _atk_label:
 		_atk_label.text = str(effective_attack())
+	if _status_row:
+		for child in _status_row.get_children():
+			_status_row.remove_child(child)
+			child.queue_free()
+		var active: Array = statuses.keys().filter(func(key): return int(statuses[key]) > 0)
+		var row: HBoxContainer
+		for i in mini(active.size(), 3):
+			if i % 3 == 0:
+				row = HBoxContainer.new()
+				row.add_theme_constant_override("separation", 3)
+				_status_row.add_child(row)
+			var tag := _face_label(UI.font(true), 10, UI.TEXT)
+			var status := str(active[i])
+			var names := {"strength":"Str", "healing_reduced":"Heal cut"}
+			tag.text = "%s %d" % [names.get(status, status.replace("_", " ").capitalize()), int(statuses[status])]
+			if i == 2 and active.size() > 3: tag.text = "%d more" % (active.size() - 2)
+			tag.custom_minimum_size.x = 68
+			tag.clip_text = true
+			tag.add_theme_stylebox_override("normal", UI.panel(UI.INSET, UI.AMBER, 1))
+			row.add_child(tag)
 	if _mod_label:
 		_mod_label.text = ""
 		if card_data.get("utility", false):
@@ -263,6 +303,7 @@ func _refresh_face() -> void:
 		if card_data.get("effect", "") == "move_ally": tokens.append("PLAY: MOVE AN ALLY")
 		if card_data.get("effect", "") == "heal_all": tokens.append("PLAY: HEAL ALLIES 2")
 		if card_data.get("effect", "") == "rally_all": tokens.append("PLAY: ALLIES +1 STR")
+		if card_data.get("effect", "") == "grave_guard": tokens.append("PLAY: GRAVEYARD BARRIER (MAX 2)")
 		if int(card_data.get("leech", 0)) > 0: tokens.append("HEAL ON HIT %d" % int(card_data.leech))
 		if int(card_data.get("on_play_draw", 0)) > 0: tokens.append("PLAY DRAW +%d" % int(card_data.on_play_draw))
 		if int(card_data.get("thorns", 0)) > 0: tokens.append("RETALIATE %d" % int(card_data.thorns))
@@ -278,9 +319,7 @@ func _refresh_face() -> void:
 			tokens.append("%s %s %d+: %s" % [subject, status, int(condition.get("threshold", 3)), bonus])
 		for passive in ["piercing", "sluggish"]:
 			if has_modifier(passive) and passive not in modifiers: tokens.append(passive.to_upper())
-		for status in statuses:
-			if int(statuses[status]) > 0: tokens.insert(0, "%s %d" % [str(status).to_upper(), int(statuses[status])])
-		if int(card_data.get("locked_until", 0)) > _manager().turn: tokens.append("SEALED")
+		if not preview_only and int(card_data.get("locked_until", 0)) > _manager().turn: tokens.append("SEALED")
 		if has_modifier("sluggish") and not can_attack(_manager().turn): tokens.append("RESTING")
 		if not tokens.is_empty():
 			_mod_label.text = (_mod_label.text + "\n" if _mod_label.visible else "") + " · ".join(tokens)
@@ -313,15 +352,15 @@ func _tween_local(pos: Vector3, b: Basis, dur: float) -> void:
 	if _tween: _tween.kill()
 	_tween = create_tween().set_parallel(true).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	var origin := position
-	_tween.tween_method(func(t: float): position = origin.bezier_interpolate(origin + Vector3(0, 0.18, 0.1), pos + Vector3(0, 0.1, 0), pos, t), 0.0, 1.0, dur)
+	_tween.tween_method(func(t: float): position = origin.lerp(pos, t), 0.0, 1.0, dur)
 	_tween.tween_property(self, "quaternion", b.get_rotation_quaternion(), dur)
 
-const HOVER_LIFT := Vector3(0, 0.78, 0.24)
+const HOVER_LIFT := Vector3(0, 0.20, 0.02)
 
 func _apply_hover() -> void:
 	set_layer(100)
 	var pos: Vector3 = get_meta("hand_pos", position)
-	_tween_local(pos + HOVER_LIFT, UPRIGHT, 0.14)
+	_tween_local(_manager().hand_position_below_slots(self, pos + HOVER_LIFT, UPRIGHT), UPRIGHT, 0.14)
 
 func set_hand_hover(hovered: bool) -> void:
 	if is_hovered == hovered: return
@@ -341,10 +380,11 @@ func _on_mouse_exited() -> void:
 
 # ---------------------------------------------------------------- dragging
 func _input_event(_camera: Camera3D, event: InputEvent, _pos: Vector3, _n: Vector3, _idx: int) -> void:
-	if not in_hand and is_alive() and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		if not _manager().board_input.click_card(self): _manager().run_director.inspect_board_card(self)
+	if not Engine.is_editor_hint() and not in_hand and is_alive() and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if not _manager().board_input.click_card(self): _manager().run_director.begin_inspect_hold(self)
 
 func _input(event: InputEvent) -> void:
+	if Engine.is_editor_hint(): return
 	if is_relocating and event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			_manager().board_input.cancel()
@@ -353,12 +393,7 @@ func _input(event: InputEvent) -> void:
 			_manager().complete_move_effect(_slot_under_card())
 			return
 	if is_dragging and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		is_dragging = false
-		_manager().end_hand_drag(self)
-		in_hand = true
-		current_slot = null
-		reparent(_manager().hand_parent(), true)
-		_manager().arrange_hand_centered()
+		cancel_hand_drag()
 		return
 	if is_dragging and event is InputEventMouseButton \
 			and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
@@ -366,18 +401,29 @@ func _input(event: InputEvent) -> void:
 		_manager().end_hand_drag(self)
 		_drop_card()
 
+func cancel_hand_drag() -> void:
+	is_dragging = false
+	_manager().end_hand_drag(self)
+	in_hand = true
+	current_slot = null
+	reparent(_manager().hand_parent(), true)
+	_manager().arrange_hand_centered()
+
 func _start_drag() -> void:
 	if not _manager().begin_hand_drag(self): return
 	is_dragging = true
 	if _tween: _tween.kill()
 	set_layer(100)
 	reparent(_manager(), true)
+	global_position = _manager().clamp_drag_position(global_position)
 	_manager().arrange_hand_centered()
 
 func current_face_signature() -> int:
+	if preview_only: return hash([card_data, statuses, modifiers])
 	return hash([card_data, statuses, modifiers, effective_attack(), planned_guard, plan_ignore_taunt, can_attack(_manager().turn), _manager().is_sealed(card_data)])
 
 func _process(delta: float) -> void:
+	if Engine.is_editor_hint(): return
 	# Direct damage/status methods refresh immediately. This bounded fallback
 	# catches external buffs/turn changes without hashing every card every frame.
 	face_check_elapsed += delta
@@ -390,7 +436,8 @@ func _process(delta: float) -> void:
 	var mouse := get_viewport().get_mouse_position()
 	var hit = Plane(Vector3.UP, 1.6).intersects_ray(cam.project_ray_origin(mouse), cam.project_ray_normal(mouse))
 	if hit != null:
-		global_position = global_position.lerp(hit, 1.0 - exp(-20.0 * delta))
+		global_position = global_position.lerp(_manager().clamp_drag_position(hit), 1.0 - exp(-20.0 * delta))
+	global_position = _manager().clamp_drag_position(global_position)
 	# Always face the player while held
 	var target_q := (cam.global_basis * UPRIGHT).get_rotation_quaternion()
 	quaternion = quaternion.slerp(target_q, 1.0 - exp(-15.0 * delta))
@@ -504,7 +551,7 @@ func add_modifier(mod_name: String) -> void:
 	if not has_modifier(mod_name):
 		modifiers.append(mod_name.to_lower())
 		_refresh_face()
-		spawn_popup("+" + mod_name.to_upper(), Color(1.0, 0.85, 0.3))
+		spawn_popup("+" + mod_name.to_upper(), UI.GOLD)
 
 func heal(amt: int) -> void:
 	if card_data.health <= 0: return
@@ -513,7 +560,7 @@ func heal(amt: int) -> void:
 	card_data.health = mini(max_health, card_data.health + amt)
 	if card_data.health > before: _manager().log_event("%s heals %d HP." % [card_data.name, card_data.health - before])
 	_refresh_face()
-	spawn_popup("+%d HP" % amt, Color(0.3, 1.0, 0.4))
+	spawn_popup("+%d HP" % amt, UI.RESPONSE)
 
 func sacrifice_dissolve() -> void:
 	_manager().sacrifice_reward(self)
@@ -522,9 +569,9 @@ func sacrifice_dissolve() -> void:
 	remove_from_group("cards")
 	if _tween: _tween.kill()
 	mesh.visible = false
-	spawn_popup("SACRIFICED", Color(1.0, 0.25, 0.1))
+	spawn_popup("SACRIFICED", UI.DANGER)
 	_tween = create_tween().set_parallel(true)
-	_tween.tween_property(art_sprite, "modulate", Color(0.8, 0.1, 0.05, 0.0), 0.45)
+	_tween.tween_property(art_sprite, "modulate", Color(UI.CRIMSON, 0.0), 0.45)
 	_tween.tween_property(self, "global_position", global_position + Vector3(0, 0.6, 0), 0.45).set_ease(Tween.EASE_OUT)
 	_tween.tween_property(self, "scale", Vector3.ONE * 0.001, 0.45).set_ease(Tween.EASE_IN)
 	await _tween.finished
@@ -567,7 +614,7 @@ func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> voi
 		statuses.barrier = int(statuses.barrier) - absorbed
 		amt -= absorbed
 	if amt <= 0:
-		spawn_popup("BARRIER", Color("75d6c6"))
+		spawn_popup("BARRIER", UI.RESPONSE)
 		_refresh_face()
 		return
 
@@ -577,18 +624,18 @@ func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> voi
 	_refresh_face()
 
 	var popup := "-%d" % amt
-	var col := Color(1, 0.35, 0.3)
+	var col := UI.DANGER
 	if mult > 1.0:
 		popup += "\nSUPER!"
-		col = Color(1, 0.85, 0.2)
+		col = UI.AMBER
 	elif mult < 1.0:
 		popup += "\nresisted"
-		col = Color(0.7, 0.7, 0.75)
+		col = UI.MUTED
 	spawn_popup(popup, col)
 
 	# Red flash + wobble
 	var flash := create_tween()
-	art_sprite.modulate = Color(1, 0.3, 0.3)
+	art_sprite.modulate = UI.DANGER
 	flash.tween_property(art_sprite, "modulate", Color.WHITE, 0.35)
 
 	if card_data.health <= 0:
@@ -614,7 +661,7 @@ func _die() -> void:
 	dissolve.set_shader_parameter("card_face", _vp.get_texture())
 	art_sprite.material_override = dissolve
 	_tween = create_tween().set_parallel(true)
-	_tween.tween_property(art_sprite, "modulate", Color(0.25, 0.05, 0.02, 1.0), 0.15)
+	_tween.tween_property(art_sprite, "modulate", UI.CRIMSON.darkened(0.5), 0.15)
 	_tween.tween_property(self, "global_position", global_position + Vector3(0, 0.6, 0), 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	_tween.tween_property(self, "rotation", Vector3(0.4, 0.0, randf_range(-1.2, 1.2)), 0.5)
 	_tween.tween_method(func(amount: float): dissolve.set_shader_parameter("progress", amount), 0.0, 1.0, 0.65)
@@ -625,19 +672,23 @@ func _die() -> void:
 
 ## Floating text that rises and fades above this card.
 func spawn_popup(text: String, col: Color) -> void:
+	var now := Time.get_ticks_msec()
+	popup_stack = (popup_stack + 1) % 4 if now - last_popup_msec < 250 else 0
+	last_popup_msec = now
 	var l := Label3D.new()
+	l.font = UI.font(true)
 	l.text = text
-	l.font_size = 96
-	l.pixel_size = 0.004
+	l.font_size = 48
+	l.pixel_size = 0.0025
 	l.modulate = col
-	l.outline_size = 18
-	l.outline_modulate = Color(0, 0, 0, 0.9)
+	l.outline_size = 6
+	l.outline_modulate = Color(UI.BACKGROUND, 0.9)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
 	l.render_priority = 120
 	l.outline_render_priority = 119
 	_manager().add_child(l)
-	l.global_position = global_position + Vector3(0, 0.4, 0)
+	l.global_position = global_position + Vector3(0, 0.3 + popup_stack * 0.22, 0)
 	l.scale = Vector3.ONE * 0.4
 	var t := l.create_tween()
 	t.set_parallel(true)
@@ -648,6 +699,7 @@ func spawn_popup(text: String, col: Color) -> void:
 	t.chain().tween_callback(l.queue_free)
 
 func effective_attack() -> int:
+	if preview_only and card_data.has("preview_attack"): return int(card_data.preview_attack)
 	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + plan_attack_bonus + (0 if preview_only else _manager().attack_bonus(self)))
 
 func refresh_cost() -> void:
@@ -661,7 +713,7 @@ func add_status(status: String, amount: int) -> void:
 	if not is_alive() or amount <= 0: return
 	statuses[status] = mini(3, int(statuses.get(status, 0)) + amount) if status == "barrier" else int(statuses.get(status, 0)) + amount
 	_refresh_face()
-	spawn_popup("%s +%d" % [status.to_upper(), amount], Color("da857c") if status != "strength" else Color("75d6c6"))
+	spawn_popup("%s +%d" % [status.to_upper(), amount], UI.DANGER if status != "strength" else UI.RESPONSE)
 
 func status_upkeep() -> void:
 	for status in ["burn", "poison"]:
@@ -690,8 +742,8 @@ func cleanse() -> void:
 static func _card_back() -> Texture2D:
 	if back_texture: return back_texture
 	var img := Image.create(132, 180, false, Image.FORMAT_RGB8)
-	img.fill(Color("0c1925"))
-	var gold := Color("c9aa70")
+	img.fill(UI.INSET)
+	var gold := UI.GOLD
 	for x in range(6, 126):
 		img.set_pixel(x, 6, gold)
 		img.set_pixel(x, 173, gold)

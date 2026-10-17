@@ -1,4 +1,5 @@
 extends Node3D
+const UI = preload("res://scripts/ui_theme.gd")
 ## Main game manager: builds the creepy classroom, the pixel-art board,
 ## the gothic HUD, and controls the deck + fanned card hand.
 
@@ -6,13 +7,14 @@ const Card3DScene = preload("res://scenes/card_3d.tscn")
 
 const HAND_SIZE_MAX := 8
 const HAND_DIST := 3.0        # Smaller hand leaves space for the board and HUD.
-const HAND_Y := -1.2          # Keep names visible while the compact hand rests below the board.
+const HAND_Y := -0.86
+const DRAG_BOUNDS := Rect2(-2.45, -1.8, 4.9, 3.6)
 const UPRIGHT := Basis(Vector3.RIGHT, PI / 2.0)
 
 # Palette
-const BONE := Color(0.88, 0.82, 0.68)
-const GOLD := Color(0.72, 0.55, 0.22)
-const INK := Color(0.04, 0.03, 0.04, 0.92)
+const BONE := UI.TEXT
+const GOLD := UI.GOLD
+const INK := UI.INSET
 
 var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
@@ -20,7 +22,7 @@ var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
 var hand: Array = []
 var player_graveyard: Array[Dictionary] = []
-var enemy_graveyard: Array[Dictionary] = []
+var graveyard_serial := 0
 var hovered_hand_card: Node
 var dragged_hand_card: Node
 var turn := 1
@@ -32,7 +34,7 @@ enum View { WIDE, DESK, BOARD }
 var view_mode: View = View.DESK
 var in_board_view := false
 const BOARD_SCALE := 0.7
-const HAND_SCALE := 0.8
+const HAND_SCALE := 0.62
 var run_director: CanvasLayer
 var enemy_max_hp := ENEMY_MAX_HP
 var camera_tween: Tween
@@ -75,7 +77,7 @@ var player_hp := PLAYER_MAX_HP
 var enemy_hp := ENEMY_MAX_HP
 
 # ---- Camera views (pivot position, pivot rotation in degrees, camera distance)
-const DESK_VIEW := {"pos": Vector3(0, 2.1, -0.7), "rot": Vector3(-15, 0, 0), "dist": 7.2, "fov":62.0}
+const DESK_VIEW := {"pos": Vector3(0, 0.3, -0.4), "rot": Vector3(-38, 0, 0), "dist": 5.3, "fov":60.0}
 const WIDE_VIEW := {"pos": Vector3(-0.8, 2.4, -1.0), "rot": Vector3(-12, -12, 0), "dist":10.0, "fov":68.0}
 const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "dist": 3.8, "fov":56.0}
 
@@ -87,13 +89,8 @@ const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "di
 @onready var _phase_label: Label = $HUD/Root/PhaseLabel
 @onready var _end_turn_btn: Button = $HUD/Root/EndTurnButton
 
-@onready var _prep_fill: ColorRect = $HUD/Root/OrbGauge_2/Mask/Fill
-@onready var _prep_label: Label = $HUD/Root/OrbGauge_2/ValueLabel
-@onready var _tension_fill: ColorRect = $HUD/Root/OrbGauge_3/Mask/Fill
-@onready var _tension_label: Label = $HUD/Root/OrbGauge_3/ValueLabel
 @onready var _player_hp_ui: Control = $HUD/Root/PlayerHealth
 @onready var _enemy_hp_ui: Control = $HUD/Root/EnemyHealth
-@onready var _enemy_deck_count: Label = $HUD/Root/EnemyDeckPlaque/VBox/EnemyDeckCountLabel
 
 var hand_container: Node3D
 var is_hand_tucked := false
@@ -168,7 +165,7 @@ func clear_battle(preserve_result: bool = false) -> void:
 	dragged_hand_card = null
 	if not preserve_result:
 		player_graveyard.clear()
-		enemy_graveyard.clear()
+		graveyard_serial = 0
 	player_buffs.clear()
 	enemy_buffs.clear()
 	moving_ally = null
@@ -196,6 +193,9 @@ func overclock_stacks(response_side: bool) -> int:
 
 func resource_growth(response_side: bool) -> int:
 	return maxi(1, 1 + buff_value(response_side, "energy") - overclock_stacks(response_side))
+
+func hero_max_hp() -> int:
+	return PLAYER_MAX_HP
 
 func incoming_damage(response_side: bool, amount: int) -> int:
 	return ceili(amount * (1.0 + 0.5 * buff_value(response_side, "damage_taken")))
@@ -235,6 +235,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	enemy_deck.shuffle()
 	enemy_deck.sort_custom(func(a, b): return a.element == favored and b.element != favored)
 	enemy_deck.resize(mini(base_limit, enemy_deck.size()))
+	if kind == "battle" and floor_level <= 2: limit_early_specials(floor_level)
 	enemy_evolution_deck.shuffle()
 	enemy_evolution_deck.resize(mini(evolution_limit, enemy_evolution_deck.size()))
 	if kind == "elite":
@@ -253,6 +254,25 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN / FINAL BOSS"
 	_start_match()
 
+func has_special_effect(definition: Dictionary) -> bool:
+	for key in ["utility", "effect", "modifier", "modifiers", "on_hit", "on_sacrifice", "condition", "strength", "leech", "on_play_draw", "ignore_taunt"]:
+		if definition.get(key): return true
+	return false
+
+func limit_early_specials(floor_level: int) -> void:
+	var basic := enemy_deck.filter(func(card): return not has_special_effect(card))
+	if basic.is_empty(): return
+	var limit := 2 if floor_level == 1 else 4
+	var selected: Array[Dictionary] = []
+	var specials := 0
+	for card in enemy_deck:
+		if has_special_effect(card):
+			if specials >= limit: continue
+			specials += 1
+		selected.append(card)
+	while selected.size() < enemy_deck.size(): selected.append(basic.pick_random().duplicate(true))
+	enemy_deck.assign(selected)
+
 func _load_tex(path: String) -> Texture2D:
 	var tex = load(path)
 	if tex: return tex
@@ -265,13 +285,6 @@ func _load_tex(path: String) -> Texture2D:
 func _build_environment() -> void:
 	var school := preload("res://scripts/supplied_classroom.gd").new()
 	add_child(school)
-	var table = get_node_or_null("Table")
-	if table:
-		# Keep the old table node as a board reference; the visible desk is in the FBX.
-		table.hide()
-		table.use_collision = false
-		table.size = school.TABLE_SIZE
-		table.position.y = 1.0 - school.TABLE_SIZE.y / 2
 
 # =================================================================== BOARD
 ## The framed slate aligns with the existing slot colliders.
@@ -284,15 +297,6 @@ func _build_board() -> void:
 
 # =================================================================== LIGHTING
 func _build_lighting() -> void:
-	var light = get_node_or_null("SpookyLight")
-	if light is SpotLight3D:
-		light.light_color = Color(0.65, 0.76, 1.0)
-		light.light_energy = 0.0
-		light.spot_angle = 80.0
-		light.spot_range = 25.0
-		light.position = Vector3(0, 5.5, 1.5)
-		light.shadow_enabled = true
-
 	var env_node = get_node_or_null("WorldEnvironment")
 	if env_node and env_node.environment:
 		var env: Environment = env_node.environment
@@ -350,18 +354,8 @@ func _build_visual_finish() -> void:
 	effect.material = material
 	layer.add_child(effect)
 
-func _set_orb(fill: ColorRect, value_label: Label, amount: int, max_amount: int) -> void:
-	if not fill or not value_label: return
-	var r: float = 52.0
-	var ratio := clampf(float(amount) / float(max_amount), 0.0, 1.0)
-	var t := create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	t.tween_property(fill, "position:y", r * 2.0 * (1.0 - ratio), 0.35)
-	value_label.text = "%d/%d" % [amount, max_amount]
-
 func _refresh_bars() -> void:
-	_set_orb(_prep_fill, _prep_label, preparedness, energy_cap)
-	_set_orb(_tension_fill, _tension_label, tension, tension_cap)
-	_set_health(_player_hp_ui, player_hp, PLAYER_MAX_HP, false)
+	_set_health(_player_hp_ui, player_hp, hero_max_hp(), false)
 	_set_health(_enemy_hp_ui, enemy_hp, enemy_max_hp, false)
 	update_deck_label()
 
@@ -401,8 +395,8 @@ func _damage_side(player_side: bool, amt: int, bypass_barrier: bool = false) -> 
 	var ui := _player_hp_ui if player_side else _enemy_hp_ui
 	if player_side:
 		player_hp = maxi(0, player_hp - amt)
-		log_event("Response loses %d health (%d/%d)." % [amt, player_hp, PLAYER_MAX_HP])
-		_set_health(ui, player_hp, PLAYER_MAX_HP, true)
+		log_event("Response loses %d health (%d/%d)." % [amt, player_hp, hero_max_hp()])
+		_set_health(ui, player_hp, hero_max_hp(), true)
 	else:
 		enemy_hp = maxi(0, enemy_hp - amt)
 		log_event("Disaster loses %d health (%d/%d)." % [amt, enemy_hp, enemy_max_hp])
@@ -423,7 +417,7 @@ func _damage_side(player_side: bool, amt: int, bypass_barrier: bool = false) -> 
 	l.text = "-%d" % amt
 	l.add_theme_font_override("font", ui.get_node("Value").get_theme_font("font"))
 	l.add_theme_font_size_override("font_size", 40)
-	l.add_theme_color_override("font_color", Color(1, 0.3, 0.25))
+	l.add_theme_color_override("font_color", UI.DANGER)
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 10)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -437,8 +431,6 @@ func _damage_side(player_side: bool, amt: int, bypass_barrier: bool = false) -> 
 func update_deck_label() -> void:
 	if _deck_count:
 		_deck_count.text = str(deck.size())
-	if _enemy_deck_count:
-		_enemy_deck_count.text = "%d cards" % enemy_deck.size()
 
 func enemy_draw_cards(count: int) -> void:
 	for i in range(count):
@@ -486,6 +478,7 @@ func step_view(direction: int) -> void:
 func set_view(mode: int) -> void:
 	view_mode = clampi(mode, View.WIDE, View.BOARD) as View
 	in_board_view = view_mode == View.BOARD
+	clear_hand_hover()
 	_shift_camera(view_settings(view_mode))
 	_refresh_view_hints()
 
@@ -537,6 +530,9 @@ func load_deck_from_json(path: String, target_deck: Array) -> void:
 func hand_parent() -> Node3D:
 	return hand_container
 
+func clamp_drag_position(point: Vector3) -> Vector3:
+	return Vector3(clampf(point.x, DRAG_BOUNDS.position.x, DRAG_BOUNDS.end.x), 1.6, clampf(point.z, DRAG_BOUNDS.position.y, DRAG_BOUNDS.end.y))
+
 func _process(delta: float) -> void:
 	if is_instance_valid(opponent_hand): opponent_hand.refresh()
 	update_hand_hover(get_viewport().get_mouse_position())
@@ -549,19 +545,7 @@ func _process(delta: float) -> void:
 		if not is_hand_tucked: set_hand_tucked(true)
 		return
 	if in_board_view:
-		var mouse_y = get_viewport().get_mouse_position().y
-		var screen_h = get_viewport().get_visible_rect().size.y
-		# Untuck if hovering in the bottom 25% of the screen
-		var should_tuck = mouse_y < screen_h * 0.75
-
-		# Keep tucked if holding a card (so you can see slots clearly)
-		for c in get_hand_cards():
-			if c.is_dragging:
-				should_tuck = true
-				break
-
-		if should_tuck != is_hand_tucked:
-			set_hand_tucked(should_tuck)
+		if not is_hand_tucked: set_hand_tucked(true)
 	else:
 		if is_hand_tucked:
 			set_hand_tucked(false)
@@ -638,6 +622,26 @@ func get_hand_cards() -> Array:
 	hand = hand.filter(func(c): return is_instance_valid(c))
 	return hand.filter(func(c): return c.in_hand)
 
+func hand_position_below_slots(card: Node, pos: Vector3, basis: Basis) -> Vector3:
+	if view_mode != View.DESK: return pos
+	var bottom := 0.0
+	for slot in _response_slots() + _threat_slots():
+		var bounds: AABB = slot.get_aabb()
+		for x in [bounds.position.x, bounds.end.x]:
+			for z in [bounds.position.z, bounds.end.z]:
+				bottom = maxf(bottom, camera.unproject_position(slot.to_global(Vector3(x, 0, z))).y)
+	var transform := hand_container.global_transform * Transform3D(basis.scaled(Vector3.ONE * HAND_SCALE), pos)
+	var top := INF
+	for x in [-0.55, 0.55]:
+		for z in [-card.card_height / 2, card.card_height / 2]:
+			top = minf(top, camera.unproject_position(transform * Vector3(x, 0, z)).y)
+	if top < bottom + 10:
+		var origin := hand_container.to_global(pos)
+		var lower := hand_container.to_global(pos + Vector3.DOWN)
+		var pixels_per_unit := camera.unproject_position(lower).y - camera.unproject_position(origin).y
+		if pixels_per_unit > 0: pos.y -= (bottom + 10 - top) / pixels_per_unit
+	return pos
+
 func hand_card_polygon(card: Node, resting: bool) -> PackedVector2Array:
 	var transform: Transform3D = card.global_transform
 	if resting:
@@ -665,6 +669,9 @@ func clear_hand_hover() -> void:
 	for card in get_hand_cards(): card.set_hand_hover(false)
 
 func update_hand_hover(mouse: Vector2) -> void:
+	if view_mode != View.DESK:
+		clear_hand_hover()
+		return
 	if not board_input.action.is_empty() or is_instance_valid(dragged_hand_card) or phase not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] or (run_director and run_director.modal.visible):
 		clear_hand_hover()
 		return
@@ -689,7 +696,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and can_player_act():
 		update_hand_hover(event.position)
 		if is_instance_valid(hovered_hand_card):
-			hovered_hand_card._start_drag()
+			var picked := hovered_hand_card
+			picked._start_drag()
+			run_director.begin_inspect_hold(picked, true)
 			get_viewport().set_input_as_handled()
 
 func record_graveyard(card: Node, reason: String) -> void:
@@ -697,20 +706,41 @@ func record_graveyard(card: Node, reason: String) -> void:
 	card.graveyard_recorded = true
 	log_event("%s: %s." % [reason, card.card_data.name])
 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
+	if card.card_data.get("type", "response") != "response": return
 	var entry: Dictionary = card.card_data.duplicate(true)
 	entry.health = card.max_health
 	entry.graveyard_reason = reason
 	entry.graveyard_round = turn
 	entry.statuses = card.statuses.duplicate(true)
 	entry.modifier = ", ".join(card.modifiers)
-	if entry.get("type", "response") == "response": player_graveyard.append(entry)
-	else: enemy_graveyard.append(entry)
+	graveyard_serial += 1
+	entry.graveyard_id = graveyard_serial
+	entry.recovery = card.base_definition.duplicate(true)
+	player_graveyard.append(entry)
+
+func destroyed_response_units() -> Array:
+	return player_graveyard.filter(func(entry): return entry.get("graveyard_reason", "") == "Destroyed" and not entry.get("utility", false))
+
+func recoverable_units() -> Array:
+	return destroyed_response_units().filter(func(entry): return not entry.get("recovery", entry).get("recovered", false))
+
+func recovered_definition(entry: Dictionary) -> Dictionary:
+	var result: Dictionary = entry.get("recovery", entry).duplicate(true)
+	# Old checkpoints have no pre-buff definition. Their recorded HP is maximum HP.
+	if not entry.has("recovery"):
+		result.health = maxi(1, int(entry.health) - int(buffs_for(entry).get("health", 0)))
+		for definition in run_director.collection:
+			var same_copy: bool = entry.has("acquired") and definition.get("acquired", -1) == entry.acquired
+			var same_upgrade: bool = definition.get("id", "") == entry.get("id", "") and int(definition.get("upgrades", 0)) == int(entry.get("upgrades", 0))
+			if same_copy or (not entry.has("acquired") and same_upgrade):
+				result = definition.duplicate(true)
+				break
+	if result.has("tax_original"): result[str(result.get("tax_key", "cost"))] = int(result.tax_original)
+	for key in ["statuses", "locked_until", "tax_original", "tax_key", "tax_until", "graveyard_id", "graveyard_reason", "graveyard_round", "recovery"]: result.erase(key)
+	result.recovered = true
+	return result
 
 func record_enemy_spell(definition: Dictionary) -> void:
-	var entry: Dictionary = definition.duplicate(true)
-	entry.graveyard_reason = "Cast"
-	entry.graveyard_round = turn
-	enemy_graveyard.append(entry)
 	log_event("Janitor casts %s." % definition.get("name", "a utility"))
 
 ## Tight, overlapping, upright hand along the bottom of the screen.
@@ -724,7 +754,7 @@ func arrange_hand_centered() -> void:
 		var pos := Vector3(n * spacing, HAND_Y - n * n * 0.012, -HAND_DIST + i * 0.002)
 		var roll := deg_to_rad(-n * 2.5)
 		var b := Basis(Vector3.BACK, roll) * UPRIGHT
-		active[i].move_in_hand(pos, b, i)
+		active[i].move_in_hand(hand_position_below_slots(active[i], pos, b), b, i)
 
 # =================================================================== TURN SYSTEM
 ## Round flow:
@@ -747,6 +777,7 @@ func on_card_played(card: Node) -> void:
 	if not card.card_data.get("utility", false):
 		if int(card.card_data.get("on_play_draw", 0)) > 0: draw_cards(int(card.card_data.on_play_draw))
 		apply_formation_effect(card)
+		if card.card_data.get("effect", "") == "grave_guard": card.add_status("barrier", mini(2, destroyed_response_units().size()))
 		if card.card_data.get("effect", "") == "move_ally": begin_move_effect(card)
 
 func apply_formation_effect(source: Node) -> void:
@@ -815,10 +846,11 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		arrange_hand_centered()
 		begin_move_effect(card)
 		return true
-	elif effect in ["tutor", "seal", "tax", "rally", "cleanse"]:
+	elif effect in ["tutor", "seal", "tax", "rally", "cleanse", "recover"]:
 		var choices: Array = []
 		match effect:
 			"tutor": choices = deck.filter(func(c): return not is_sealed(c))
+			"recover": choices = recoverable_units()
 			"seal": choices = enemy_hand.filter(func(c): return not is_sealed(c))
 			"tax": choices = enemy_hand
 			"rally", "cleanse": choices = _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
@@ -868,6 +900,9 @@ func consume_utility(card: Node) -> void:
 func complete_utility_choice(target: Variant) -> void:
 	board_input.clear()
 	if not is_instance_valid(pending_utility): return
+	if pending_effect == "recover" and (not recoverable_units().has(target) or get_hand_cards().size() > HAND_SIZE_MAX):
+		cancel_utility_choice()
+		return
 	if pending_effect in ["seal", "tax"] and target not in enemy_hand:
 		cancel_utility_choice()
 		return
@@ -875,6 +910,7 @@ func complete_utility_choice(target: Variant) -> void:
 	match pending_effect:
 		"tutor":
 			deck.erase(target)
+		"recover": player_graveyard.erase(target)
 		"seal": target.locked_until = turn + 2 + power
 		"tax":
 			for i in range(1 + power): increase_cost(target)
@@ -882,13 +918,14 @@ func complete_utility_choice(target: Variant) -> void:
 		"cleanse":
 			target.cleanse()
 			if power > 0: target.heal(2 * power)
-	var tutoring := pending_effect == "tutor"
+	var tutoring := pending_effect in ["tutor", "recover"]
+	var received: Dictionary = recovered_definition(target) if pending_effect == "recover" else (target if pending_effect == "tutor" else {})
 	consume_utility(pending_utility)
 	pending_utility = null
 	pending_effect = ""
 	run_director.action_cancel = Callable()
 	run_director.close_modal()
-	if tutoring: add_card_to_hand(target)
+	if tutoring: add_card_to_hand(received)
 	_refresh_bars()
 
 func cancel_utility_choice() -> void:
@@ -923,7 +960,7 @@ func enemy_utility(definition: Dictionary) -> void:
 			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, false)
 			target.card_data.locked_until = turn + 2
 			target._refresh_face()
-			target.spawn_popup("SEALED · 2 ROUNDS", Color("da857c"))
+			target.spawn_popup("SEALED · 2 ROUNDS", UI.DANGER)
 	elif effect == "tax":
 		var choices := get_hand_cards()
 		if not choices.is_empty():
@@ -931,7 +968,7 @@ func enemy_utility(definition: Dictionary) -> void:
 			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, true)
 			increase_cost(target.card_data)
 			target.refresh_cost()
-			target.spawn_popup("COST +1", Color("da857c"))
+			target.spawn_popup("COST +1", UI.DANGER)
 
 func best_disruption_target(cards: Array, tax: bool) -> Node:
 	var best: Node = cards[0]
@@ -949,7 +986,7 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	var previous := phase
 	phase = p
 	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking:
-		if p in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] and previous not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: presentation.banner("YOUR TURN", "Round %d" % turn, Color("75d6c6"))
+		if p in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] and previous not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: presentation.banner("YOUR TURN", "Round %d" % turn, UI.RESPONSE)
 		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("JANITOR'S TURN", "Watch the opposing formation")
 		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
 	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
@@ -961,8 +998,35 @@ func _set_phase(p: Phase, text: String = "") -> void:
 func _wait(t: float) -> void:
 	await get_tree().create_timer(t, false).timeout
 
+func is_opening_blocker(definition: Dictionary) -> bool:
+	return definition.get("id", "") in ["quick_dash", "debris_clearance"] and int(definition.get("cost", 0)) == 1 and not definition.get("utility", false) and not is_sealed(definition)
+
+func smooth_opening_hand() -> void:
+	if encounter_kind != "battle" or run_director.floor_number != 1: return
+	# Match draw_cards: it picks the last available card and erases the first equal copy.
+	var pending := deck.duplicate(true)
+	for i in STARTING_HAND:
+		var available := pending.filter(func(card): return not is_sealed(card))
+		if available.is_empty(): break
+		var picked: Dictionary = available.back()
+		if is_opening_blocker(picked): return
+		pending.erase(picked)
+	for i in deck.size():
+		if is_opening_blocker(deck[i]):
+			deck.append(deck.pop_at(i))
+			return
+
 func _start_match() -> void:
 	_set_phase(Phase.SETUP, "Call Heads or Tails")
+	var serial := encounter_serial
+	presentation.blocking = true
+	_apply_view(WIDE_VIEW)
+	_shift_camera(DESK_VIEW, 1.0)
+	presentation.banner("DISASTER ENCOUNTER", encounter_kind.capitalize() + " · Prepare your formation", UI.GOLD, true)
+	await _wait(1.1)
+	if serial != encounter_serial: return
+	presentation.blocking = false
+	smooth_opening_hand()
 	draw_cards(STARTING_HAND)
 	enemy_draw_cards(STARTING_HAND)
 	enemy_draw_evolutions(1)
@@ -1010,7 +1074,7 @@ func continue_round() -> void:
 	tension_cap = clampi(TENSION_START + (turn - 1) * (1 + overclock_stacks(false)) + bonus, 1, maxi(1, TENSION_MAX + bonus))
 	tension = tension_cap
 	_refresh_bars()
-	player_hp = mini(PLAYER_MAX_HP, player_hp + buff_value(true, "hero_regen"))
+	player_hp = mini(hero_max_hp(), player_hp + buff_value(true, "hero_regen"))
 	enemy_hp = mini(enemy_max_hp, enemy_hp + buff_value(false, "hero_regen"))
 	_refresh_bars()
 
@@ -1199,7 +1263,7 @@ func _enemy_turn() -> void:
 			await evo_card.enter_from_above(target_slot)
 			_on_enemy_card_played(evo_card)
 			major_evolution_entry(evo_card, sac_count)
-			evo_card.spawn_popup("EVOLVED!", Color(1.0, 0.3, 0.1))
+			evo_card.spawn_popup("EVOLVED!", UI.AMBER)
 			shake_camera(0.12, 0.3)
 
 			_refresh_bars()
@@ -1247,6 +1311,8 @@ func _enemy_turn() -> void:
 	await _wait(0.4)
 
 func enemy_action_limit() -> int:
+	if encounter_kind == "battle" and run_director.floor_number == 1:
+		return mini(tension, 1 if turn <= 3 else 2)
 	var base_actions := 2 if encounter_kind == "battle" else 3
 	var maximum := 4 if encounter_kind == "battle" else 5
 	return mini(tension, clampi(base_actions + buff_value(false, "energy"), 1, maximum))
@@ -1457,6 +1523,8 @@ func _synergy_bonus(card: Node) -> int:
 	return 0
 
 func _combat() -> void:
+	for card in get_tree().get_nodes_in_group("cards"):
+		card.set_meta("combat_kill", false)
 	var prev_view: View = view_mode
 	set_board_view(true)
 	set_hand_tucked(true)
@@ -1480,6 +1548,7 @@ func _combat() -> void:
 		if phase != Phase.GAME_OVER:
 			await _side_attacks(true)
 
+	if phase != Phase.GAME_OVER: resolve_blood_pact()
 	plans.finish_combat()
 	if phase != Phase.GAME_OVER:
 		await _wait(0.5)
@@ -1495,7 +1564,7 @@ func _side_attacks(response_side: bool) -> void:
 		if atk == null or not atk.is_alive() or atk.effective_attack() <= 0:
 			continue
 		if not atk.can_attack(turn):
-			atk.spawn_popup("SLUGGISH · RESTING", Color("9cacb9"))
+			atk.spawn_popup("SLUGGISH · RESTING", UI.MUTED)
 			continue
 
 		var def = _get_card_in_slot(theirs[i])
@@ -1542,7 +1611,7 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 		if strike > 0:
 			var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
 			if lane >= 0: defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
-			atk.spawn_popup("FOLLOW-UP STRIKE", Color("75d6c6"))
+			atk.spawn_popup("FOLLOW-UP STRIKE", UI.RESPONSE)
 		resolve_single_strike(atk, defender, response_side)
 
 func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
@@ -1551,6 +1620,7 @@ func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> vo
 	if blocked:
 		var info := _calc_damage(atk, defender)
 		defender.take_damage(info.dmg, info.mult)
+		if not defender.is_alive(): atk.set_meta("combat_kill", true)
 		# Effects land only on a surviving card. Normal damage never spills into HP.
 		if defender.is_alive() and not defender.last_evaded_hit:
 			var inflicted: Dictionary = atk.card_data.get("on_hit", {})
@@ -1566,8 +1636,21 @@ func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> vo
 	if int(atk.card_data.get("leech", 0)) > 0: atk.heal(int(atk.card_data.leech))
 	if blocked and defender.is_alive() and not defender.last_evaded_hit:
 		var thorns := int(buffs_for(defender.card_data).get("thorns", 0)) + int(defender.card_data.get("thorns", 0))
-		if thorns > 0: atk.take_damage(thorns, 1.0, true)
+		if thorns > 0:
+			var was_alive: bool = atk.is_alive()
+			atk.take_damage(thorns, 1.0, true)
+			if was_alive and not atk.is_alive(): defender.set_meta("combat_kill", true)
 	atk.after_attack(turn)
+	_check_game_over()
+
+func resolve_blood_pact() -> void:
+	for card in get_tree().get_nodes_in_group("cards"):
+		if card.in_hand or card.current_slot == null or not card.is_alive(): continue
+		if int(buffs_for(card.card_data).get("kill_or_die", 0)) <= 0: continue
+		if card.get_meta("combat_kill", false): continue
+		log_event("Blood Pact destroys %s: no kill this combat." % card.card_data.name)
+		card.card_data.health = 0
+		card._die()
 	_check_game_over()
 
 func _check_game_over() -> bool:

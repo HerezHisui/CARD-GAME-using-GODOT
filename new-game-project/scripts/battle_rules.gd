@@ -11,7 +11,7 @@ const BUFFS := [
 	{"id":"draw", "name":"Rapid Logistics", "description":"Draw 1 extra card in each normal draw phase, up to the hand limit."},
 	{"id":"glass", "name":"Glass Cannon", "description":"+2 attack to all units, but -1 maximum health. This battle only."},
 	{"id":"overclock", "name":"Overclock", "description":"Gain 2 capacity now and +1 extra capacity growth each round (2 total normally), but take 50% more damage (rounded up)."},
-	{"id":"blood_pact", "name":"Blood Pact", "description":"+3 attack, but all units gain 2 Bleed when you choose this and when they enter."},
+	{"id":"blood_pact", "name":"Blood Pact", "description":"Units gain 2 Strength. At combat end, each deployed unit that did not kill a card this combat dies. Hero hits and resting do not count."},
 	{"id":"patient", "name":"Patient Formation", "description":"All units regenerate 2 each round, but become Sluggish."},
 	{"id":"toxic_ward", "name":"Toxic Ward", "description":"Apply 2 extra Poison stacks, but all your units lose 1 attack."},
 	{"id":"formation", "name":"Close Ranks", "description":"Matching adjacent units deal 2 extra damage. Isolated deployed units lose 1 attack."},
@@ -37,7 +37,7 @@ const BONUSES := {
 	"cadet":{"health":1}, "marshal":{"synergy":1},
 	"chemist":{"burn":1, "poison":1, "health":-1}, "warden":{"thorns":1},
 	"glass":{"strength":2, "health":-1}, "overclock":{"energy":2, "damage_taken":1},
-	"blood_pact":{"strength":3, "self_bleed":2}, "patient":{"regen":2, "sluggish":1},
+	"blood_pact":{"strength":2, "kill_or_die":1}, "patient":{"regen":2, "sluggish":1},
 	"toxic_ward":{"poison":2, "strength":-1}, "formation":{"synergy":2, "isolation":1},
 	"spines":{"thorns":1, "health":-1}, "precision":{"piercing":1, "strength":-1},
 	"beacon":{"draw":1}, "bulwark":{"health":2, "strength":-1},
@@ -66,12 +66,15 @@ const EFFECTS := {
 	"scout":"Reveal the Janitor's hand for the rest of this encounter. Inspect it again through the deck viewer.",
 	"tax":"Choose an opposing hand card, including a held evolution. Response energy cost +1; Disaster sacrifice cost +1, or base-card tension cost +1. Expires after this round and the next; repeated taxes cap at +2.",
 	"rally":"Choose a deployed ally. It gains 2 Strength (+2 attack) for this encounter.",
-	"cleanse":"Choose a deployed ally. Heal 3 and remove Burn, Poison, and Bleed."
+	"cleanse":"Choose a deployed ally. Heal 3 and remove Burn, Poison, and Bleed.",
+	"recover":"Return a destroyed Response unit from your graveyard to your hand. It must be played again at its normal cost. Temporary statuses and taxes are cleared. Each unit can be recovered once per battle.",
+	"grave_guard":"On play: gain 1 Barrier per destroyed allied unit still in your graveyard, up to 2."
 }
-const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "barrier":"Protect formation", "herb":"Clear Bleed", "tablet":"Restore healing", "draw":"Draw cards", "move":"Relocate ally", "tutor":"Search draw pile", "seal":"Seal card", "scout":"Reveal hand", "tax":"Raise cost", "rally":"Gain Strength", "cleanse":"Heal and cleanse"}
+const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "barrier":"Protect formation", "herb":"Clear Bleed", "tablet":"Restore healing", "draw":"Draw cards", "move":"Relocate ally", "tutor":"Search draw pile", "seal":"Seal card", "scout":"Reveal hand", "tax":"Raise cost", "rally":"Gain Strength", "cleanse":"Heal and cleanse", "recover":"Recover a unit", "grave_guard":"Graveyard protection"}
 
 static func special_text(card: Dictionary) -> String:
 	var parts: PackedStringArray = []
+	if card.get("recovered", false): parts.append("Recovered: this unit cannot be recovered again this battle.")
 	if card.get("on_sacrifice", "") == "draw": parts.append("When sacrificed: draw 1 Disaster card.")
 	if card.get("on_sacrifice", "") == "burn": parts.append("When sacrificed: apply 2 Burn to the opposing lane card.")
 	if card.get("type", "response") == "disaster" and int(card.get("cost", 0)) >= 3:

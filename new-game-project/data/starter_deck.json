@@ -8,7 +8,7 @@
     "cost": 1,
     "attack": 2,
     "health": 1,
-    "count": 2
+    "count": 3
   },
   {
     "id": "fire_drill",
@@ -19,7 +19,7 @@
     "cost": 2,
     "attack": 2,
     "health": 3,
-    "count": 2
+    "count": 3
   },
   {
     "id": "evacuation",
@@ -30,7 +30,7 @@
     "cost": 4,
     "attack": 3,
     "health": 5,
-    "count": 2,
+    "count": 1,
     "effect": "move_ally",
     "move_heal": 2
   },
@@ -66,6 +66,6 @@
     "attack": 1,
     "health": 5,
     "modifier": "armored",
-    "count": 2
+    "count": 1
   }
 ]
