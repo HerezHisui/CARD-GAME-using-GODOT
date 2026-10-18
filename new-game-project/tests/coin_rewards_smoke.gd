@@ -27,13 +27,14 @@ func banner_style_checks() -> void:
 		check(material.shader == load("res://scripts/banner_strip.gdshader")
 			and material.get_shader_parameter("line_color") == Color("ffc16b")
 			and material.get_shader_parameter("line_width") == 2.5,
-			"banner uses the soft edge shader with two shorter glowing amber lines")
+			"banner uses the soft edge shader with two full width glowing amber lines")
 		check(style.border_width_bottom == 0 and style.border_width_left == 0
 			and style.border_width_right == 0, "banner omits full width borders")
 		check(style.border_width_top == 0 and not banner.has_node("IndustrialTrim"),
 			"banner omits the hazard bar and heavy frame")
-		check(banner.offset_left == 350 and banner.offset_right == -350,
-			"banner keeps its horizontal bounds")
+		check(banner.anchor_left == 0.0 and banner.anchor_right == 1.0
+			and banner.offset_left == 0 and banner.offset_right == 0,
+			"banner spans the full screen width")
 		check(banner.anchor_top == 0.5 and banner.anchor_bottom == 0.5
 			and banner.offset_top == -64 and banner.offset_bottom == 64,
 			"banner is centered vertically over the board")
@@ -42,7 +43,7 @@ func banner_style_checks() -> void:
 			"banner keeps its centered uppercase title")
 		var heading_font: FontVariation = title.get_theme_font("font")
 		check(title.get_theme_color("font_color") == director.UI.TEXT
-			and title.get_theme_font_size("font_size") == 38
+			and title.get_theme_font_size("font_size") == 48
 			and heading_font.base_font == director.UI.font(true) and heading_font.spacing_glyph == 2,
 			"banner title uses the bold condensed heading font in off-white")
 		var subtitle: Label = banner.get_child(0).get_child(1)
