@@ -704,14 +704,27 @@ func slot_at_screen_position(mouse: Vector2) -> Node3D:
 	return null
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not board_input.action.is_empty(): return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and can_player_act():
+	if run_director.modal.visible or presentation.blocking or not run_director.battle_active: return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var board_card := card_at_board_position(event.position)
+		if board_card != null:
+			if not board_input.click_card(board_card): run_director.begin_inspect_hold(board_card)
+			get_viewport().set_input_as_handled()
+			return
+		if not board_input.action.is_empty() or not can_player_act(): return
 		update_hand_hover(event.position)
 		if is_instance_valid(hovered_hand_card):
 			var picked := hovered_hand_card
 			picked._start_drag()
 			run_director.begin_inspect_hold(picked, true)
 			get_viewport().set_input_as_handled()
+
+func card_at_board_position(mouse: Vector2) -> Node:
+	for slot in _response_slots() + _threat_slots():
+		var card := _get_card_in_slot(slot)
+		if card == null or not card.is_alive(): continue
+		if Geometry2D.is_point_in_polygon(mouse, hand_card_polygon(card, false)): return card
+	return null
 
 func record_graveyard(card: Node, reason: String) -> void:
 	if card.graveyard_recorded: return
