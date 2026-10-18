@@ -480,9 +480,9 @@ func _input(event: InputEvent) -> void:
 			dismiss_inspection()
 			get_viewport().set_input_as_handled()
 		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			var on_card := is_instance_valid(inspected_face) and inspected_face.get_global_rect().has_point(event.position)
-			var on_dossier := is_instance_valid(inspection_dossier) and inspection_dossier.get_global_rect().has_point(event.position)
-			if on_card or not on_dossier:
+			var on_dossier: bool = is_instance_valid(inspection_dossier) \
+				and inspection_dossier.get_parent().get_global_rect().has_point(event.position)
+			if not on_dossier:
 				dismiss_inspection()
 				get_viewport().set_input_as_handled()
 		return

@@ -265,6 +265,25 @@ func inspection_layout_checks() -> void:
 	mouse(true, tabs[1].get_global_rect().get_center())
 	mouse(false, tabs[1].get_global_rect().get_center())
 	check(tabs[1].button_pressed and details.text != summary, "a real click switches inspection tabs")
+	var face_rect: Rect2 = director.inspected_face.get_global_rect()
+	var panel: Control = dossier.get_parent()
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	# The dossier must take precedence even if a preview hitbox overlaps its tabs.
+	director.inspected_face.global_position = panel.global_position
+	director.inspected_face.size = panel.size
+	for tab in tabs:
+		press.position = tab.get_global_rect().get_center()
+		press.global_position = press.position
+		director._input(press)
+		check(dossier.is_visible_in_tree(), "synthetic tab presses cannot dismiss the dossier")
+	press.position = panel.get_global_rect().position + Vector2(2, 2)
+	press.global_position = press.position
+	director._input(press)
+	check(dossier.is_visible_in_tree(), "dossier panel padding also keeps inspection open")
+	director.inspected_face.global_position = face_rect.position
+	director.inspected_face.size = face_rect.size
 	var row: HBoxContainer = director.inspected_face.get_parent().get_parent()
 	check(row.get_child(0) == dossier.get_parent(), "inspection places details before the card preview")
 
