@@ -1,0 +1,119 @@
+commit 946123c1c1688b6cff0af198557a43ce070fb3aa
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 17:52:41 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 17:52:41 2026 +0800
+
+    Defer new upgrade mechanics until the second tier
+
+diff --git a/new-game-project/scripts/run_director.gd b/new-game-project/scripts/run_director.gd
+index ad7165a..d8085b0 100644
+--- a/new-game-project/scripts/run_director.gd
++++ b/new-game-project/scripts/run_director.gd
+@@ -1472,43 +1472,52 @@ func upgraded_definition(card: Dictionary) -> Dictionary:
+ 	result.upgrades = tier
+ 	if result.get("utility", false):
+ 		if tier == 1 and int(result.cost) > 0: result.cost = int(result.cost) - 1
+-		elif result.get("effect", "") in ["move", "tutor", "scout", "recover"]: result.refund_energy = int(result.get("refund_energy", 0)) + 1
++		elif result.get("effect", "") in ["move", "tutor", "scout", "recover"]:
++			if tier == 2: result.refund_energy = int(result.get("refund_energy", 0)) + 1
+ 		else: result.utility_power = int(result.get("utility_power", 0)) + 1
+ 	else:
+ 		match str(result.get("element", "")):
+ 			"evac":
+ 				if tier == 1:
+ 					result.attack = int(result.attack) + 1
+-					result.on_play_draw = int(result.get("on_play_draw", 0)) + 1
++					if int(result.get("on_play_draw", 0)) > 0:
++						result.on_play_draw = int(result.on_play_draw) + 1
+ 				else:
+ 					result.health = int(result.health) + 1
+ 					result.cost = maxi(0, int(result.cost) - 1)
++					if int(result.get("on_play_draw", 0)) == 0: result.on_play_draw = 1
+ 			"douse":
+ 				if tier == 1:
+ 					result.attack = int(result.attack) + 1
++				var has_burn: bool = int(result.get("on_hit", {}).get("burn", 0)) > 0
++				if (tier == 1 and has_burn) or (tier == 2 and not has_burn):
+ 					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
+ 					hits.burn = int(hits.get("burn", 0)) + 1
+ 					result.on_hit = hits
+-				else:
++				if tier == 2:
+ 					result.health = int(result.health) + 1
+ 					result.leech = int(result.get("leech", 0)) + 1
+ 			"clearance":
+ 				if tier == 1:
+ 					result.attack = int(result.attack) + 1
++				var has_poison: bool = int(result.get("on_hit", {}).get("poison", 0)) > 0
++				if (tier == 1 and has_poison) or (tier == 2 and not has_poison):
+ 					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
+ 					hits.poison = int(hits.get("poison", 0)) + 1
+ 					result.on_hit = hits
+-				else:
++				if tier == 2:
+ 					result.health = int(result.health) + 1
+ 					result.status_bonus = int(result.get("status_bonus", 0)) + 2
+ 			"brace":
+ 				if tier == 1:
+ 					result.health = int(result.health) + 2
++				var armored: bool = game.definition_has_modifier(result, "armored")
++				if (tier == 1 and armored) or (tier == 2 and not armored):
+ 					result.armor_value = int(result.get("armor_value", 1 if game.definition_has_modifier(result, "armored") else 0)) + 1
+ 					var traits: Array = result.get("modifiers", []).duplicate()
+ 					if result.get("modifier", "") != "armored" and "armored" not in traits: traits.append("armored")
+ 					result.modifiers = traits
+-				else:
++				if tier == 2:
+ 					result.health = int(result.health) + 1
+ 					result.thorns = int(result.get("thorns", 0)) + 1
+ 			_:
+diff --git a/new-game-project/tests/oct18_balance_smoke.gd b/new-game-project/tests/oct18_balance_smoke.gd
+index 3546836..b2a44e0 100644
+--- a/new-game-project/tests/oct18_balance_smoke.gd
++++ b/new-game-project/tests/oct18_balance_smoke.gd
+@@ -73,6 +73,20 @@ func elite_themes() -> void:
+ 		var enabler: String = ["cinder_cloud", "glass_quake", "toxic_runoff", "pressure_front"][specialty]
+ 		check(cards.any(func(card): return card.id == enabler), "elite contains its status or Strength enabler")
+ 
++func upgrade_pacing() -> void:
++	for element in ["evac", "douse", "clearance", "brace"]:
++		var base := {"name":"Upgrade test", "element":element, "cost":2, "attack":1, "health":2}
++		var first: Dictionary = director.upgraded_definition(base)
++		var second: Dictionary = director.upgraded_definition(first)
++		check(not first.has("on_hit") and not first.has("modifiers") and not first.has("on_play_draw"),
++			"first upgrade adds no mechanic to a basic unit")
++		check(second.has("on_hit") or second.has("modifiers") or second.has("on_play_draw"),
++			"second upgrade unlocks the deferred mechanic")
++	var steam: Dictionary = director.upgraded_definition(director.catalog_card("steam_team"))
++	check(int(steam.on_hit.burn) == 4, "existing Burn may improve at first upgrade")
++	var shelter: Dictionary = director.upgraded_definition(director.catalog_card("shelter_brace"))
++	check(int(shelter.armor_value) == 2, "existing Armor may improve at first upgrade")
++
+ func run() -> void:
+ 	game = load("res://scenes/game_3d.tscn").instantiate()
+ 	root.add_child(game)
+@@ -83,6 +97,7 @@ func run() -> void:
+ 	double_strikes()
+ 	status_synergy()
+ 	elite_themes()
++	upgrade_pacing()
+ 	game.clear_battle()
+ 	print("OCT18 BALANCE: %d failures" % failures)
+ 	quit(1 if failures else 0)
+diff --git a/new-game-project/tests/variety_smoke.gd b/new-game-project/tests/variety_smoke.gd
+index 405d7f3..dec35b3 100644
+--- a/new-game-project/tests/variety_smoke.gd
++++ b/new-game-project/tests/variety_smoke.gd
+@@ -97,7 +97,10 @@ func run() -> void:
+ 		var second: Dictionary = director.upgraded_definition(first)
+ 		check(director.upgrade_level(second) == 2 and not director.can_upgrade(second), "two-upgrade cap")
+ 		check(director.upgraded_definition(second) == second and card.name == "Test", "max upgrade and preview preserve source")
+-		check(first.has("on_play_draw") or first.has("on_hit") or first.has("modifiers"), "unit upgrades grant unique effects")
++		check(not first.has("on_play_draw") and not first.has("on_hit") and not first.has("modifiers"),
++			"first upgrades improve stats without new mechanics")
++		check(second.has("on_play_draw") or second.has("on_hit") or second.has("modifiers"),
++			"second upgrades unlock type-specific mechanics")
+ 		if element == "brace":
+ 			fixture()
+ 			var armored = make_card(second, game._response_slots()[0])

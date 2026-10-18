@@ -1,0 +1,62 @@
+commit 28ee92f426251f90227c54eecf104c8f58957040
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 17:45:30 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 17:45:30 2026 +0800
+
+    Keep double strikes on live targets and carry lethal follow-ups through
+
+diff --git a/new-game-project/scripts/game_3d_manager.gd b/new-game-project/scripts/game_3d_manager.gd
+index e0a1930..4db8e99 100644
+--- a/new-game-project/scripts/game_3d_manager.gd
++++ b/new-game-project/scripts/game_3d_manager.gd
+@@ -1626,8 +1626,12 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
+ 	for strike in range(strikes):
+ 		if not atk.is_alive() or phase == Phase.GAME_OVER: break
+ 		if strike > 0:
+-			var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
+-			if lane >= 0: defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
++			# Keep a surviving redirected blocker; a killed or extracted target leaves the lane open.
++			if not is_instance_valid(defender) or not defender.is_alive():
++				var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
++				defender = null
++				if lane >= 0:
++					defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
+ 			atk.spawn_popup("FOLLOW-UP STRIKE", UI.RESPONSE)
+ 		resolve_single_strike(atk, defender, response_side)
+ 
+diff --git a/new-game-project/tests/oct18_balance_smoke.gd b/new-game-project/tests/oct18_balance_smoke.gd
+index 275329a..42ec413 100644
+--- a/new-game-project/tests/oct18_balance_smoke.gd
++++ b/new-game-project/tests/oct18_balance_smoke.gd
+@@ -32,6 +32,22 @@ func future_adaptations() -> void:
+ 	game.add_global_buff(false, "glass")
+ 	check(deployed.effective_attack() == 2, "opposing adaptations do not alter exemptions")
+ 
++func double_strikes() -> void:
++	fixture()
++	var attacker := unit("response", 0, {"condition":{"status":"burn", "threshold":3, "strikes":2}})
++	var blocker := unit("disaster", 0, {"health":1})
++	blocker.add_status("burn", 3)
++	game.resolve_attack(attacker, blocker, true)
++	check(not blocker.is_alive() and game.enemy_hp == 38, "second strike hits hero after first kills blocker")
++	fixture()
++	attacker = unit("response", 0, {"strength":2, "modifier":"sluggish",
++		"condition":{"subject":"self", "status":"strength", "threshold":2, "strikes":2}})
++	blocker = unit("disaster", 1, {"health":20})
++	game.resolve_attack(attacker, blocker, true)
++	check(blocker.card_data.health == 12 and game.enemy_hp == 40,
++		"both strikes hit a surviving redirected target even with Sluggish")
++	check(not attacker.can_attack(2), "Sluggish still rests on the next round")
++
+ func run() -> void:
+ 	game = load("res://scenes/game_3d.tscn").instantiate()
+ 	root.add_child(game)
+@@ -39,6 +55,7 @@ func run() -> void:
+ 	director = game.run_director
+ 	effect_consistency()
+ 	future_adaptations()
++	double_strikes()
+ 	game.clear_battle()
+ 	print("OCT18 BALANCE: %d failures" % failures)
+ 	quit(1 if failures else 0)

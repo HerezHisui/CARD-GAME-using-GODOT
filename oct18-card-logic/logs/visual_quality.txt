@@ -1,0 +1,3 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS: supplied classroom checksum, new classroom mesh preservation, authored PBR maps, 4x MSAA/TAA/full resolution, supported bloom, clarity/sharpness layer, HUD ordering and live battle

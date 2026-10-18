@@ -1168,8 +1168,7 @@ func _on_draw_button_pressed() -> void:
 	if phase != Phase.PLAYER_DRAW or preparedness < 1 or get_hand_cards().size() >= HAND_SIZE_MAX: return
 	var choices := deck.filter(func(card): return not is_sealed(card))
 	if choices.is_empty(): return
-	run_director.choose_card("PICK FROM YOUR DECK", choices, complete_draw_choice, run_director.close_modal,
-		"Choose a card for 1 energy. Cancel keeps your energy and draw. Playing it uses its listed cost.")
+	run_director.choose_card("Pick a card to draw", choices, complete_draw_choice, run_director.close_modal, "")
 
 func complete_draw_choice(definition: Dictionary) -> void:
 	if phase != Phase.PLAYER_DRAW or preparedness < 1 or definition not in deck or is_sealed(definition): return

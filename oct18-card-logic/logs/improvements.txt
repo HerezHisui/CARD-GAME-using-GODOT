@@ -1,0 +1,3 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS: stable sorting, exact duplicate upgrade/preview, multi-buy shop/stock/healing, summon movement, tradeoffs, battle expiry, permanent floors, tactical AI/sacrifices, menu quit

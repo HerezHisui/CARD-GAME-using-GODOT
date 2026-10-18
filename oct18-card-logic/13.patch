@@ -1,0 +1,388 @@
+commit 3d7a18fad1d3b8d946dc5980dffd07686fb41a47
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 17:56:23 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 17:56:23 2026 +0800
+
+    Remove unit stats from utilities and normalize old saves
+
+diff --git a/new-game-project/data/disaster_expansion.json b/new-game-project/data/disaster_expansion.json
+index 705fedf..d2eea01 100644
+--- a/new-game-project/data/disaster_expansion.json
++++ b/new-game-project/data/disaster_expansion.json
+@@ -82,8 +82,6 @@
+     "element": "earthquake",
+     "cost_type": "sacrifice",
+     "cost": 0,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "seal"
+   },
+@@ -94,8 +92,6 @@
+     "element": "flood",
+     "cost_type": "sacrifice",
+     "cost": 0,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "tax"
+   },
+diff --git a/new-game-project/data/response_expansion.json b/new-game-project/data/response_expansion.json
+index c035dff..d41f8a4 100644
+--- a/new-game-project/data/response_expansion.json
++++ b/new-game-project/data/response_expansion.json
+@@ -82,8 +82,6 @@
+     "type": "response",
+     "element": "evac",
+     "cost": 2,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "tutor"
+   },
+@@ -93,8 +91,6 @@
+     "type": "response",
+     "element": "brace",
+     "cost": 2,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "seal"
+   },
+@@ -104,8 +100,6 @@
+     "type": "response",
+     "element": "evac",
+     "cost": 2,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "scout"
+   },
+@@ -115,8 +109,6 @@
+     "type": "response",
+     "element": "clearance",
+     "cost": 2,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "tax"
+   },
+@@ -126,8 +118,6 @@
+     "type": "response",
+     "element": "brace",
+     "cost": 1,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "rally"
+   },
+@@ -137,8 +127,6 @@
+     "type": "response",
+     "element": "douse",
+     "cost": 1,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "cleanse"
+   },
+@@ -272,8 +260,6 @@
+     "type": "response",
+     "element": "douse",
+     "cost": 0,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "herb"
+   },
+@@ -283,8 +269,6 @@
+     "type": "response",
+     "element": "douse",
+     "cost": 1,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "tablet"
+   },
+@@ -294,8 +278,6 @@
+     "type": "response",
+     "element": "brace",
+     "cost": 2,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "barrier"
+   },
+@@ -305,8 +287,6 @@
+     "type": "response",
+     "element": "clearance",
+     "cost": 2,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "blast"
+   },
+@@ -332,8 +312,6 @@
+     "type": "response",
+     "element": "evac",
+     "cost": 2,
+-    "attack": 0,
+-    "health": 1,
+     "utility": true,
+     "effect": "recover"
+   },
+diff --git a/new-game-project/scripts/battle_engine.gd b/new-game-project/scripts/battle_engine.gd
+index 5b5bdda..157ce6c 100644
+--- a/new-game-project/scripts/battle_engine.gd
++++ b/new-game-project/scripts/battle_engine.gd
+@@ -62,6 +62,7 @@ static func attack_bonus(context: Dictionary, card: Dictionary) -> int:
+ 	return int(buffs.get("strength", 0)) - isolation
+ 
+ static func effective_attack(context: Dictionary, card: Dictionary) -> int:
++	if card.card_data.get("utility", false): return 0
+ 	if card.preview_only and card.card_data.has("preview_attack"):
+ 		return int(card.card_data.preview_attack)
+ 	var bonus := 0 if card.preview_only else attack_bonus(context, card)
+diff --git a/new-game-project/scripts/battle_rules.gd b/new-game-project/scripts/battle_rules.gd
+index d227241..1f2f592 100644
+--- a/new-game-project/scripts/battle_rules.gd
++++ b/new-game-project/scripts/battle_rules.gd
+@@ -72,6 +72,10 @@ const EFFECTS := {
+ }
+ const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "barrier":"Protect formation", "herb":"Clear Bleed", "tablet":"Restore healing", "draw":"Draw cards", "move":"Relocate ally", "tutor":"Search draw pile", "seal":"Seal card", "scout":"Reveal hand", "tax":"Raise cost", "rally":"Gain Strength", "cleanse":"Heal and cleanse", "recover":"Recover a unit", "grave_guard":"Graveyard protection"}
+ 
++static func remove_utility_stats(card: Dictionary) -> void:
++	if not card.get("utility", false): return
++	for key in ["attack", "health", "preview_attack", "strength"]: card.erase(key)
++
+ static func modifier_text(card: Dictionary, modifier: String) -> String:
+ 	var descriptions := {
+ 		"armored":"Armored: reduce ordinary damage by %d (minimum 1). Stops Piercing hero damage; Piercing ignores this armor reduction." % int(card.get("armor_value", 1)),
+diff --git a/new-game-project/scripts/card_3d.gd b/new-game-project/scripts/card_3d.gd
+index 5c34523..93195a1 100644
+--- a/new-game-project/scripts/card_3d.gd
++++ b/new-game-project/scripts/card_3d.gd
+@@ -81,11 +81,13 @@ func _ready() -> void:
+ func setup(data: Dictionary) -> void:
+ 	base_definition = data.duplicate(true)
+ 	card_data = data.duplicate(true)
++	preload("res://scripts/battle_rules.gd").remove_utility_stats(base_definition)
++	preload("res://scripts/battle_rules.gd").remove_utility_stats(card_data)
+ 	if not preview_only: card_data = _manager().prepare_card_data(card_data)
+ 	# JSON numbers load as floats -> normalise to ints
+-	for k in ["cost", "attack", "health"]:
++	for k in (["cost"] if card_data.get("utility", false) else ["cost", "attack", "health"]):
+ 		card_data[k] = int(card_data.get(k, 0))
+-	max_health = card_data.health
++	max_health = int(card_data.get("health", 0))
+ 	modifiers.clear()
+ 	statuses.clear()
+ 	last_attack_turn = -1
+@@ -213,20 +215,21 @@ func _build_face() -> void:
+ 	_cost_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+ 	cost_badge.add_child(_cost_caption)
+ 
+-	# Attack (bottom-left) / Health (bottom-right)
+-	var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
+-	_atk_label = atk.get_child(0)
+-	frame.add_child(atk)
+-	var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
+-	_hp_label = hp.get_child(0)
+-	frame.add_child(hp)
+-
+-	var atk_cap := _face_label(title_font, 14, text_col)
+-	atk_cap.text = "ATK            HP"
+-	atk_cap.position = Vector2(0, FACE_H - 24)
+-	atk_cap.size = Vector2(FACE_W, 20)
+-	atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+-	frame.add_child(atk_cap)
++	_atk_label = null
++	_hp_label = null
++	if not card_data.get("utility", false):
++		var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
++		_atk_label = atk.get_child(0)
++		frame.add_child(atk)
++		var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
++		_hp_label = hp.get_child(0)
++		frame.add_child(hp)
++		var atk_cap := _face_label(title_font, 14, text_col)
++		atk_cap.text = "ATK            HP"
++		atk_cap.position = Vector2(0, FACE_H - 24)
++		atk_cap.size = Vector2(FACE_W, 20)
++		atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
++		frame.add_child(atk_cap)
+ 	_refresh_face()
+ 
+ func _face_label(font: Font, size: int, col: Color) -> Label:
+@@ -497,6 +500,7 @@ func _manager() -> Node:
+ 
+ # ---------------------------------------------------------------- combat
+ func is_alive() -> bool:
++	if card_data.get("utility", false): return in_hand and not graveyard_recorded
+ 	return card_data.get("health", 0) > 0
+ 
+ ## Wind-up, then lunge at `target`. Returns at the moment of impact
+@@ -535,6 +539,7 @@ func add_modifier(mod_name: String) -> void:
+ 		spawn_popup("+" + mod_name.to_upper(), UI.GOLD)
+ 
+ func heal(amt: int) -> void:
++	if card_data.get("utility", false): return
+ 	if card_data.health <= 0: return
+ 	if int(statuses.get("healing_reduced", 0)) > 0: amt = maxi(1, floori(amt / 2.0))
+ 	var before: int = card_data.health
+@@ -577,6 +582,7 @@ func adjusted_damage(amt: int, ignore_armor: bool = false) -> int:
+ 		BattleQueries.context(_manager()), BattleQueries.card(null, self), amt, ignore_armor)
+ 
+ func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false, ignore_armor: bool = false) -> void:
++	if card_data.get("utility", false): return
+ 	last_evaded_hit = false
+ 	if not bypass_armor: amt = adjusted_damage(amt, ignore_armor)
+ 	else: amt = _manager().incoming_damage(card_data.type == "response", amt)
+@@ -696,6 +702,7 @@ func add_status(status: String, amount: int) -> void:
+ 	spawn_popup("%s +%d" % [status.to_upper(), amount], UI.DANGER if status != "strength" else UI.RESPONSE)
+ 
+ func status_upkeep() -> void:
++	if card_data.get("utility", false): return
+ 	for status in ["burn", "poison"]:
+ 		var stacks := int(statuses.get(status, 0))
+ 		if stacks > 0 and is_alive():
+diff --git a/new-game-project/scripts/final_boss.gd b/new-game-project/scripts/final_boss.gd
+index 2506abe..25977c9 100644
+--- a/new-game-project/scripts/final_boss.gd
++++ b/new-game-project/scripts/final_boss.gd
+@@ -82,7 +82,7 @@ func prepare_round() -> void:
+ 	if last_prepared_round == game.turn: return
+ 	last_prepared_round = game.turn
+ 	if stage == 2 and pillars_spawned:
+-		var echo := {"id":"static_echo", "name":"Static Echo", "type":"response", "element":"douse", "cost":0, "attack":0, "health":1, "utility":true, "effect":"draw", "draw_count":1, "curse":true}
++		var echo := {"id":"static_echo", "name":"Static Echo", "type":"response", "element":"douse", "cost":0, "utility":true, "effect":"draw", "draw_count":1, "curse":true}
+ 		if game.get_hand_cards().size() < game.HAND_SIZE_MAX: game.add_card_to_hand(echo)
+ 		else: game._damage_side(true, 1, true)
+ 	if stage == 3:
+diff --git a/new-game-project/scripts/game_3d_manager.gd b/new-game-project/scripts/game_3d_manager.gd
+index 7f5c209..aaba667 100644
+--- a/new-game-project/scripts/game_3d_manager.gd
++++ b/new-game-project/scripts/game_3d_manager.gd
+@@ -223,8 +223,9 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
+ 	for definition in threats:
+ 		if kind == "elite" and definition.element != favored: continue
+ 		var c: Dictionary = definition.duplicate(true)
+-		c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
+-		c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
++		if not c.get("utility", false):
++			c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
++			c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
+ 		if int(c.cost) > 0:
+ 			if kind != "battle" or int(c.cost) <= 2: enemy_evolution_deck.append(c)
+ 		else:
+@@ -537,6 +538,7 @@ func load_deck_from_json(path: String, target_deck: Array) -> void:
+ 			for i in range(def.get("count", 1)):
+ 				var card = def.duplicate()
+ 				card.erase("count")
++				preload("res://scripts/battle_rules.gd").remove_utility_stats(card)
+ 				target_deck.append(card)
+ 
+ func hand_parent() -> Node3D:
+@@ -751,7 +753,7 @@ func record_graveyard(card: Node, reason: String) -> void:
+ 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
+ 	if card.card_data.get("type", "response") != "response": return
+ 	var entry: Dictionary = card.card_data.duplicate(true)
+-	entry.health = card.max_health
++	if not card.card_data.get("utility", false): entry.health = card.max_health
+ 	entry.graveyard_reason = reason
+ 	entry.graveyard_round = turn
+ 	entry.statuses = card.statuses.duplicate(true)
+diff --git a/new-game-project/scripts/run_director.gd b/new-game-project/scripts/run_director.gd
+index 19cbfec..67a7908 100644
+--- a/new-game-project/scripts/run_director.gd
++++ b/new-game-project/scripts/run_director.gd
+@@ -102,8 +102,8 @@ func _ready() -> void:
+ 	game.load_deck_from_json("res://data/starter_deck.json", catalog)
+ 	game.load_deck_from_json("res://data/response_expansion.json", catalog)
+ 	# Utility cards belong to the reward pool, preserving the original starter deck.
+-	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "attack":0, "health":1, "effect":"draw", "utility":true})
+-	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "attack":0, "health":1, "effect":"move", "utility":true})
++	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "effect":"draw", "utility":true})
++	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "effect":"move", "utility":true})
+ 	if start_after_reload:
+ 		start_after_reload = false
+ 		new_run()
+@@ -1070,7 +1070,9 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
+ 	details.name = "DossierText"
+ 	details.bbcode_enabled = true
+ 	details.text = "[color=#%s][b]%s[/b][/color]\n" % [UI.GOLD.to_html(false), str(card.name).to_upper()]
+-	details.text += "ATK %d  /  HP %d\n\n" % [int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
++	if not card.get("utility", false):
++		details.text += "ATK %d  /  HP %d\n\n" % [
++			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
+ 	var disaster: bool = card.get("type", "response") == "disaster"
+ 	var sacrifice: bool = disaster and not card.get("utility", false) and int(card.get("cost", 0)) > 0
+ 	if sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
+@@ -1332,10 +1334,11 @@ func deck_board() -> void:
+ 
+ func live_definition(card: Node) -> Dictionary:
+ 	var definition: Dictionary = card.card_data.duplicate(true)
+-	definition.attack = card.effective_attack()
+-	definition.preview_attack = card.effective_attack()
++	if not definition.get("utility", false):
++		definition.attack = card.effective_attack()
++		definition.preview_attack = card.effective_attack()
+ 	definition.modifiers = card.modifiers.duplicate()
+-	definition.strength = int(card.statuses.get("strength", 0))
++	if not definition.get("utility", false): definition.strength = int(card.statuses.get("strength", 0))
+ 	definition.statuses = card.statuses.duplicate()
+ 	return definition
+ 
+diff --git a/new-game-project/scripts/run_save.gd b/new-game-project/scripts/run_save.gd
+index 8c0ff6b..50ac77d 100644
+--- a/new-game-project/scripts/run_save.gd
++++ b/new-game-project/scripts/run_save.gd
+@@ -49,6 +49,7 @@ func normalize(value: Variant) -> Variant:
+ 	if value is Dictionary:
+ 		var result: Dictionary = {}
+ 		for key in value: result[key] = normalize(value[key])
++		preload("res://scripts/battle_rules.gd").remove_utility_stats(result)
+ 		return result
+ 	return value
+ 
+diff --git a/new-game-project/tests/oct18_balance_smoke.gd b/new-game-project/tests/oct18_balance_smoke.gd
+index 9b5f006..b93bfb5 100644
+--- a/new-game-project/tests/oct18_balance_smoke.gd
++++ b/new-game-project/tests/oct18_balance_smoke.gd
+@@ -117,6 +117,28 @@ func piercing_armor() -> void:
+ 	check(blocker.card_data.health == 7 and game.enemy_hp == 40,
+ 		"inherited Piercing ignores armor but retains Barrier protection")
+ 
++func statless_utilities() -> void:
++	fixture()
++	for definition in director.catalog:
++		if not definition.get("utility", false): continue
++		check(not definition.has("attack") and not definition.has("health"), "catalog utilities have no unit stats")
++	var utility := unit("response", -1, {"utility":true, "effect":"herb", "cost":0})
++	check(not utility.card_data.has("attack") and not utility.card_data.has("health"),
++		"legacy utility stats are removed at setup")
++	check(utility._atk_label == null and utility._hp_label == null, "utility face creates no stat badges")
++	check(utility.is_alive() and not utility.can_attack(1), "statless held utility remains inspectable but cannot attack")
++	var live: Dictionary = director.live_definition(utility)
++	check(not live.has("attack") and not live.has("preview_attack"), "live utility preview remains statless")
++	var panel := Control.new()
++	root.add_child(panel)
++	var dossier: RichTextLabel = director.add_dossier(panel, live, "")
++	check("ATK " not in dossier.text and " /  HP " not in dossier.text, "utility inspection omits stats")
++	panel.queue_free()
++	var legacy: Dictionary = director.persistence.normalize({"utility":true, "attack":0, "health":1})
++	check(not legacy.has("health") and not legacy.has("attack"), "old checkpoints normalize utility stats")
++	check(game.try_utility(utility, game._response_slots()[0]), "statless utility can still be cast")
++	check(not game.player_graveyard[0].has("health"), "cast utility graveyard entry remains statless")
++
+ func run() -> void:
+ 	game = load("res://scenes/game_3d.tscn").instantiate()
+ 	root.add_child(game)
+@@ -129,6 +151,7 @@ func run() -> void:
+ 	elite_themes()
+ 	upgrade_pacing()
+ 	piercing_armor()
++	statless_utilities()
+ 	game.clear_battle()
+ 	print("OCT18 BALANCE: %d failures" % failures)
+ 	quit(1 if failures else 0)

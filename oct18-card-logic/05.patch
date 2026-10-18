@@ -1,0 +1,88 @@
+commit d6a83760852b32412e282c12c9440dfe115f5eba
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 17:42:41 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 17:42:41 2026 +0800
+
+    Build a twelve-card starter with eleven one-cost cards
+
+diff --git a/new-game-project/data/starter_deck.json b/new-game-project/data/starter_deck.json
+index 36af827..12bde17 100644
+--- a/new-game-project/data/starter_deck.json
++++ b/new-game-project/data/starter_deck.json
+@@ -16,9 +16,9 @@
+     "type": "response",
+     "element": "evac",
+     "cost_type": "energy",
+-    "cost": 2,
+-    "attack": 2,
+-    "health": 3,
++    "cost": 1,
++    "attack": 1,
++    "health": 2,
+     "count": 3
+   },
+   {
+@@ -27,9 +27,9 @@
+     "type": "response",
+     "element": "evac",
+     "cost_type": "energy",
+-    "cost": 4,
+-    "attack": 3,
+-    "health": 5,
++    "cost": 2,
++    "attack": 1,
++    "health": 3,
+     "count": 1,
+     "effect": "move_ally",
+     "move_heal": 2
+@@ -40,9 +40,9 @@
+     "type": "response",
+     "element": "douse",
+     "cost_type": "energy",
+-    "cost": 2,
+-    "attack": 3,
+-    "health": 2,
++    "cost": 1,
++    "attack": 2,
++    "health": 1,
+     "count": 2
+   },
+   {
+@@ -52,7 +52,7 @@
+     "element": "clearance",
+     "cost_type": "energy",
+     "cost": 1,
+-    "attack": 2,
++    "attack": 1,
+     "health": 2,
+     "count": 2
+   },
+@@ -62,9 +62,9 @@
+     "type": "response",
+     "element": "brace",
+     "cost_type": "energy",
+-    "cost": 3,
+-    "attack": 1,
+-    "health": 5,
++    "cost": 1,
++    "attack": 0,
++    "health": 3,
+     "modifier": "armored",
+     "count": 1
+   }
+diff --git a/new-game-project/tests/oct16_section3_smoke.gd b/new-game-project/tests/oct16_section3_smoke.gd
+index ab38b11..f63de85 100644
+--- a/new-game-project/tests/oct16_section3_smoke.gd
++++ b/new-game-project/tests/oct16_section3_smoke.gd
+@@ -33,7 +33,9 @@ func run() -> void:
+ 	var starter: Array[Dictionary] = []
+ 	game.load_deck_from_json("res://data/starter_deck.json", starter)
+ 	check(starter.size() == 12, "starter remains twelve cards")
+-	check(starter.filter(func(c): return c.cost >= 3).size() == 2, "only two expensive starter cards")
++	check(starter.filter(func(c): return c.cost == 1).size() == 11, "eleven one-cost starter cards")
++	check(starter.filter(func(c): return int(c.cost) in [2, 3] and game.has_special_effect(c)).size() == 1,
++		"one higher-cost starter card with an effect")
+ 	game.player_buffs = {"blood_pact":1}
+ 	game.enemy_buffs = {"blood_pact":1}
+ 	var killer := unit(true, 0, 5, 10)
