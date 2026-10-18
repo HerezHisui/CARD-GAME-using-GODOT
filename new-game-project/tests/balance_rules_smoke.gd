@@ -1,4 +1,4 @@
-extends "res://tests/oct18_card_logic_smoke.gd"
+extends "res://tests/card_logic_smoke.gd"
 
 func effect_consistency() -> void:
 	fixture()

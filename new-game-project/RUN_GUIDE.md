@@ -212,7 +212,7 @@ Short menu/shop fades, button press/hover feedback and reward-card hover states 
 
 The board is now the reusable native 3D asset `scenes/school_drill_board.tscn`: a worn school slate in a dark wood frame with brass corner caps and faint lane registration marks. It fits the current table and existing slot colliders. It has no Threat Zone or Response Zone labels and leaves card illustration windows blank. Unlike the previous mat, it does not generate a large image pixel by pixel when an encounter scene loads.
 
-`res://tests/oct15_smoke.gd` checks manual calls, matching and losing calls, duplicate prevention, mid-toss and unresolved Continue, overlay cleanup, native card proportions, outside-click dismissal, centered exclusive rewards, exact single-copy acquisition, saved offers, shop animation completion, board labels and defeat cleanup. Existing regression fixtures explicitly select a coin side through the same action; normal play always waits for the player's selection.
+`res://tests/coin_rewards_smoke.gd` checks manual calls, matching and losing calls, duplicate prevention, mid-toss and unresolved Continue, overlay cleanup, native card proportions, outside-click dismissal, centered exclusive rewards, exact single-copy acquisition, saved offers, shop animation completion, board labels and defeat cleanup. Existing regression fixtures explicitly select a coin side through the same action; normal play always waits for the player's selection.
 
 ## October 16: smaller project and runtime cleanup
 
@@ -235,7 +235,7 @@ Two Response cards join rewards and shops. Recovery Detail costs 2 energy and re
 
 Card rewards use inspect, cancel and confirm. The first click enlarges a card and shows its full rules. Clicking outside restores the same three offers. Clicking the enlarged face confirms that exact reward once. There are no Take card buttons. Continue restores unclaimed offers without rerolling them or silently granting a reward.
 
-`tests/oct16_smoke.gd` covers the compact graveyard, recovery limits and full hands, temporary-state cleanup, Continue, one-click coordination, hand clearance, drag limits and cancellation, real reward input, and early-floor-only deck tuning. Existing save loading also resets the opponent-hand display with its current numeric state value.
+`tests/recovery_coordination_smoke.gd` covers the compact graveyard, recovery limits and full hands, temporary-state cleanup, Continue, one-click coordination, hand clearance, drag limits and cancellation, real reward input, and early-floor-only deck tuning. Existing save loading also resets the opponent-hand display with its current numeric state value.
 
 
 ## October 16 notes 2
@@ -246,7 +246,7 @@ Threat Zone and Response Zone text is absent from the current slate. The editor 
 
 Opening `scenes/card_3d.tscn` in the editor now previews the current Quick Dash card face, with its art window left empty. This preview uses the existing card renderer, disables gameplay processing, and does not require a running battle. At runtime cards continue to use their actual definitions.
 
-Run `tests/oct16_cleanup_smoke.gd` to check the Response-only graveyard, HUD cleanup, event logging and compatibility with older saves. The card preview can also be checked in Godot's editor; the normal editor startup check closes cleanly.
+Run `tests/graveyard_save_compatibility_smoke.gd` to check the Response-only graveyard, HUD cleanup, event logging and compatibility with older saves. The card preview can also be checked in Godot's editor; the normal editor startup check closes cleanly.
 
 ## October 16, section 3
 

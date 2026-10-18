@@ -96,7 +96,7 @@ All checks used Godot 4.7.2 with `--headless --path new-game-project --script re
 | Suite | Before | After |
 |---|---|---|
 | notes4_smoke.gd | PASS | PASS |
-| oct16_cleanup_smoke.gd | PASS | PASS |
+| graveyard_save_compatibility_smoke.gd | PASS | PASS |
 | battle_behavior_smoke.gd | PASS | PASS |
 | battle_state_smoke.gd | New | PASS |
 

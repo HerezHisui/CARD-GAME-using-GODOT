@@ -12,7 +12,7 @@ Patch files are exact commit diffs for review, not independent branch snapshots.
 
 Use the visible slot footprint under the cursor instead of the dragged card center.
 
-Files: `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/oct18_card_logic_smoke.gd`, `new-game-project/tests/ui_interaction_smoke.gd`.
+Files: `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/card_logic_smoke.gd`, `new-game-project/tests/ui_interaction_smoke.gd`.
 
 Choice: Keep drops restricted to the existing friendly lane boundaries.
 
@@ -24,7 +24,7 @@ Diffs: 01.patch (see Git history).
 
 Choose the normal draw in the deck picker for exactly 1 energy; playing a Response card pays its listed cost.
 
-Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/oct18_card_logic_smoke.gd`.
+Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/card_logic_smoke.gd`.
 
 Choice: Opening or cancelling the picker is free; sealed cards remain unavailable.
 
@@ -36,7 +36,7 @@ Diffs: 02.patch (see Git history), 02-tests.patch (see Git history), 02-interact
 
 Refresh Plan attack labels synchronously when bonuses are applied or removed; hovering never mutates combat stats.
 
-Files: `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/contingency_rules.gd`, `new-game-project/tests/oct18_card_logic_smoke.gd`.
+Files: `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/contingency_rules.gd`, `new-game-project/tests/card_logic_smoke.gd`.
 
 Choice: Armed Plans still activate during combat, preserving their existing timing.
 
@@ -48,7 +48,7 @@ Diffs: 03.patch (see Git history).
 
 Pick deployed cards by their projected face so holding works during combat in overhead view.
 
-Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/oct18_card_logic_smoke.gd`.
+Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/card_logic_smoke.gd`.
 
 Choice: Keep the existing 0.28-second hold and movement cancellation; settle the camera before synthetic test clicks.
 
@@ -60,7 +60,7 @@ Diffs: 04.patch (see Git history), 04-test.patch (see Git history).
 
 Keep twelve cards: eleven cost 1, and one 2-cost Evacuation Route with relocation and healing.
 
-Files: `new-game-project/data/starter_deck.json`, `new-game-project/tests/oct16_section3_smoke.gd`.
+Files: `new-game-project/data/starter_deck.json`, `new-game-project/tests/blood_pact_inspection_debug_smoke.gd`.
 
 Choice: Use 92%/8% as the nearest ratio with the existing twelve-card size; reduce cheap printed stats.
 
@@ -72,7 +72,7 @@ Diffs: 05.patch (see Git history), 05-followup.patch (see Git history).
 
 Reject friendly attacks and share modifier/effect descriptions, including the actual upgraded utility amounts.
 
-Files: `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: Identical effects share text; numeric upgrades and explicit draw counts change the numbers shown.
 
@@ -84,7 +84,7 @@ Diffs: 06.patch (see Git history), 06-followup.patch (see Git history).
 
 Exempt deployed units from all unit effects of an HP-reducing Adaptation while allowing future deployments to receive it.
 
-Files: `new-game-project/scripts/battle_engine.gd`, `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/scripts/battle_engine.gd`, `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: Held cards receive the Adaptation; exemptions stack per pick and persist through Continue.
 
@@ -96,7 +96,7 @@ Diffs: 07.patch (see Git history), 07-11-tests.patch (see Git history), 13-follo
 
 Resolve both strikes, retain a surviving redirected blocker, and hit opposing health when the first strike clears the lane.
 
-Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: Evaluate double-strike eligibility once; stop if the attacker dies or the battle ends.
 
@@ -108,7 +108,7 @@ Diffs: 08.patch (see Git history).
 
 Give Containment Lance +2 attack against 3 combined Burn/Poison/Bleed stacks; Last Responder gets +2 against 2 Bleed; Hazmat Team costs 2.
 
-Files: `new-game-project/data/response_expansion.json`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/data/response_expansion.json`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: Reuse the existing condition rules; positive statuses do not contribute and open lanes receive no target-status bonus.
 
@@ -120,7 +120,7 @@ Diffs: 09.patch (see Git history).
 
 Build Elite base and evolution reserves from the encounter specialty, retaining its enablers and shared-type adjacency bonuses.
 
-Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: Repeat themed cards to preserve 21 base cards and 14 evolutions including the guardian; the reserve-count follow-up is in item 14.
 
@@ -132,7 +132,7 @@ Diffs: 10.patch (see Git history), 14.patch (see Git history).
 
 Give basic units stats first and introduce drawing, Burn, Poison, or Armor at the second upgrade.
 
-Files: `new-game-project/scripts/run_director.gd`, `new-game-project/tests/oct18_balance_smoke.gd`, `new-game-project/tests/variety_smoke.gd`.
+Files: `new-game-project/scripts/run_director.gd`, `new-game-project/tests/balance_rules_smoke.gd`, `new-game-project/tests/variety_smoke.gd`.
 
 Choice: Existing abilities may improve at the first tier; do not add another copy of that improvement at the second tier.
 
@@ -144,7 +144,7 @@ Diffs: 11.patch (see Git history), 07-11-tests.patch (see Git history).
 
 Armored blocks the Piercing hero hit but takes full Piercing unit damage; Barrier and Plan protection still apply.
 
-Files: `new-game-project/scripts/battle_engine.gd`, `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/scripts/battle_engine.gd`, `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: An Armored blocker protects the hero for that strike even if killed; preserve modifier arrays and normalize legacy joined strings.
 
@@ -156,7 +156,7 @@ Diffs: 12.patch (see Git history), 12-followup.patch (see Git history).
 
 Remove utility ATK/HP data and face/inspection badges, keeping spells castable, inspectable, and compatible with old saves.
 
-Files: `new-game-project/data/disaster_expansion.json`, `new-game-project/data/response_expansion.json`, `new-game-project/scripts/battle_engine.gd`, `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/final_boss.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/scripts/run_save.gd`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/data/disaster_expansion.json`, `new-game-project/data/response_expansion.json`, `new-game-project/scripts/battle_engine.gd`, `new-game-project/scripts/battle_rules.gd`, `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/final_boss.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/scripts/run_save.gd`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: Only cards explicitly marked utility are statless; support units retain stats. Internal utility maximum HP is zero.
 
@@ -168,7 +168,7 @@ Diffs: 13.patch (see Git history), 13-followup.patch (see Git history).
 
 Reduce default 1-Tension units and 1-sacrifice evolutions to at most 2 printed attack including starting Strength and 2 HP; skip their flat encounter stat scaling.
 
-Files: `new-game-project/data/disaster_deck.json`, `new-game-project/data/disaster_expansion.json`, `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/tests/oct18_balance_smoke.gd`.
+Files: `new-game-project/data/disaster_deck.json`, `new-game-project/data/disaster_expansion.json`, `new-game-project/scripts/card_3d.gd`, `new-game-project/scripts/game_3d_manager.gd`, `new-game-project/scripts/run_director.gd`, `new-game-project/tests/balance_rules_smoke.gd`.
 
 Choice: Venom Surge requires 3 Poison for +2 attack. Scripted boss-pattern hazards have no summon cost and display a BOSS badge.
 
@@ -197,12 +197,12 @@ Command pattern: `Godot_v4.7.2-stable_win64_console.exe --headless --path <proje
 | improvements (see Git history) | Passed |
 | mechanics (see Git history) | Passed |
 | notes4 (see Git history) | Passed |
-| oct15 (see Git history) | Passed |
-| oct16_cleanup (see Git history) | Passed |
-| oct16_section3 (see Git history) | Passed |
-| oct18_balance (see Git history) | Passed |
-| oct18_card_logic (see Git history) | Passed |
-| oct18_ui (see Git history) | Passed |
+| coin_rewards (see Git history) | Passed |
+| graveyard_save_compatibility (see Git history) | Passed |
+| blood_pact_inspection_debug (see Git history) | Passed |
+| balance_rules (see Git history) | Passed |
+| card_logic (see Git history) | Passed |
+| hud_navigation (see Git history) | Passed |
 | plans_notes (see Git history) | Passed |
 | run (see Git history) | Passed |
 | ui_interaction (see Git history) | Passed |
