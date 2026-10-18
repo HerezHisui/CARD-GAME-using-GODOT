@@ -25,3 +25,4 @@ godot --headless --path . --script res://tests/run_smoke.gd
 ```
 
 The graphical ones (`classroom_integration`, `camera_controls`, `visual_quality`) need a normal renderer instead of `--headless`.
+- [Change reports](docs/changes/): October 18 card logic, UI and debug implementation reports
