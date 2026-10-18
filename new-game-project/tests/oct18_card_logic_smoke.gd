@@ -89,6 +89,8 @@ func board_inspection() -> void:
 	fixture()
 	game._apply_view(game.BOARD_VIEW)
 	game._set_phase(game.Phase.COMBAT)
+	if game.camera_tween: game.camera_tween.kill()
+	game._apply_view(game.BOARD_VIEW)
 	var ally := unit("response", 0)
 	await create_timer(0.5).timeout
 	var point: Vector2 = game.camera.unproject_position(ally.global_position)
@@ -114,6 +116,7 @@ func board_inspection() -> void:
 	director.close_modal()
 
 func run() -> void:
+	root.size = Vector2i(1440, 900)
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
