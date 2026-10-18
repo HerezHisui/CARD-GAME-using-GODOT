@@ -13,11 +13,19 @@ var coin_epoch := 0
 var coin_textures: Array[Texture2D] = []
 var banner_node: Control
 var banner_tween: Tween
+var draw_reminder: Panel
+var draw_reminder_tween: Tween
+var coin_status: Label
 
 func setup(owner_game: Node) -> void:
 	game = owner_game
 	layer = 20
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	for button in game.get_node("HUD/Root").find_children("*", "Button", true, false):
+		button_feedback(button)
+	get_tree().node_added.connect(func(node: Node):
+		if node is Button and game.is_ancestor_of(node): button_feedback(node)
+	)
 	for side in ["H", "T"]:
 		var letter := "M87 78h20v40h42V78h20v100h-20v-40h-42v40H87z" if side == "H" else "M84 78h88v20h-34v80h-20V98H84z"
 		var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><defs><radialGradient id="g"><stop stop-color="#%s"/><stop offset=".75" stop-color="#%s"/><stop offset="1" stop-color="#%s"/></radialGradient></defs><circle cx="128" cy="128" r="121" fill="url(#g)" stroke="#%s" stroke-width="5"/><circle cx="128" cy="128" r="103" fill="none" stroke="#%s" stroke-width="3"/><circle cx="128" cy="128" r="94" fill="none" stroke="#%s" stroke-width="2"/><path d="%s" fill="#%s"/></svg>' % [UI.GOLD.to_html(false), UI.BRONZE.to_html(false), UI.BRONZE.darkened(0.55).to_html(false), UI.TEXT.to_html(false), UI.BRONZE.darkened(0.5).to_html(false), UI.GOLD.to_html(false), letter, UI.INSET.to_html(false)]
@@ -38,6 +46,11 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	coin_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	coin_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(coin_root)
+	coin_status = game.run_director.label(game.run_director.status_text(), 14)
+	coin_status.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	coin_status.offset_top = 16
+	coin_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coin_root.add_child(coin_status)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	coin_root.add_child(center)
@@ -109,6 +122,10 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	blocking = false
 	return pick
 
+func _process(_delta: float) -> void:
+	if is_instance_valid(coin_root) and is_instance_valid(coin_status):
+		coin_status.text = game.run_director.status_text()
+
 func cancel_coin() -> void:
 	coin_epoch += 1
 	if blocking and not coin_busy: coin_chosen.emit(-1)
@@ -139,24 +156,54 @@ func clear_banner() -> void:
 	if is_instance_valid(banner_node): banner_node.queue_free()
 	banner_node = null
 
+func remind_to_draw(active: bool) -> void:
+	if draw_reminder_tween: draw_reminder_tween.kill()
+	if is_instance_valid(draw_reminder): draw_reminder.hide()
+	if not active: return
+	if not is_instance_valid(draw_reminder):
+		var button := game.get_node("HUD/Root/DeckDrawButton")
+		draw_reminder = Panel.new()
+		draw_reminder.name = "DrawReminder"
+		draw_reminder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		draw_reminder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		draw_reminder.add_theme_stylebox_override("panel", UI.panel(UI.ACTION, UI.GOLD, 0))
+		button.add_child(draw_reminder)
+		button.move_child(draw_reminder, 0)
+	draw_reminder.show()
+	draw_reminder.modulate.a = 0.0
+	draw_reminder_tween = draw_reminder.create_tween().set_loops()
+	draw_reminder_tween.tween_property(draw_reminder, "modulate:a", 0.85, 0.45)
+	draw_reminder_tween.tween_property(draw_reminder, "modulate:a", 0.0, 0.45)
+
 func button_feedback(button: Button) -> void:
+	if button.has_meta("hover_feedback"): return
+	button.set_meta("hover_feedback", true)
 	var tween: Array = [null]
+	var fill: Array = [null]
 	var reference: WeakRef = weakref(button)
 	var animate := func(scale_value: float, color: Color):
 		var live_button = reference.get_ref()
 		if not is_instance_valid(live_button) or live_button.is_queued_for_deletion(): return
 		if tween[0]: tween[0].kill()
+		if fill[0] == null:
+			fill[0] = live_button.get_theme_stylebox("normal").duplicate()
+			for state in ["normal", "hover", "pressed", "hover_pressed"]:
+				live_button.add_theme_stylebox_override(state, fill[0])
 		live_button.pivot_offset = live_button.size / 2
 		tween[0] = live_button.create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		tween[0].tween_property(live_button, "scale", Vector2.ONE * scale_value, 0.10)
-		tween[0].tween_property(live_button, "modulate", color, 0.10)
+		tween[0].tween_property(fill[0], "bg_color", color, 0.14)
 	button.mouse_entered.connect(func():
 		var live_button = reference.get_ref()
-		if is_instance_valid(live_button) and not live_button.disabled: animate.call(1.0, Color(1.12, 1.10, 1.03))
+		if is_instance_valid(live_button) and not live_button.disabled: animate.call(1.0, UI.ACTION)
 	)
-	button.mouse_exited.connect(func(): animate.call(1.0, Color.WHITE))
-	button.button_down.connect(func(): animate.call(1.0, Color(0.9, 0.86, 0.8)))
-	button.button_up.connect(func(): animate.call(1.0, Color.WHITE))
+	button.mouse_exited.connect(func(): animate.call(1.0, UI.BACKGROUND))
+	button.button_down.connect(func(): animate.call(1.0, UI.CRIMSON))
+	button.button_up.connect(func():
+		var live_button = reference.get_ref()
+		if is_instance_valid(live_button):
+			animate.call(1.0, UI.ACTION if live_button.is_hovered() else UI.BACKGROUND)
+	)
 
 func card_feedback(face: Control) -> void:
 	var tween: Array = [null]

@@ -1,7 +1,5 @@
 @tool
 extends Area3D
-const BattleEngine = preload("res://scripts/battle_engine.gd")
-const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 ## A single playable card.
 ## While in hand it is parented to the Camera3D so it always faces the player
 ## (like a classic 2D card game hand). While dragged it floats over the table
@@ -47,9 +45,8 @@ var _tween: Tween
 var _vp: SubViewport
 var _hp_label: Label
 var _atk_label: Label
-var _mod_label: Label
 var _cost_label: Label
-var _status_row: VBoxContainer
+var _status_row: GridContainer
 var _cost_caption: Label
 var face_signature := 0
 const FACE_CHECK_INTERVAL := 0.1
@@ -159,7 +156,6 @@ func _build_face() -> void:
 	name_lbl.size = Vector2(FACE_W - 80, 48)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	UI.outline(name_lbl)
 	frame.add_child(name_lbl)
 
 	# Art window
@@ -173,10 +169,12 @@ func _build_face() -> void:
 	affinity_line.position = Vector2(18, 63)
 	affinity_line.size = Vector2(FACE_W - 36, 3)
 	frame.add_child(affinity_line)
-	_status_row = VBoxContainer.new()
-	_status_row.position = Vector2(22, 264)
+	_status_row = GridContainer.new()
+	_status_row.columns = 10
+	_status_row.position = Vector2(22, 240)
 	_status_row.size = Vector2(FACE_W - 44, 14)
-	_status_row.add_theme_constant_override("separation", 2)
+	_status_row.add_theme_constant_override("h_separation", 3)
+	_status_row.add_theme_constant_override("v_separation", 2)
 	frame.add_child(_status_row)
 	var art_path: String = ART.get(card_data.get("name", ""), "")
 	if art_path != "":
@@ -210,20 +208,11 @@ func _build_face() -> void:
 	_cost_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_badge.add_child(_cost_caption)
 
-	# Modifiers banner (below element)
-	_mod_label = _face_label(title_font, 11, UI.GOLD)
-	_mod_label.position = Vector2(10, 250)
-	_mod_label.size = Vector2(FACE_W - 20, 13)
-	_mod_label.max_lines_visible = 1
-	_mod_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_mod_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	frame.add_child(_mod_label)
-
 	# Attack (bottom-left) / Health (bottom-right)
 	var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
 	_atk_label = atk.get_child(0)
 	frame.add_child(atk)
-	var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
+	var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 80, FACE_H - 80), title_font)
 	_hp_label = hp.get_child(0)
 	frame.add_child(hp)
 
@@ -277,65 +266,47 @@ func _refresh_face() -> void:
 		for child in _status_row.get_children():
 			_status_row.remove_child(child)
 			child.queue_free()
-		var active: Array = statuses.keys().filter(func(key): return int(statuses[key]) > 0)
-		var row: HBoxContainer
-		for i in mini(active.size(), 3):
-			if i % 3 == 0:
-				row = HBoxContainer.new()
-				row.add_theme_constant_override("separation", 3)
-				_status_row.add_child(row)
-			var tag := _face_label(UI.font(true), 10, UI.TEXT)
-			var status := str(active[i])
-			var names := {"strength":"Str", "healing_reduced":"Heal cut"}
-			tag.text = "%s %d" % [names.get(status, status.replace("_", " ").capitalize()), int(statuses[status])]
-			if i == 2 and active.size() > 3: tag.text = "%d more" % (active.size() - 2)
-			tag.custom_minimum_size.x = 68
-			tag.clip_text = true
-			tag.add_theme_stylebox_override("normal", UI.panel(UI.INSET, UI.AMBER, 1))
-			row.add_child(tag)
-	if _mod_label:
-		_mod_label.text = ""
-		if card_data.get("utility", false):
-			var effect: String = card_data.get("effect", "")
-			_mod_label.text = "UTILITY · " + str(preload("res://scripts/battle_rules.gd").EFFECT_LABELS.get(effect, effect)).to_upper()
-			_mod_label.visible = true
-		elif modifiers.size() > 0:
-			_mod_label.text = "[" + " · ".join(modifiers).to_upper() + "]"
-			_mod_label.visible = true
-		else:
-			_mod_label.visible = false
-		var tokens: PackedStringArray = []
-		if planned_guard > 0: tokens.append("PLAN: BRACE")
-		if plan_attack_bonus > 0: tokens.append("PLAN: +%d ATK" % plan_attack_bonus)
-		if plan_ignore_taunt or card_data.get("ignore_taunt", false): tokens.append("IGNORE TAUNT")
-		if card_data.get("curse", false): tokens.append("CURSE: PAY 1 HP")
-		for status in card_data.get("on_hit", {}): tokens.append("HIT %s %d" % [str(status).to_upper(), int(card_data.on_hit[status])])
-		if not card_data.get("utility", false) and card_data.get("effect", "") == "draw": tokens.append("PLAY: DRAW %d" % int(card_data.get("draw_count", 1)))
-		if card_data.get("effect", "") == "move_ally": tokens.append("PLAY: MOVE AN ALLY")
-		if card_data.get("effect", "") == "heal_all": tokens.append("PLAY: HEAL ALLIES 2")
-		if card_data.get("effect", "") == "rally_all": tokens.append("PLAY: ALLIES +1 STR")
-		if card_data.get("effect", "") == "grave_guard": tokens.append("PLAY: GRAVEYARD BARRIER (MAX 2)")
-		if int(card_data.get("leech", 0)) > 0: tokens.append("HEAL ON HIT %d" % int(card_data.leech))
-		if int(card_data.get("on_play_draw", 0)) > 0: tokens.append("PLAY DRAW +%d" % int(card_data.on_play_draw))
-		if int(card_data.get("thorns", 0)) > 0: tokens.append("RETALIATE %d" % int(card_data.thorns))
-		if int(card_data.get("status_bonus", 0)) > 0: tokens.append("TARGET STATUS 3+: +%d ATK" % int(card_data.status_bonus))
-		if int(card_data.get("armor_value", 1)) > 1: tokens.append("ARMOR %d" % int(card_data.armor_value))
-		if int(card_data.get("utility_power", 0)) > 0: tokens.append("ENHANCED +%d" % int(card_data.utility_power))
-		if int(card_data.get("refund_energy", 0)) > 0: tokens.append("REFUND %d ENERGY" % int(card_data.refund_energy))
-		if card_data.has("condition"):
-			var condition: Dictionary = card_data.condition
-			var subject := "SELF" if condition.get("subject", "target") == "self" else "TARGET"
-			var status := "STATUS" if condition.get("status", "any") == "any" else str(condition.status).to_upper()
-			var bonus := "2 STRIKES" if int(condition.get("strikes", 1)) > 1 else "+%d ATK" % int(condition.get("bonus", 0))
-			tokens.append("%s %s %d+: %s" % [subject, status, int(condition.get("threshold", 3)), bonus])
+		for status in statuses:
+			if int(statuses[status]) > 0: _add_effect_icon(str(status), int(statuses[status]))
+		for modifier in modifiers: _add_effect_icon(str(modifier))
 		for passive in ["piercing", "sluggish"]:
-			if has_modifier(passive) and passive not in modifiers: tokens.append(passive.to_upper())
-		if not preview_only and int(card_data.get("locked_until", 0)) > _manager().turn: tokens.append("SEALED")
-		if has_modifier("sluggish") and not can_attack(_manager().turn): tokens.append("RESTING")
-		if not tokens.is_empty():
-			_mod_label.text = (_mod_label.text + "\n" if _mod_label.visible else "") + " · ".join(tokens)
-			_mod_label.visible = true
+			if has_modifier(passive) and passive not in modifiers: _add_effect_icon(passive)
+		var effect: String = card_data.get("effect", "")
+		if not effect.is_empty(): _add_effect_icon(effect)
+		for status in card_data.get("on_hit", {}): _add_effect_icon(str(status))
+		for key in ["leech", "on_play_draw", "thorns", "status_bonus", "utility_power", "refund_energy"]:
+			if int(card_data.get(key, 0)) > 0: _add_effect_icon(key)
+		if card_data.has("condition"): _add_effect_icon("condition")
+		if planned_guard > 0: _add_effect_icon("barrier")
+		if plan_attack_bonus > 0: _add_effect_icon("strength")
+		if plan_ignore_taunt or card_data.get("ignore_taunt", false): _add_effect_icon("piercing")
+		if card_data.get("curse", false): _add_effect_icon("bleed")
+		if not preview_only and _manager().is_sealed(card_data): _add_effect_icon("sealed")
+		if has_modifier("sluggish") and not can_attack(_manager().turn): _add_effect_icon("resting")
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func _add_effect_icon(kind: String, stacks: int = 0) -> void:
+	if _status_row.get_child_count() >= 19:
+		var overflow := _status_row.get_node_or_null("More")
+		if overflow:
+			var count := overflow.get_child(0) as Label
+			count.text = str(int(count.text) + 1)
+			return
+		kind = "more"
+		stacks = 1
+	var badge := TextureRect.new()
+	badge.name = kind.capitalize().replace(" ", "")
+	badge.texture = UI.icon(kind)
+	badge.custom_minimum_size = Vector2(18, 18)
+	badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_status_row.add_child(badge)
+	if stacks > 0:
+		var count := _face_label(UI.font(true), 10, UI.TEXT)
+		count.text = str(stacks)
+		count.position = Vector2(10, 8)
+		UI.outline(count)
+		badge.add_child(count)
 
 ## Overlay mode: draw on top of the 3D world (hand / dragging).
 func _set_overlay(on: bool) -> void:
@@ -554,11 +525,9 @@ func attack_lunge(target: Vector3) -> void:
 	_tween.tween_property(self, "global_position", home, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	_tween.tween_property(self, "rotation:x", 0.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
-func _battle_context() -> Dictionary:
-	return {} if preview_only else BattleQueries.context(_manager())
-
 func has_modifier(mod_name: String) -> bool:
-	return BattleEngine.has_modifier(_battle_context(), BattleQueries.card(null, self), mod_name)
+	var key := mod_name.to_lower()
+	return key in modifiers or (not preview_only and key in ["piercing", "sluggish"] and int(_manager().buffs_for(card_data).get(key, 0)) > 0)
 
 func add_modifier(mod_name: String) -> void:
 	if not has_modifier(mod_name):
@@ -605,7 +574,13 @@ func discard_to_pile() -> void:
 
 ## mult = type-effectiveness multiplier (for the popup text).
 func adjusted_damage(amt: int) -> int:
-	return BattleEngine.adjusted_damage(BattleQueries.context(_manager()), BattleQueries.card(null, self), amt)
+	# Armored: takes 1 less damage from all attacks
+	if has_modifier("armored"):
+		amt = maxi(1, amt - int(card_data.get("armor_value", 1)))
+	# Fragile: takes 1 extra damage from all attacks
+	if has_modifier("fragile"):
+		amt += 1
+	return _manager().incoming_damage(card_data.type == "response", amt)
 
 func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> void:
 	last_evaded_hit = false
@@ -706,14 +681,14 @@ func spawn_popup(text: String, col: Color) -> void:
 	t.chain().tween_callback(l.queue_free)
 
 func effective_attack() -> int:
-	var game: Node = null if preview_only else _manager()
-	return BattleEngine.effective_attack(_battle_context(), BattleQueries.card(game, self))
+	if preview_only and card_data.has("preview_attack"): return int(card_data.preview_attack)
+	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + plan_attack_bonus + (0 if preview_only else _manager().attack_bonus(self)))
 
 func refresh_cost() -> void:
 	_refresh_face()
 
 func can_attack(round_number: int) -> bool:
-	return BattleEngine.can_attack(_battle_context(), BattleQueries.card(null, self), round_number)
+	return is_alive() and (not has_modifier("sluggish") or last_attack_turn < 0 or round_number - last_attack_turn >= 2)
 
 func add_status(status: String, amount: int) -> void:
 	_manager().log_event("%s gains %d %s." % [card_data.name, amount, status.capitalize()])

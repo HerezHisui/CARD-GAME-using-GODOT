@@ -84,8 +84,6 @@ func review_overlays(suffix: String) -> void:
 	director.show_menu()
 	await capture("pause_" + suffix)
 	battle()
-	director.show_battle_log()
-	await capture("log_" + suffix)
 	director.confirm_title()
 	await capture("return_confirm_" + suffix)
 	battle()
@@ -208,8 +206,6 @@ func run() -> void:
 	director.show_menu()
 	await capture("menu")
 	battle()
-	director.show_battle_log()
-	await capture("log")
 	battle()
 	var card = game.get_hand_cards()[0]
 	game.hand.erase(card)

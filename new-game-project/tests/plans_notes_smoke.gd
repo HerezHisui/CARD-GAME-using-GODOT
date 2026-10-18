@@ -102,10 +102,10 @@ func run() -> void:
 	ally = card("Sealed card")
 	ally.card_data.locked_until = 2
 	for i in range(30): ally._refresh_face()
-	check(ally._mod_label.text.count("SEALED") == 1, "sealed label is rebuilt without accumulating")
+	check(ally._status_row.find_children("Sealed", "TextureRect", false, false).size() == 1, "sealed icon is rebuilt without accumulating")
 	game.turn = 2
 	ally._refresh_face()
-	check(not ally._mod_label.text.contains("SEALED"), "sealed label disappears on expiry")
+	check(not ally._status_row.has_node("Sealed"), "sealed icon disappears on expiry")
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
@@ -123,10 +123,7 @@ func run() -> void:
 	ally.add_status("burn", 2)
 	ally.heal(1)
 	check(game.battle_log.any(func(line): return line.contains("takes 2 damage")) and game.battle_log.any(func(line): return line.contains("Burn")), "damage and statuses appear in log")
-	director.show_battle_log()
-	check(paused and director.screen == "log", "combat log pauses battle")
-	await capture("combat_log")
-	director.close_modal()
+	check(not director.root.has_node("CombatLogButton"), "combat log control is removed")
 	for i in range(350): game.log_event("Event %d" % i)
 	check(game.battle_log.size() == 300, "backlog has bounded memory")
 	fixture()
@@ -196,5 +193,5 @@ func run() -> void:
 	if failures > 0:
 		quit(1)
 		return
-	print("PASS: playable Plans/Brace/coordination/caps/expiry, Overclock growth/damage, sealed label/expiry, board inspection, combat log bounds, rescue movement/heal, exact-copy shop/rest removal, actual return to title")
+	print("PASS: playable Plans/Brace/coordination/caps/expiry, Overclock growth/damage, sealed icon/expiry, board inspection, combat log bounds, rescue movement/heal, exact-copy shop/rest removal, actual return to title")
 	quit(0)

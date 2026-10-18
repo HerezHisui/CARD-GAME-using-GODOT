@@ -69,13 +69,11 @@ var intel_revealed := false
 var idle_hint: Label
 var boss_intent: Label
 var plans_button: Button
-var plans_meter: ProgressBar
 var dashboard: PanelContainer
 var remove_origin := ""
 var remove_index := -1
 var board_prompt: PanelContainer
 var board_prompt_label: Label
-var extraction_card: Node
 var unlock_after := "cards"
 var event_key := ""
 var event_type := "locked"
@@ -288,7 +286,8 @@ func _build_ui() -> void:
 	row.add_child(brand)
 	brand.add_child(label("MIDNIGHT DRRILLS", 22, GOLD))
 	brand.add_child(label("THE SCHOOL AFTER DARK", 11, UI.MUTED))
-	summary = label("", 16)
+	summary = label("", 14)
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(summary)
@@ -363,20 +362,12 @@ func _build_ui() -> void:
 	plans_box.offset_top = -78
 	plans_box.offset_bottom = -15
 	root.add_child(plans_box)
-	plans_meter = ProgressBar.new()
-	plans_meter.custom_minimum_size = Vector2(180, 12)
-	plans_meter.max_value = 2
-	plans_meter.show_percentage = false
-	plans_box.add_child(plans_meter)
 	plans_button = button("Contingency 0/2  [P]", show_plans, plans_box)
 	plans_button.tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
 	graveyard_button = button("Graveyard [G]", show_graveyard, root)
 	graveyard_button.name = "GraveyardButton"
 	graveyard_button.tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
 	place_dashboard_button(graveyard_button, -560, -394)
-	var log_button := button("Combat log [L]", show_battle_log, root)
-	log_button.name = "CombatLogButton"
-	place_dashboard_button(log_button, 470, 650, false)
 	board_prompt = PanelContainer.new()
 	board_prompt.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	board_prompt.offset_left = 240
@@ -431,16 +422,13 @@ func _process(_delta: float) -> void:
 	plans_button.visible = battle_active and not modal.visible
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
 	plans_button.text = "Contingency %d/2 [P]" % game.plans.tokens
-	plans_meter.value = game.plans.tokens
-	plans_meter.get_parent().visible = battle_active and not modal.visible
 	dashboard.visible = battle_active and not modal.visible
-	root.get_node("CombatLogButton").visible = battle_active and not modal.visible
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	boss_intent.visible = is_instance_valid(game.final_boss) and battle_active and not modal.visible and game.board_input.action.is_empty()
 	boss_intent.get_parent().visible = boss_intent.visible
 	if boss_intent.visible: boss_intent.text = game.final_boss.intent()
-	summary.text = "Floor %d  /  HP %d  /  %d supplies  /  %d cards" % [floor_number, game.player_hp, coins, collection.size()]
+	summary.text = status_text()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
@@ -456,6 +444,17 @@ func _process(_delta: float) -> void:
 	idle_hint.visible = false
 	prep.get_parent().visible = battle_active and not modal.visible
 	threat.get_parent().visible = battle_active and not modal.visible
+
+func status_text() -> String:
+	var counts := {"evac":0, "douse":0, "clearance":0, "brace":0}
+	var utilities := 0
+	for card in collection:
+		var element := str(card.get("element", ""))
+		if counts.has(element): counts[element] += 1
+		if card.get("utility", false): utilities += 1
+	return "HP %d/%d · Supplies %d · Deck %d\nEvac %d · Douse %d · Clear %d · Brace %d · Utility %d" % [
+		game.player_hp, game.hero_max_hp(), coins, collection.size(),
+		counts.evac, counts.douse, counts.clearance, counts.brace, utilities]
 
 func _input(event: InputEvent) -> void:
 	if inspect_hold_pending and event is InputEventMouseMotion and event.position.distance_to(inspect_hold_origin) > 12:
@@ -508,7 +507,6 @@ func _input(event: InputEvent) -> void:
 		match event.keycode:
 			KEY_F3: show_debug()
 			KEY_D: show_deck()
-			KEY_L: show_battle_log()
 			KEY_P: show_plans()
 			KEY_G:
 				if screen == "graveyard": close_modal()
@@ -519,7 +517,7 @@ func _input(event: InputEvent) -> void:
 					confirmation_cancel.call()
 				elif screen == "choice" and action_cancel.is_valid():
 					action_cancel.call()
-				elif screen in ["intel", "inspect", "plans", "log", "graveyard", "debug"]: close_modal()
+				elif screen in ["intel", "inspect", "plans", "graveyard", "debug"]: close_modal()
 				elif screen in ["deck", "menu", "confirm"] or (modal.visible and screen == "map" and battle_active):
 					close_modal()
 				else:
@@ -528,7 +526,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _panel_layout(kind: String) -> void:
-	compact_layout = kind in ["menu", "confirm", "debug_password", "debug", "log", "plans", "choice", "remove_confirm"]
+	compact_layout = kind in ["menu", "confirm", "debug_password", "debug", "plans", "choice", "remove_confirm"]
 	modal.custom_minimum_size = Vector2.ZERO
 	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if compact_layout:
@@ -585,8 +583,8 @@ func reset_panel(title: String, subtitle: String, kind: String) -> void:
 		child.queue_free()
 	screen = kind
 	modal.show()
-	content.add_child(label(title, 24 if compact_layout else 30, GOLD, compact_layout))
-	content.add_child(label(subtitle, 16, UI.MUTED, true))
+	if not title.is_empty(): content.add_child(label(title, 24 if compact_layout else 30, GOLD, compact_layout))
+	if not subtitle.is_empty(): content.add_child(label(subtitle, 16, UI.MUTED, true))
 	game.presentation.reveal(content)
 	if compact_layout: _fit_compact_content.call_deferred()
 
@@ -723,10 +721,9 @@ func show_map() -> void:
 	var dossier_text := VBoxContainer.new()
 	dossier.add_child(dossier_text)
 	dossier_text.add_child(label("FLOOR / %02d" % floor_number, 28, GOLD))
-	dossier_text.add_child(label("SCHOOL OPERATIONS", 14, UI.MUTED))
 	dossier_text.add_child(HSeparator.new())
-	dossier_text.add_child(label("%d / %d rooms cleared" % [cleared.size(), rooms.size()], 17))
-	var route_help := label("Choose a connected room.\n\nBATTLE / Build your deck\nELITE / Unlock a tactic\nREST / Heal or train\nSHOP / Spend supplies\nEVENT / Risk and reward\nUPGRADE / Improve a card\n\nDESTINATION\nThe Janitor", 17, UI.MUTED)
+	var route_help := label("Choose a connected room.\n\nBATTLE / Build your deck\nELITE / Unlock a tactic\n"
+		+ "REST / Heal or train\nSHOP / Spend supplies\nEVENT / Risk and reward\nUPGRADE / Improve a card", 17, UI.MUTED)
 	route_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	route_help.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	dossier_text.add_child(route_help)
@@ -1052,6 +1049,7 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	overlay.color = Color(UI.BACKGROUND, 0.96)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if run_active: overlay.offset_top = 78
 	root.add_child(overlay)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1060,7 +1058,7 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	row.add_theme_constant_override("separation", 32)
 	center.add_child(row)
 	inspected_face = card_image(texture, row, 310)
-	add_dossier(row, card, "Click the card or outside this panel, or press Esc, to close.")
+	add_dossier(row, card, "")
 
 func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node = null) -> RichTextLabel:
 	var panel := PanelContainer.new()
@@ -1080,9 +1078,17 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	else: details.text += "Cost: %d energy.\n\n" % int(card.get("cost", 0))
 	details.text += "[b]PERMANENT UPGRADES  %d / 2[/b]\n" % upgrade_level(card)
 	var effects: Dictionary = live_card.statuses if is_instance_valid(live_card) else card.get("statuses", {})
+	var status_rules := {
+		"strength":"Adds attack.", "burn":"Deals damage each round, then halves its stacks.",
+		"poison":"Deals damage each round, then loses one stack.",
+		"bleed":"Deals damage after attacking, then loses one stack.",
+		"barrier":"Absorbs attack damage, up to three stacks.",
+		"healing_reduced":"Halves healing, rounded down with a minimum of one. Loses one stack each round."
+	}
 	var tokens: PackedStringArray = []
 	for status in effects:
-		if int(effects[status]) > 0: tokens.append("%s %d" % [str(status).capitalize(), int(effects[status])])
+		if int(effects[status]) > 0:
+			tokens.append("%s %d: %s" % [str(status).capitalize(), int(effects[status]), status_rules.get(status, "")])
 	if not tokens.is_empty(): details.text += "\n[b]CURRENT STATUSES[/b]\n" + " · ".join(tokens) + "\n"
 	var combat: PackedStringArray = []
 	if is_instance_valid(live_card):
@@ -1145,11 +1151,12 @@ func show_deck() -> void:
 		content = VBoxContainer.new()
 		content.add_theme_constant_override("separation", 14)
 		modal.add_child(content)
-	reset_panel("YOUR RESPONSE DECK", "%d collected cards. Browse your formation. Hold a card for its rules. Draw-pile order stays hidden." % collection.size(), "deck")
+	reset_panel("Deck", "%d collected cards" % collection.size(), "deck")
 	var tabs := HBoxContainer.new()
 	content.add_child(tabs)
 	button("Deck (%d)" % collection.size(), deck_cards.bind(collection), tabs)
-	button("Response Graveyard", func(): close_modal(); show_graveyard(), tabs).disabled = not battle_active or saved_content != null
+	if battle_active and saved_content == null:
+		button("Response Graveyard", func(): close_modal(); show_graveyard(), tabs)
 	button("Close", close_modal, tabs)
 	add_sort_controls(false)
 	var scroll := ScrollContainer.new()
@@ -1179,7 +1186,8 @@ func dismiss_inspection() -> void:
 	elif screen == "inspect": close_modal()
 
 func begin_inspect_hold(card: Node, from_hand: bool = false) -> void:
-	if not battle_active or modal.visible or (_dragging() and not from_hand) or game.presentation.blocking or game.in_board_view: return
+	if not battle_active or modal.visible or (_dragging() and not from_hand) or game.presentation.blocking: return
+	if from_hand and game.in_board_view: return
 	cancel_inspect_hold()
 	inspect_hold_pending = true
 	inspect_hold_origin = get_viewport().get_mouse_position()
@@ -1198,7 +1206,7 @@ func begin_inspect_hold(card: Node, from_hand: bool = false) -> void:
 
 func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	if not battle_active or modal.visible or _dragging() or not is_instance_valid(card) or (card.in_hand and not allow_hand): return
-	reset_panel("CARD INSPECTION", "Click the card or outside this panel, or press Esc, to close.", "inspect")
+	reset_panel("", "", "inspect")
 	var box := centered_content()
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1206,21 +1214,7 @@ func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	box.add_child(row)
 	card._refresh_face()
 	inspected_face = card_image(card._vp.get_texture(), row, 330)
-	add_dossier(row, live_definition(card), "Click the card or outside this panel, or press Esc, to close.", card)
-
-func show_battle_log() -> void:
-	if _dragging() or screen in ["title", "title_help", "characters", "character_preview"]: return
-	if screen == "log":
-		close_modal()
-		return
-	preserve_pending_decision()
-	reset_panel("BATTLE LOG", "Latest 300 events, in order. This encounter's actions, damage, healing and statuses.", "log")
-	var log_view := RichTextLabel.new()
-	log_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_view.add_theme_font_size_override("normal_font_size", 18)
-	log_view.text = "\n".join(game.battle_log) if not game.battle_log.is_empty() else "No battle events yet."
-	content.add_child(log_view)
-	button("Close  [L / Esc]", close_modal, content)
+	add_dossier(row, live_definition(card), "", card)
 
 func show_plans() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty(): return
@@ -1230,11 +1224,6 @@ func show_plans() -> void:
 	if screen in DECISIONS or saved_content != null: return
 	reset_panel("PREPAREDNESS · CONTINGENCIES", "Save 2 unused energy at End Turn for 1 Plan. Unlock more tactics from elite and boss wins.", "plans")
 	content.add_child(label("PLANS %d / 2 · %d TACTICS UNLOCKED" % [game.plans.tokens, game.plans.unlocked.size()], 23, TEAL))
-	var save := CheckButton.new()
-	save.text = "Auto-save 2 energy"
-	save.button_pressed = game.plans.auto_save
-	save.toggled.connect(func(enabled): game.plans.auto_save = enabled)
-	content.add_child(save)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(scroll)
@@ -1282,12 +1271,10 @@ func arm_brace(card: Node) -> void:
 	game.plans.arm("brace", [card])
 func select_coordination() -> void: begin_tactic("coordinate")
 func select_extraction_ally(card: Node) -> void:
-	extraction_card = card
-	game.board_input.destination(card, arm_extraction)
+	game.board_input.destination(card, arm_extraction.bind(card))
 
-func arm_extraction(slot: Node3D) -> void:
-	game.plans.arm("extract", [extraction_card], slot)
-	extraction_card = null
+func arm_extraction(slot: Node3D, card: Node) -> void:
+	game.plans.arm("extract", [card], slot)
 
 func show_graveyard() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty() or screen in DECISIONS or saved_content != null: return
@@ -1728,7 +1715,7 @@ func show_menu() -> void:
 	if _dragging(): return
 	if saved_content: return
 	if screen in DECISIONS: return
-	reset_panel("MIDNIGHT DRRILLS", "Drag cards onto open Response slots. W / S changes the camera. Adjacent matching types grant +1 attack.", "menu")
+	reset_panel("MIDNIGHT DRRILLS", "", "menu")
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size.y = 140
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1738,12 +1725,10 @@ func show_menu() -> void:
 	rules_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(rules_box)
 	rules_box.add_child(label("Counters: Evac → Earthquake  /  Douse → Fire  /  Clearance → Flood  /  Brace → Typhoon", 17, TEAL, true))
-	rules_box.add_child(label("Armored reduces damage. Fragile increases it. Regenerating heals. Rampaging boosts the second strike. Fierce boosts direct hits.", 16, UI.TEXT, true))
-	rules_box.add_child(label("Piercing also hits health through blockers. Sluggish attacks every other round. Strength adds attack. Periodic statuses bypass armor.", 16, UI.TEXT, true))
-	rules_box.add_child(label("BATTLE: " + buff_summary(game.player_buffs) + "\nRUN: " + buff_summary(game.player_run_buffs) + "\nJANITOR BATTLE: " + buff_summary(game.enemy_buffs) + "\nJANITOR RUN: " + buff_summary(game.enemy_run_buffs), 16, TEAL, true))
+	rules_box.add_child(label("Adaptations: " + buff_summary(game.player_buffs), 16, TEAL, true))
+	rules_box.add_child(label("Augmentations: " + buff_summary(game.player_run_buffs), 16, TEAL, true))
 	button("Resume", close_modal, content)
 	if battle_active: button("Debug values  [F3]", show_debug, content)
-	button("Combat log  [L]", show_battle_log, content)
 	button("Return to starting screen…", confirm_title, content)
 	button("Quit game", quit_game, content)
 
