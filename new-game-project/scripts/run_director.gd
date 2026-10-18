@@ -557,6 +557,7 @@ func _panel_layout(kind: String) -> void:
 	modal.offset_left = 0 if full_screen else 45
 	modal.offset_right = 0 if full_screen else -45
 	modal.offset_top = (0 if title_screen or not battle_active or kind in ["reward", "inspect"] else 78) if full_screen else 94
+	if kind == "shop": modal.offset_top = 78
 	modal.offset_bottom = 0 if full_screen else -28
 	var panel_style := style(Color(UI.BACKGROUND, 0.90) if kind in ["reward", "inspect"] else (BG if full_screen else UI.PANEL), GOLD)
 	if full_screen:
