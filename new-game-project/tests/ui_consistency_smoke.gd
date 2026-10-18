@@ -170,7 +170,6 @@ func run() -> void:
 		await create_timer(0.1).timeout
 	if game.phase == game.Phase.PLAYER_DRAW:
 		game._on_draw_button_pressed()
-		game.complete_draw_choice(game.deck[0])
 	await create_timer(1.0).timeout
 	await capture("battle")
 	await polish_checks()

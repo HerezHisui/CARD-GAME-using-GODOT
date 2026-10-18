@@ -48,7 +48,6 @@ func run() -> void:
 	check(not director.reachable(1), "cannot leave active encounter")
 	await until_player_turn()
 	game._on_draw_button_pressed()
-	game.complete_draw_choice(game.deck[0])
 	check(game.can_player_act(), "coinflip and turn flow reach player play")
 	await capture("battle")
 	var permanent_hp: int = director.collection[0].health

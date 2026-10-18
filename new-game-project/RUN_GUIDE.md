@@ -11,7 +11,7 @@ Pick a connected room on the map. Follow connected rooms toward the boss. Comple
 ## Controls
 
 - Drag a hand card onto an empty Response slot. The slot under the cursor is the drop target. Right-click cancels a drag.
-- Use Draw during the draw phase to choose an unlocked deck card for 1 energy. Opening or cancelling the picker is free. Playing the card pays its listed cost separately.
+- Use Draw during the draw phase to draw one unlocked card for free. If your hand then has no card costing 1 or less, the drawn card is exchanged for a random unlocked cost-1 card from the draw pile, if available. Playing a card still pays its listed cost. Search and Rescue keeps its targeted deck search.
 - Space or End turn submits your turn. Finish or cancel board targeting first.
 - W moves from Room to Table to Overhead. S moves back. Room view hides your hand. Camera changes are blocked during combat, dragging and board targeting.
 - D opens the deck browser. Sorting changes the display, not the collection or draw order.

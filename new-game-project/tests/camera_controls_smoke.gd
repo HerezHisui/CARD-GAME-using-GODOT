@@ -45,7 +45,6 @@ func run() -> void:
 		await create_timer(.1).timeout
 	if game.phase == game.Phase.PLAYER_DRAW:
 		game._on_draw_button_pressed()
-		game.complete_draw_choice(game.deck[0])
 	check(game.can_player_act(), "real encounter accepts input")
 	await settle()
 	var school := game.get_node("SchoolEnvironment")
