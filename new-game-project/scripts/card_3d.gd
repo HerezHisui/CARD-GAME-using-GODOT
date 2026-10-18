@@ -16,6 +16,7 @@ const CARD_WIDTH := 1.1
 const UPRIGHT := Basis(Vector3.RIGHT, PI / 2.0) # card face (+Y) -> camera (+Z)
 const FACE_W := 264
 const FACE_H := 360
+const FACE_RENDER_SCALE := 2
 
 const ELEMENT_COLORS := UI.AFFINITIES
 
@@ -106,7 +107,7 @@ func setup(data: Dictionary) -> void:
 
 	_build_face()
 	art_sprite.texture = _vp.get_texture()
-	art_sprite.pixel_size = CARD_WIDTH / FACE_W
+	art_sprite.pixel_size = CARD_WIDTH / (FACE_W * FACE_RENDER_SCALE)
 	art_sprite.scale = Vector3.ONE
 	art_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
 	art_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
@@ -131,7 +132,10 @@ func setup(data: Dictionary) -> void:
 
 func _build_face() -> void:
 	_vp = SubViewport.new()
-	_vp.size = Vector2i(FACE_W, FACE_H)
+	# Keep layout coordinates while rasterizing sharper text for 3D and UI previews.
+	_vp.size = Vector2i(FACE_W, FACE_H) * FACE_RENDER_SCALE
+	_vp.size_2d_override = Vector2i(FACE_W, FACE_H)
+	_vp.size_2d_override_stretch = true
 	_vp.transparent_bg = true
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	add_child(_vp)
