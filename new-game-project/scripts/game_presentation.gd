@@ -13,6 +13,8 @@ var coin_epoch := 0
 var coin_textures: Array[Texture2D] = []
 var banner_node: Control
 var banner_tween: Tween
+var draw_reminder: Panel
+var draw_reminder_tween: Tween
 
 func setup(owner_game: Node) -> void:
 	game = owner_game
@@ -143,6 +145,25 @@ func clear_banner() -> void:
 	if banner_tween: banner_tween.kill()
 	if is_instance_valid(banner_node): banner_node.queue_free()
 	banner_node = null
+
+func remind_to_draw(active: bool) -> void:
+	if draw_reminder_tween: draw_reminder_tween.kill()
+	if is_instance_valid(draw_reminder): draw_reminder.hide()
+	if not active: return
+	if not is_instance_valid(draw_reminder):
+		var button := game.get_node("HUD/Root/DeckDrawButton")
+		draw_reminder = Panel.new()
+		draw_reminder.name = "DrawReminder"
+		draw_reminder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		draw_reminder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		draw_reminder.add_theme_stylebox_override("panel", UI.panel(UI.ACTION, UI.GOLD, 0))
+		button.add_child(draw_reminder)
+		button.move_child(draw_reminder, 0)
+	draw_reminder.show()
+	draw_reminder.modulate.a = 0.0
+	draw_reminder_tween = draw_reminder.create_tween().set_loops()
+	draw_reminder_tween.tween_property(draw_reminder, "modulate:a", 0.85, 0.45)
+	draw_reminder_tween.tween_property(draw_reminder, "modulate:a", 0.0, 0.45)
 
 func button_feedback(button: Button) -> void:
 	if button.has_meta("hover_feedback"): return

@@ -991,6 +991,7 @@ func _set_phase(p: Phase, text: String = "") -> void:
 		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("JANITOR'S TURN", "Watch the opposing formation")
 		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
 	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
+	if is_instance_valid(presentation): presentation.remind_to_draw(p == Phase.PLAYER_DRAW)
 	if text != "" and _phase_label:
 		_phase_label.text = "Pick a card to draw" if p == Phase.PLAYER_DRAW else text
 	if _end_turn_btn:
