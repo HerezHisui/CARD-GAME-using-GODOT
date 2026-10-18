@@ -60,6 +60,14 @@ var last_popup_msec := -1000
 @onready var art_sprite: Sprite3D = $Art
 @onready var mesh: MeshInstance3D = $Mesh
 
+func _notification(what: int) -> void:
+	if not is_instance_valid(art_sprite): return
+	if what == NOTIFICATION_EDITOR_PRE_SAVE:
+		# The generated viewport is not saved with the scene.
+		art_sprite.texture = null
+	elif what == NOTIFICATION_EDITOR_POST_SAVE and is_instance_valid(_vp):
+		art_sprite.texture = _vp.get_texture()
+
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		preview_only = true
@@ -172,14 +180,14 @@ func _build_face() -> void:
 	frame.add_child(_status_row)
 	var art_path: String = ART.get(card_data.get("name", ""), "")
 	if art_path != "":
-		var tr := TextureRect.new()
-		tr.texture = load(art_path)
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		tr.size = art_bg.size
-		tr.clip_contents = true
+		var art_image := TextureRect.new()
+		art_image.texture = load(art_path)
+		art_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art_image.size = art_bg.size
+		art_image.clip_contents = true
 		art_bg.clip_contents = true
-		art_bg.add_child(tr)
+		art_bg.add_child(art_image)
 
 	# Element banner
 	var elem_lbl := _face_label(title_font, 18, Color.WHITE)
@@ -336,8 +344,8 @@ func _set_overlay(on: bool) -> void:
 	mesh.visible = not on
 	art_sprite.position.y = 0.012 if not on else 0.0
 
-func set_layer(priority: int) -> void:
-	art_sprite.render_priority = clampi(priority, -100, 100)
+func set_layer(layer: int) -> void:
+	art_sprite.render_priority = clampi(layer, -100, 100)
 
 # ---------------------------------------------------------------- hand motion
 ## Called by the manager to place the card in the fanned hand (camera-local).
@@ -757,7 +765,7 @@ static func _card_back() -> Texture2D:
 	# Corner marks: flame, wave, fault, and spiral; no front illustration.
 	for y in range(-9, 10):
 		for x in range(-9, 10):
-			if abs(x) < (9 - y) / 3 and y > -8: img.set_pixel(22 + x, 24 + y, ELEMENT_COLORS.fire)
+			if abs(x) < floori((9 - y) / 3.0) and y > -8: img.set_pixel(22 + x, 24 + y, ELEMENT_COLORS.fire)
 			if absf(y - sin(x * 0.5) * 3) < 1.5 or absf(y - sin(x * 0.5) * 3 - 5) < 1: img.set_pixel(109 + x, 24 + y, ELEMENT_COLORS.flood)
 			if abs(x - (3 if y < 0 else -3)) <= 1: img.set_pixel(22 + x, 155 + y, ELEMENT_COLORS.earthquake)
 			var radius := Vector2(x, y).length()
