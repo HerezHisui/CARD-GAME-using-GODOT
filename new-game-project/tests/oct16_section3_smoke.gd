@@ -33,7 +33,9 @@ func run() -> void:
 	var starter: Array[Dictionary] = []
 	game.load_deck_from_json("res://data/starter_deck.json", starter)
 	check(starter.size() == 12, "starter remains twelve cards")
-	check(starter.filter(func(c): return c.cost >= 3).size() == 2, "only two expensive starter cards")
+	check(starter.filter(func(c): return c.cost == 1).size() == 11, "eleven one-cost starter cards")
+	check(starter.filter(func(c): return int(c.cost) in [2, 3] and game.has_special_effect(c)).size() == 1,
+		"one higher-cost starter card with an effect")
 	game.player_buffs = {"blood_pact":1}
 	game.enemy_buffs = {"blood_pact":1}
 	var killer := unit(true, 0, 5, 10)
