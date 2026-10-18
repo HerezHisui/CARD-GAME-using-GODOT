@@ -5,11 +5,12 @@ const RouteCanvas = preload("res://scripts/route_canvas.gd")
 const CardFace = preload("res://scripts/card_3d.gd")
 const Rules = preload("res://scripts/battle_rules.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
+const Routes = preload("res://scripts/run_routes.gd")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
 const DECISIONS := ["coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff", "intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove", "remove_confirm", "contingency_reward"]
-const MAP_ROWS := 11
+const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
 const CHARACTERS := [
 	{"name":"Steve · Student", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
@@ -80,7 +81,7 @@ var event_key := ""
 var event_type := "locked"
 var event_cards: Array[Dictionary] = []
 var event_resolved := false
-const EVENT_TYPES := ["locked", "radio", "rooftop", "science", "infirmary", "lost_found"]
+const EVENT_TYPES = Routes.EVENT_TYPES
 var deck_sort := 0
 var upgrade_sort := 0
 var deck_descending := false
@@ -664,40 +665,12 @@ func new_run() -> void:
 	persistence.checkpoint()
 
 func generate_map() -> void:
-	rooms.clear()
 	cleared.clear()
 	current = -1
-	for row in range(MAP_ROWS):
-		for lane in range(3 if row < MAP_ROWS - 1 else 1):
-			var kind := "battle"
-			if row == MAP_ROWS - 1:
-				kind = "boss"
-			elif row == 7:
-				kind = ["elite", "rest", "upgrade"][lane]
-			elif row in [0, 3, 6, 9]:
-				kind = "elite" if row == 9 and lane == 1 else "battle"
-			elif row > 0:
-				kind = ["battle", "battle", "event", "shop", "upgrade", "rest"][rng.randi_range(0, 5)]
-			rooms.append({"id":rooms.size(), "row":row, "lane":lane if row < MAP_ROWS - 1 else 1, "kind":kind, "links":[], "event":EVENT_TYPES[rng.randi_range(0, EVENT_TYPES.size() - 1)] if kind == "event" else ""})
-	for room in rooms:
-		var candidates: Array = []
-		for next in rooms:
-			if next.row == room.row + 1 and (abs(next.lane - room.lane) <= 1 or next.kind == "boss"):
-				candidates.append(next.id)
-		if not candidates.is_empty():
-			room.links.append(candidates[rng.randi_range(0, candidates.size() - 1)])
-			for id in candidates:
-				if id not in room.links and rng.randf() < 0.38: room.links.append(id)
-	# Guarantee incoming paths too: every generated room can be reached.
-	for next in rooms:
-		if next.row == 0: continue
-		if rooms.any(func(room): return next.id in room.links): continue
-		var predecessors := rooms.filter(func(room): return room.row == next.row - 1 and (abs(room.lane - next.lane) <= 1 or next.kind == "boss"))
-		predecessors[rng.randi_range(0, predecessors.size() - 1)].links.append(next.id)
+	Routes.generate_map(rooms, rng)
 
 func reachable(id: int) -> bool:
-	if battle_active or (current >= 0 and current not in cleared): return false
-	return rooms[id].row == 0 if current < 0 else id in rooms[current].links
+	return Routes.reachable(id, rooms, current, cleared, battle_active)
 
 func show_map() -> void:
 	if _dragging(): return
