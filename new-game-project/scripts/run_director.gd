@@ -102,8 +102,10 @@ func _ready() -> void:
 	game.load_deck_from_json("res://data/starter_deck.json", catalog)
 	game.load_deck_from_json("res://data/response_expansion.json", catalog)
 	# Utility cards belong to the reward pool, preserving the original starter deck.
-	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "effect":"draw", "utility":true})
-	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "effect":"move", "utility":true})
+	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance",
+		"cost":2, "effect":"draw", "utility":true})
+	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac",
+		"cost":1, "effect":"move", "utility":true})
 	if start_after_reload:
 		start_after_reload = false
 		new_run()
@@ -1345,7 +1347,9 @@ func live_definition(card: Node) -> Dictionary:
 
 func card_rules(card: Dictionary) -> String:
 	var effect: String = str(card.get("effect", ""))
-	if card.get("utility", false): return str(Rules.EFFECTS.get(effect, effect)) + "\n" + Rules.special_text(card) + "\nChoose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
+	if card.get("utility", false):
+		return Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
+			+ "Choose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
 	var rules := "Adjacent matching types: +1 attack.\n" + Rules.special_text(card) + "\n"
 	if effect == "draw": rules += "On play: draw %d.\n" % int(card.get("draw_count", 1))
 	if effect == "move_ally": rules += "On play: optionally choose another ally, then an empty lane, and move it there. Skipping movement does not undo the summon.\n"

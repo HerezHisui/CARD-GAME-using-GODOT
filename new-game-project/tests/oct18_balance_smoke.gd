@@ -11,6 +11,11 @@ func effect_consistency() -> void:
 	check(a == b, "primary and added modifiers share effect text")
 	check("Starts with 2 Strength" in director.card_rules({"element":"brace", "strength":2}),
 		"starting Strength is described")
+	var blast: String = director.card_rules({"utility":true, "effect":"blast", "utility_power":1})
+	check("Deal 3 fixed damage" in blast and "Deal 2" not in blast,
+		"upgraded effect text reports the applied amount without conflicting base text")
+	var draw: String = director.card_rules({"utility":true, "effect":"draw", "draw_count":1})
+	check("Draw 1 card," in draw, "effect text respects explicit draw counts")
 
 func future_adaptations() -> void:
 	fixture()
