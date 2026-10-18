@@ -36,6 +36,17 @@ func future_adaptations() -> void:
 	check(deployed.max_health == 9, "positive health adaptations still affect existing units")
 	game.add_global_buff(false, "glass")
 	check(deployed.effective_attack() == 2, "opposing adaptations do not alter exemptions")
+	director.run_active = true
+	director.collection.assign(director.character_deck(0))
+	game.add_card_to_hand(director.catalog_card("herb"))
+	check(director.persistence.checkpoint() and director.persistence.resume(), "adapted battle saves and resumes")
+	var restored: Node = game._get_card_in_slot(game._response_slots()[0])
+	check(restored.max_health == 9 and restored.effective_attack() == 2,
+		"loading preserves deployed-unit adaptation exemptions")
+	var utilities: Array = game.get_hand_cards().filter(func(card): return card.card_data.get("utility", false))
+	check(utilities.size() == 1 and utilities[0].max_health == 0 and not utilities[0].card_data.has("health"),
+		"loading keeps utilities statless")
+	director.persistence.discard()
 
 func double_strikes() -> void:
 	fixture()
