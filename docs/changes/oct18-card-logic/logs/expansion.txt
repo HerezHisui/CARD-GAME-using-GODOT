@@ -1,3 +1,0 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-PASS: title, no overkill, piercing, sluggish, statuses, global buffs, tutors, cancellation, sealing/expiry, taxes, scouting, M toggle, adaptation, actual defeat-button restart
