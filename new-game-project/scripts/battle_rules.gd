@@ -9,24 +9,24 @@ const BUFFS := [
 	{"id":"poison", "name":"Toxic Pressure", "description":"Your cards apply 1 extra Poison stack whenever they inflict Poison."},
 	{"id":"bleed", "name":"Deep Cuts", "description":"Your cards apply 1 extra Bleed stack whenever they inflict Bleed."},
 	{"id":"draw", "name":"Rapid Logistics", "description":"Draw 1 extra card in each normal draw phase, up to the hand limit."},
-	{"id":"glass", "name":"Glass Cannon", "description":"+2 attack to all units, but -1 maximum health. This battle only."},
+	{"id":"glass", "name":"Glass Cannon", "description":"Future units gain +2 attack, but -1 maximum health. Deployed units are unchanged. This battle only."},
 	{"id":"overclock", "name":"Overclock", "description":"Gain 2 capacity now and +1 extra capacity growth each round (2 total normally), but take 50% more damage (rounded up)."},
 	{"id":"blood_pact", "name":"Blood Pact", "description":"Units gain 2 Strength. At combat end, each deployed unit that did not kill a card this combat dies. Hero hits and resting do not count."},
 	{"id":"patient", "name":"Patient Formation", "description":"All units regenerate 2 each round, but become Sluggish."},
 	{"id":"toxic_ward", "name":"Toxic Ward", "description":"Apply 2 extra Poison stacks, but all your units lose 1 attack."},
 	{"id":"formation", "name":"Close Ranks", "description":"Matching adjacent units deal 2 extra damage. Isolated deployed units lose 1 attack."},
-	{"id":"spines", "name":"Bristling Defense", "description":"Surviving blockers retaliate for 1 fixed damage, but all units lose 1 maximum health."},
+	{"id":"spines", "name":"Bristling Defense", "description":"Future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. Deployed units are unchanged."},
 	{"id":"precision", "name":"Piercing Formation", "description":"All units gain Piercing, but lose 1 attack."}
 ]
 const RUN_BUFFS := [
 	{"id":"beacon", "name":"Signal Beacon", "description":"PERMANENT: draw 1 extra card in normal draw phases."},
 	{"id":"bulwark", "name":"School Bulwark", "description":"PERMANENT: units gain 2 maximum health, but lose 1 attack."},
-	{"id":"glass", "name":"Bold Strategy", "description":"PERMANENT: units gain 2 attack, but lose 1 maximum health."},
-	{"id":"field_school", "name":"Field School", "description":"PERMANENT: +1 resources and +1 normal draw, but units lose 1 maximum health."},
+	{"id":"glass", "name":"Bold Strategy", "description":"PERMANENT: future units gain 2 attack, but lose 1 maximum health. Deployed units are unchanged."},
+	{"id":"field_school", "name":"Field School", "description":"PERMANENT: +1 resources and +1 normal draw. Future units lose 1 maximum health; deployed units are unchanged."},
 	{"id":"hazard_manual", "name":"Hazard Manual", "description":"PERMANENT: apply +2 Burn, +1 Poison, +1 Bleed, but lose 1 resource capacity."},
 	{"id":"formation", "name":"Buddy System", "description":"PERMANENT: matching neighbors deal 2 extra damage; isolated deployed units lose 1 attack."},
 	{"id":"medical", "name":"Infirmary Network", "description":"PERMANENT: heal your side's health by 1 each round, but units lose 1 attack."},
-	{"id":"spines", "name":"Jagged Barricades", "description":"PERMANENT: surviving blockers retaliate for 1 fixed damage, but units lose 1 maximum health."}
+	{"id":"spines", "name":"Jagged Barricades", "description":"PERMANENT: future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. Deployed units are unchanged."}
 ]
 const CHARACTER_BUFFS := [
 	{"id":"drill_tactics", "name":"Rooftop Preparation"},

@@ -608,6 +608,12 @@ func add_global_buff(response_side: bool, id: String, permanent: bool = false) -
 	var bleed_delta := buff_value(response_side, "self_bleed") - old_bleed
 	for card in get_tree().get_nodes_in_group("cards"):
 		if (card.card_data.get("type", "response") == "response") != response_side or not card.is_alive(): continue
+		if health_delta < 0 and card.current_slot != null:
+			var excluded: Dictionary = card.card_data.get("excluded_buffs", {}).duplicate()
+			excluded[id] = int(excluded.get(id, 0)) + 1
+			card.card_data.excluded_buffs = excluded
+			card._refresh_face()
+			continue
 		if not card.card_data.get("utility", false):
 			var previous_max: int = card.max_health
 			card.max_health = maxi(1, previous_max + health_delta)

@@ -21,7 +21,12 @@ static func overclock_stacks(context: Dictionary, response: bool) -> int:
 
 static func buffs_for(context: Dictionary, definition: Dictionary) -> Dictionary:
 	var side: Dictionary = context["response" if definition.get("type", "response") == "response" else "disaster"]
-	return Rules.totals(side.buffs, side.run_buffs)
+	var result := Rules.totals(side.buffs, side.run_buffs)
+	for id in definition.get("excluded_buffs", {}):
+		var effects: Dictionary = Rules.BONUSES.get(id, {})
+		for effect in effects:
+			result[effect] = int(result.get(effect, 0)) - int(effects[effect]) * int(definition.excluded_buffs[id])
+	return result
 
 static func buff_value(context: Dictionary, response: bool, id: String) -> int:
 	return int(buffs_for(context, {"type": "response" if response else "disaster"}).get(id, 0))
