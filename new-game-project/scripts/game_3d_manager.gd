@@ -1626,8 +1626,12 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 	for strike in range(strikes):
 		if not atk.is_alive() or phase == Phase.GAME_OVER: break
 		if strike > 0:
-			var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
-			if lane >= 0: defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
+			# Keep a surviving redirected blocker; a killed or extracted target leaves the lane open.
+			if not is_instance_valid(defender) or not defender.is_alive():
+				var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
+				defender = null
+				if lane >= 0:
+					defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
 			atk.spawn_popup("FOLLOW-UP STRIKE", UI.RESPONSE)
 		resolve_single_strike(atk, defender, response_side)
 
