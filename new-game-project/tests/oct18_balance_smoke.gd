@@ -32,6 +32,22 @@ func future_adaptations() -> void:
 	game.add_global_buff(false, "glass")
 	check(deployed.effective_attack() == 2, "opposing adaptations do not alter exemptions")
 
+func double_strikes() -> void:
+	fixture()
+	var attacker := unit("response", 0, {"condition":{"status":"burn", "threshold":3, "strikes":2}})
+	var blocker := unit("disaster", 0, {"health":1})
+	blocker.add_status("burn", 3)
+	game.resolve_attack(attacker, blocker, true)
+	check(not blocker.is_alive() and game.enemy_hp == 38, "second strike hits hero after first kills blocker")
+	fixture()
+	attacker = unit("response", 0, {"strength":2, "modifier":"sluggish",
+		"condition":{"subject":"self", "status":"strength", "threshold":2, "strikes":2}})
+	blocker = unit("disaster", 1, {"health":20})
+	game.resolve_attack(attacker, blocker, true)
+	check(blocker.card_data.health == 12 and game.enemy_hp == 40,
+		"both strikes hit a surviving redirected target even with Sluggish")
+	check(not attacker.can_attack(2), "Sluggish still rests on the next round")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -39,6 +55,7 @@ func run() -> void:
 	director = game.run_director
 	effect_consistency()
 	future_adaptations()
+	double_strikes()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)
