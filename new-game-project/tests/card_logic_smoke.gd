@@ -51,70 +51,102 @@ func placement() -> void:
 			check(game.slot_at_screen_position(point) == slot, "visible lane center selects the same lane")
 	check(game.slot_at_screen_position(Vector2(-1000, -1000)) == null, "outside board rejects placement")
 
-func draw_choice() -> void:
-	fixture()
-	var definition := {"id":"pick", "name":"Pick", "type":"response", "element":"evac",
-		"cost":1, "attack":1, "health":1}
-	game.deck.assign([definition])
-	game._set_phase(game.Phase.PLAYER_DRAW)
-	game._on_draw_button_pressed()
-	check(director.modal.visible and director.screen == "choice", "draw opens the deck picker")
-	check(game.preparedness == 5, "opening picker is free")
-	director.close_modal()
-	check(game.deck.size() == 1 and game.preparedness == 5, "cancel preserves draw and energy")
-	game._on_draw_button_pressed()
-	game.complete_draw_choice(definition)
-	check(game.deck.is_empty() and game.get_hand_cards().size() == 1, "chosen card enters hand")
-	check(game.preparedness == 4, "picking costs exactly one energy")
-	game.complete_draw_choice(definition)
-	check(game.preparedness == 4, "duplicate picker callback cannot charge again")
-	grouped_draw_choice(definition)
+func draw_definition(id: String, cost: int) -> Dictionary:
+	return {"id":id, "name":id, "type":"response", "element":"evac", "cost":cost, "attack":1, "health":5}
 
-func grouped_draw_choice(definition: Dictionary) -> void:
+func turn_draw() -> void:
 	fixture()
-	var copies: Array[Dictionary] = []
-	for serial in range(3):
-		var copy := definition.duplicate(true)
-		copy.acquired = serial
-		copies.append(copy)
-	var upgraded := definition.duplicate(true)
-	upgraded.attack = 4
-	upgraded.acquired = 3
-	var costly := definition.duplicate(true)
-	costly.cost = 3
-	costly.acquired = 4
-	var sealed := definition.duplicate(true)
+	game.preparedness = 0
+	game.deck.assign([draw_definition("normal", 1)])
+	game._set_phase(game.Phase.PLAYER_DRAW, "Old draw instruction")
+	game._on_draw_button_pressed()
+	check(not director.modal.visible and game.phase == game.Phase.PLAYER_PLAY, "draw enters play without a picker")
+	check(game.preparedness == 0, "turn draw is free even with zero energy")
+	check(game.deck.is_empty() and game.get_hand_cards().size() == 1, "normal turn draw takes exactly one card")
+	game._on_draw_button_pressed()
+	check(game.get_hand_cards().size() == 1 and game.preparedness == 0, "repeated Draw cannot draw or charge again")
+
+func cheap_turn_draw() -> void:
+	var selected: Array = []
+	for seed_value in range(16):
+		fixture()
+		var held := unit("response", -1, {"cost":3})
+		var high := draw_definition("high", 4)
+		game.deck.assign([draw_definition("cheap_a", 1), draw_definition("cheap_b", 1), high])
+		seed(seed_value)
+		game._set_phase(game.Phase.PLAYER_DRAW)
+		game._on_draw_button_pressed()
+		var cards: Array = game.get_hand_cards()
+		check(cards.size() == 2 and held in cards, "guarantee swaps only the new draw and preserves hand size")
+		var drawn: Node = cards[1]
+		check(drawn.card_data.cost == 1, "guarantee supplies a cost-1 card")
+		if drawn.card_data.id not in selected: selected.append(drawn.card_data.id)
+		check(game.deck.size() == 2 and high in game.deck, "the original draw returns to the pile")
+		check(game.preparedness == 5 and game.player_graveyard.is_empty(), "swap spends nothing and is not destruction")
+		check(game.battle_log.any(func(line): return "Turn draw: guaranteed" in line), "swap is logged")
+	check(selected.size() == 2, "fixed seeds exercise both random cheap-card candidates")
+	for held_cost in [0, 1]:
+		fixture()
+		unit("response", -1, {"cost":held_cost})
+		var cheap := draw_definition("cheap", 1)
+		game.deck.assign([cheap, draw_definition("high", 4)])
+		game._set_phase(game.Phase.PLAYER_DRAW)
+		game._on_draw_button_pressed()
+		check(game.get_hand_cards()[1].card_data.id == "high" and game.deck == [cheap],
+			"a held card costing at most one skips the guarantee")
+		check(not game.battle_log.any(func(line): return "Turn draw: guaranteed" in line),
+			"a skipped guarantee is not logged")
+
+func unavailable_cheap_draw() -> void:
+	for locked in [false, true]:
+		fixture()
+		var remaining := draw_definition("remaining", 1 if locked else 2)
+		if locked: remaining.locked_until = game.turn + 1
+		game.deck.assign([remaining, draw_definition("high", 4)])
+		game._set_phase(game.Phase.PLAYER_DRAW)
+		game._on_draw_button_pressed()
+		check(game.get_hand_cards().size() == 1 and game.get_hand_cards()[0].card_data.id == "high",
+			"no eligible cost-1 card leaves the original draw in hand")
+		check(game.deck == [remaining], "the guarantee never takes a sealed card or a different cost")
+	fixture()
+	var sealed := draw_definition("sealed", 1)
 	sealed.locked_until = game.turn + 1
-	sealed.acquired = 5
-	game.deck.assign(copies + [upgraded, costly, sealed])
-	var before: Array = game.deck.duplicate(true)
+	game.deck.assign([sealed])
 	game._set_phase(game.Phase.PLAYER_DRAW)
 	game._on_draw_button_pressed()
-	var choices: Array = director.content.find_children("*", "Button", true, false).filter(func(button):
-		return button.text.begins_with("Choose"))
-	check(choices.size() == 3, "draw groups identical copies while keeping stat and cost variants separate")
-	var grouped: Array = choices.filter(func(button): return button.text == "Choose · x3")
-	check(grouped.size() == 1, "three copies with different acquisition numbers share one counted tile")
-	check(game.deck == before and game.preparedness == 5, "grouping preserves deck order, definitions and energy")
-	director.close_modal()
-	check(game.deck == before and game.preparedness == 5, "canceling a grouped picker changes nothing")
-	game._on_draw_button_pressed()
-	grouped = director.content.find_children("*", "Button", true, false).filter(func(button):
-		return button.text == "Choose · x3")
-	if grouped.size() == 1:
-		grouped[0].pressed.emit()
-		check(game.get_hand_cards().size() == 1 and game.preparedness == 4,
-			"a grouped tile still draws exactly one card for one energy")
-		var drawn: Dictionary = game.get_hand_cards()[0].card_data
-		check(drawn.acquired in [0, 1, 2], "the drawn card is an original member of the selected group")
-		var remaining := before.filter(func(card): return card.acquired != drawn.acquired)
-		check(game.deck == remaining, "only that represented copy is removed; other cards keep their order")
+	check(game.get_hand_cards().is_empty() and game.deck == [sealed], "an entirely sealed pile draws nothing")
+	check(game.phase == game.Phase.PLAYER_PLAY, "an unavailable draw still finishes the draw phase")
+
+func other_draw_effects() -> void:
 	fixture()
-	director.choose_card("OTHER CHOICE", copies, func(_card): pass, director.close_modal)
-	choices = director.content.find_children("*", "Button", true, false).filter(func(button):
-		return button.text == "Choose")
-	check(choices.size() == 3, "non-draw choice screens keep individual tiles and their callbacks")
-	director.close_modal()
+	var cheap := draw_definition("cheap", 1)
+	var high := draw_definition("high", 4)
+	game.deck.assign([cheap, high])
+	game.draw_cards(1)
+	check(game.get_hand_cards()[0].card_data.id == "high" and game.deck == [cheap],
+		"normal effect draws do not use the turn-button guarantee")
+	fixture()
+	var tutor := unit("response", -1, {"id":"tutor", "cost":2, "utility":true, "effect":"tutor"})
+	game.deck.assign([cheap, high])
+	check(game.try_utility(tutor, game._response_slots()[0]), "Search and Rescue still opens its tutor picker")
+	check(director.modal.visible and director.screen == "choice", "tutor selection is preserved")
+	game.complete_utility_choice(high)
+	check(game.get_hand_cards().size() == 1 and game.get_hand_cards()[0].card_data.id == "high",
+		"tutor keeps the selected expensive card without replacing it")
+	check(game.deck == [cheap] and game.preparedness == 3, "tutor still pays only its own card cost")
+
+func turn_energy_refill() -> void:
+	for player_first in [true, false]:
+		fixture()
+		game.player_first = player_first
+		game.preparedness = 0
+		game.energy_cap = 6
+		game.deck.assign([draw_definition("next", 1)])
+		game.enemy_hand.assign([{"id":"idle", "name":"Idle", "type":"disaster", "element":"fire",
+			"cost":0, "tension_cost":99, "attack":0, "health":20}])
+		await game.continue_round()
+		check(game.phase == game.Phase.PLAYER_DRAW and game.preparedness == game.energy_cap,
+			"energy is full at player-turn start in either turn order")
 
 func plan_display() -> void:
 	fixture()
@@ -169,7 +201,11 @@ func run() -> void:
 	current_scene = game
 	director = game.run_director
 	placement()
-	draw_choice()
+	turn_draw()
+	cheap_turn_draw()
+	unavailable_cheap_draw()
+	other_draw_effects()
+	await turn_energy_refill()
 	plan_display()
 	await board_inspection()
 	game.clear_battle()
