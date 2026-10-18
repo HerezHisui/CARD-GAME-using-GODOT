@@ -104,8 +104,8 @@ func _ready() -> void:
 	presentation = preload("res://scripts/game_presentation.gd").new()
 	add_child(presentation)
 	presentation.setup(self)
-	# Enable temporal smoothing only on the renderer that supports it.
-	get_viewport().use_taa = RenderingServer.get_current_rendering_method() == "forward_plus"
+	# Temporal accumulation softens card text during card and camera movement.
+	get_viewport().use_taa = false
 	get_viewport().msaa_3d = Viewport.MSAA_4X
 	get_viewport().scaling_3d_scale = 1.0
 	_build_visual_finish()
