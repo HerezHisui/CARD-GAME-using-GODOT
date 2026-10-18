@@ -12,12 +12,33 @@ func effect_consistency() -> void:
 	check("Starts with 2 Strength" in director.card_rules({"element":"brace", "strength":2}),
 		"starting Strength is described")
 
+func future_adaptations() -> void:
+	fixture()
+	var deployed := unit("response", 0)
+	var held := unit()
+	game.add_global_buff(true, "glass")
+	check(deployed.max_health == 8 and deployed.effective_attack() == 2,
+		"deployed units skip both Glass Cannon effects")
+	check(held.max_health == 7 and held.effective_attack() == 4, "hand units receive future deployment effects")
+	var future := unit("response", 1)
+	check(future.max_health == 7 and future.effective_attack() == 4, "new units receive both effects")
+	game.add_global_buff(true, "glass")
+	check(deployed.max_health == 8 and deployed.effective_attack() == 2, "repeated picks preserve original units")
+	check(future.max_health == 7 and future.effective_attack() == 4, "later deployed units skip later picks only")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(deployed.card_data))
+	check(game.buffs_for(saved).strength == 0, "exemptions survive JSON serialization")
+	game.add_global_buff(true, "health")
+	check(deployed.max_health == 9, "positive health adaptations still affect existing units")
+	game.add_global_buff(false, "glass")
+	check(deployed.effective_attack() == 2, "opposing adaptations do not alter exemptions")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
 	director = game.run_director
 	effect_consistency()
+	future_adaptations()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)
