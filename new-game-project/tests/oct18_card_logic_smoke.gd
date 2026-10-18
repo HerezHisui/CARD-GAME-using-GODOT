@@ -69,6 +69,22 @@ func draw_choice() -> void:
 	game.complete_draw_choice(definition)
 	check(game.preparedness == 4, "duplicate picker callback cannot charge again")
 
+func plan_display() -> void:
+	fixture()
+	var ally := unit("response", 0)
+	game.plans.tokens = 1
+	director.begin_tactic("coordinate")
+	ally._on_mouse_entered()
+	check(ally.plan_attack_bonus == 0 and ally.card_data.health == 8, "target hover has no gameplay effect")
+	game.board_input.click_card(ally)
+	check(ally.plan_attack_bonus == 0, "arming does not apply a combat bonus early")
+	game._set_phase(game.Phase.COMBAT)
+	game.plans.apply_combat()
+	check(ally._atk_label.text == "3", "plan attack displays synchronously")
+	check(ally.art_sprite.modulate == Color.WHITE, "positive plan does not flash damage red")
+	game.plans.finish_combat()
+	check(ally._atk_label.text == "2", "expired plan displays synchronously")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -76,6 +92,7 @@ func run() -> void:
 	director = game.run_director
 	placement()
 	draw_choice()
+	plan_display()
 	game.clear_battle()
 	print("OCT18 CARD LOGIC: %d failures" % failures)
 	quit(1 if failures else 0)

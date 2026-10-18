@@ -678,6 +678,10 @@ func effective_attack() -> int:
 func refresh_cost() -> void:
 	_refresh_face()
 
+func set_plan_attack_bonus(amount: int) -> void:
+	plan_attack_bonus = amount
+	_refresh_face()
+
 func can_attack(round_number: int) -> bool:
 	return BattleEngine.can_attack(_battle_context(), BattleQueries.card(null, self), round_number)
 
