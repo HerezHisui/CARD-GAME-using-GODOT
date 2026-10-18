@@ -122,7 +122,8 @@ func run() -> void:
 	director.select_contingency_reward(director.buff_choices[0].id)
 	await capture("floor_reward")
 	director.select_floor_buff(director.buff_choices[0].id)
-	check(director.floor_number == 2 and not game.player_run_buffs.is_empty() and not game.enemy_run_buffs.is_empty(), "floor awards persistent buff to both sides")
+	check(director.floor_number == 2 and not game.player_run_buffs.is_empty() and game.enemy_run_buffs.is_empty(),
+		"floor awards a persistent adaptation only to the player")
 	game.player_buffs.strength = 4
 	var persistent: Dictionary = game.player_run_buffs.duplicate()
 	director.battle_active = true
