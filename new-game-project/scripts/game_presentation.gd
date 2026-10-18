@@ -231,15 +231,21 @@ func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry:
 	panel.offset_right = -350
 	panel.offset_top = 85
 	panel.offset_bottom = 172
-	panel.add_theme_stylebox_override("panel", UI.panel(UI.CRIMSON if entry else UI.PANEL, color))
+	var style := UI.panel(UI.INSET, UI.GOLD)
+	style.set_border_width_all(0)
+	style.border_width_bottom = 1
+	style.set_corner_radius_all(0)
+	panel.add_theme_stylebox_override("panel", style)
 	add_child(panel)
-	UI.decorate(panel, entry)
 	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 4)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(box)
 	for words in [title, subtitle]:
 		if words.is_empty(): continue
 		var label = game.run_director.label(words, 26 if words == title else 16, color)
+		if words == title: label.text = words.to_upper()
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(label)

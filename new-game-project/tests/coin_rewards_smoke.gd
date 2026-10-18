@@ -14,6 +14,24 @@ func capture(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("res://tests/artifacts/oct15_" + name + ".png")
 
+func banner_style_checks() -> void:
+	for entry in [true, false]:
+		game.presentation.banner("DISASTER ENCOUNTER", "Prepare your formation", director.GOLD, entry)
+		var banner: PanelContainer = game.presentation.banner_node
+		var style: StyleBoxFlat = banner.get_theme_stylebox("panel")
+		check(style.bg_color == director.UI.INSET, "encounter and turn banners use a dark fill")
+		check(style.border_color == director.GOLD and style.border_width_bottom == 1,
+			"banner has a thin gold line")
+		check(style.border_width_top == 0 and not banner.has_node("IndustrialTrim"),
+			"banner omits the hazard bar and heavy frame")
+		check(banner.offset_left == 350 and banner.offset_right == -350,
+			"banner keeps its horizontal bounds")
+		check(banner.offset_top == 85 and banner.offset_bottom == 172, "banner keeps its vertical bounds")
+		var title: Label = banner.get_child(0).get_child(0)
+		check(title.text == "DISASTER ENCOUNTER" and title.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER,
+			"banner keeps its centered uppercase title")
+		game.presentation.clear_banner()
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -21,6 +39,7 @@ func run() -> void:
 	director = game.run_director
 	director.persistence.discard()
 	director.new_run()
+	banner_style_checks()
 	await create_timer(0.6).timeout
 	director.visit(0)
 	check(game.presentation.blocking and game.phase == game.Phase.SETUP, "battle entry animation blocks input")
