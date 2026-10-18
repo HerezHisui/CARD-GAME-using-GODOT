@@ -43,7 +43,9 @@ func run() -> void:
 	for i in 200:
 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
 		await create_timer(0.1).timeout
-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
+	if game.phase == game.Phase.PLAYER_DRAW:
+		game._on_draw_button_pressed()
+		game.complete_draw_choice(game.deck[0])
 	check(game.can_player_act(), "actual encounter remains playable")
 	await create_timer(0.7).timeout
 	for mode in [game.View.WIDE, game.View.DESK, game.View.BOARD, game.View.WIDE]:
