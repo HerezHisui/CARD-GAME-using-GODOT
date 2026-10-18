@@ -18,6 +18,11 @@ func setup(owner_game: Node) -> void:
 	game = owner_game
 	layer = 20
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	for button in game.get_node("HUD/Root").find_children("*", "Button", true, false):
+		button_feedback(button)
+	get_tree().node_added.connect(func(node: Node):
+		if node is Button and game.is_ancestor_of(node): button_feedback(node)
+	)
 	for side in ["H", "T"]:
 		var letter := "M87 78h20v40h42V78h20v100h-20v-40h-42v40H87z" if side == "H" else "M84 78h88v20h-34v80h-20V98H84z"
 		var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><defs><radialGradient id="g"><stop stop-color="#%s"/><stop offset=".75" stop-color="#%s"/><stop offset="1" stop-color="#%s"/></radialGradient></defs><circle cx="128" cy="128" r="121" fill="url(#g)" stroke="#%s" stroke-width="5"/><circle cx="128" cy="128" r="103" fill="none" stroke="#%s" stroke-width="3"/><circle cx="128" cy="128" r="94" fill="none" stroke="#%s" stroke-width="2"/><path d="%s" fill="#%s"/></svg>' % [UI.GOLD.to_html(false), UI.BRONZE.to_html(false), UI.BRONZE.darkened(0.55).to_html(false), UI.TEXT.to_html(false), UI.BRONZE.darkened(0.5).to_html(false), UI.GOLD.to_html(false), letter, UI.INSET.to_html(false)]
@@ -140,23 +145,34 @@ func clear_banner() -> void:
 	banner_node = null
 
 func button_feedback(button: Button) -> void:
+	if button.has_meta("hover_feedback"): return
+	button.set_meta("hover_feedback", true)
 	var tween: Array = [null]
+	var fill: Array = [null]
 	var reference: WeakRef = weakref(button)
 	var animate := func(scale_value: float, color: Color):
 		var live_button = reference.get_ref()
 		if not is_instance_valid(live_button) or live_button.is_queued_for_deletion(): return
 		if tween[0]: tween[0].kill()
+		if fill[0] == null:
+			fill[0] = live_button.get_theme_stylebox("normal").duplicate()
+			for state in ["normal", "hover", "pressed", "hover_pressed"]:
+				live_button.add_theme_stylebox_override(state, fill[0])
 		live_button.pivot_offset = live_button.size / 2
 		tween[0] = live_button.create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		tween[0].tween_property(live_button, "scale", Vector2.ONE * scale_value, 0.10)
-		tween[0].tween_property(live_button, "modulate", color, 0.10)
+		tween[0].tween_property(fill[0], "bg_color", color, 0.14)
 	button.mouse_entered.connect(func():
 		var live_button = reference.get_ref()
-		if is_instance_valid(live_button) and not live_button.disabled: animate.call(1.0, Color(1.12, 1.10, 1.03))
+		if is_instance_valid(live_button) and not live_button.disabled: animate.call(1.0, UI.ACTION)
 	)
-	button.mouse_exited.connect(func(): animate.call(1.0, Color.WHITE))
-	button.button_down.connect(func(): animate.call(1.0, Color(0.9, 0.86, 0.8)))
-	button.button_up.connect(func(): animate.call(1.0, Color.WHITE))
+	button.mouse_exited.connect(func(): animate.call(1.0, UI.BACKGROUND))
+	button.button_down.connect(func(): animate.call(1.0, UI.CRIMSON))
+	button.button_up.connect(func():
+		var live_button = reference.get_ref()
+		if is_instance_valid(live_button):
+			animate.call(1.0, UI.ACTION if live_button.is_hovered() else UI.BACKGROUND)
+	)
 
 func card_feedback(face: Control) -> void:
 	var tween: Array = [null]

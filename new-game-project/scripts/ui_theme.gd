@@ -140,7 +140,7 @@ static func get_theme() -> Theme:
 	theme.default_font_size = BODY_SIZE
 	for type in ["Button", "OptionButton", "MenuButton", "CheckBox", "CheckButton"]:
 		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-			var fill := RAISED if state in ["hover", "pressed", "hover_pressed"] else PANEL
+			var fill := BACKGROUND
 			var border := GOLD if state in ["hover", "pressed", "hover_pressed", "focus"] else BRONZE.darkened(0.35)
 			if state == "disabled": border = MUTED.darkened(0.55)
 			if state == "focus": fill = Color.TRANSPARENT
@@ -155,7 +155,7 @@ static func get_theme() -> Theme:
 	for variant in ["PrimaryButton", "TerminalButton"]:
 		theme.set_type_variation(variant, "Button")
 		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-			var fill := CRIMSON if state == "normal" else ACTION
+			var fill := BACKGROUND
 			if state == "disabled": fill = PANEL
 			if state == "focus": fill = Color.TRANSPARENT
 			var box := panel(fill, GOLD if state in ["hover", "focus"] else BRONZE, 20)
