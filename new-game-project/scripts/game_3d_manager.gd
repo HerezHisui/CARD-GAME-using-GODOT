@@ -533,7 +533,7 @@ func hand_parent() -> Node3D:
 func clamp_drag_position(point: Vector3) -> Vector3:
 	return Vector3(clampf(point.x, DRAG_BOUNDS.position.x, DRAG_BOUNDS.end.x), 1.6, clampf(point.z, DRAG_BOUNDS.position.y, DRAG_BOUNDS.end.y))
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if is_instance_valid(opponent_hand): opponent_hand.refresh()
 	update_hand_hover(get_viewport().get_mouse_position())
 	if phase == Phase.COMBAT:
@@ -620,7 +620,7 @@ func get_hand_cards() -> Array:
 	hand = hand.filter(func(c): return is_instance_valid(c))
 	return hand.filter(func(c): return c.in_hand)
 
-func hand_position_below_slots(card: Node, pos: Vector3, basis: Basis) -> Vector3:
+func hand_position_below_slots(card: Node, pos: Vector3, card_basis: Basis) -> Vector3:
 	if view_mode != View.DESK: return pos
 	var bottom := 0.0
 	for slot in _response_slots() + _threat_slots():
@@ -628,11 +628,11 @@ func hand_position_below_slots(card: Node, pos: Vector3, basis: Basis) -> Vector
 		for x in [bounds.position.x, bounds.end.x]:
 			for z in [bounds.position.z, bounds.end.z]:
 				bottom = maxf(bottom, camera.unproject_position(slot.to_global(Vector3(x, 0, z))).y)
-	var transform := hand_container.global_transform * Transform3D(basis.scaled(Vector3.ONE * HAND_SCALE), pos)
+	var card_transform := hand_container.global_transform * Transform3D(card_basis.scaled(Vector3.ONE * HAND_SCALE), pos)
 	var top := INF
 	for x in [-0.55, 0.55]:
 		for z in [-card.card_height / 2, card.card_height / 2]:
-			top = minf(top, camera.unproject_position(transform * Vector3(x, 0, z)).y)
+			top = minf(top, camera.unproject_position(card_transform * Vector3(x, 0, z)).y)
 	if top < bottom + 10:
 		var origin := hand_container.to_global(pos)
 		var lower := hand_container.to_global(pos + Vector3.DOWN)
@@ -641,13 +641,14 @@ func hand_position_below_slots(card: Node, pos: Vector3, basis: Basis) -> Vector
 	return pos
 
 func hand_card_polygon(card: Node, resting: bool) -> PackedVector2Array:
-	var transform: Transform3D = card.global_transform
+	var card_transform: Transform3D = card.global_transform
 	if resting:
-		var basis: Basis = card.get_meta("hand_basis")
-		transform = hand_container.global_transform * Transform3D(basis.scaled(Vector3.ONE * HAND_SCALE), card.get_meta("hand_pos"))
+		var card_basis: Basis = card.get_meta("hand_basis")
+		card_transform = hand_container.global_transform * Transform3D(
+			card_basis.scaled(Vector3.ONE * HAND_SCALE), card.get_meta("hand_pos"))
 	var polygon := PackedVector2Array()
 	for corner in [Vector3(-0.55, 0, -card.card_height / 2), Vector3(0.55, 0, -card.card_height / 2), Vector3(0.55, 0, card.card_height / 2), Vector3(-0.55, 0, card.card_height / 2)]:
-		polygon.append(camera.unproject_position(transform * corner))
+		polygon.append(camera.unproject_position(card_transform * corner))
 	return polygon
 
 func card_at_hand_position(mouse: Vector2) -> Node:

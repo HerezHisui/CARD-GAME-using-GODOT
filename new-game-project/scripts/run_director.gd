@@ -139,8 +139,8 @@ func show_title() -> void:
 		button("Continue run", continue_saved_run, menu).grab_focus()
 		button("Abandon run…", confirm_abandon, menu)
 	else: button("Singleplayer · Start game", show_characters, menu).grab_focus()
-	var multiplayer := button("Multiplayer · Coming soon", Callable(), menu)
-	multiplayer.disabled = true
+	var multiplayer_button := button("Multiplayer · Coming soon", Callable(), menu)
+	multiplayer_button.disabled = true
 	button("Quit", quit_game, menu)
 	for item in menu.get_children():
 		if item is Button:
@@ -227,10 +227,10 @@ func start_character(index: int) -> void:
 func style(color: Color = UI.PANEL, border: Color = UI.BRONZE) -> StyleBoxFlat:
 	return UI.panel(color, border)
 
-func label(text: String, font_size: int = 20, color: Color = UI.TEXT, wrap: bool = false) -> Label:
+func label(text: String, font_size: int = 20, color: Color = UI.TEXT, wrap_text: bool = false) -> Label:
 	var l := Label.new()
 	l.text = text.to_upper() if font_size >= 22 else text
-	if wrap or compact_layout: l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if wrap_text or compact_layout: l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_font_override("font", UI.font(font_size >= 22))
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
@@ -1174,8 +1174,8 @@ func cancel_inspect_hold() -> void:
 func dismiss_inspection() -> void:
 	cancel_inspect_hold()
 	suppress_inspect_release = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	var catalog := root.get_node_or_null("CatalogInspection")
-	if catalog: catalog.queue_free()
+	var catalog_panel := root.get_node_or_null("CatalogInspection")
+	if catalog_panel: catalog_panel.queue_free()
 	elif screen == "inspect": close_modal()
 
 func begin_inspect_hold(card: Node, from_hand: bool = false) -> void:
