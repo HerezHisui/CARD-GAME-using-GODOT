@@ -64,8 +64,8 @@ No rendered, viewport, or screenshot audit was run, following `github-publish/AG
 
 ## Playable-copy synchronization
 
-Applied only this session's UI patch to eleven files. Preserved the playable copy's pre-existing combat implementation and styling differences. Added the source's small `UI.outline` helper because the new numeric icon badges use it. Original playable files are backed up under mirror-before (see Git history).
+Applied only this session's UI patch to eleven files. Preserved the playable copy's pre-existing combat implementation and styling differences. Added the source's small `UI.outline` helper because the new numeric icon badges use it. The obsolete mirror-before backups were removed during repository cleanup; consult Git history for prior versions.
 
-Combined source patch (see Git history) contains this session's source changes. Playable-copy patch (see Git history) records the exact changes applied to the playable copy. No remote push was performed.
+The exported source and playable-copy patch files were removed during repository cleanup; the implementation commits are retained in Git history. No remote push was performed.
 
 Remaining input: local path or attachment for the new disaster encounter icon.
