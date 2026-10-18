@@ -16,6 +16,8 @@ Multiplayer is in the menu but not playable yet.
 - [Singleplayer design notes](docs/singleplayer.md): rules, card lists and balance changes
 - [Multiplayer plan](docs/multiplayer.md): ideas for a future mode
 
+- [Change reports](docs/changes/): October 18 card logic, UI and debug implementation reports
+
 ## Tests
 
 Each test is a script in `new-game-project/tests/` that ends in `_smoke.gd`. Run one from the `new-game-project` folder:
@@ -25,4 +27,3 @@ godot --headless --path . --script res://tests/run_smoke.gd
 ```
 
 The graphical ones (`classroom_integration`, `camera_controls`, `visual_quality`) need a normal renderer instead of `--headless`.
-- [Change reports](docs/changes/): October 18 card logic, UI and debug implementation reports
