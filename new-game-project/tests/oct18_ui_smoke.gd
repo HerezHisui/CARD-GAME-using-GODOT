@@ -75,6 +75,16 @@ func run() -> void:
 	director.close_modal()
 	game._set_phase(game.Phase.PLAYER_DRAW, "Old instruction")
 	check(game._phase_label.text == "Pick a card to draw", "draw instruction is concise")
+	var hover_button: Button = director.menu_button
+	hover_button.disabled = false
+	hover_button.mouse_entered.emit()
+	var fill := hover_button.get_theme_stylebox("normal") as StyleBoxFlat
+	check(fill.bg_color != director.UI.ACTION, "hover color does not swap instantly")
+	await create_timer(0.20).timeout
+	check(fill.bg_color.is_equal_approx(director.UI.ACTION), "hover reaches red")
+	hover_button.mouse_exited.emit()
+	await create_timer(0.20).timeout
+	check(fill.bg_color.is_equal_approx(director.UI.BACKGROUND), "exit returns to black")
 	director.persistence.discard()
 	print("OCT18 UI: %d failures" % failures)
 	quit(1 if failures else 0)
