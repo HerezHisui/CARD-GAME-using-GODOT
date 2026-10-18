@@ -68,6 +68,53 @@ func draw_choice() -> void:
 	check(game.preparedness == 4, "picking costs exactly one energy")
 	game.complete_draw_choice(definition)
 	check(game.preparedness == 4, "duplicate picker callback cannot charge again")
+	grouped_draw_choice(definition)
+
+func grouped_draw_choice(definition: Dictionary) -> void:
+	fixture()
+	var copies: Array[Dictionary] = []
+	for serial in range(3):
+		var copy := definition.duplicate(true)
+		copy.acquired = serial
+		copies.append(copy)
+	var upgraded := definition.duplicate(true)
+	upgraded.attack = 4
+	upgraded.acquired = 3
+	var costly := definition.duplicate(true)
+	costly.cost = 3
+	costly.acquired = 4
+	var sealed := definition.duplicate(true)
+	sealed.locked_until = game.turn + 1
+	sealed.acquired = 5
+	game.deck.assign(copies + [upgraded, costly, sealed])
+	var before: Array = game.deck.duplicate(true)
+	game._set_phase(game.Phase.PLAYER_DRAW)
+	game._on_draw_button_pressed()
+	var choices: Array = director.content.find_children("*", "Button", true, false).filter(func(button):
+		return button.text.begins_with("Choose"))
+	check(choices.size() == 3, "draw groups identical copies while keeping stat and cost variants separate")
+	var grouped: Array = choices.filter(func(button): return button.text == "Choose · x3")
+	check(grouped.size() == 1, "three copies with different acquisition numbers share one counted tile")
+	check(game.deck == before and game.preparedness == 5, "grouping preserves deck order, definitions and energy")
+	director.close_modal()
+	check(game.deck == before and game.preparedness == 5, "canceling a grouped picker changes nothing")
+	game._on_draw_button_pressed()
+	grouped = director.content.find_children("*", "Button", true, false).filter(func(button):
+		return button.text == "Choose · x3")
+	if grouped.size() == 1:
+		grouped[0].pressed.emit()
+		check(game.get_hand_cards().size() == 1 and game.preparedness == 4,
+			"a grouped tile still draws exactly one card for one energy")
+		var drawn: Dictionary = game.get_hand_cards()[0].card_data
+		check(drawn.acquired in [0, 1, 2], "the drawn card is an original member of the selected group")
+		var remaining := before.filter(func(card): return card.acquired != drawn.acquired)
+		check(game.deck == remaining, "only that represented copy is removed; other cards keep their order")
+	fixture()
+	director.choose_card("OTHER CHOICE", copies, func(_card): pass, director.close_modal)
+	choices = director.content.find_children("*", "Button", true, false).filter(func(button):
+		return button.text == "Choose")
+	check(choices.size() == 3, "non-draw choice screens keep individual tiles and their callbacks")
+	director.close_modal()
 
 func plan_display() -> void:
 	fixture()

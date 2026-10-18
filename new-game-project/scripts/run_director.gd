@@ -1923,9 +1923,27 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 		var second: Dictionary = b.card_data if b is Node else b
 		return str(first.name) < str(second.name)
 	)
+	var entries: Array = []
+	var counts: Array[int] = []
+	var group_keys: Array = []
 	for entry in sorted:
+		var key: Variant = null
+		if callback == game.complete_draw_choice and entry is Dictionary:
+			key = entry.duplicate(true)
+			# Acquisition order identifies copies, not differences in the displayed card.
+			key.erase("acquired")
+			var group_index := group_keys.find(key)
+			if group_index >= 0:
+				counts[group_index] += 1
+				continue
+		group_keys.append(key)
+		entries.append(entry)
+		counts.append(1)
+	for index in entries.size():
+		var entry: Variant = entries[index]
 		var definition: Dictionary = live_definition(entry) if entry is Node else entry
-		_card_tile(definition, grid, callback.bind(entry), "Choose")
+		var action_text := "Choose · x%d" % counts[index] if counts[index] > 1 else "Choose"
+		_card_tile(definition, grid, callback.bind(entry), action_text)
 	button("Cancel  [Esc]", cancel, content)
 
 func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> void:
