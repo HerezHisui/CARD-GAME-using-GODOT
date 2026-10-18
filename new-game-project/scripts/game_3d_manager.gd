@@ -1518,26 +1518,6 @@ func relocate_enemy_ally(source: Node) -> void:
 				best_slot = destination
 	if best_ally: best_ally.place_on_slot(best_slot)
 
-func choose_ai_buff(options: Array) -> Dictionary:
-	if encounter_kind == "battle": return options.pick_random()
-	var best: Dictionary = options[0]
-	var best_score := -INF
-	var deck_view: Array = enemy_deck + enemy_hand + enemy_evolution_deck
-	for slot in _threat_slots():
-		var card = _get_card_in_slot(slot)
-		if card: deck_view.append(card.card_data)
-	for option in options:
-		var bonus: Dictionary = preload("res://scripts/battle_rules.gd").totals({option.id:1}, {})
-		var score := float(bonus.get("strength", 0)) * 3 + float(bonus.get("health", 0)) * 2 + float(bonus.get("energy", 0)) * 2 + float(bonus.get("draw", 0)) * 2
-		for definition in deck_view:
-			for status in ["burn", "poison", "bleed"]:
-				if definition.get("on_hit", {}).has(status): score += float(bonus.get(status, 0)) * 1.5
-		score += float(bonus.get("piercing", 0)) * 5 + float(bonus.get("regen", 0)) - float(bonus.get("self_bleed", 0)) * 3 - float(bonus.get("sluggish", 0)) * 3 - float(bonus.get("damage_taken", 0)) * 5
-		if score > best_score:
-			best_score = score
-			best = option
-	return best
-
 # ------------------------------------------------------------------- combat
 const TYPE_CHART = BattleEngine.TYPE_CHART
 

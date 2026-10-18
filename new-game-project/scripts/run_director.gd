@@ -1998,10 +1998,8 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 		for i in range(3):
 			var index := rng.randi_range(0, pool.size() - 1)
 			buff_choices.append(pool.pop_at(index))
-	var enemy_choice: Dictionary = game.choose_ai_buff(buff_choices)
-	if not restore_offers and not is_instance_valid(game.final_boss): game.add_global_buff(false, enemy_choice.id)
-	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn, "These buffs expire after this battle. The Janitor adaptation is already applied: %s." % enemy_choice.name, "buff")
-	if is_instance_valid(game.final_boss): content.get_child(1).text = "Battle-only adaptations. The final boss keeps its fixed attack pattern."
+	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn,
+		"Choose one adaptation for your side. These buffs expire after this battle.", "buff")
 	var row := HBoxContainer.new()
 	content.add_child(row)
 	for buff in buff_choices:
@@ -2021,7 +2019,8 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 	var pool: Array = Rules.RUN_BUFFS.duplicate(true)
 	if not restore_offers:
 		for i in range(3): buff_choices.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
-	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number, "Choose one buff for the entire run, then climb to the next floor. The Janitor also adapts permanently.", "floor_buff")
+	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number,
+		"Choose one buff for your side for the entire run, then climb to the next floor.", "floor_buff")
 	var row := HBoxContainer.new()
 	content.add_child(row)
 	for buff in buff_choices: choice_tile(buff.name, buff.description, select_floor_buff.bind(buff.id), row)
@@ -2031,9 +2030,7 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 
 func select_floor_buff(id: String) -> void:
 	if screen != "floor_buff" or not buff_choices.any(func(buff): return buff.id == id): return
-	var enemy_choice: Dictionary = game.choose_ai_buff(buff_choices)
 	game.add_global_buff(true, id, true)
-	game.add_global_buff(false, enemy_choice.id, true)
 	next_floor()
 
 func buff_summary(buffs: Dictionary) -> String:
