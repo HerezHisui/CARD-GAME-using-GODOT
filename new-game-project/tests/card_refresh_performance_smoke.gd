@@ -1,3 +1,4 @@
+# Covers: Bounded card face refreshes, immediate status updates, and stable opponent hand displays.
 extends SceneTree
 ## Verifies bounded face polling without delaying direct combat/status updates.
 class CountingCard extends "res://scripts/card_3d.gd":

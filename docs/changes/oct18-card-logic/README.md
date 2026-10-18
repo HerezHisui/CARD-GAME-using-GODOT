@@ -132,7 +132,7 @@ Diffs: 10.patch (see Git history), 14.patch (see Git history).
 
 Give basic units stats first and introduce drawing, Burn, Poison, or Armor at the second upgrade.
 
-Files: `new-game-project/scripts/run_director.gd`, `new-game-project/tests/balance_rules_smoke.gd`, `new-game-project/tests/variety_smoke.gd`.
+Files: `new-game-project/scripts/run_director.gd`, `new-game-project/tests/balance_rules_smoke.gd`, `new-game-project/tests/character_decks_map_and_combat_smoke.gd`.
 
 Choice: Existing abilities may improve at the first tier; do not add another copy of that improvement at the second tier.
 

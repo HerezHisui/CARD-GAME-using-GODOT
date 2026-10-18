@@ -85,7 +85,7 @@
     "previous_mirror_sha256": "1e0d5aa7f99f15e9fbb68ae6c93660ec967dd9f95736bc93550ce49d1e2dc644"
   },
   {
-    "path": "new-game-project/tests/improvements_smoke.gd",
+    "path": "new-game-project/tests/collection_shop_upgrades_and_ai_smoke.gd",
     "source_sha256": "b9c5dc535d37bdc0124277b839ed2e597ac39d1111783645bf4d6b7cb61e2001",
     "previous_mirror_sha256": "ed8be131222175cfe21da872fe8d49b91174d5dc8c1a6897bf286ffebb94f4c7"
   },
@@ -115,7 +115,7 @@
     "previous_mirror_sha256": "49882536a316b2acf41f00df10e71df6bf7226000ad69d93e5ffb24fda6496b2"
   },
   {
-    "path": "new-game-project/tests/plans_notes_smoke.gd",
+    "path": "new-game-project/tests/contingency_plans_smoke.gd",
     "source_sha256": "ec5f83e279eecf80937d42211c9c4048114c5ab61ae6734bf4a90c332f1a1457",
     "previous_mirror_sha256": "560ccd44f4d029fbb59b2235b8e745b0de14409e2c7c485e527e50ebb09d3549"
   },
@@ -135,7 +135,7 @@
     "previous_mirror_sha256": "b7b159924da502b48d869a750be91042c1ffc202b21dd7154aaaff0e067f6c96"
   },
   {
-    "path": "new-game-project/tests/variety_smoke.gd",
+    "path": "new-game-project/tests/character_decks_map_and_combat_smoke.gd",
     "source_sha256": "78c2b24f6774afe2962478c53268de81d56655f4d7ad60bbfc595a3c850918a4",
     "previous_mirror_sha256": "8023be3d6d1bc99ecb2b294a97c1b86cc147580f2ac5e8792fe62ac3c07282d3"
   },

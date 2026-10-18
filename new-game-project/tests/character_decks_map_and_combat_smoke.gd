@@ -1,3 +1,4 @@
+# Covers: Character decks, map routes, upgrades, combat effects, shops, and enemy decisions.
 extends SceneTree
 var game: Node
 var director: Node

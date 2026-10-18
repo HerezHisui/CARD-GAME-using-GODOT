@@ -552,15 +552,15 @@ The asset audit checks 63 runtime files, verifies the geometry checksum and all 
 
 - tests/hover_graveyard_smoke.gd
 
-- tests/notes4_smoke.gd
+- tests/map_sorting_caps_and_saves_smoke.gd
 
-- tests/notes5_smoke.gd
+- tests/menu_navigation_and_camera_smoke.gd
 
 - tests/final_boss_smoke.gd
 
 - tests/coin_rewards_smoke.gd
 
-- tests/optimization_smoke.gd
+- tests/card_refresh_performance_smoke.gd
 
 - tests/visual_quality_smoke.gd
 

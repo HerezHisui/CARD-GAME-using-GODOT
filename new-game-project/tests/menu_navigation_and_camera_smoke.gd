@@ -1,3 +1,4 @@
+# Covers: Menu navigation, shop and rest controls, camera views, and view persistence.
 extends SceneTree
 var game: Node
 var director: Node

@@ -78,7 +78,7 @@ Empty draw piles do not immediately end a match while cards remain in hand or on
 
 ## Verification
 
-Run Godot with `--headless --path . --script` and each of `res://tests/run_smoke.gd`, `res://tests/mechanics_smoke.gd`, `res://tests/expansion_smoke.gd`, `res://tests/improvements_smoke.gd`, `res://tests/variety_smoke.gd`, `res://tests/hover_graveyard_smoke.gd`, `res://tests/final_boss_smoke.gd`, `res://tests/plans_notes_smoke.gd`, and `res://tests/notes3_smoke.gd` for integration checks. Graphical runs also capture previews in `tests/artifacts`. Checks cover connectivity, combat, statuses, cancellation, restart, sorting without reordering, duplicate-specific upgrades, before/after previews, shop stock and multiple purchases, summon movement, buff expiry and persistence, stronger sacrifices, tactical decisions, and the actual menu Quit button. Balance still needs playtesting with final artwork and content.
+Run Godot with `--headless --path . --script` and each of `res://tests/run_smoke.gd`, `res://tests/mechanics_smoke.gd`, `res://tests/expansion_smoke.gd`, `res://tests/collection_shop_upgrades_and_ai_smoke.gd`, `res://tests/character_decks_map_and_combat_smoke.gd`, `res://tests/hover_graveyard_smoke.gd`, `res://tests/final_boss_smoke.gd`, `res://tests/contingency_plans_smoke.gd`, and `res://tests/board_targeting_plans_and_events_smoke.gd` for integration checks. Graphical runs also capture previews in `tests/artifacts`. Checks cover connectivity, combat, statuses, cancellation, restart, sorting without reordering, duplicate-specific upgrades, before/after previews, shop stock and multiple purchases, summon movement, buff expiry and persistence, stronger sacrifices, tactical decisions, and the actual menu Quit button. Balance still needs playtesting with final artwork and content.
 
 
 ## Starter characters
@@ -151,7 +151,7 @@ One contingency may be armed each round. Tokens, armed plans and temporary boost
 
 **Starting screen:** the battle menu offers Return to starting screen with a confirmation because it ends the current run. Defeat and victory screens also offer this action. It reloads the title, where an unfinished run can be continued or abandoned. Defeat and completed victory clear the save; endless exploration can begin a new floor. There is no direct restart shortcut.
 
-`res://tests/plans_notes_smoke.gd` checks token limits, real End Turn banking, actual tactic selection, temporary expiry, Overclock, inspection, log bounds, repeated seal refresh, rescue healing, exact-copy shop/rest removal and the actual return-to-title button.
+`res://tests/contingency_plans_smoke.gd` checks token limits, real End Turn banking, actual tactic selection, temporary expiry, Overclock, inspection, log bounds, repeated seal refresh, rescue healing, exact-copy shop/rest removal and the actual return-to-title button.
 
 ## Hovering and graveyards
 
@@ -170,7 +170,7 @@ The Janitor holds an actual shared hand of base cards, spells and drawn evolutio
 
 Six event variants populate the map: the locked room, radio station, rooftop training, science lab, infirmary, and lost and found. Radio trades 20 supplies for scouting and tutoring spells. Rooftop preparation gives a permanent starting Plan at the cost of 1 energy capacity. Science experiments trade 3 HP for stronger status cards. Full infirmary treatment heals 8 but adds a Paperwork deadweight spell; modest treatment heals 3 without that downside. Lost and found trades an exact removed card for 25 supplies while retaining at least five cards. Event previews stay fixed when reopened.
 
-`res://tests/notes3_smoke.gd` checks physical relocation and cancellation, direct board targeting, tactic unlocks and expiry, masked enemy hands, hand-only sealing, encounter exhaustion, event trades, fixed previews and starting-screen flow.
+`res://tests/board_targeting_plans_and_events_smoke.gd` checks physical relocation and cancellation, direct board targeting, tactic unlocks and expiry, masked enemy hands, hand-only sealing, encounter exhaustion, event trades, fixed previews and starting-screen flow.
 
 
 ## Notes /4 and economy playtest
@@ -185,7 +185,7 @@ Disaster evolutions pay sacrifices without an additional tension payment. Cinder
 
 This is a balance playtest, not a guarantee of equal win rates. Track how often each side runs out of playable cards, whether keeping a formation beats evolving, and whether a major evolution leaves a reasonable response turn. No existing card or core deck mechanic was removed.
 
-`res://tests/notes4_smoke.gd` checks upward routes, newest-copy sorting, mixed and gapped coordination, live card values, protection and tax limits, sacrifice rewards, major evolution entry effects, atomic save replacement, scene-reload continuation, fixed card/tactic/floor/adaptation offers, boss persistence and confirmed abandonment.
+`res://tests/map_sorting_caps_and_saves_smoke.gd` checks upward routes, newest-copy sorting, mixed and gapped coordination, live card values, protection and tax limits, sacrifice rewards, major evolution entry effects, atomic save replacement, scene-reload continuation, fixed card/tactic/floor/adaptation offers, boss persistence and confirmed abandonment.
 
 ## Notes /5: map, clarity and three camera views
 
@@ -195,7 +195,7 @@ How to Play now has four scrollable categories: Start a run, Battle and Plans, C
 
 The three camera states are Room (S), normal Table, and Overhead (W). W and S move one step at a time, ignoring key repeats and clamping at either end. An interrupted transition continues smoothly from its current transform. Combat uses Overhead and restores your chosen view afterward; Continue retains all three view states and accepts older two-view checkpoints. The classroom integration checks camera paths inside the finished room and screens for visible void at 16:10, 16:9 and ultrawide sizes.
 
-`res://tests/notes5_smoke.gd` checks map coverage and navigation, battle-only graveyard access, actual healing and removal prices, full-health rest exit, help categories, camera blending/interruption/limits, saved views and deployed scale. A graphical run also captures each help page, the map, shop, three views and a live encounter for visual review. The classroom lighting correction enables desktop anti-aliasing; texture downsizing remains later work.
+`res://tests/menu_navigation_and_camera_smoke.gd` checks map coverage and navigation, battle-only graveyard access, actual healing and removal prices, full-health rest exit, help categories, camera blending/interruption/limits, saved views and deployed scale. A graphical run also captures each help page, the map, shop, three views and a live encounter for visual review. The classroom lighting correction enables desktop anti-aliasing; texture downsizing remains later work.
 
 
 ## October 15 notes /1 and /2: presentation and game feel

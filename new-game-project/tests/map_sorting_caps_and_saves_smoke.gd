@@ -1,3 +1,4 @@
+# Covers: Map layout, sorting, coordination, caps, sacrifice rewards, and saved runs.
 extends SceneTree
 var game: Node
 var director: Node

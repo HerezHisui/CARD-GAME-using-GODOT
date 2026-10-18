@@ -1,3 +1,4 @@
+# Covers: Board relocation and targeting, Plans, enemy hands, events, and title flow.
 extends SceneTree
 var game: Node
 var director: Node

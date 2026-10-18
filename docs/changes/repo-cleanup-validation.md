@@ -38,7 +38,7 @@ Command, from the source repository:
 ## Existing baseline failure
 
 Before renaming tests, all 29 `tests/*_smoke.gd` suites were run headlessly:
-28 passed; unchanged `notes3_smoke.gd` exited with code 1 for these assertions:
+28 passed; unchanged `board_targeting_plans_and_events_smoke.gd` exited with code 1 for these assertions:
 
 - Line 99: physical drag-release moves and heals other ally, source stays.
 - Line 107: right-click cancellation restores board card.
