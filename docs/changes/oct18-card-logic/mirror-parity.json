@@ -90,27 +90,27 @@
     "previous_mirror_sha256": "ed8be131222175cfe21da872fe8d49b91174d5dc8c1a6897bf286ffebb94f4c7"
   },
   {
-    "path": "new-game-project/tests/oct15_smoke.gd",
+    "path": "new-game-project/tests/coin_rewards_smoke.gd",
     "source_sha256": "371696c9fd3d2381859aafec0e71af3435a617b6b7caab7147a865600048481c",
     "previous_mirror_sha256": "a120995baf257cc8895a012d11af9d046448669cb807a868056474cb138a438e"
   },
   {
-    "path": "new-game-project/tests/oct16_section3_smoke.gd",
+    "path": "new-game-project/tests/blood_pact_inspection_debug_smoke.gd",
     "source_sha256": "6f4dc07b95e6c218ad0cb479b29a9121fafacd37542fbf33ff71ec62d93e9ffc",
     "previous_mirror_sha256": "56b315893826e2668eae99fc2d8b6d93313da8031246b40a3fdbb76ce184f6e2"
   },
   {
-    "path": "new-game-project/tests/oct18_balance_smoke.gd",
+    "path": "new-game-project/tests/balance_rules_smoke.gd",
     "source_sha256": "16ad9b0622e3c5aa7d2b64a6d48da02e6125ce1fcc815ec82850094c47dacc07",
     "previous_mirror_sha256": null
   },
   {
-    "path": "new-game-project/tests/oct18_card_logic_smoke.gd",
+    "path": "new-game-project/tests/card_logic_smoke.gd",
     "source_sha256": "fb7444ef24dc7d7b26d64585caaeab56edab86a38f253bba0b7ceb189efac075",
     "previous_mirror_sha256": null
   },
   {
-    "path": "new-game-project/tests/oct18_ui_smoke.gd",
+    "path": "new-game-project/tests/hud_navigation_smoke.gd",
     "source_sha256": "6a455cbacd821ba66eabdb764010dfc326082a15fa6a8d3f5523dede265af4ff",
     "previous_mirror_sha256": "49882536a316b2acf41f00df10e71df6bf7226000ad69d93e5ffb24fda6496b2"
   },

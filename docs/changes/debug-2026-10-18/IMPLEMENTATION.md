@@ -18,7 +18,7 @@ The following paths were changed in both `github-publish/new-game-project/` and 
 
 - `scripts/run_director.gd`: simplify debug text and add focused helpers for selecting, loading, and editing live card stats.
 - `tests/debug_card_smoke.gd`: cover immediate edits, badges, selection changes, bounds, utilities, stale targets, empty battles, and save restoration.
-- `tests/oct16_section3_smoke.gd`: update the expected field count to include the three new card inputs.
+- `tests/blood_pact_inspection_debug_smoke.gd`: update the expected field count to include the three new card inputs.
 
 Delivery report retained here; implementation changes are available in Git history.
 
@@ -30,7 +30,7 @@ Godot 4.7.2, using `--headless --path <project> --script res://tests/<suite>.gd`
 | --- | --- | --- |
 | `debug_card_smoke.gd` | Passed, zero failures | Passed, zero failures |
 | `ui_interaction_smoke.gd` | Passed, zero failures | Passed, zero failures |
-| `oct16_section3_smoke.gd` | Passed | Not rerun |
+| `blood_pact_inspection_debug_smoke.gd` | Passed | Not rerun |
 | `explorer_mode_smoke.gd` | Passed | Not rerun |
 
 The existing interaction and October 16 suites also passed before editing. The new suite initially failed because its empty-battle fixture remained in SETUP after clearing combat. Resetting that fixture to PLAYER_PLAY fixed the test; the final run passed. Test saves use the project's disposable regression paths.

@@ -65,7 +65,7 @@ Commit-message-style summary: `Document victory triage and floor recovery`
 Before editing, these headless suites passed in the source project:
 `expansion_smoke.gd`, `improvements_smoke.gd`, `notes4_smoke.gd`, and `run_smoke.gd`.
 
-After editing, those four suites and `oct18_balance_smoke.gd` passed in the source
+After editing, those four suites and `balance_rules_smoke.gd` passed in the source
 and playable mirror using Godot 4.7.2. The adaptation tests now check player-only
 round and floor grants and unchanged offers after opening the deck. The balance
 suite checks adaptation tradeoffs, including deployed-unit exemptions.

@@ -542,7 +542,7 @@ Coordinated Response selects the nearest allies on either side, including differ
 
 ## Verification and source record
 
-The October 16 optimization checks passed ten suites: run, mechanics, hover_graveyard, notes4, notes5, final_boss, oct15, optimization, visual_quality and classroom_integration. They cover combat rules, saves, targeting, hover, graveyards, camera paths, coin calls, rewards, card inspection, classroom materials and bounded display updates. Graphical checks used Forward+. The exported game-data pack also passed the mechanics suite. Earlier expansion, improvements, variety, plans_notes and notes3 suites passed during their respective updates; they were not all rerun for the cleanup.
+The October 16 optimization checks passed ten suites: run, mechanics, hover_graveyard, notes4, notes5, final_boss, coin_rewards, optimization, visual_quality and classroom_integration. They cover combat rules, saves, targeting, hover, graveyards, camera paths, coin calls, rewards, card inspection, classroom materials and bounded display updates. Graphical checks used Forward+. The exported game-data pack also passed the mechanics suite. Earlier expansion, improvements, variety, plans_notes and notes3 suites passed during their respective updates; they were not all rerun for the cleanup.
 
 The asset audit checks 63 runtime files, verifies the geometry checksum and all 33 original texture hashes and dimensions, and fails on missing or unreferenced runtime resources. After the whole-folder cleanup, both project copies passed the audit and the optimization suite passed again. These results do not establish balance, multiplayer reliability or final artwork quality.
 
@@ -558,7 +558,7 @@ The asset audit checks 63 runtime files, verifies the geometry checksum and all 
 
 - tests/final_boss_smoke.gd
 
-- tests/oct15_smoke.gd
+- tests/coin_rewards_smoke.gd
 
 - tests/optimization_smoke.gd
 
