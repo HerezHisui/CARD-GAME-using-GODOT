@@ -585,8 +585,8 @@ func reset_panel(title: String, subtitle: String, kind: String) -> void:
 		child.queue_free()
 	screen = kind
 	modal.show()
-	content.add_child(label(title, 24 if compact_layout else 30, GOLD, compact_layout))
-	content.add_child(label(subtitle, 16, UI.MUTED, true))
+	if not title.is_empty(): content.add_child(label(title, 24 if compact_layout else 30, GOLD, compact_layout))
+	if not subtitle.is_empty(): content.add_child(label(subtitle, 16, UI.MUTED, true))
 	game.presentation.reveal(content)
 	if compact_layout: _fit_compact_content.call_deferred()
 
@@ -1060,7 +1060,7 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	row.add_theme_constant_override("separation", 32)
 	center.add_child(row)
 	inspected_face = card_image(texture, row, 310)
-	add_dossier(row, card, "Click the card or outside this panel, or press Esc, to close.")
+	add_dossier(row, card, "")
 
 func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node = null) -> RichTextLabel:
 	var panel := PanelContainer.new()
@@ -1198,7 +1198,7 @@ func begin_inspect_hold(card: Node, from_hand: bool = false) -> void:
 
 func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	if not battle_active or modal.visible or _dragging() or not is_instance_valid(card) or (card.in_hand and not allow_hand): return
-	reset_panel("CARD INSPECTION", "Click the card or outside this panel, or press Esc, to close.", "inspect")
+	reset_panel("", "", "inspect")
 	var box := centered_content()
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1206,7 +1206,7 @@ func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	box.add_child(row)
 	card._refresh_face()
 	inspected_face = card_image(card._vp.get_texture(), row, 330)
-	add_dossier(row, live_definition(card), "Click the card or outside this panel, or press Esc, to close.", card)
+	add_dossier(row, live_definition(card), "", card)
 
 func show_battle_log() -> void:
 	if _dragging() or screen in ["title", "title_help", "characters", "character_preview"]: return
