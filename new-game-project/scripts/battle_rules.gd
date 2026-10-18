@@ -74,12 +74,12 @@ const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "ba
 
 static func modifier_text(card: Dictionary, modifier: String) -> String:
 	var descriptions := {
-		"armored":"Armored: reduce ordinary damage by %d (minimum 1)." % int(card.get("armor_value", 1)),
+		"armored":"Armored: reduce ordinary damage by %d (minimum 1). Stops Piercing hero damage; Piercing ignores this armor reduction." % int(card.get("armor_value", 1)),
 		"fragile":"Fragile: take 1 extra ordinary damage.",
 		"regenerating":"Regenerating: heal 1 at upkeep.",
 		"rampaging":"Rampaging: +1 unit damage when attacking second.",
 		"fierce":"Fierce: +2 direct hero damage.",
-		"piercing":"Piercing: also hits opposing health when blocked.",
+		"piercing":"Piercing: ignore a blocker's armor reduction and also hit opposing health, unless the blocker is Armored. Barriers still apply.",
 		"sluggish":"Sluggish: attacks immediately, then rests every other round."
 	}
 	return str(descriptions.get(modifier, modifier.capitalize()))

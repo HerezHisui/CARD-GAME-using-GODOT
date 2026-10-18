@@ -87,6 +87,36 @@ func upgrade_pacing() -> void:
 	var shelter: Dictionary = director.upgraded_definition(director.catalog_card("shelter_brace"))
 	check(int(shelter.armor_value) == 2, "existing Armor may improve at first upgrade")
 
+func piercing_armor() -> void:
+	fixture()
+	var attacker := unit("response", 0, {"attack":3, "modifier":" Piercing, Sluggish "})
+	var blocker := unit("disaster", 0, {"modifier":"armored", "armor_value":2})
+	check(attacker.has_modifier("piercing") and attacker.has_modifier("sluggish"),
+		"legacy combined modifier strings retain Piercing")
+	game.resolve_attack(attacker, blocker, true)
+	check(blocker.card_data.health == 5 and game.enemy_hp == 40,
+		"Armored stops hero damage but takes full Piercing unit damage")
+	check(game.definition_has_modifier(director.live_definition(attacker), "piercing"),
+		"live preview preserves individual modifier data")
+	fixture()
+	attacker = unit("response", 0, {"attack":3, "modifiers":["piercing"]})
+	blocker = unit("disaster", 0)
+	game.resolve_attack(attacker, blocker, true)
+	check(blocker.card_data.health == 5 and game.enemy_hp == 37, "unarmored blocker permits Piercing hero hit")
+	fixture()
+	attacker = unit("response", 0, {"attack":3, "modifier":"piercing"})
+	blocker = unit("disaster", 0, {"health":1, "modifier":"armored"})
+	game.resolve_attack(attacker, blocker, true)
+	check(game.enemy_hp == 40, "an Armored blocker protects hero even when killed by that strike")
+	fixture()
+	attacker = unit("response", 0, {"attack":3})
+	game.player_buffs = {"piercing":1}
+	blocker = unit("disaster", 0, {"modifier":"armored"})
+	blocker.add_status("barrier", 2)
+	game.resolve_attack(attacker, blocker, true)
+	check(blocker.card_data.health == 7 and game.enemy_hp == 40,
+		"inherited Piercing ignores armor but retains Barrier protection")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -98,6 +128,7 @@ func run() -> void:
 	status_synergy()
 	elite_themes()
 	upgrade_pacing()
+	piercing_armor()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)

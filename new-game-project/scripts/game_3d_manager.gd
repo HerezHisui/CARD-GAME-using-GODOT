@@ -755,7 +755,7 @@ func record_graveyard(card: Node, reason: String) -> void:
 	entry.graveyard_reason = reason
 	entry.graveyard_round = turn
 	entry.statuses = card.statuses.duplicate(true)
-	entry.modifier = ", ".join(card.modifiers)
+	entry.modifiers = card.modifiers.duplicate()
 	graveyard_serial += 1
 	entry.graveyard_id = graveyard_serial
 	entry.recovery = card.base_definition.duplicate(true)
@@ -1415,7 +1415,7 @@ func score_threat(definition: Dictionary, slot: Node3D, layout: Dictionary = {})
 	var hero_damage := attack + (2 if definition_has_modifier(definition, "fierce") else 0)
 	if opponent and opponent.is_alive():
 		var mult: float = TYPE_CHART.get(element, {}).get(opponent.card_data.element, 1.0)
-		var dealt: int = opponent.adjusted_damage(maxi(1, int(attack * mult)))
+		var dealt: int = opponent.adjusted_damage(maxi(1, int(attack * mult)), pierce)
 		var incoming := maxi(1, int(opponent.effective_attack() * float(TYPE_CHART.get(opponent.card_data.element, {}).get(element, 1.0))))
 		if definition_has_modifier(definition, "armored"): incoming = maxi(1, incoming - int(definition.get("armor_value", 1)))
 		can_strike = not player_first or incoming < health
@@ -1428,7 +1428,7 @@ func score_threat(definition: Dictionary, slot: Node3D, layout: Dictionary = {})
 	else:
 		score += attack * 1.6
 		if hero_damage * strikes >= player_hp: score += 50
-	if pierce and can_strike:
+	if pierce and can_strike and (opponent == null or not opponent.has_modifier("armored")):
 		score += attack * 1.2
 		if hero_damage * strikes >= player_hp: score += 70
 	for neighbor in [lane - 1, lane + 1]:
@@ -1650,10 +1650,12 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
 	if defender != null and defender.card_data.type == atk.card_data.type: return
 	var blocked: bool = defender != null and defender.is_alive()
+	var piercing: bool = atk.has_modifier("piercing")
+	var armored_block: bool = blocked and defender.has_modifier("armored")
 	log_event("%s attacks %s." % [atk.card_data.name, defender.card_data.name if blocked else ("Disaster health" if response_side else "Response health")])
 	if blocked:
 		var info := _calc_damage(atk, defender)
-		defender.take_damage(info.dmg, info.mult)
+		defender.take_damage(info.dmg, info.mult, false, piercing)
 		if not defender.is_alive(): atk.set_meta("combat_kill", true)
 		# Effects land only on a surviving card. Normal damage never spills into HP.
 		if defender.is_alive() and not defender.last_evaded_hit:
@@ -1663,7 +1665,7 @@ func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> vo
 				var extra := int(buffs.get(status, 0)) * (2 if status == "burn" else 1)
 				defender.add_status(status, int(inflicted[status]) + extra)
 		shake_camera(0.08, 0.2)
-	if not blocked or atk.has_modifier("piercing"):
+	if not blocked or (piercing and not armored_block):
 		var direct: int = atk.effective_attack() + _synergy_bonus(atk) + conditional_attack_bonus(atk, defender if blocked else null)
 		if atk.has_modifier("fierce"): direct += 2
 		_damage_side(not response_side, direct)
