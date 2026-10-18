@@ -255,12 +255,24 @@ func inspection_layout_checks() -> void:
 	check(active.border_color == Color("e59538") and active.border_width_top == 2,
 		"active inspection tab has an orange outline")
 	var details: RichTextLabel = dossier.get_node("DossierText")
+	check(details.get_theme_font_size("normal_font_size") == 18
+		and details.get_theme_font_size("bold_font_size") == 18, "dossier body text uses 18-point fonts")
 	var summary := details.text
 	for index in [1, 2, 0]:
 		tabs[index].button_pressed = true
 		tabs[index].pressed.emit()
 		check(not details.text.is_empty(), "each inspection tab shows details")
 	check(details.text == summary, "returning to Summary restores card details")
+	var original_size := root.size
+	root.size = Vector2i(1280, 800)
+	await process_frame
+	var panel_rect: Rect2 = dossier.get_parent().get_global_rect()
+	check(root.get_visible_rect().encloses(panel_rect), "dossier panel fits the 1280x800 window")
+	check(panel_rect.encloses(details.get_global_rect()), "dossier text stays inside its panel")
+	for tab in tabs:
+		check(panel_rect.encloses(tab.get_global_rect()), "inspection tabs stay inside their panel")
+	# Restore the input fixture's coordinate scale before injecting mouse events.
+	root.size = original_size
 	await process_frame
 	mouse(true, tabs[1].get_global_rect().get_center())
 	mouse(false, tabs[1].get_global_rect().get_center())

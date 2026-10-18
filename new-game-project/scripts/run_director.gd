@@ -1059,8 +1059,8 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	details.name = "DossierText"
 	details.bbcode_enabled = true
 	details.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	details.add_theme_font_size_override("normal_font_size", 14)
-	details.add_theme_font_size_override("bold_font_size", 14)
+	details.add_theme_font_size_override("normal_font_size", 18)
+	details.add_theme_font_size_override("bold_font_size", 18)
 	if not card.get("utility", false):
 		details.text += "ATK %d  /  HP %d\n\n" % [
 			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
