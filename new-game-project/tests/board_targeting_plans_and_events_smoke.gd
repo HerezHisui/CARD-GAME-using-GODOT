@@ -93,6 +93,11 @@ func run() -> void:
 	ally.set_process(false)
 	await physics_frame
 	ally.global_position = game._response_slots()[3].global_position + Vector3(0, 1.6, 0)
+	var motion := InputEventMouseMotion.new()
+	motion.position = root.get_final_transform() * game.camera.unproject_position(game._response_slots()[3].global_position)
+	motion.global_position = motion.position
+	Input.parse_input_event(motion)
+	Input.flush_buffered_events()
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false
