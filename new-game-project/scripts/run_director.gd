@@ -102,8 +102,8 @@ func _ready() -> void:
 	game.load_deck_from_json("res://data/starter_deck.json", catalog)
 	game.load_deck_from_json("res://data/response_expansion.json", catalog)
 	# Utility cards belong to the reward pool, preserving the original starter deck.
-	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "attack":0, "health":1, "effect":"draw", "utility":true})
-	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "attack":0, "health":1, "effect":"move", "utility":true})
+	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "effect":"draw", "utility":true})
+	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "effect":"move", "utility":true})
 	if start_after_reload:
 		start_after_reload = false
 		new_run()
@@ -1070,7 +1070,9 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	details.name = "DossierText"
 	details.bbcode_enabled = true
 	details.text = "[color=#%s][b]%s[/b][/color]\n" % [UI.GOLD.to_html(false), str(card.name).to_upper()]
-	details.text += "ATK %d  /  HP %d\n\n" % [int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
+	if not card.get("utility", false):
+		details.text += "ATK %d  /  HP %d\n\n" % [
+			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
 	var disaster: bool = card.get("type", "response") == "disaster"
 	var sacrifice: bool = disaster and not card.get("utility", false) and int(card.get("cost", 0)) > 0
 	if sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
@@ -1332,10 +1334,11 @@ func deck_board() -> void:
 
 func live_definition(card: Node) -> Dictionary:
 	var definition: Dictionary = card.card_data.duplicate(true)
-	definition.attack = card.effective_attack()
-	definition.preview_attack = card.effective_attack()
+	if not definition.get("utility", false):
+		definition.attack = card.effective_attack()
+		definition.preview_attack = card.effective_attack()
 	definition.modifiers = card.modifiers.duplicate()
-	definition.strength = int(card.statuses.get("strength", 0))
+	if not definition.get("utility", false): definition.strength = int(card.statuses.get("strength", 0))
 	definition.statuses = card.statuses.duplicate()
 	return definition
 

@@ -117,6 +117,28 @@ func piercing_armor() -> void:
 	check(blocker.card_data.health == 7 and game.enemy_hp == 40,
 		"inherited Piercing ignores armor but retains Barrier protection")
 
+func statless_utilities() -> void:
+	fixture()
+	for definition in director.catalog:
+		if not definition.get("utility", false): continue
+		check(not definition.has("attack") and not definition.has("health"), "catalog utilities have no unit stats")
+	var utility := unit("response", -1, {"utility":true, "effect":"herb", "cost":0})
+	check(not utility.card_data.has("attack") and not utility.card_data.has("health"),
+		"legacy utility stats are removed at setup")
+	check(utility._atk_label == null and utility._hp_label == null, "utility face creates no stat badges")
+	check(utility.is_alive() and not utility.can_attack(1), "statless held utility remains inspectable but cannot attack")
+	var live: Dictionary = director.live_definition(utility)
+	check(not live.has("attack") and not live.has("preview_attack"), "live utility preview remains statless")
+	var panel := Control.new()
+	root.add_child(panel)
+	var dossier: RichTextLabel = director.add_dossier(panel, live, "")
+	check("ATK " not in dossier.text and " /  HP " not in dossier.text, "utility inspection omits stats")
+	panel.queue_free()
+	var legacy: Dictionary = director.persistence.normalize({"utility":true, "attack":0, "health":1})
+	check(not legacy.has("health") and not legacy.has("attack"), "old checkpoints normalize utility stats")
+	check(game.try_utility(utility, game._response_slots()[0]), "statless utility can still be cast")
+	check(not game.player_graveyard[0].has("health"), "cast utility graveyard entry remains statless")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -129,6 +151,7 @@ func run() -> void:
 	elite_themes()
 	upgrade_pacing()
 	piercing_armor()
+	statless_utilities()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)

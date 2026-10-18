@@ -82,8 +82,6 @@
     "element": "earthquake",
     "cost_type": "sacrifice",
     "cost": 0,
-    "attack": 0,
-    "health": 1,
     "utility": true,
     "effect": "seal"
   },
@@ -94,8 +92,6 @@
     "element": "flood",
     "cost_type": "sacrifice",
     "cost": 0,
-    "attack": 0,
-    "health": 1,
     "utility": true,
     "effect": "tax"
   },

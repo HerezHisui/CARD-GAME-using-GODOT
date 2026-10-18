@@ -49,6 +49,7 @@ func normalize(value: Variant) -> Variant:
 	if value is Dictionary:
 		var result: Dictionary = {}
 		for key in value: result[key] = normalize(value[key])
+		preload("res://scripts/battle_rules.gd").remove_utility_stats(result)
 		return result
 	return value
 
