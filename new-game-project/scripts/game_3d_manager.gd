@@ -690,6 +690,19 @@ func end_hand_drag(card: Node) -> void:
 	if dragged_hand_card == card: dragged_hand_card = null
 	clear_hand_hover()
 
+func slot_at_screen_position(mouse: Vector2) -> Node3D:
+	var camera := get_viewport().get_camera_3d()
+	for slot in _response_slots():
+		var plane := Plane(Vector3.UP, slot.global_position.y)
+		var hit: Variant = plane.intersects_ray(camera.project_ray_origin(mouse), camera.project_ray_normal(mouse))
+		if hit == null: continue
+		var local: Vector3 = slot.to_local(hit)
+		var bounds: AABB = slot.get_aabb()
+		if local.x >= bounds.position.x and local.x <= bounds.end.x \
+				and local.z >= bounds.position.z and local.z <= bounds.end.z:
+			return slot
+	return null
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not board_input.action.is_empty(): return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and can_player_act():
