@@ -73,6 +73,20 @@ func elite_themes() -> void:
 		var enabler: String = ["cinder_cloud", "glass_quake", "toxic_runoff", "pressure_front"][specialty]
 		check(cards.any(func(card): return card.id == enabler), "elite contains its status or Strength enabler")
 
+func upgrade_pacing() -> void:
+	for element in ["evac", "douse", "clearance", "brace"]:
+		var base := {"name":"Upgrade test", "element":element, "cost":2, "attack":1, "health":2}
+		var first: Dictionary = director.upgraded_definition(base)
+		var second: Dictionary = director.upgraded_definition(first)
+		check(not first.has("on_hit") and not first.has("modifiers") and not first.has("on_play_draw"),
+			"first upgrade adds no mechanic to a basic unit")
+		check(second.has("on_hit") or second.has("modifiers") or second.has("on_play_draw"),
+			"second upgrade unlocks the deferred mechanic")
+	var steam: Dictionary = director.upgraded_definition(director.catalog_card("steam_team"))
+	check(int(steam.on_hit.burn) == 4, "existing Burn may improve at first upgrade")
+	var shelter: Dictionary = director.upgraded_definition(director.catalog_card("shelter_brace"))
+	check(int(shelter.armor_value) == 2, "existing Armor may improve at first upgrade")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -83,6 +97,7 @@ func run() -> void:
 	double_strikes()
 	status_synergy()
 	elite_themes()
+	upgrade_pacing()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)

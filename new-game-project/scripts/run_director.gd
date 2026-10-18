@@ -1472,43 +1472,52 @@ func upgraded_definition(card: Dictionary) -> Dictionary:
 	result.upgrades = tier
 	if result.get("utility", false):
 		if tier == 1 and int(result.cost) > 0: result.cost = int(result.cost) - 1
-		elif result.get("effect", "") in ["move", "tutor", "scout", "recover"]: result.refund_energy = int(result.get("refund_energy", 0)) + 1
+		elif result.get("effect", "") in ["move", "tutor", "scout", "recover"]:
+			if tier == 2: result.refund_energy = int(result.get("refund_energy", 0)) + 1
 		else: result.utility_power = int(result.get("utility_power", 0)) + 1
 	else:
 		match str(result.get("element", "")):
 			"evac":
 				if tier == 1:
 					result.attack = int(result.attack) + 1
-					result.on_play_draw = int(result.get("on_play_draw", 0)) + 1
+					if int(result.get("on_play_draw", 0)) > 0:
+						result.on_play_draw = int(result.on_play_draw) + 1
 				else:
 					result.health = int(result.health) + 1
 					result.cost = maxi(0, int(result.cost) - 1)
+					if int(result.get("on_play_draw", 0)) == 0: result.on_play_draw = 1
 			"douse":
 				if tier == 1:
 					result.attack = int(result.attack) + 1
+				var has_burn: bool = int(result.get("on_hit", {}).get("burn", 0)) > 0
+				if (tier == 1 and has_burn) or (tier == 2 and not has_burn):
 					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
 					hits.burn = int(hits.get("burn", 0)) + 1
 					result.on_hit = hits
-				else:
+				if tier == 2:
 					result.health = int(result.health) + 1
 					result.leech = int(result.get("leech", 0)) + 1
 			"clearance":
 				if tier == 1:
 					result.attack = int(result.attack) + 1
+				var has_poison: bool = int(result.get("on_hit", {}).get("poison", 0)) > 0
+				if (tier == 1 and has_poison) or (tier == 2 and not has_poison):
 					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
 					hits.poison = int(hits.get("poison", 0)) + 1
 					result.on_hit = hits
-				else:
+				if tier == 2:
 					result.health = int(result.health) + 1
 					result.status_bonus = int(result.get("status_bonus", 0)) + 2
 			"brace":
 				if tier == 1:
 					result.health = int(result.health) + 2
+				var armored: bool = game.definition_has_modifier(result, "armored")
+				if (tier == 1 and armored) or (tier == 2 and not armored):
 					result.armor_value = int(result.get("armor_value", 1 if game.definition_has_modifier(result, "armored") else 0)) + 1
 					var traits: Array = result.get("modifiers", []).duplicate()
 					if result.get("modifier", "") != "armored" and "armored" not in traits: traits.append("armored")
 					result.modifiers = traits
-				else:
+				if tier == 2:
 					result.health = int(result.health) + 1
 					result.thorns = int(result.get("thorns", 0)) + 1
 			_:

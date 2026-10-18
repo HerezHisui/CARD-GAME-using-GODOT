@@ -97,7 +97,10 @@ func run() -> void:
 		var second: Dictionary = director.upgraded_definition(first)
 		check(director.upgrade_level(second) == 2 and not director.can_upgrade(second), "two-upgrade cap")
 		check(director.upgraded_definition(second) == second and card.name == "Test", "max upgrade and preview preserve source")
-		check(first.has("on_play_draw") or first.has("on_hit") or first.has("modifiers"), "unit upgrades grant unique effects")
+		check(not first.has("on_play_draw") and not first.has("on_hit") and not first.has("modifiers"),
+			"first upgrades improve stats without new mechanics")
+		check(second.has("on_play_draw") or second.has("on_hit") or second.has("modifiers"),
+			"second upgrades unlock type-specific mechanics")
 		if element == "brace":
 			fixture()
 			var armored = make_card(second, game._response_slots()[0])
