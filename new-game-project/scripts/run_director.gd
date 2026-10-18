@@ -6,6 +6,7 @@ const CardFace = preload("res://scripts/card_3d.gd")
 const Rules = preload("res://scripts/battle_rules.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
 const Routes = preload("res://scripts/run_routes.gd")
+const RunDebug = preload("res://scripts/run_debug.gd")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -1732,7 +1733,7 @@ func quit_game() -> void:
 	get_tree().quit()
 
 func debug_available() -> bool:
-	return battle_active and not _dragging() and game.board_input.action.is_empty() and game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]
+	return RunDebug.debug_available(game, battle_active)
 
 func cancel_debug_password() -> void:
 	if debug_from_menu: show_menu()
@@ -1864,11 +1865,7 @@ func _debug_card_controls() -> void:
 	, status_row).disabled = targets.is_empty()
 
 func _debug_selected_card(targets: Array, picker: OptionButton) -> Node:
-	if picker.selected < 0 or picker.selected >= targets.size(): return null
-	if not is_instance_valid(targets[picker.selected]): return null
-	var card: Node = targets[picker.selected]
-	if not card.is_alive() or card.preview_only: return null
-	return card if card.in_hand or is_instance_valid(card.current_slot) else null
+	return RunDebug._debug_selected_card(targets, picker.selected)
 
 func _debug_load_card_stats(targets: Array, picker: OptionButton, fields: Dictionary) -> void:
 	var card := _debug_selected_card(targets, picker)
@@ -1880,11 +1877,8 @@ func _debug_load_card_stats(targets: Array, picker: OptionButton, fields: Dictio
 
 func _debug_set_card_stat(value: float, targets: Array, picker: OptionButton, key: String) -> void:
 	var card := _debug_selected_card(targets, picker)
-	if card == null or (key != "cost" and card.card_data.get("utility", false)): return
-	card.card_data[key] = maxi(1 if key == "health" else 0, int(value))
-	if key == "health": card.max_health = maxi(card.max_health, int(card.card_data.health))
-	card._refresh_face()
-	persistence.checkpoint()
+	if RunDebug._debug_set_card_stat(value, card, key):
+		persistence.checkpoint()
 
 func confirm_title() -> void:
 	reset_panel("RETURN TO STARTING SCREEN?", "Your unfinished run is saved. Continue it from the starting screen, or abandon it there.", "confirm")
