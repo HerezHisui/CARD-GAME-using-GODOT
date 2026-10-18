@@ -13,7 +13,7 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 ## Controls
 
 - Drag a hand card onto an empty lower Response slot. Right-click cancels a drag.
-- Draw once during the draw phase using the lower-right draw button.
+- Use Draw during the draw phase to choose an unlocked deck card for 1 energy. Opening or cancelling the picker is free.
 - G or the compact Graveyard button opens the Response battle graveyard. G, Esc, Close, or an outside click returns to battle.
 - At encounter start, call **Heads** or **Tails** on the full-screen coin event. A matching toss gives you the first turn; otherwise the Janitor plays first. The starting side alternates each round afterward. Space or **End turn** submits your turn.
 - W steps from Room → Table → Overhead; S steps back. Battles start in the central Table view. Transitions ease position, rotation, distance and field of view. Room view hides your hand to show the opponent and classroom; return to Table to play. Camera changes are blocked during combat, dragging and board targeting.
@@ -25,17 +25,17 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 ## Workshops and shops
 
-Workshops have the same sorting controls as the deck browser. **Preview upgrade** shows the current card beside its upgraded version; only **Confirm upgrade** changes the collection. **Every card copy can upgrade at most twice**, shown as 0/2, 1/2, or 2/2. Evac gains attack and on-play draw, then health and a cheaper energy cost. Douse gains attack and Burn, then health and healing after each strike. Clearance gains attack and Poison, then health and +2 attack against targets with three harmful status stacks. Brace gains health and stronger armor, then health and retaliation. Spells first become cheaper; later upgrades strengthen draw, seal, tax, rally, or cleanse. Movement, tutor, and scouting upgrades refund energy instead. Zero-cost spells can improve their abilities. Duplicate cards retain their original identity when sorted, so only the selected copy changes.
+Workshops have the same sorting controls as the deck browser. **Preview upgrade** shows the current card beside its upgraded version; only **Confirm upgrade** changes the collection. **Every card copy can upgrade at most twice**, shown as 0/2, 1/2, or 2/2. Basic units gain stats first. New on-play draw, Burn, Poison and Armor effects wait until tier two. Existing abilities may improve at tier one. Evac then gains health and a cheaper cost; Douse gains health and healing after each strike; Clearance gains health and a status bonus; Brace gains health and retaliation. Spells first become cheaper; later upgrades strengthen draw, seal, tax, rally, or cleanse. Movement, tutor, and scouting upgrades refund energy instead. Zero-cost spells can improve their abilities. Duplicate cards retain their original identity when sorted, so only the selected copy changes.
 
 Shops offer four distinct cards, each with one copy in stock. Buying one marks it sold and keeps the shop open; remaining stock does not reroll. Healing can be purchased repeatedly until health is full or supplies run out. Labels show actual healing and the supplies spent, for example **First aid · +1 HP · -15 supplies** when only one health is missing. Full-health healing is disabled. Removal shows **Destroy 1 card · -30 supplies**; infirmary removal is explicitly free. The room is completed only when you press **Leave shop**. Infirmaries also offer an exit if you prefer to skip their service.
 
 ## Cards
 
-The twelve-card starter deck now contains three Quick Dash, three Fire Drill, two Fire Hose, two Debris Clearance, one Evacuation Route and one Shelter Brace. Existing saves retain their collections. Card illustration windows are deliberately empty. Assign future illustrations in the `ART` dictionary in `scripts/card_3d.gd`. Backs have four corner element marks and a central double ring.
+The twelve-card starter deck now contains three Quick Dash, three Fire Drill, two Fire Hose, two Debris Clearance, one Evacuation Route and one Shelter Brace. Fire Drill costs 1 energy with base ATK/HP 1/2. Evacuation Route costs 2 with 1/3. Shelter Brace costs 1 with 0/3. Utilities have no unit ATK or HP in the JSON. Existing saves retain their collections. Card illustration windows are deliberately empty. Assign future illustrations in the `ART` dictionary in `scripts/card_3d.gd`. Backs have four corner element marks and a central double ring.
 
 Evac counters Earthquake, Douse counters Fire, Clearance counters Flood, and Brace counters Typhoon at 2× damage. Weak matchups deal half damage. Two adjacent deployed cards of the same element receive +1 attack (not cumulative across both neighbors). Armored reduces incoming attack damage by one (minimum one), Fragile adds one, Regenerating heals up to maximum health, Fierce adds two to hero hits, and Rampaging adds one when attacking a card as the second side of the round.
 
-**Normal attacks never deal overkill/overflow damage to the opposing hero.** Even a one-health blocker stops the entire hero hit. **Piercing** damages the blocker normally and also deals the attacker's effective attack plus adjacency bonus to the opposing health pool. Type effectiveness applies to the blocker only. Fierce adds two to this hero hit. An open lane hits the hero once, including for Piercing cards.
+**Normal attacks never deal overkill/overflow damage to the opposing hero.** Even a one-health blocker stops the entire hero hit. **Piercing** damages the blocker normally and also deals the attacker's effective attack plus adjacency bonus to the opposing health pool. Type effectiveness applies to the blocker only. Fierce adds two to this hero hit. An open lane hits the hero once, including for Piercing cards. An Armored blocker stops the Piercing hero hit even if it dies. Piercing bypasses its armor reduction against unit damage; Barrier and Plan protection still apply.
 
 **Sluggish** attacks the first round it can attack, then rests the next round, repeating. Its timing is per card, rather than based on odd/even global rounds. **Strength** adds to attack before type effectiveness and lasts while the card exists. Temporary card statuses and costs do not alter the permanent collection.
 
@@ -103,9 +103,9 @@ Four new cards join each side. Conditional effects count **stacks**, not the num
 - **Heat Seeker:** +3 attack against a target with 3+ Burn.
 - **Toxin Hunter:** attacks twice against a target with 3+ total harmful stacks.
 - **Momentum Team:** attacks twice with 2+ own Strength.
-- **Last Responder:** +2 attack while carrying 3+ harmful stacks.
+- **Last Responder:** +2 attack against a target with 2+ Bleed.
 - **Ash Predator:** attacks twice against a target with 3+ Burn.
-- **Venom Surge:** +3 attack against a target with 2+ Poison.
+- **Venom Surge:** +2 attack against a target with 3+ Poison.
 - **Pressure Break:** attacks twice with 3+ own Strength.
 - **Fracture Hunter:** +2 attack against a target with 3+ harmful stacks.
 
@@ -143,7 +143,7 @@ One contingency may be armed each round. Tokens, armed plans and temporary boost
 
 **Overclock:** gain 2 capacity immediately; ordinary Response growth becomes 2 per round instead of 1. Other resource bonuses still stack. Disaster tension also grows one additional capacity per round. Hero and unit damage increases by 50%, rounded up, after armor but before barriers. This includes periodic status damage, but fixed HP payments such as Static Echo remain fixed. The old draw penalty is removed.
 
-**Evacuation Route:** still costs 4 energy, now has 3 attack / 5 health. On play, optionally move another deployed ally to an empty lane and heal that ally by 2. The unit stays in its original slot; skipping movement does not undo its summon.
+**Evacuation Route:** costs 2 energy and has base 1 attack / 3 health. On play, optionally move another deployed ally to an empty lane and heal that ally by 2. The unit stays in its original slot; skipping movement does not undo its summon.
 
 **Inspection and log:** hold the left mouse button on a deployed card for 0.35 seconds to inspect its current stats, effects and statuses beside the enlarged card. Release to return to battle. Targeting actions retain their direct clicks. Press **L**, use the Log button, or choose Combat log in the menu for a chronological backlog of up to 300 encounter events. The log resets with the next encounter. Sealed labels are rebuilt on refresh and disappear when the seal expires.
 
@@ -279,3 +279,5 @@ Press F3 during a player turn, or choose Menu > Debug values, and enter exactly 
 Choose a live hand or board card to edit its cost, base ATK, current HP or statuses. Utilities only expose cost.
 Card edits apply at once. HP stays at least 1; raising it can also raise the card's healing limit.
 These edits affect that battle copy, not the collection, and are included in normal checkpoints.
+
+Base card definitions: [starter deck](data/starter_deck.json), [Response expansion](data/response_expansion.json), [Disaster deck](data/disaster_deck.json) and [Disaster expansion](data/disaster_expansion.json). Hazmat Team costs 2 energy.
