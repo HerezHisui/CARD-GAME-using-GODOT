@@ -94,7 +94,7 @@ func run() -> void:
 		await process_frame
 		check(game.find_children("*", "SubViewport", true, false).size() <= baseline + director.collection.size(), "reopening a deck does not accumulate previews")
 		director.close_modal()
-	director.show_battle_log()
+	director.show_menu()
 	await process_frame
 	await process_frame
 	check(game.find_children("*", "SubViewport", true, false).size() == baseline, "replacing the catalog frees its preview viewports")

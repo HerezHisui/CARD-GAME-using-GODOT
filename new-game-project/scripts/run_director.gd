@@ -722,7 +722,8 @@ func show_map() -> void:
 	dossier.add_child(dossier_text)
 	dossier_text.add_child(label("FLOOR / %02d" % floor_number, 28, GOLD))
 	dossier_text.add_child(HSeparator.new())
-	var route_help := label("Choose a connected room.\n\nBATTLE / Build your deck\nELITE / Unlock a tactic\nREST / Heal or train\nSHOP / Spend supplies\nEVENT / Risk and reward\nUPGRADE / Improve a card", 17, UI.MUTED)
+	var route_help := label("Choose a connected room.\n\nBATTLE / Build your deck\nELITE / Unlock a tactic\n"
+		+ "REST / Heal or train\nSHOP / Spend supplies\nEVENT / Risk and reward\nUPGRADE / Improve a card", 17, UI.MUTED)
 	route_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	route_help.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	dossier_text.add_child(route_help)
