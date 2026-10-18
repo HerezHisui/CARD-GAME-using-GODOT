@@ -48,6 +48,20 @@ func double_strikes() -> void:
 		"both strikes hit a surviving redirected target even with Sluggish")
 	check(not attacker.can_attack(2), "Sluggish still rests on the next round")
 
+func status_synergy() -> void:
+	fixture()
+	var attacker := unit("response", 0, director.catalog_card("containment_lance"))
+	var blocker := unit("disaster", 0)
+	blocker.statuses = {"burn":1, "poison":1, "strength":8}
+	check(game.conditional_attack_bonus(attacker, blocker) == 0, "positive statuses do not count toward threshold")
+	blocker.statuses.bleed = 1
+	check(game.conditional_attack_bonus(attacker, blocker) == 2, "three mixed negative stacks grant bonus")
+	check(game.conditional_attack_bonus(attacker, null) == 0, "status synergy does not buff hero damage on open lanes")
+	attacker.card_data = director.catalog_card("last_responder")
+	blocker.statuses = {"bleed":2}
+	check(game.conditional_attack_bonus(attacker, blocker) == 2, "Last Responder rewards Bleed support")
+	check(int(director.catalog_card("hazmat_team").cost) == 2, "Hazmat Team is an affordable Poison enabler")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -56,6 +70,7 @@ func run() -> void:
 	effect_consistency()
 	future_adaptations()
 	double_strikes()
+	status_synergy()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)

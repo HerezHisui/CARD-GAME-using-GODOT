@@ -48,7 +48,7 @@
     "name": "Hazmat Team",
     "type": "response",
     "element": "clearance",
-    "cost": 3,
+    "cost": 2,
     "attack": 2,
     "health": 3,
     "on_hit": {
@@ -260,9 +260,9 @@
     "attack": 2,
     "health": 3,
     "condition": {
-      "subject": "self",
-      "status": "any",
-      "threshold": 3,
+      "subject": "target",
+      "status": "bleed",
+      "threshold": 2,
       "bonus": 2
     }
   },
@@ -318,7 +318,13 @@
     "cost": 3,
     "attack": 2,
     "health": 4,
-    "ignore_taunt": true
+    "ignore_taunt": true,
+    "condition": {
+      "subject": "target",
+      "status": "any",
+      "threshold": 3,
+      "bonus": 2
+    }
   },
   {
     "id": "recovery_detail",
