@@ -15,6 +15,7 @@ var banner_node: Control
 var banner_tween: Tween
 var draw_reminder: Panel
 var draw_reminder_tween: Tween
+var coin_status: Label
 
 func setup(owner_game: Node) -> void:
 	game = owner_game
@@ -45,6 +46,11 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	coin_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	coin_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(coin_root)
+	coin_status = game.run_director.label(game.run_director.status_text(), 14)
+	coin_status.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	coin_status.offset_top = 16
+	coin_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coin_root.add_child(coin_status)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	coin_root.add_child(center)
@@ -115,6 +121,10 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	coin_root = null
 	blocking = false
 	return pick
+
+func _process(_delta: float) -> void:
+	if is_instance_valid(coin_root) and is_instance_valid(coin_status):
+		coin_status.text = game.run_director.status_text()
 
 func cancel_coin() -> void:
 	coin_epoch += 1

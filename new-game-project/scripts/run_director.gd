@@ -287,7 +287,8 @@ func _build_ui() -> void:
 	row.add_child(brand)
 	brand.add_child(label("MIDNIGHT DRRILLS", 22, GOLD))
 	brand.add_child(label("THE SCHOOL AFTER DARK", 11, UI.MUTED))
-	summary = label("", 16)
+	summary = label("", 14)
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(summary)
@@ -428,7 +429,7 @@ func _process(_delta: float) -> void:
 	boss_intent.visible = is_instance_valid(game.final_boss) and battle_active and not modal.visible and game.board_input.action.is_empty()
 	boss_intent.get_parent().visible = boss_intent.visible
 	if boss_intent.visible: boss_intent.text = game.final_boss.intent()
-	summary.text = "Floor %d  /  HP %d  /  %d supplies  /  %d cards" % [floor_number, game.player_hp, coins, collection.size()]
+	summary.text = status_text()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
@@ -444,6 +445,17 @@ func _process(_delta: float) -> void:
 	idle_hint.visible = false
 	prep.get_parent().visible = battle_active and not modal.visible
 	threat.get_parent().visible = battle_active and not modal.visible
+
+func status_text() -> String:
+	var counts := {"evac":0, "douse":0, "clearance":0, "brace":0}
+	var utilities := 0
+	for card in collection:
+		var element := str(card.get("element", ""))
+		if counts.has(element): counts[element] += 1
+		if card.get("utility", false): utilities += 1
+	return "HP %d/%d · Supplies %d · Deck %d\nEvac %d · Douse %d · Clear %d · Brace %d · Utility %d" % [
+		game.player_hp, game.hero_max_hp(), coins, collection.size(),
+		counts.evac, counts.douse, counts.clearance, counts.brace, utilities]
 
 func _input(event: InputEvent) -> void:
 	if inspect_hold_pending and event is InputEventMouseMotion and event.position.distance_to(inspect_hold_origin) > 12:
@@ -1037,6 +1049,7 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	overlay.color = Color(UI.BACKGROUND, 0.96)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if run_active: overlay.offset_top = 78
 	root.add_child(overlay)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
