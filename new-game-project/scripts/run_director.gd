@@ -1760,10 +1760,11 @@ func show_debug() -> void:
 		return
 	if not debug_available() or (modal.visible and screen != "menu"): return
 	debug_from_menu = screen == "menu"
-	reset_panel("DEBUG ACCESS", "Enter the five-character password to open debug values.", "debug_password")
+	reset_panel("DEBUG ACCESS", "", "debug_password")
 	var password := LineEdit.new()
 	password.name = "DebugPassword"
 	password.secret = true
+	password.placeholder_text = "Password"
 	content.add_child(password)
 	var error := label("", 14, UI.DANGER, true)
 	error.name = "PasswordError"
@@ -1784,14 +1785,19 @@ func show_debug() -> void:
 
 func _open_debug(password: String) -> void:
 	if password != "*****" or screen != "debug_password" or not debug_available(): return
-	reset_panel("DEBUG VALUES", "Apply changes to this run. Normal autosaves will include these values.", "debug")
+	reset_panel("DEBUG VALUES", "", "debug")
 	var fields := {}
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 24)
 	content.add_child(grid)
-	for spec in [["player_hp", "Player HP", 1, game.hero_max_hp()], ["enemy_hp", "Enemy HP", 1, game.enemy_max_hp], ["energy_cap", "Energy capacity", 1, 30], ["preparedness", "Current energy", 0, 30], ["tension_cap", "Tension capacity", 1, 30], ["tension", "Current tension", 0, 30], ["coins", "Supplies", 0, 9999], ["plans", "Plans", 0, 2]]:
+	for spec in [
+		["player_hp", "Player HP", 1, game.hero_max_hp()], ["enemy_hp", "Enemy HP", 1, game.enemy_max_hp],
+		["energy_cap", "Energy cap", 1, 30], ["preparedness", "Energy", 0, 30],
+		["tension_cap", "Tension cap", 1, 30], ["tension", "Tension", 0, 30],
+		["coins", "Supplies", 0, 9999], ["plans", "Plans", 0, 2],
+	]:
 		var caption := label(spec[1], 18)
 		caption.custom_minimum_size.x = 160
 		caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1817,36 +1823,84 @@ func _open_debug(password: String) -> void:
 		close_modal()
 		persistence.checkpoint()
 	, content)
-	content.add_child(label("LIVE CARD STATUS", 20, GOLD))
+	_debug_card_controls()
+	button("Cancel", close_modal, content)
+
+func _debug_card_controls() -> void:
+	content.add_child(label("CARD", 20, GOLD))
 	var status_row := VBoxContainer.new()
 	content.add_child(status_row)
-	var targets := game.get_tree().get_nodes_in_group("cards").filter(func(card): return is_instance_valid(card) and card.is_alive() and not card.preview_only)
+	var targets := game.get_tree().get_nodes_in_group("cards").filter(func(card):
+		return card.is_alive() and not card.preview_only and (card.in_hand or is_instance_valid(card.current_slot)))
 	var target := OptionButton.new()
+	target.name = "DebugCard"
 	target.custom_minimum_size.x = 280
 	target.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	target.clip_text = true
-	for card in targets: target.add_item(("HAND / " if card.in_hand else "BOARD / ") + str(card.card_data.name))
+	for i in targets.size():
+		var card: Node = targets[i]
+		var location := "HAND" if card.in_hand else str(card.card_data.get("type", "")).to_upper()
+		target.add_item("%d / %s / %s" % [i + 1, location, card.card_data.name])
+	if targets.is_empty(): target.add_item("No cards")
+	target.disabled = targets.is_empty()
 	status_row.add_child(target)
+	var stats := GridContainer.new()
+	stats.columns = 2
+	status_row.add_child(stats)
+	var fields := {}
+	for spec in [["cost", "Cost"], ["attack", "ATK"], ["health", "HP"]]:
+		stats.add_child(label(spec[1], 18))
+		var field := SpinBox.new()
+		field.name = "Debug" + str(spec[1])
+		field.min_value = 1 if spec[0] == "health" else 0
+		field.max_value = 9999
+		field.allow_greater = true
+		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stats.add_child(field)
+		fields[spec[0]] = field
+		field.value_changed.connect(_debug_set_card_stat.bind(targets, target, spec[0]))
+	target.item_selected.connect(func(_index): _debug_load_card_stats(targets, target, fields))
+	_debug_load_card_stats(targets, target, fields)
 	var status := OptionButton.new()
-	for key in ["strength", "bleed", "burn", "poison", "barrier", "healing_reduced"]: status.add_item(key.replace("_", " ").capitalize())
+	for key in ["strength", "bleed", "burn", "poison", "barrier", "healing_reduced"]: status.add_item(key)
 	status_row.add_child(status)
 	var amount := SpinBox.new()
 	amount.max_value = 99
 	amount.custom_minimum_size.x = 100
 	status_row.add_child(amount)
 	button("Set status", func():
-		if target.selected < 0 or target.selected >= targets.size(): return
-		var card: Node = targets[target.selected]
-		if not is_instance_valid(card) or not card.is_alive(): return
-		var key := status.get_item_text(status.selected).to_lower().replace(" ", "_")
+		var card := _debug_selected_card(targets, target)
+		if card == null: return
+		var key := status.get_item_text(status.selected)
 		if amount.value == 0: card.statuses.erase(key)
 		else: card.statuses[key] = int(amount.value)
 		card._refresh_face()
 		game.log_event("Debug status: %s · %s %d" % [card.card_data.name, key, int(amount.value)])
 		persistence.checkpoint()
 	, status_row).disabled = targets.is_empty()
-	content.add_child(label("Status amount 0 clears it. Apply values saves the resource fields above.", 14, UI.MUTED))
-	button("Cancel", close_modal, content)
+
+func _debug_selected_card(targets: Array, picker: OptionButton) -> Node:
+	if picker.selected < 0 or picker.selected >= targets.size(): return null
+	if not is_instance_valid(targets[picker.selected]): return null
+	var card: Node = targets[picker.selected]
+	if not card.is_alive() or card.preview_only: return null
+	return card if card.in_hand or is_instance_valid(card.current_slot) else null
+
+func _debug_load_card_stats(targets: Array, picker: OptionButton, fields: Dictionary) -> void:
+	var card := _debug_selected_card(targets, picker)
+	for key in fields:
+		var field: SpinBox = fields[key]
+		var editable: bool = card != null and (key == "cost" or not card.card_data.get("utility", false))
+		field.editable = editable
+		field.set_value_no_signal(int(card.card_data.get(key, 0)) if editable else field.min_value)
+
+func _debug_set_card_stat(value: float, targets: Array, picker: OptionButton, key: String) -> void:
+	var card := _debug_selected_card(targets, picker)
+	if card == null or (key != "cost" and card.card_data.get("utility", false)): return
+	card.card_data[key] = maxi(1 if key == "health" else 0, int(value))
+	if key == "health": card.max_health = maxi(card.max_health, int(card.card_data.health))
+	card._refresh_face()
+	persistence.checkpoint()
 
 func confirm_title() -> void:
 	reset_panel("RETURN TO STARTING SCREEN?", "Your unfinished run is saved. Continue it from the starting screen, or abandon it there.", "confirm")
