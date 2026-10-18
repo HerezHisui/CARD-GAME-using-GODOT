@@ -81,11 +81,13 @@ func _ready() -> void:
 func setup(data: Dictionary) -> void:
 	base_definition = data.duplicate(true)
 	card_data = data.duplicate(true)
+	preload("res://scripts/battle_rules.gd").remove_utility_stats(base_definition)
+	preload("res://scripts/battle_rules.gd").remove_utility_stats(card_data)
 	if not preview_only: card_data = _manager().prepare_card_data(card_data)
 	# JSON numbers load as floats -> normalise to ints
-	for k in ["cost", "attack", "health"]:
+	for k in (["cost"] if card_data.get("utility", false) else ["cost", "attack", "health"]):
 		card_data[k] = int(card_data.get(k, 0))
-	max_health = card_data.health
+	max_health = int(card_data.get("health", 0))
 	modifiers.clear()
 	statuses.clear()
 	last_attack_turn = -1
@@ -213,20 +215,21 @@ func _build_face() -> void:
 	_cost_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_badge.add_child(_cost_caption)
 
-	# Attack (bottom-left) / Health (bottom-right)
-	var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
-	_atk_label = atk.get_child(0)
-	frame.add_child(atk)
-	var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
-	_hp_label = hp.get_child(0)
-	frame.add_child(hp)
-
-	var atk_cap := _face_label(title_font, 14, text_col)
-	atk_cap.text = "ATK            HP"
-	atk_cap.position = Vector2(0, FACE_H - 24)
-	atk_cap.size = Vector2(FACE_W, 20)
-	atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	frame.add_child(atk_cap)
+	_atk_label = null
+	_hp_label = null
+	if not card_data.get("utility", false):
+		var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
+		_atk_label = atk.get_child(0)
+		frame.add_child(atk)
+		var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
+		_hp_label = hp.get_child(0)
+		frame.add_child(hp)
+		var atk_cap := _face_label(title_font, 14, text_col)
+		atk_cap.text = "ATK            HP"
+		atk_cap.position = Vector2(0, FACE_H - 24)
+		atk_cap.size = Vector2(FACE_W, 20)
+		atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		frame.add_child(atk_cap)
 	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
@@ -497,6 +500,7 @@ func _manager() -> Node:
 
 # ---------------------------------------------------------------- combat
 func is_alive() -> bool:
+	if card_data.get("utility", false): return in_hand and not graveyard_recorded
 	return card_data.get("health", 0) > 0
 
 ## Wind-up, then lunge at `target`. Returns at the moment of impact
@@ -535,6 +539,7 @@ func add_modifier(mod_name: String) -> void:
 		spawn_popup("+" + mod_name.to_upper(), UI.GOLD)
 
 func heal(amt: int) -> void:
+	if card_data.get("utility", false): return
 	if card_data.health <= 0: return
 	if int(statuses.get("healing_reduced", 0)) > 0: amt = maxi(1, floori(amt / 2.0))
 	var before: int = card_data.health
@@ -577,6 +582,7 @@ func adjusted_damage(amt: int, ignore_armor: bool = false) -> int:
 		BattleQueries.context(_manager()), BattleQueries.card(null, self), amt, ignore_armor)
 
 func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false, ignore_armor: bool = false) -> void:
+	if card_data.get("utility", false): return
 	last_evaded_hit = false
 	if not bypass_armor: amt = adjusted_damage(amt, ignore_armor)
 	else: amt = _manager().incoming_damage(card_data.type == "response", amt)
@@ -696,6 +702,7 @@ func add_status(status: String, amount: int) -> void:
 	spawn_popup("%s +%d" % [status.to_upper(), amount], UI.DANGER if status != "strength" else UI.RESPONSE)
 
 func status_upkeep() -> void:
+	if card_data.get("utility", false): return
 	for status in ["burn", "poison"]:
 		var stacks := int(statuses.get(status, 0))
 		if stacks > 0 and is_alive():

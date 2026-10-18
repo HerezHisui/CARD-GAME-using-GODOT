@@ -72,6 +72,10 @@ const EFFECTS := {
 }
 const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "barrier":"Protect formation", "herb":"Clear Bleed", "tablet":"Restore healing", "draw":"Draw cards", "move":"Relocate ally", "tutor":"Search draw pile", "seal":"Seal card", "scout":"Reveal hand", "tax":"Raise cost", "rally":"Gain Strength", "cleanse":"Heal and cleanse", "recover":"Recover a unit", "grave_guard":"Graveyard protection"}
 
+static func remove_utility_stats(card: Dictionary) -> void:
+	if not card.get("utility", false): return
+	for key in ["attack", "health", "preview_attack", "strength"]: card.erase(key)
+
 static func modifier_text(card: Dictionary, modifier: String) -> String:
 	var descriptions := {
 		"armored":"Armored: reduce ordinary damage by %d (minimum 1). Stops Piercing hero damage; Piercing ignores this armor reduction." % int(card.get("armor_value", 1)),

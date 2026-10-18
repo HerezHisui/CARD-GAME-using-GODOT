@@ -223,8 +223,9 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	for definition in threats:
 		if kind == "elite" and definition.element != favored: continue
 		var c: Dictionary = definition.duplicate(true)
-		c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
-		c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
+		if not c.get("utility", false):
+			c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
+			c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
 		if int(c.cost) > 0:
 			if kind != "battle" or int(c.cost) <= 2: enemy_evolution_deck.append(c)
 		else:
@@ -537,6 +538,7 @@ func load_deck_from_json(path: String, target_deck: Array) -> void:
 			for i in range(def.get("count", 1)):
 				var card = def.duplicate()
 				card.erase("count")
+				preload("res://scripts/battle_rules.gd").remove_utility_stats(card)
 				target_deck.append(card)
 
 func hand_parent() -> Node3D:
@@ -751,7 +753,7 @@ func record_graveyard(card: Node, reason: String) -> void:
 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
 	if card.card_data.get("type", "response") != "response": return
 	var entry: Dictionary = card.card_data.duplicate(true)
-	entry.health = card.max_health
+	if not card.card_data.get("utility", false): entry.health = card.max_health
 	entry.graveyard_reason = reason
 	entry.graveyard_round = turn
 	entry.statuses = card.statuses.duplicate(true)

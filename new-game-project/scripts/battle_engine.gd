@@ -62,6 +62,7 @@ static func attack_bonus(context: Dictionary, card: Dictionary) -> int:
 	return int(buffs.get("strength", 0)) - isolation
 
 static func effective_attack(context: Dictionary, card: Dictionary) -> int:
+	if card.card_data.get("utility", false): return 0
 	if card.preview_only and card.card_data.has("preview_attack"):
 		return int(card.card_data.preview_attack)
 	var bonus := 0 if card.preview_only else attack_bonus(context, card)
