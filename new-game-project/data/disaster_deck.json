@@ -6,7 +6,7 @@
     "element": "fire",
     "cost_type": "sacrifice",
     "cost": 0,
-    "attack": 2,
+    "attack": 1,
     "health": 2,
     "count": 3
   },
@@ -17,8 +17,8 @@
     "element": "earthquake",
     "cost_type": "sacrifice",
     "cost": 0,
-    "attack": 2,
-    "health": 3,
+    "attack": 1,
+    "health": 2,
     "count": 3
   },
   {
@@ -28,7 +28,7 @@
     "element": "flood",
     "cost_type": "sacrifice",
     "cost": 0,
-    "attack": 2,
+    "attack": 1,
     "health": 2,
     "count": 3
   },
@@ -39,7 +39,7 @@
     "element": "typhoon",
     "cost_type": "sacrifice",
     "cost": 0,
-    "attack": 2,
+    "attack": 1,
     "health": 2,
     "count": 3
   },

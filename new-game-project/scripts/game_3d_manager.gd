@@ -223,7 +223,8 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	for definition in threats:
 		if kind == "elite" and definition.element != favored: continue
 		var c: Dictionary = definition.duplicate(true)
-		if not c.get("utility", false):
+		var cheap: bool = int(c.cost) == 1 or (int(c.cost) == 0 and int(c.get("tension_cost", 1)) <= 1)
+		if not c.get("utility", false) and not cheap:
 			c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
 			c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
 		if int(c.cost) > 0:
@@ -236,7 +237,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	var evolution_limit := 8 if kind == "battle" else (13 if kind == "elite" else 14)
 	if kind == "elite":
 		fill_elite_reserve(enemy_deck, base_limit)
-		fill_elite_reserve(enemy_evolution_deck, evolution_limit - 1)
+		fill_elite_reserve(enemy_evolution_deck, evolution_limit)
 	enemy_deck.shuffle()
 	enemy_deck.sort_custom(func(a, b): return a.element == favored and b.element != favored)
 	enemy_deck.resize(mini(base_limit, enemy_deck.size()))

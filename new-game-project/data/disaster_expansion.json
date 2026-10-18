@@ -7,7 +7,7 @@
     "cost_type": "sacrifice",
     "cost": 0,
     "attack": 1,
-    "health": 3,
+    "health": 2,
     "on_hit": {
       "burn": 2
     },
@@ -21,7 +21,7 @@
     "cost_type": "sacrifice",
     "cost": 0,
     "attack": 1,
-    "health": 3,
+    "health": 2,
     "on_hit": {
       "bleed": 2
     },
@@ -35,7 +35,7 @@
     "cost_type": "sacrifice",
     "cost": 0,
     "attack": 1,
-    "health": 3,
+    "health": 2,
     "on_hit": {
       "poison": 2
     }
@@ -47,8 +47,8 @@
     "element": "typhoon",
     "cost_type": "sacrifice",
     "cost": 1,
-    "attack": 3,
-    "health": 3,
+    "attack": 2,
+    "health": 2,
     "modifier": "piercing"
   },
   {
@@ -69,8 +69,8 @@
     "element": "typhoon",
     "cost_type": "sacrifice",
     "cost": 0,
-    "attack": 1,
-    "health": 3,
+    "attack": 0,
+    "health": 2,
     "strength": 1,
     "effect": "draw",
     "draw_count": 1
@@ -103,7 +103,7 @@
     "cost_type": "sacrifice",
     "cost": 0,
     "attack": 1,
-    "health": 3,
+    "health": 2,
     "effect": "move_ally"
   },
   {
@@ -114,7 +114,7 @@
     "cost_type": "sacrifice",
     "cost": 0,
     "attack": 1,
-    "health": 3,
+    "health": 2,
     "effect": "heal_all"
   },
   {
@@ -190,12 +190,12 @@
     "element": "flood",
     "cost": 1,
     "attack": 2,
-    "health": 4,
+    "health": 2,
     "condition": {
       "subject": "target",
       "status": "poison",
-      "threshold": 2,
-      "bonus": 3
+      "threshold": 3,
+      "bonus": 2
     },
     "cost_type": "sacrifice"
   },
@@ -223,7 +223,7 @@
     "element": "earthquake",
     "cost": 0,
     "attack": 1,
-    "health": 3,
+    "health": 2,
     "condition": {
       "subject": "target",
       "status": "any",
