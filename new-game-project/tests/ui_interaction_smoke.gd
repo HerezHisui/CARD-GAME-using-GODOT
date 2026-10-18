@@ -43,6 +43,7 @@ func run() -> void:
 	director.begin_inspect_hold(card, true)
 	await create_timer(0.45).timeout
 	check(director.screen == "inspect" and paused, "stationary hold inspects a hand card")
+	await inspection_layout_checks()
 	check(card.in_hand and not card.is_dragging and card.get_parent() == game.hand_parent(), "inspection restores the hand without deploying")
 	check(game.preparedness == initial_energy and game.get_hand_cards().size() == 1, "hand inspection spends no energy or cards")
 	mouse(false, point)
@@ -242,6 +243,31 @@ func input_playtest() -> void:
 	check(not director.modal.visible and not paused, "return confirmation Escape resumes battle")
 
 
+func inspection_layout_checks() -> void:
+	var dossier: Control = director.inspection_dossier
+	var title: Label = dossier.get_node("InspectTitle")
+	check(title.text == title.text.to_upper() and title.get_theme_font_size("font_size") == 34,
+		"inspection uses a large uppercase title")
+	var tabs := dossier.get_node("InspectTabs").get_children()
+	check(tabs.map(func(tab): return tab.text) == ["Summary", "Status", "Effects"], "inspection has three tabs")
+	check(tabs[0].button_pressed, "inspection starts on Summary")
+	var active: StyleBoxFlat = tabs[0].get_theme_stylebox("pressed")
+	check(active.border_color == Color("e59538") and active.border_width_top == 2,
+		"active inspection tab has an orange outline")
+	var details: RichTextLabel = dossier.get_node("DossierText")
+	var summary := details.text
+	for index in [1, 2, 0]:
+		tabs[index].button_pressed = true
+		tabs[index].pressed.emit()
+		check(not details.text.is_empty(), "each inspection tab shows details")
+	check(details.text == summary, "returning to Summary restores card details")
+	await process_frame
+	mouse(true, tabs[1].get_global_rect().get_center())
+	mouse(false, tabs[1].get_global_rect().get_center())
+	check(tabs[1].button_pressed and details.text != summary, "a real click switches inspection tabs")
+	var row: HBoxContainer = director.inspected_face.get_parent().get_parent()
+	check(row.get_child(0) == dossier.get_parent(), "inspection places details before the card preview")
+
 func catalog_input_checks() -> void:
 	director.close_modal()
 	director.show_deck()
@@ -254,6 +280,7 @@ func catalog_input_checks() -> void:
 		mouse(false, point)
 		await process_frame
 		check(director.root.has_node("CatalogInspection"), "catalog hold remains open after release")
+		await inspection_layout_checks()
 		if close_with_key: click_key(KEY_ESCAPE)
 		else:
 			var center: Vector2 = director.inspected_face.get_global_rect().get_center()
