@@ -16,7 +16,7 @@ Multiplayer is in the menu but not playable yet.
 - [Singleplayer design notes](docs/singleplayer.md): rules, card lists and balance changes
 - [Multiplayer plan](docs/multiplayer.md): ideas for a future mode
 
-- [Change reports](docs/changes/): October 18 card logic, UI and debug implementation reports
+For development: [refactor plan](docs/refactor-plan.md) and [refactor notes](docs/refactor-notes.md).
 
 ## Tests
 
