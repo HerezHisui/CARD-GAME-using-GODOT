@@ -541,7 +541,8 @@ func _panel_layout(kind: String) -> void:
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var viewport_size := get_viewport().get_visible_rect().size
 		var height := 360.0 if kind == "debug_password" else (420.0 if kind == "confirm" else 680.0)
-		var panel_size := Vector2(minf(420, viewport_size.x - 32), minf(height, viewport_size.y - 48))
+		var width := 560.0 if kind == "debug" else 420.0
+		var panel_size := Vector2(minf(width, viewport_size.x - 32), minf(height, viewport_size.y - 48))
 		modal.offset_left = (viewport_size.x - panel_size.x) / 2
 		modal.offset_right = -modal.offset_left
 		modal.offset_top = (viewport_size.y - panel_size.y) / 2
@@ -1835,7 +1836,10 @@ func _debug_card_controls() -> void:
 	status_row.add_child(stats)
 	var fields := {}
 	for spec in [["cost", "Cost"], ["attack", "ATK"], ["health", "HP"]]:
-		stats.add_child(label(spec[1], 18))
+		var stat_label := label(spec[1], 18)
+		stat_label.custom_minimum_size.x = 72
+		stat_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		stats.add_child(stat_label)
 		var field := SpinBox.new()
 		field.name = "Debug" + str(spec[1])
 		field.min_value = 1 if spec[0] == "health" else 0
