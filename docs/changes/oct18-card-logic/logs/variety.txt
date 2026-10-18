@@ -1,3 +1,0 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-PASS: 300 exhaustive route checks, four starter characters/perks, two-tier unique upgrades, powered spells, conditional bonuses/double strikes/bleed, priced shops, board-preserving and lethal AI, reduced encounter size

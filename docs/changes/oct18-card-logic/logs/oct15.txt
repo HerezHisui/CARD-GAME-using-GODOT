@@ -1,3 +1,0 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-PASS: manual coin calls, duplicate guard, pending/mid-toss Continue, actual first side, native-ratio inspection/outside dismissal, centered exclusive rewards/exact acquisition, stable saves, shop entrance, board asset and dissolve cleanup

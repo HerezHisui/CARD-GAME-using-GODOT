@@ -7,15 +7,15 @@ Source: `github-publish/new-game-project`. Playable copy: `CARD-GAME-using-GODOT
 | Item | Files touched under `new-game-project` | Change / commit summary | Commit | Patch |
 | --- | --- | --- | --- | --- |
 | 1 | None | Pending: replace disaster encounter icon once the reference is available; retain existing node dimensions and anchor. | None | None |
-| 2 | `scripts/run_director.gd` | Remove inspection headings and closing instructions from live and catalog inspections. | `813f27a` | [Inspection](02-inspection.patch) |
-| 3 | `scripts/board_actions.gd`, `scripts/game_3d_manager.gd` | Open overhead view for board targeting, relocation, formation healing/buffs, and area utilities. Combat already opened overhead. | `8cff1ab` | [Overhead](03-overhead.patch) |
-| 4 | `scripts/card_3d.gd`, `scripts/game_3d_manager.gd`, `scripts/run_director.gd`, `scripts/ui_theme.gd`; `tests/oct18_ui_smoke.gd`, `tests/plans_notes_smoke.gd`, `tests/ui_consistency_smoke.gd` | Remove redundant HUD/menu controls and explanatory text; replace card effect text with icons and keep complete rules in inspection. | `146f3fc` | [Cleanup](04-cleanup.patch) |
-| 5 | `scripts/run_director.gd`, `tests/oct18_ui_smoke.gd` | Rename player buff headings to Adaptations and Augmentations. | `2c0933f` | [Labels](05-labels.patch) |
-| 6 | `scripts/ui_theme.gd`, `scripts/game_presentation.gd`, `tests/oct18_ui_smoke.gd` | Tween button backgrounds from black to red on hover, including dynamically created buttons. | `8103f5e` | [Hover](06-hover.patch) |
-| 7 | `scripts/game_presentation.gd`, `scripts/game_3d_manager.gd`, `tests/oct18_ui_smoke.gd` | Pulse the draw button red during the draw phase and stop after drawing or leaving the phase. | `cc4dc1c` | [Draw reminder](07-draw-reminder.patch) |
-| 8 | `scripts/run_director.gd`, `scripts/game_presentation.gd`, `tests/oct18_ui_smoke.gd` | Keep HP, supplies, deck size, and composition visible during the run, including catalog inspection and coin toss. | `d04f634` | [Status strip](08-status-strip.patch) |
-| 9 | `scripts/run_director.gd`, `tests/oct18_ui_smoke.gd`, `tests/oct16_smoke.gd` | Preserve board targeting and resource-free Esc cancellation; bind Extraction's target to its callback instead of storing a stale reference. | `c740e3a` | [Target cancellation](09-target-cancel.patch) |
-| Test maintenance | `tests/ui_interaction_smoke.gd`, `scripts/run_director.gd` | Use the menu for catalog viewport cleanup coverage after removing the log screen; wrap route text to fit the repository's line-length convention. | `01cd79a` | [Maintenance](10-test-maintenance.patch) |
+| 2 | `scripts/run_director.gd` | Remove inspection headings and closing instructions from live and catalog inspections. | `813f27a` | Inspection (see Git history) |
+| 3 | `scripts/board_actions.gd`, `scripts/game_3d_manager.gd` | Open overhead view for board targeting, relocation, formation healing/buffs, and area utilities. Combat already opened overhead. | `8cff1ab` | Overhead (see Git history) |
+| 4 | `scripts/card_3d.gd`, `scripts/game_3d_manager.gd`, `scripts/run_director.gd`, `scripts/ui_theme.gd`; `tests/oct18_ui_smoke.gd`, `tests/plans_notes_smoke.gd`, `tests/ui_consistency_smoke.gd` | Remove redundant HUD/menu controls and explanatory text; replace card effect text with icons and keep complete rules in inspection. | `146f3fc` | Cleanup (see Git history) |
+| 5 | `scripts/run_director.gd`, `tests/oct18_ui_smoke.gd` | Rename player buff headings to Adaptations and Augmentations. | `2c0933f` | Labels (see Git history) |
+| 6 | `scripts/ui_theme.gd`, `scripts/game_presentation.gd`, `tests/oct18_ui_smoke.gd` | Tween button backgrounds from black to red on hover, including dynamically created buttons. | `8103f5e` | Hover (see Git history) |
+| 7 | `scripts/game_presentation.gd`, `scripts/game_3d_manager.gd`, `tests/oct18_ui_smoke.gd` | Pulse the draw button red during the draw phase and stop after drawing or leaving the phase. | `cc4dc1c` | Draw reminder (see Git history) |
+| 8 | `scripts/run_director.gd`, `scripts/game_presentation.gd`, `tests/oct18_ui_smoke.gd` | Keep HP, supplies, deck size, and composition visible during the run, including catalog inspection and coin toss. | `d04f634` | Status strip (see Git history) |
+| 9 | `scripts/run_director.gd`, `tests/oct18_ui_smoke.gd`, `tests/oct16_smoke.gd` | Preserve board targeting and resource-free Esc cancellation; bind Extraction's target to its callback instead of storing a stale reference. | `c740e3a` | Target cancellation (see Git history) |
+| Test maintenance | `tests/ui_interaction_smoke.gd`, `scripts/run_director.gd` | Use the menu for catalog viewport cleanup coverage after removing the log screen; wrap route text to fit the repository's line-length convention. | `01cd79a` | Maintenance (see Git history) |
 
 ## Defaults and behavior
 
@@ -64,8 +64,8 @@ No rendered, viewport, or screenshot audit was run, following `github-publish/AG
 
 ## Playable-copy synchronization
 
-Applied only this session's UI patch to eleven files. Preserved the playable copy's pre-existing combat implementation and styling differences. Added the source's small `UI.outline` helper because the new numeric icon badges use it. Original playable files are backed up under [mirror-before](mirror-before/).
+Applied only this session's UI patch to eleven files. Preserved the playable copy's pre-existing combat implementation and styling differences. Added the source's small `UI.outline` helper because the new numeric icon badges use it. Original playable files are backed up under mirror-before (see Git history).
 
-[Combined source patch](all-source-changes.patch) contains this session's source changes. [Playable-copy patch](playable-changes.patch) records the exact changes applied to the playable copy. No remote push was performed.
+Combined source patch (see Git history) contains this session's source changes. Playable-copy patch (see Git history) records the exact changes applied to the playable copy. No remote push was performed.
 
 Remaining input: local path or attachment for the new disaster encounter icon.

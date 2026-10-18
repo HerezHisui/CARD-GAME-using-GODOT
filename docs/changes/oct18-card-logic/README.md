@@ -18,7 +18,7 @@ Choice: Keep drops restricted to the existing friendly lane boundaries.
 
 Commit summary: `Fix card placement to use the visible lane under the cursor` (`4a48662`).
 
-Diffs: [01.patch](01.patch).
+Diffs: 01.patch (see Git history).
 
 ### 2. Draw from the deck menu
 
@@ -30,7 +30,7 @@ Choice: Opening or cancelling the picker is free; sealed cards remain unavailabl
 
 Commit summary: `Choose the normal draw from the deck for one energy` (`374cb2a`).
 
-Diffs: [02.patch](02.patch), [02-tests.patch](02-tests.patch), [02-interaction-tests.patch](02-interaction-tests.patch).
+Diffs: 02.patch (see Git history), 02-tests.patch (see Git history), 02-interaction-tests.patch (see Git history).
 
 ### 3. Contingency stat timing
 
@@ -42,7 +42,7 @@ Choice: Armed Plans still activate during combat, preserving their existing timi
 
 Commit summary: `Refresh Plan attack displays at the point of mutation` (`57f0311`).
 
-Diffs: [03.patch](03.patch).
+Diffs: 03.patch (see Git history).
 
 ### 4. Overhead hold-to-inspect
 
@@ -54,7 +54,7 @@ Choice: Keep the existing 0.28-second hold and movement cancellation; settle the
 
 Commit summary: `WIP: add screen-space picking for overhead board inspection` (`285bc4b`).
 
-Diffs: [04.patch](04.patch), [04-test.patch](04-test.patch).
+Diffs: 04.patch (see Git history), 04-test.patch (see Git history).
 
 ### 5. Starter deck balance
 
@@ -66,7 +66,7 @@ Choice: Use 92%/8% as the nearest ratio with the existing twelve-card size; redu
 
 Commit summary: `Build a twelve-card starter with eleven one-cost cards` (`d6a8376`).
 
-Diffs: [05.patch](05.patch), [05-followup.patch](05-followup.patch).
+Diffs: 05.patch (see Git history), 05-followup.patch (see Git history).
 
 ### 6. Effect text and legal targets
 
@@ -78,7 +78,7 @@ Choice: Identical effects share text; numeric upgrades and explicit draw counts 
 
 Commit summary: `Keep modifier descriptions consistent and reject friendly attacks` (`9d2a97c`).
 
-Diffs: [06.patch](06.patch), [06-followup.patch](06-followup.patch).
+Diffs: 06.patch (see Git history), 06-followup.patch (see Git history).
 
 ### 7. Future-only HP-reducing Adaptations
 
@@ -90,7 +90,7 @@ Choice: Held cards receive the Adaptation; exemptions stack per pick and persist
 
 Commit summary: `Apply HP-reducing adaptations only to future deployments` (`19a9810`).
 
-Diffs: [07.patch](07.patch), [07-11-tests.patch](07-11-tests.patch), [13-followup.patch](13-followup.patch).
+Diffs: 07.patch (see Git history), 07-11-tests.patch (see Git history), 13-followup.patch (see Git history).
 
 ### 8. Double attacks
 
@@ -102,7 +102,7 @@ Choice: Evaluate double-strike eligibility once; stop if the attacker dies or th
 
 Commit summary: `Keep double strikes on live targets and carry lethal follow-ups through` (`28ee92f`).
 
-Diffs: [08.patch](08.patch).
+Diffs: 08.patch (see Git history).
 
 ### 9. Status damage synergy
 
@@ -114,7 +114,7 @@ Choice: Reuse the existing condition rules; positive statuses do not contribute 
 
 Commit summary: `Give weaker Response cards affordable status-combo roles` (`67f80ff`).
 
-Diffs: [09.patch](09.patch).
+Diffs: 09.patch (see Git history).
 
 ### 10. Themed Elite decks
 
@@ -126,7 +126,7 @@ Choice: Repeat themed cards to preserve 21 base cards and 14 evolutions includin
 
 Commit summary: `Build elite reserves around one shared Disaster type` (`07f39af`).
 
-Diffs: [10.patch](10.patch), [14.patch](14.patch).
+Diffs: 10.patch (see Git history), 14.patch (see Git history).
 
 ### 11. Upgrade tier pacing
 
@@ -138,7 +138,7 @@ Choice: Existing abilities may improve at the first tier; do not add another cop
 
 Commit summary: `Defer new upgrade mechanics until the second tier` (`946123c`).
 
-Diffs: [11.patch](11.patch), [07-11-tests.patch](07-11-tests.patch).
+Diffs: 11.patch (see Git history), 07-11-tests.patch (see Git history).
 
 ### 12. Armored and Piercing
 
@@ -150,7 +150,7 @@ Choice: An Armored blocker protects the hero for that strike even if killed; pre
 
 Commit summary: `Let Armored stop Piercing hero hits while taking full unit damage` (`33e720d`).
 
-Diffs: [12.patch](12.patch), [12-followup.patch](12-followup.patch).
+Diffs: 12.patch (see Git history), 12-followup.patch (see Git history).
 
 ### 13. Statless utilities
 
@@ -162,7 +162,7 @@ Choice: Only cards explicitly marked utility are statless; support units retain 
 
 Commit summary: `Remove unit stats from utilities and normalize old saves` (`3d7a18f`).
 
-Diffs: [13.patch](13.patch), [13-followup.patch](13-followup.patch).
+Diffs: 13.patch (see Git history), 13-followup.patch (see Git history).
 
 ### 14. Weak cheap Disasters
 
@@ -174,7 +174,7 @@ Choice: Venom Surge requires 3 Poison for +2 attack. Scripted boss-pattern hazar
 
 Commit summary: `Keep cheap Disaster units weak across all encounter tiers` (`464a5ac`).
 
-Diffs: [14.patch](14.patch).
+Diffs: 14.patch (see Git history).
 
 ## Validation
 
@@ -186,28 +186,28 @@ Command pattern: `Godot_v4.7.2-stable_win64_console.exe --headless --path <proje
 
 | Suite | Result |
 | --- | --- |
-| [battle_behavior](logs/battle_behavior.txt) | Passed |
-| [battle_engine](logs/battle_engine.txt) | Passed |
-| [battle_state](logs/battle_state.txt) | Passed |
-| [camera_controls](logs/camera_controls.txt) | Passed |
-| [classroom_integration](logs/classroom_integration.txt) | Passed |
-| [expansion](logs/expansion.txt) | Passed |
-| [explorer_mode](logs/explorer_mode.txt) | Passed |
-| [final_boss](logs/final_boss.txt) | Passed |
-| [improvements](logs/improvements.txt) | Passed |
-| [mechanics](logs/mechanics.txt) | Passed |
-| [notes4](logs/notes4.txt) | Passed |
-| [oct15](logs/oct15.txt) | Passed |
-| [oct16_cleanup](logs/oct16_cleanup.txt) | Passed |
-| [oct16_section3](logs/oct16_section3.txt) | Passed |
-| [oct18_balance](logs/oct18_balance.txt) | Passed |
-| [oct18_card_logic](logs/oct18_card_logic.txt) | Passed |
-| [oct18_ui](logs/oct18_ui.txt) | Passed |
-| [plans_notes](logs/plans_notes.txt) | Passed |
-| [run](logs/run.txt) | Passed |
-| [ui_interaction](logs/ui_interaction.txt) | Passed |
-| [variety](logs/variety.txt) | Passed |
-| [visual_quality](logs/visual_quality.txt) | Passed |
+| battle_behavior (see Git history) | Passed |
+| battle_engine (see Git history) | Passed |
+| battle_state (see Git history) | Passed |
+| camera_controls (see Git history) | Passed |
+| classroom_integration (see Git history) | Passed |
+| expansion (see Git history) | Passed |
+| explorer_mode (see Git history) | Passed |
+| final_boss (see Git history) | Passed |
+| improvements (see Git history) | Passed |
+| mechanics (see Git history) | Passed |
+| notes4 (see Git history) | Passed |
+| oct15 (see Git history) | Passed |
+| oct16_cleanup (see Git history) | Passed |
+| oct16_section3 (see Git history) | Passed |
+| oct18_balance (see Git history) | Passed |
+| oct18_card_logic (see Git history) | Passed |
+| oct18_ui (see Git history) | Passed |
+| plans_notes (see Git history) | Passed |
+| run (see Git history) | Passed |
+| ui_interaction (see Git history) | Passed |
+| variety (see Git history) | Passed |
+| visual_quality (see Git history) | Passed |
 
 `battle_engine_smoke` includes 63,729 parity comparisons. The new balance suite covers card data, friendly attack rejection, adaptation stacking and actual checkpoint/resume, double attacks, status thresholds, all four Elite themes, upgrade pacing, Piercing/Armor/Barrier interactions, statless utilities, and cheap Disaster scaling across floors and encounter kinds.
 
@@ -219,6 +219,6 @@ No rendered audits or manual playthrough were run, per AGENTS.md. Headless check
 
 [mirror-parity.json](mirror-parity.json) records byte-for-byte verification for the 32 synchronized project files. Three existing source dependencies absent from the mirror (`battle_query_adapter.gd`, `battle_snapshot.gd`, `battle_state.gd`) were restored. The mirror was clean before synchronization. Its unrelated existing `ui_theme.gd` difference was preserved.
 
-Mirror checks: [card logic](logs/mirror_oct18_card_logic.txt), [balance](logs/mirror_oct18_balance.txt). Mirror changes remain available in its working tree. Local source implementation commits were created; nothing was pushed.
+Mirror checks: card logic (see Git history), balance (see Git history). Mirror changes remain available in its working tree. Local source implementation commits were created; nothing was pushed.
 
-Validation follow-ups: [UI assertion scope](validation.patch). Source user edits were preserved separately from the implementation commits.
+Validation follow-ups: UI assertion scope (see Git history). Source user edits were preserved separately from the implementation commits.

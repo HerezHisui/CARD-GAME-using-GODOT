@@ -14,7 +14,7 @@ Placement projects the cursor onto each Response slot's plane and checks its loc
 This removes the offset caused by raycasting down from the floating, animated card.
 Default: the visible slot under the cursor determines placement in either camera view.
 
-Patch: [01-placement.patch](01-placement.patch).
+Patch: 01-placement.patch (see Git history).
 
 Checks: new lane-center checks passed in desk and overhead views, including an outside-board rejection.
 The existing interaction suite initially failed its two deployment assertions because its release position
@@ -34,7 +34,7 @@ Default: the 1-energy charge is for the normal selection. Playing the selected c
 cost. There was no separate draw surcharge in the inspected implementation. Search and Rescue's
 existing utility-card cost is unchanged, so this interpretation may need clarification.
 
-Patch: [02-draw.patch](02-draw.patch).
+Patch: 02-draw.patch (see Git history).
 
 Checks: picker opening, cancellation, transfer, exact charge and duplicate callback checks passed.
 
@@ -49,7 +49,7 @@ The existing implementation already delayed Plan bonuses until combat and refres
 the reported hover-triggered red flash or premature application was not reproduced.
 Default: preserve delayed combat activation, consistent with the existing Plan descriptions.
 
-Patch: [03-plan-display.patch](03-plan-display.patch).
+Patch: 03-plan-display.patch (see Git history).
 
 Checks: targeting hover leaves health and bonus unchanged; arming does not apply the bonus early;
 combat application immediately displays ATK 3, clearing displays ATK 2, and no damage flash occurs.

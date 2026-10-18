@@ -1,3 +1,0 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-PASS: Steve/locked clubs, native 3D room, guaranteed prep, predictable boss phases/damage/shield/taunt, counter cards/barriers/healing, curses/recoil/sealing, final victory

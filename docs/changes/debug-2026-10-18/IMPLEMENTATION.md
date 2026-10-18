@@ -20,7 +20,7 @@ The following paths were changed in both `github-publish/new-game-project/` and 
 - `tests/debug_card_smoke.gd`: cover immediate edits, badges, selection changes, bounds, utilities, stale targets, empty battles, and save restoration.
 - `tests/oct16_section3_smoke.gd`: update the expected field count to include the three new card inputs.
 
-Delivery files: this report and `debug-panel.patch` in the same folder.
+Delivery report retained here; implementation changes are available in Git history.
 
 ## Validation
 
@@ -41,4 +41,4 @@ Local source commit: `8550cdb` (`Simplify debug panel and add live card stat edi
 
 ## Patch
 
-`debug-panel.patch` contains the complete patch for all three project files, relative to the source repository root.
+The implementation is available in Git history at commit `8550cdb`.

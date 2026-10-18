@@ -1,3 +1,0 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-PASS: utility failure/cost/consumption/movement/draw, synergy, damage types, Rampaging, pause/resume, reward preservation, shops, boss continuation
