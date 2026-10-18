@@ -4,6 +4,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 const RouteCanvas = preload("res://scripts/route_canvas.gd")
 const CardFace = preload("res://scripts/card_3d.gd")
 const Rules = preload("res://scripts/battle_rules.gd")
+const CardRules = preload("res://scripts/run_card_rules.gd")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -17,7 +18,7 @@ const CHARACTERS := [
 	{"name":"Safety Club · Leader", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
 ]
 var selected_character := 0
-const SORT_KEYS := ["name", "element", "cost", "attack", "health", "modifier", "acquired"]
+const SORT_KEYS = CardRules.SORT_KEYS
 const GOLD := UI.GOLD
 const TEAL := UI.RESPONSE
 const BG := UI.BACKGROUND
@@ -1416,23 +1417,7 @@ func deck_cards(cards: Array[Dictionary]) -> void:
 	if cards.is_empty(): grid.add_child(label("No cards here yet.", 20, TEAL))
 
 func sorted_indices(cards: Array, key_index: int, descending: bool) -> Array:
-	var indices: Array = range(cards.size())
-	var key: String = SORT_KEYS[key_index]
-	indices.sort_custom(func(a, b):
-		var left: Variant = cards[a].get(key, "")
-		var right: Variant = cards[b].get(key, "")
-		var comparison := 0
-		if key == "acquired":
-			left = int(cards[a].get(key, a))
-			right = int(cards[b].get(key, b))
-			comparison = -1 if int(left) > int(right) else (1 if int(left) < int(right) else 0)
-		elif key in ["cost", "attack", "health"]:
-			comparison = -1 if int(left) < int(right) else (1 if int(left) > int(right) else 0)
-		else: comparison = str(left).naturalnocasecmp_to(str(right))
-		if comparison == 0: return a < b
-		return comparison > 0 if descending else comparison < 0
-	)
-	return indices
+	return CardRules.sorted_indices(cards, key_index, descending)
 
 func add_sort_controls(workshop: bool) -> void:
 	var row := HBoxContainer.new()
@@ -1500,10 +1485,10 @@ func upgrade(index: int) -> void:
 	finish_room()
 
 func upgrade_level(card: Dictionary) -> int:
-	return int(card.get("upgrades", str(card.get("name", "")).count("+")))
+	return CardRules.upgrade_level(card)
 
 func can_upgrade(card: Dictionary) -> bool:
-	return upgrade_level(card) < MAX_UPGRADES
+	return CardRules.can_upgrade(card, MAX_UPGRADES)
 
 func upgraded_definition(card: Dictionary) -> Dictionary:
 	var result: Dictionary = card.duplicate(true)
@@ -1608,14 +1593,7 @@ func show_shop() -> void:
 	button("Leave shop", finish_room, content)
 
 func shop_price(card: Dictionary) -> int:
-	var power := int(card.get("cost", 0)) + int(card.get("attack", 0)) + int(card.get("health", 1))
-	power += int(card.get("strength", 0)) + int(card.get("leech", 0))
-	if card.has("condition"): power += 3
-	for amount in card.get("on_hit", {}).values(): power += int(amount)
-	if card.get("modifier", "") == "sluggish": power -= 3
-	elif card.get("modifier", "") != "": power += 2
-	if card.get("effect", "") in ["draw", "rally_all", "heal_all"]: power += 2
-	return 20 if power <= 5 else (30 if power <= 9 else (40 if power <= 13 else 50))
+	return CardRules.shop_price(card)
 
 func buy(card: Dictionary) -> void:
 	var stocked := shop_stock.filter(func(item): return item.id == card.id)
