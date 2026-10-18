@@ -272,3 +272,10 @@ Hold the left mouse button on a card for 0.28 seconds without moving to open its
 Hand hover stays below the board slots. The Deck Browser contains the main Deck and Response Graveyard views; effects that ask you to select a held or deployed card still use their own pickers. Pause, utility choices, Plans, the log and debug dialogs use centered compact panels with scrolling. Deck, map, shop, workshop, rewards and card inspection keep their wider layouts.
 
 The debug password is required each time debug opens, including from F3 and the Pause menu. Enter exactly five asterisks; extra characters or spaces are rejected. Esc or Cancel closes the password prompt without changing the run. Card faces show the corner cost badge, ATK, HP and active statuses below the element banner. The center window is reserved for artwork. Upgrade levels appear below grid previews and in the side dossier, which also explains exact resource costs. Disaster units with a positive sacrifice cost consume that many allies; base units and Disaster utilities show their Tension cost instead.
+
+## Debug controls
+
+Press F3 during a player turn, or choose Menu > Debug values, and enter exactly `*****` each time.
+Choose a live hand or board card to edit its cost, base ATK, current HP or statuses. Utilities only expose cost.
+Card edits apply at once. HP stays at least 1; raising it can also raise the card's healing limit.
+These edits affect that battle copy, not the collection, and are included in normal checkpoints.
