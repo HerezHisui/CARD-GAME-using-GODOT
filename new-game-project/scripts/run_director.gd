@@ -1059,19 +1059,31 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 32)
 	center.add_child(row)
-	inspected_face = card_image(texture, row, 310)
 	add_dossier(row, card, "")
+	inspected_face = card_image(texture, row, 310)
 
 func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node = null) -> RichTextLabel:
 	var panel := PanelContainer.new()
-	inspection_dossier = panel
 	panel.custom_minimum_size = Vector2(440, 420)
 	parent.add_child(panel)
 	UI.decorate(panel)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	panel.add_child(body)
+	inspection_dossier = body
+	var heading := label(str(card.name), 34, UI.GOLD, true)
+	heading.name = "InspectTitle"
+	body.add_child(heading)
+	var tabs := HBoxContainer.new()
+	tabs.name = "InspectTabs"
+	tabs.add_theme_constant_override("separation", 8)
+	body.add_child(tabs)
 	var details := RichTextLabel.new()
 	details.name = "DossierText"
 	details.bbcode_enabled = true
-	details.text = "[color=#%s][b]%s[/b][/color]\n" % [UI.GOLD.to_html(false), str(card.name).to_upper()]
+	details.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	details.add_theme_font_size_override("normal_font_size", 14)
+	details.add_theme_font_size_override("bold_font_size", 14)
 	if not card.get("utility", false):
 		details.text += "ATK %d  /  HP %d\n\n" % [
 			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
@@ -1094,14 +1106,15 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	for status in effects:
 		if int(effects[status]) > 0:
 			tokens.append("%s %d: %s" % [str(status).capitalize(), int(effects[status]), status_rules.get(status, "")])
-	if not tokens.is_empty(): details.text += "\n[b]CURRENT STATUSES[/b]\n" + " · ".join(tokens) + "\n"
+	var status_text := ""
+	if not tokens.is_empty(): status_text = "[b]CURRENT STATUSES[/b]\n" + "\n".join(tokens) + "\n"
 	var combat: PackedStringArray = []
 	if is_instance_valid(live_card):
 		if live_card.planned_guard > 0: combat.append("Plan protection: %d" % live_card.planned_guard)
 		if live_card.plan_attack_bonus > 0: combat.append("Plan attack: +%d" % live_card.plan_attack_bonus)
 		if live_card.plan_ignore_taunt: combat.append("Ignore Taunt")
 		if game.buff_value(live_card.card_data.type == "response", "kill_or_die") > 0: combat.append("Blood Pact: defeat a card this turn or die")
-	if not combat.is_empty(): details.text += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
+	if not combat.is_empty(): status_text += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
 	var rules: PackedStringArray = []
 	for line in card_rules(card).split("\n"):
 		if line.is_empty() or line.begins_with("Adjacent matching types:") or line.begins_with("All other matchups:") or line.begins_with("Choose an empty Response slot") or line.begins_with("Piercing:") or line.begins_with("Sluggish:"): continue
@@ -1115,9 +1128,29 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	for modifier in active_modifiers:
 		var description := Rules.modifier_text(card, str(modifier))
 		if description not in rules: rules.append(description)
-	if not rules.is_empty(): details.text += "\n[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
+	var effect_text := "No card effects." if rules.is_empty() else "[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
 	if not hint.is_empty(): details.text += "\n\n" + hint
-	panel.add_child(details)
+	body.add_child(details)
+	var pages: Array[String] = [
+		details.text, status_text if not status_text.is_empty() else "No active statuses.", effect_text
+	]
+	var group := ButtonGroup.new()
+	for index in pages.size():
+		var tab := Button.new()
+		tab.text = ["Summary", "Status", "Effects"][index]
+		tab.toggle_mode = true
+		tab.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+		tab.set_meta("hover_feedback", true)
+		tab.button_group = group
+		tab.button_pressed = index == 0
+		tab.custom_minimum_size = Vector2(120, 36)
+		tab.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		for state in ["pressed", "hover_pressed"]:
+			var active := UI.panel(UI.INSET, Color("e59538"), 8)
+			active.set_border_width_all(2)
+			tab.add_theme_stylebox_override(state, active)
+		tab.pressed.connect(func(): details.text = pages[index])
+		tabs.add_child(tab)
 	return details
 
 func fit_card_grid(grid: GridContainer, scroll: ScrollContainer) -> void:
@@ -1210,8 +1243,8 @@ func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	row.add_theme_constant_override("separation", 32)
 	box.add_child(row)
 	card._refresh_face()
-	inspected_face = card_image(card._vp.get_texture(), row, 330)
 	add_dossier(row, live_definition(card), "", card)
+	inspected_face = card_image(card._vp.get_texture(), row, 330)
 
 func show_plans() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty(): return
