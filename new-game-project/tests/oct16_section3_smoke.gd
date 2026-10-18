@@ -85,7 +85,7 @@ func run() -> void:
 	unlock_debug(director)
 	check(director.screen == "debug" and paused, "debug panel pauses a stable player turn")
 	var fields = director.content.find_children("*", "SpinBox", true, false)
-	check(fields.size() == 9, "debug exposes eight resource fields and a status amount")
+	check(fields.size() == 12, "debug exposes eight resource fields, three card stats and a status amount")
 	fields[7].value = 2
 	await capture("debug")
 	fields[2].value = 5
