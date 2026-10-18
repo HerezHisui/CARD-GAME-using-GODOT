@@ -19,9 +19,16 @@ func banner_style_checks() -> void:
 		game.presentation.banner("DISASTER ENCOUNTER", "Prepare your formation", director.GOLD, entry)
 		var banner: PanelContainer = game.presentation.banner_node
 		var style: StyleBoxFlat = banner.get_theme_stylebox("panel")
-		check(style.bg_color == director.UI.INSET, "encounter and turn banners use a dark fill")
-		check(style.border_color == director.GOLD and style.border_width_bottom == 1,
-			"banner has a thin gold line")
+		var strip: ColorRect = banner.get_node("BannerStrip")
+		var material: ShaderMaterial = strip.material
+		check(style.bg_color == Color.TRANSPARENT
+			and material.get_shader_parameter("fill_color") == Color(director.UI.INSET, 0.82),
+			"encounter and turn banners use a translucent dark strip")
+		check(material.shader == load("res://scripts/banner_strip.gdshader")
+			and material.get_shader_parameter("line_color") == director.UI.AMBER,
+			"banner uses the soft edge shader with two shorter glowing amber lines")
+		check(style.border_width_bottom == 0 and style.border_width_left == 0
+			and style.border_width_right == 0, "banner omits full width borders")
 		check(style.border_width_top == 0 and not banner.has_node("IndustrialTrim"),
 			"banner omits the hazard bar and heavy frame")
 		check(banner.offset_left == 350 and banner.offset_right == -350,
@@ -30,6 +37,15 @@ func banner_style_checks() -> void:
 		var title: Label = banner.get_child(0).get_child(0)
 		check(title.text == "DISASTER ENCOUNTER" and title.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER,
 			"banner keeps its centered uppercase title")
+		check(title.get_theme_color("font_color") == director.UI.TEXT
+			and title.get_theme_font("font") == director.UI.font(true),
+			"banner title uses the bold condensed heading font in off-white")
+		var subtitle: Label = banner.get_child(0).get_child(1)
+		check(subtitle.text == "Prepare your formation"
+			and subtitle.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER
+			and subtitle.get_theme_color("font_color") == director.UI.MUTED
+			and subtitle.get_theme_font_size("font_size") < title.get_theme_font_size("font_size"),
+			"banner preserves its smaller dim centered subtitle")
 		game.presentation.clear_banner()
 
 func run() -> void:

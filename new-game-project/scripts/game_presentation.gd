@@ -218,6 +218,7 @@ func card_feedback(face: Control) -> void:
 	face.mouse_entered.connect(func(): animate.call(1.025))
 	face.mouse_exited.connect(func(): animate.call(1.0))
 
+@warning_ignore("unused_parameter")
 func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry: bool = false) -> void:
 	if blocking and not entry: return
 	if banner_tween: banner_tween.kill()
@@ -231,9 +232,8 @@ func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry:
 	panel.offset_right = -350
 	panel.offset_top = 85
 	panel.offset_bottom = 172
-	var style := UI.panel(UI.INSET, UI.GOLD)
+	var style := UI.panel(Color.TRANSPARENT, UI.AMBER)
 	style.set_border_width_all(0)
-	style.border_width_bottom = 1
 	style.set_corner_radius_all(0)
 	panel.add_theme_stylebox_override("panel", style)
 	add_child(panel)
@@ -244,17 +244,35 @@ func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry:
 	panel.add_child(box)
 	for words in [title, subtitle]:
 		if words.is_empty(): continue
-		var label = game.run_director.label(words, 26 if words == title else 16, color)
-		if words == title: label.text = words.to_upper()
+		var text_color: Color = UI.TEXT if words == title else UI.MUTED
+		var label: Label = game.run_director.label(words, 26 if words == title else 16, text_color)
+		if words == title:
+			label.text = words.to_upper()
+			label.add_theme_font_override("font", UI.font(true))
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(label)
+	add_banner_strip(panel)
 	panel.modulate.a = 0
 	banner_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	banner_tween.tween_property(panel, "modulate:a", 1.0, 0.16)
-	banner_tween.parallel().tween_property(panel, "offset_top", 96.0, 0.2).from(75.0).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var slide := banner_tween.parallel().tween_property(panel, "offset_top", 96.0, 0.2).from(75.0)
+	slide.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if entry:
-		banner_tween.parallel().tween_property(panel, "offset_left", 350.0, 0.2).from(550.0).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+		var entry_slide := banner_tween.parallel().tween_property(panel, "offset_left", 350.0, 0.2).from(550.0)
+		entry_slide.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	banner_tween.tween_interval(0.65)
 	banner_tween.tween_property(panel, "modulate:a", 0.0, 0.2)
 	banner_tween.tween_callback(panel.queue_free)
+
+func add_banner_strip(panel: PanelContainer) -> void:
+	var strip := ColorRect.new()
+	strip.name = "BannerStrip"
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.show_behind_parent = true
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://scripts/banner_strip.gdshader")
+	material.set_shader_parameter("fill_color", Color(UI.INSET, 0.82))
+	material.set_shader_parameter("line_color", UI.AMBER)
+	strip.material = material
+	panel.add_child(strip)
