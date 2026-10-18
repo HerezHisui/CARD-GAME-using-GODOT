@@ -992,7 +992,7 @@ func _set_phase(p: Phase, text: String = "") -> void:
 		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
 	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
 	if text != "" and _phase_label:
-		_phase_label.text = text
+		_phase_label.text = "Pick a card to draw" if p == Phase.PLAYER_DRAW else text
 	if _end_turn_btn:
 		_end_turn_btn.disabled = not (p == Phase.PLAYER_DRAW or p == Phase.PLAYER_PLAY)
 
