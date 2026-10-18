@@ -110,8 +110,7 @@ func apply_combat() -> void:
 		game.log_event("Brace protects %s against its next attack this combat." % targets[0].card_data.name)
 	elif armed.kind == "coordinate" and not targets.is_empty() and eligible(targets[0]):
 		for card in coordination_targets(targets[0]):
-			card.plan_attack_bonus = 1
-			card._refresh_face()
+			card.set_plan_attack_bonus(1)
 		game.log_event("Coordinated Response grants the chosen ally and its nearest neighbors +1 attack for this combat.")
 	elif armed.kind == "medicine" and eligible(targets[0]):
 		targets[0].statuses.erase("bleed")
@@ -120,8 +119,7 @@ func apply_combat() -> void:
 		targets[0].plan_ignore_taunt = true
 		targets[0]._refresh_face()
 	elif armed.kind == "precision" and eligible(targets[0]):
-		targets[0].plan_attack_bonus = 2
-		targets[0]._refresh_face()
+		targets[0].set_plan_attack_bonus(2)
 	elif armed.kind == "supply": game.draw_cards(1)
 	elif armed.kind == "shelter": game.plan_hero_barrier = 3
 	elif armed.kind == "extract": pass
@@ -131,7 +129,7 @@ func finish_combat() -> void:
 	for card in game.get_tree().get_nodes_in_group("cards"):
 		if card.planned_guard > 0 or card.plan_attack_bonus > 0 or card.plan_ignore_taunt:
 			card.planned_guard = 0
-			card.plan_attack_bonus = 0
+			card.set_plan_attack_bonus(0)
 			card.plan_ignore_taunt = false
 			card._refresh_face()
 	game.plan_hero_barrier = 0
