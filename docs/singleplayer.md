@@ -581,3 +581,25 @@ The asset audit checks 63 runtime files, verifies the geometry checksum and all 
 - GitHub repository: https://github.com/HerezHisui/CARD-GAME-using-GODOT
 
 - Multiplayer Design and Deck Builder proposal: https://docs.google.com/document/d/1lyxR52jlt4Z28vOycWLNDVeqEhnon1TOcE0jDcJ0EQo/edit
+
+## Design decisions
+
+Battle adaptations and permanent floor rewards are player-only. Old saves keep any enemy buffs already stored. Normal wins intentionally heal up to 3 HP. Elite and boss wins do not grant that healing. Advancing through `next_floor` separately heals up to 5 HP. Both paths stop at maximum HP and remain part of the balance.
+
+Drops use the visible friendly slot under the cursor. The normal draw picker costs 1 energy only when a card is chosen. Opening or cancelling it is free. Playing that card still costs its listed energy. Attacks cannot target allies, and shared effect text uses the actual upgraded amounts.
+
+The twelve-card starter has eleven 1-cost cards and one 2-cost Evacuation Route. It keeps cheap units weak so the early game has playable blockers without free strong units.
+
+An adaptation that reduces unit HP leaves already deployed units unchanged by all its unit effects. Held cards and later deployments receive it. These exemptions stack and survive Continue.
+
+Containment Lance gains 2 attack against a target with 3 combined Burn, Poison and Bleed stacks. Last Responder gains 2 against a target with 2 Bleed. Hazmat Team costs 2. Venom Surge gains 2 against 3 Poison. These target conditions do not apply to open lanes.
+
+Elite reserves share one Disaster element, repeating cards where needed to keep their reserve sizes. Basic unit upgrades add stats first and new draw, Burn, Poison or Armor effects at tier two. An existing ability can improve at tier one.
+
+An Armored blocker stops the Piercing hero hit, even if the blocker dies. It takes full Piercing unit damage; Barrier and Plan protection still apply. Utilities have no unit ATK or HP. Support units keep their stats.
+
+Ordinary 1-Tension units and 1-sacrifice evolutions have at most 2 printed attack including starting Strength, and 2 HP. They skip flat encounter stat scaling. Scripted boss hazards instead show a BOSS badge without a summon cost.
+
+Card faces use effect icons; inspection holds the full rules. Player battle buffs are labelled Adaptations and permanent rewards Augmentations. The status strip counts the whole collection, not the draw pile. Utilities also count toward their affinity, so those counts overlap. The log screen and banking checkbox are removed; internal event history and the saved automatic banking setting remain.
+
+The replacement Disaster encounter icon is still pending. Its reference image or local path has not been supplied. Keep the existing icon's dimensions and anchor when the reference arrives.
