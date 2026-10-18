@@ -69,7 +69,7 @@ func elite_themes() -> void:
 		var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
 		var cards: Array = game.enemy_deck + game.enemy_hand + game.enemy_evolution_deck
 		check(cards.all(func(card): return card.element == favored), "elite reserves share their encounter type")
-		check(game.enemy_evolution_deck.size() == 13, "themed elites keep thirteen evolution choices")
+		check(game.enemy_evolution_deck.size() == 14, "themed elites retain their fourteen evolution choices")
 		var enabler: String = ["cinder_cloud", "glass_quake", "toxic_runoff", "pressure_front"][specialty]
 		check(cards.any(func(card): return card.id == enabler), "elite contains its status or Strength enabler")
 
@@ -139,6 +139,19 @@ func statless_utilities() -> void:
 	check(game.try_utility(utility, game._response_slots()[0]), "statless utility can still be cast")
 	check(not game.player_graveyard[0].has("health"), "cast utility graveyard entry remains statless")
 
+func cheap_disasters() -> void:
+	for floor_level in range(1, 4):
+		for kind in ["battle", "elite", "boss"]:
+			fixture()
+			game.start_encounter(director.character_deck(0), kind, floor_level, 0)
+			for card in game.enemy_deck + game.enemy_hand + game.enemy_evolution_deck:
+				if card.get("utility", false):
+					check(not card.has("health") and not card.has("attack"), "encounter scaling keeps utilities statless")
+					continue
+				if int(card.cost) > 1: continue
+				check(int(card.attack) + int(card.get("strength", 0)) <= 2 and int(card.health) <= 2,
+					"cheap Disaster stats stay weak across floors and encounter kinds")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -152,6 +165,7 @@ func run() -> void:
 	upgrade_pacing()
 	piercing_armor()
 	statless_utilities()
+	cheap_disasters()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)

@@ -264,6 +264,9 @@ func _refresh_face() -> void:
 	var cost: int = int(card_data.get("tension_cost", 1)) if disaster and not sacrifice else int(card_data.get("cost", 0))
 	if _cost_label: _cost_label.text = str(cost)
 	if _cost_caption: _cost_caption.text = "SAC" if sacrifice else ""
+	if card_data.has("boss_role"):
+		_cost_label.text = "-"
+		_cost_caption.text = "BOSS"
 
 	if _hp_label:
 		_hp_label.text = str(maxi(card_data.health, 0))

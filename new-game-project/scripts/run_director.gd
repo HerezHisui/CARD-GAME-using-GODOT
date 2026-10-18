@@ -1075,7 +1075,8 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
 	var disaster: bool = card.get("type", "response") == "disaster"
 	var sacrifice: bool = disaster and not card.get("utility", false) and int(card.get("cost", 0)) > 0
-	if sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
+	if card.has("boss_role"): details.text += "Encounter hazard: created by a boss pattern. No summon cost.\n\n"
+	elif sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
 	elif disaster: details.text += "Cost: %d Tension.\n\n" % int(card.get("tension_cost", 1))
 	else: details.text += "Cost: %d energy.\n\n" % int(card.get("cost", 0))
 	details.text += "[b]PERMANENT UPGRADES  %d / 2[/b]\n" % upgrade_level(card)
