@@ -101,7 +101,8 @@ func setup(data: Dictionary) -> void:
 			if not normalized.is_empty() and normalized not in modifiers: modifiers.append(normalized)
 
 	for card_modifier in card_data.get("modifiers", []):
-		if str(card_modifier).to_lower() not in modifiers: modifiers.append(str(card_modifier).to_lower())
+		var normalized := str(card_modifier).strip_edges().to_lower()
+		if not normalized.is_empty() and normalized not in modifiers: modifiers.append(normalized)
 
 	_build_face()
 	art_sprite.texture = _vp.get_texture()
