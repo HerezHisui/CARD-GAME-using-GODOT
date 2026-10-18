@@ -482,15 +482,7 @@ func enter_from_above(slot: Node3D) -> void:
 	await _tween.finished
 
 func _slot_under_card() -> Node3D:
-	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP, global_position + Vector3.DOWN * 5.0)
-	q.collide_with_bodies = true
-	q.collide_with_areas = false
-	var res := get_world_3d().direct_space_state.intersect_ray(q)
-	if res and res.collider:
-		var p = res.collider.get_parent()
-		if p is MeshInstance3D and "Slot" in p.name:
-			return p
-	return null
+	return _manager().slot_at_screen_position(get_viewport().get_mouse_position())
 
 func _slot_occupied(slot: Node3D) -> bool:
 	for c in get_tree().get_nodes_in_group("cards"):

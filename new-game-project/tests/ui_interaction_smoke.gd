@@ -177,7 +177,7 @@ func input_playtest() -> void:
 	point = hand_point(card)
 	mouse(true, point)
 	await process_frame
-	var destination: Vector2 = game.camera.unproject_position(Vector3(game._response_slots()[0].global_position.x, 1.6, game._response_slots()[0].global_position.z))
+	var destination: Vector2 = game.camera.unproject_position(game._response_slots()[0].global_position)
 	motion(destination)
 	await create_timer(0.30).timeout
 	mouse(false, destination)
