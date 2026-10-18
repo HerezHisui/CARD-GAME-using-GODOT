@@ -77,7 +77,7 @@ func run() -> void:
 	var offers: Array = director.reward_stock.duplicate(true)
 	await create_timer(1.1).timeout
 	await capture("rewards")
-	var images: Array = director.content.find_children("*", "TextureRect", true, false)
+	var images: Array = director.reward_faces
 	check(images.size() == 3, "three actual card faces are shown")
 	check(images.all(func(image): return absf(image.size.x / image.size.y - 264.0 / 360.0) < 0.01), "all reward faces preserve card shape")
 	var mean_x := 0.0

@@ -13,7 +13,7 @@ func check(value: bool, message: String) -> void:
 func has_text(parent: Node, text: String) -> bool:
 	for control in parent.find_children("*", "Control", true, false):
 		if control is Label or control is Button or control is RichTextLabel:
-			if text in control.text: return true
+			if text.to_lower() in control.text.to_lower(): return true
 	return false
 
 func battle() -> void:
