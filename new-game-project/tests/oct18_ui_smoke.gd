@@ -102,7 +102,15 @@ func run() -> void:
 	game.add_card_to_hand({"name":"Draw fixture", "type":"response", "element":"evac",
 		"cost":1, "attack":1, "health":1})
 	game.deck.assign([director.collection[0].duplicate(true)])
+	game.preparedness = 3
 	game._on_draw_button_pressed()
+	check(has_text(director.modal, "Pick a card to draw"), "draw picker uses concise heading")
+	check(not has_text(director.content, "Choose a card for"), "draw picker instructions removed")
+	check(game.presentation.draw_reminder.visible, "opening picker keeps draw reminder active")
+	director.close_modal()
+	check(game.presentation.draw_reminder.visible, "cancelling picker keeps draw reminder active")
+	game._on_draw_button_pressed()
+	game.complete_draw_choice(game.deck[0])
 	check(game.phase == game.Phase.PLAYER_PLAY, "draw completes")
 	check(not game.presentation.draw_reminder.visible, "drawing stops reminder")
 	game._set_phase(game.Phase.PLAYER_DRAW)

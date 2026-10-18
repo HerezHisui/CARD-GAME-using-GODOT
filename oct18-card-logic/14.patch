@@ -1,0 +1,238 @@
+commit 464a5ac242c32b559281bde73883b9c0c6c4008d
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 17:59:38 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 17:59:38 2026 +0800
+
+    Keep cheap Disaster units weak across all encounter tiers
+
+diff --git a/new-game-project/data/disaster_deck.json b/new-game-project/data/disaster_deck.json
+index cc630ac..12896e5 100644
+--- a/new-game-project/data/disaster_deck.json
++++ b/new-game-project/data/disaster_deck.json
+@@ -6,7 +6,7 @@
+     "element": "fire",
+     "cost_type": "sacrifice",
+     "cost": 0,
+-    "attack": 2,
++    "attack": 1,
+     "health": 2,
+     "count": 3
+   },
+@@ -17,8 +17,8 @@
+     "element": "earthquake",
+     "cost_type": "sacrifice",
+     "cost": 0,
+-    "attack": 2,
+-    "health": 3,
++    "attack": 1,
++    "health": 2,
+     "count": 3
+   },
+   {
+@@ -28,7 +28,7 @@
+     "element": "flood",
+     "cost_type": "sacrifice",
+     "cost": 0,
+-    "attack": 2,
++    "attack": 1,
+     "health": 2,
+     "count": 3
+   },
+@@ -39,7 +39,7 @@
+     "element": "typhoon",
+     "cost_type": "sacrifice",
+     "cost": 0,
+-    "attack": 2,
++    "attack": 1,
+     "health": 2,
+     "count": 3
+   },
+diff --git a/new-game-project/data/disaster_expansion.json b/new-game-project/data/disaster_expansion.json
+index d2eea01..c261dd0 100644
+--- a/new-game-project/data/disaster_expansion.json
++++ b/new-game-project/data/disaster_expansion.json
+@@ -7,7 +7,7 @@
+     "cost_type": "sacrifice",
+     "cost": 0,
+     "attack": 1,
+-    "health": 3,
++    "health": 2,
+     "on_hit": {
+       "burn": 2
+     },
+@@ -21,7 +21,7 @@
+     "cost_type": "sacrifice",
+     "cost": 0,
+     "attack": 1,
+-    "health": 3,
++    "health": 2,
+     "on_hit": {
+       "bleed": 2
+     },
+@@ -35,7 +35,7 @@
+     "cost_type": "sacrifice",
+     "cost": 0,
+     "attack": 1,
+-    "health": 3,
++    "health": 2,
+     "on_hit": {
+       "poison": 2
+     }
+@@ -47,8 +47,8 @@
+     "element": "typhoon",
+     "cost_type": "sacrifice",
+     "cost": 1,
+-    "attack": 3,
+-    "health": 3,
++    "attack": 2,
++    "health": 2,
+     "modifier": "piercing"
+   },
+   {
+@@ -69,8 +69,8 @@
+     "element": "typhoon",
+     "cost_type": "sacrifice",
+     "cost": 0,
+-    "attack": 1,
+-    "health": 3,
++    "attack": 0,
++    "health": 2,
+     "strength": 1,
+     "effect": "draw",
+     "draw_count": 1
+@@ -103,7 +103,7 @@
+     "cost_type": "sacrifice",
+     "cost": 0,
+     "attack": 1,
+-    "health": 3,
++    "health": 2,
+     "effect": "move_ally"
+   },
+   {
+@@ -114,7 +114,7 @@
+     "cost_type": "sacrifice",
+     "cost": 0,
+     "attack": 1,
+-    "health": 3,
++    "health": 2,
+     "effect": "heal_all"
+   },
+   {
+@@ -190,12 +190,12 @@
+     "element": "flood",
+     "cost": 1,
+     "attack": 2,
+-    "health": 4,
++    "health": 2,
+     "condition": {
+       "subject": "target",
+       "status": "poison",
+-      "threshold": 2,
+-      "bonus": 3
++      "threshold": 3,
++      "bonus": 2
+     },
+     "cost_type": "sacrifice"
+   },
+@@ -223,7 +223,7 @@
+     "element": "earthquake",
+     "cost": 0,
+     "attack": 1,
+-    "health": 3,
++    "health": 2,
+     "condition": {
+       "subject": "target",
+       "status": "any",
+diff --git a/new-game-project/scripts/card_3d.gd b/new-game-project/scripts/card_3d.gd
+index 93195a1..5575c74 100644
+--- a/new-game-project/scripts/card_3d.gd
++++ b/new-game-project/scripts/card_3d.gd
+@@ -264,6 +264,9 @@ func _refresh_face() -> void:
+ 	var cost: int = int(card_data.get("tension_cost", 1)) if disaster and not sacrifice else int(card_data.get("cost", 0))
+ 	if _cost_label: _cost_label.text = str(cost)
+ 	if _cost_caption: _cost_caption.text = "SAC" if sacrifice else ""
++	if card_data.has("boss_role"):
++		_cost_label.text = "-"
++		_cost_caption.text = "BOSS"
+ 
+ 	if _hp_label:
+ 		_hp_label.text = str(maxi(card_data.health, 0))
+diff --git a/new-game-project/scripts/game_3d_manager.gd b/new-game-project/scripts/game_3d_manager.gd
+index aaba667..576cccb 100644
+--- a/new-game-project/scripts/game_3d_manager.gd
++++ b/new-game-project/scripts/game_3d_manager.gd
+@@ -223,7 +223,8 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
+ 	for definition in threats:
+ 		if kind == "elite" and definition.element != favored: continue
+ 		var c: Dictionary = definition.duplicate(true)
+-		if not c.get("utility", false):
++		var cheap: bool = int(c.cost) == 1 or (int(c.cost) == 0 and int(c.get("tension_cost", 1)) <= 1)
++		if not c.get("utility", false) and not cheap:
+ 			c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
+ 			c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
+ 		if int(c.cost) > 0:
+@@ -236,7 +237,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
+ 	var evolution_limit := 8 if kind == "battle" else (13 if kind == "elite" else 14)
+ 	if kind == "elite":
+ 		fill_elite_reserve(enemy_deck, base_limit)
+-		fill_elite_reserve(enemy_evolution_deck, evolution_limit - 1)
++		fill_elite_reserve(enemy_evolution_deck, evolution_limit)
+ 	enemy_deck.shuffle()
+ 	enemy_deck.sort_custom(func(a, b): return a.element == favored and b.element != favored)
+ 	enemy_deck.resize(mini(base_limit, enemy_deck.size()))
+diff --git a/new-game-project/scripts/run_director.gd b/new-game-project/scripts/run_director.gd
+index 67a7908..7edbef4 100644
+--- a/new-game-project/scripts/run_director.gd
++++ b/new-game-project/scripts/run_director.gd
+@@ -1075,7 +1075,8 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
+ 			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
+ 	var disaster: bool = card.get("type", "response") == "disaster"
+ 	var sacrifice: bool = disaster and not card.get("utility", false) and int(card.get("cost", 0)) > 0
+-	if sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
++	if card.has("boss_role"): details.text += "Encounter hazard: created by a boss pattern. No summon cost.\n\n"
++	elif sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
+ 	elif disaster: details.text += "Cost: %d Tension.\n\n" % int(card.get("tension_cost", 1))
+ 	else: details.text += "Cost: %d energy.\n\n" % int(card.get("cost", 0))
+ 	details.text += "[b]PERMANENT UPGRADES  %d / 2[/b]\n" % upgrade_level(card)
+diff --git a/new-game-project/tests/oct18_balance_smoke.gd b/new-game-project/tests/oct18_balance_smoke.gd
+index b93bfb5..3b5a466 100644
+--- a/new-game-project/tests/oct18_balance_smoke.gd
++++ b/new-game-project/tests/oct18_balance_smoke.gd
+@@ -69,7 +69,7 @@ func elite_themes() -> void:
+ 		var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
+ 		var cards: Array = game.enemy_deck + game.enemy_hand + game.enemy_evolution_deck
+ 		check(cards.all(func(card): return card.element == favored), "elite reserves share their encounter type")
+-		check(game.enemy_evolution_deck.size() == 13, "themed elites keep thirteen evolution choices")
++		check(game.enemy_evolution_deck.size() == 14, "themed elites retain their fourteen evolution choices")
+ 		var enabler: String = ["cinder_cloud", "glass_quake", "toxic_runoff", "pressure_front"][specialty]
+ 		check(cards.any(func(card): return card.id == enabler), "elite contains its status or Strength enabler")
+ 
+@@ -139,6 +139,19 @@ func statless_utilities() -> void:
+ 	check(game.try_utility(utility, game._response_slots()[0]), "statless utility can still be cast")
+ 	check(not game.player_graveyard[0].has("health"), "cast utility graveyard entry remains statless")
+ 
++func cheap_disasters() -> void:
++	for floor_level in range(1, 4):
++		for kind in ["battle", "elite", "boss"]:
++			fixture()
++			game.start_encounter(director.character_deck(0), kind, floor_level, 0)
++			for card in game.enemy_deck + game.enemy_hand + game.enemy_evolution_deck:
++				if card.get("utility", false):
++					check(not card.has("health") and not card.has("attack"), "encounter scaling keeps utilities statless")
++					continue
++				if int(card.cost) > 1: continue
++				check(int(card.attack) + int(card.get("strength", 0)) <= 2 and int(card.health) <= 2,
++					"cheap Disaster stats stay weak across floors and encounter kinds")
++
+ func run() -> void:
+ 	game = load("res://scenes/game_3d.tscn").instantiate()
+ 	root.add_child(game)
+@@ -152,6 +165,7 @@ func run() -> void:
+ 	upgrade_pacing()
+ 	piercing_armor()
+ 	statless_utilities()
++	cheap_disasters()
+ 	game.clear_battle()
+ 	print("OCT18 BALANCE: %d failures" % failures)
+ 	quit(1 if failures else 0)

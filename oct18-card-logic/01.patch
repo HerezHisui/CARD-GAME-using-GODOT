@@ -1,0 +1,134 @@
+commit 4a48662da01b88331a2ee692e026372c5a93a7c6
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 16:46:14 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 16:46:14 2026 +0800
+
+    Fix card placement to use the visible lane under the cursor
+
+diff --git a/new-game-project/scripts/card_3d.gd b/new-game-project/scripts/card_3d.gd
+index c7d2afb..4fec04b 100644
+--- a/new-game-project/scripts/card_3d.gd
++++ b/new-game-project/scripts/card_3d.gd
+@@ -482,15 +482,7 @@ func enter_from_above(slot: Node3D) -> void:
+ 	await _tween.finished
+ 
+ func _slot_under_card() -> Node3D:
+-	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP, global_position + Vector3.DOWN * 5.0)
+-	q.collide_with_bodies = true
+-	q.collide_with_areas = false
+-	var res := get_world_3d().direct_space_state.intersect_ray(q)
+-	if res and res.collider:
+-		var p = res.collider.get_parent()
+-		if p is MeshInstance3D and "Slot" in p.name:
+-			return p
+-	return null
++	return _manager().slot_at_screen_position(get_viewport().get_mouse_position())
+ 
+ func _slot_occupied(slot: Node3D) -> bool:
+ 	for c in get_tree().get_nodes_in_group("cards"):
+diff --git a/new-game-project/scripts/game_3d_manager.gd b/new-game-project/scripts/game_3d_manager.gd
+index a85d2a6..8d5085b 100644
+--- a/new-game-project/scripts/game_3d_manager.gd
++++ b/new-game-project/scripts/game_3d_manager.gd
+@@ -690,6 +690,19 @@ func end_hand_drag(card: Node) -> void:
+ 	if dragged_hand_card == card: dragged_hand_card = null
+ 	clear_hand_hover()
+ 
++func slot_at_screen_position(mouse: Vector2) -> Node3D:
++	var camera := get_viewport().get_camera_3d()
++	for slot in _response_slots():
++		var plane := Plane(Vector3.UP, slot.global_position.y)
++		var hit: Variant = plane.intersects_ray(camera.project_ray_origin(mouse), camera.project_ray_normal(mouse))
++		if hit == null: continue
++		var local: Vector3 = slot.to_local(hit)
++		var bounds: AABB = slot.get_aabb()
++		if local.x >= bounds.position.x and local.x <= bounds.end.x \
++				and local.z >= bounds.position.z and local.z <= bounds.end.z:
++			return slot
++	return null
++
+ func _unhandled_input(event: InputEvent) -> void:
+ 	if not board_input.action.is_empty(): return
+ 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and can_player_act():
+diff --git a/new-game-project/tests/oct18_card_logic_smoke.gd b/new-game-project/tests/oct18_card_logic_smoke.gd
+new file mode 100644
+index 0000000..8f9882a
+--- /dev/null
++++ b/new-game-project/tests/oct18_card_logic_smoke.gd
+@@ -0,0 +1,62 @@
++extends SceneTree
++
++var game: Node
++var director: Node
++var failures := 0
++
++func _initialize() -> void: call_deferred("run")
++
++func check(value: bool, message: String) -> void:
++	if value: return
++	failures += 1
++	push_error("FAILED: " + message)
++
++func fixture() -> void:
++	paused = false
++	game.clear_battle()
++	game.player_run_buffs.clear()
++	game.enemy_run_buffs.clear()
++	director.modal.hide()
++	director.screen = ""
++	director.battle_active = true
++	game.turn = 1
++	game.player_hp = 20
++	game.enemy_hp = 40
++	game.player_first = true
++	game.preparedness = 5
++	game.energy_cap = 5
++	game._set_phase(game.Phase.PLAYER_PLAY)
++
++func unit(side: String = "response", lane: int = -1, data: Dictionary = {}) -> Node:
++	var definition := {"id":"fixture", "name":"Fixture", "type":side, "element":"brace",
++		"cost":1, "attack":2, "health":8}
++	definition.merge(data, true)
++	var card: Node = game.Card3DScene.instantiate()
++	game.add_child(card)
++	card.add_to_group("cards")
++	card.setup(definition)
++	if lane >= 0:
++		card.place_on_slot((game._response_slots() if side == "response" else game._threat_slots())[lane])
++	else:
++		card.reparent(game.hand_parent())
++		game.hand.append(card)
++	return card
++
++func placement() -> void:
++	fixture()
++	for view in [game.DESK_VIEW, game.BOARD_VIEW]:
++		game._apply_view(view)
++		for slot in game._response_slots():
++			var point: Vector2 = game.camera.unproject_position(slot.global_position)
++			check(game.slot_at_screen_position(point) == slot, "visible lane center selects the same lane")
++	check(game.slot_at_screen_position(Vector2(-1000, -1000)) == null, "outside board rejects placement")
++
++func run() -> void:
++	game = load("res://scenes/game_3d.tscn").instantiate()
++	root.add_child(game)
++	current_scene = game
++	director = game.run_director
++	placement()
++	game.clear_battle()
++	print("OCT18 CARD LOGIC: %d failures" % failures)
++	quit(1 if failures else 0)
+diff --git a/new-game-project/tests/ui_interaction_smoke.gd b/new-game-project/tests/ui_interaction_smoke.gd
+index 300e7db..5d2d201 100644
+--- a/new-game-project/tests/ui_interaction_smoke.gd
++++ b/new-game-project/tests/ui_interaction_smoke.gd
+@@ -177,7 +177,7 @@ func input_playtest() -> void:
+ 	point = hand_point(card)
+ 	mouse(true, point)
+ 	await process_frame
+-	var destination: Vector2 = game.camera.unproject_position(Vector3(game._response_slots()[0].global_position.x, 1.6, game._response_slots()[0].global_position.z))
++	var destination: Vector2 = game.camera.unproject_position(game._response_slots()[0].global_position)
+ 	motion(destination)
+ 	await create_timer(0.30).timeout
+ 	mouse(false, destination)

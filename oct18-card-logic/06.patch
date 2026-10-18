@@ -1,0 +1,112 @@
+commit 9d2a97cbd7ca40650e8eb38223dbfc82b2fa810a
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 17:43:49 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 17:43:49 2026 +0800
+
+    Keep modifier descriptions consistent and reject friendly attacks
+
+diff --git a/new-game-project/scripts/battle_rules.gd b/new-game-project/scripts/battle_rules.gd
+index be27539..22be55e 100644
+--- a/new-game-project/scripts/battle_rules.gd
++++ b/new-game-project/scripts/battle_rules.gd
+@@ -72,8 +72,21 @@ const EFFECTS := {
+ }
+ const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "barrier":"Protect formation", "herb":"Clear Bleed", "tablet":"Restore healing", "draw":"Draw cards", "move":"Relocate ally", "tutor":"Search draw pile", "seal":"Seal card", "scout":"Reveal hand", "tax":"Raise cost", "rally":"Gain Strength", "cleanse":"Heal and cleanse", "recover":"Recover a unit", "grave_guard":"Graveyard protection"}
+ 
++static func modifier_text(card: Dictionary, modifier: String) -> String:
++	var descriptions := {
++		"armored":"Armored: reduce ordinary damage by %d (minimum 1)." % int(card.get("armor_value", 1)),
++		"fragile":"Fragile: take 1 extra ordinary damage.",
++		"regenerating":"Regenerating: heal 1 at upkeep.",
++		"rampaging":"Rampaging: +1 unit damage when attacking second.",
++		"fierce":"Fierce: +2 direct hero damage.",
++		"piercing":"Piercing: also hits opposing health when blocked.",
++		"sluggish":"Sluggish: attacks immediately, then rests every other round."
++	}
++	return str(descriptions.get(modifier, modifier.capitalize()))
++
+ static func special_text(card: Dictionary) -> String:
+ 	var parts: PackedStringArray = []
++	if int(card.get("strength", 0)) > 0: parts.append("Starts with %d Strength." % int(card.strength))
+ 	if card.get("recovered", false): parts.append("Recovered: this unit cannot be recovered again this battle.")
+ 	if card.get("on_sacrifice", "") == "draw": parts.append("When sacrificed: draw 1 Disaster card.")
+ 	if card.get("on_sacrifice", "") == "burn": parts.append("When sacrificed: apply 2 Burn to the opposing lane card.")
+diff --git a/new-game-project/scripts/game_3d_manager.gd b/new-game-project/scripts/game_3d_manager.gd
+index e0c9a71..e21deb1 100644
+--- a/new-game-project/scripts/game_3d_manager.gd
++++ b/new-game-project/scripts/game_3d_manager.gd
+@@ -1626,6 +1626,7 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
+ 		resolve_single_strike(atk, defender, response_side)
+ 
+ func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
++	if defender != null and defender.card_data.type == atk.card_data.type: return
+ 	var blocked: bool = defender != null and defender.is_alive()
+ 	log_event("%s attacks %s." % [atk.card_data.name, defender.card_data.name if blocked else ("Disaster health" if response_side else "Response health")])
+ 	if blocked:
+diff --git a/new-game-project/scripts/run_director.gd b/new-game-project/scripts/run_director.gd
+index 7715112..ad7165a 100644
+--- a/new-game-project/scripts/run_director.gd
++++ b/new-game-project/scripts/run_director.gd
+@@ -1107,17 +1107,9 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
+ 	if is_instance_valid(live_card):
+ 		for inherited in ["piercing", "sluggish"]:
+ 			if live_card.has_modifier(inherited) and inherited not in active_modifiers: active_modifiers.append(inherited)
+-	var descriptions := {
+-		"armored":"Armored: take %d less ordinary damage (minimum 1 before other modifiers)." % int(card.get("armor_value", 1)),
+-		"fragile":"Fragile: take 1 extra ordinary damage.",
+-		"regenerating":"Regenerating: heal 1 at upkeep.",
+-		"rampaging":"Rampaging: +1 unit damage when attacking second.",
+-		"fierce":"Fierce: +2 direct hero damage.",
+-		"piercing":"Piercing: also damages the opposing hero when blocked.",
+-		"sluggish":"Sluggish: attacks every other round."
+-	}
+ 	for modifier in active_modifiers:
+-		rules.append(descriptions.get(modifier, str(modifier).capitalize()))
++		var description := Rules.modifier_text(card, str(modifier))
++		if description not in rules: rules.append(description)
+ 	if not rules.is_empty(): details.text += "\n[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
+ 	if not hint.is_empty(): details.text += "\n\n" + hint
+ 	panel.add_child(details)
+@@ -1358,8 +1350,10 @@ func card_rules(card: Dictionary) -> String:
+ 	if effect == "rally_all": rules += "On play: other deployed allies gain 1 Strength.\n"
+ 	if effect == "grave_guard": rules += str(Rules.EFFECTS.grave_guard) + "\n"
+ 	if int(card.get("leech", 0)) > 0: rules += "Heal %d after attacking.\n" % int(card.leech)
+-	if card.get("modifier", "") == "piercing": rules += "Piercing: also hits opposing health for attack damage, even when blocked.\n"
+-	if card.get("modifier", "") == "sluggish": rules += "Sluggish: attacks immediately, then rests every other round.\n"
++	var modifiers: Array = card.get("modifiers", []).duplicate()
++	var primary := str(card.get("modifier", "")).to_lower()
++	if not primary.is_empty() and primary not in modifiers: modifiers.append(primary)
++	for modifier in modifiers: rules += Rules.modifier_text(card, str(modifier)) + "\n"
+ 	if card.has("on_hit"):
+ 		for status in card.on_hit: rules += "On hit: %s %d to a surviving blocker.\n" % [str(status).capitalize(), int(card.on_hit[status])]
+ 	for element in game.TYPE_CHART.get(card.element, {}):
+diff --git a/new-game-project/tests/oct18_balance_smoke.gd b/new-game-project/tests/oct18_balance_smoke.gd
+new file mode 100644
+index 0000000..b2382c5
+--- /dev/null
++++ b/new-game-project/tests/oct18_balance_smoke.gd
+@@ -0,0 +1,23 @@
++extends "res://tests/oct18_card_logic_smoke.gd"
++
++func effect_consistency() -> void:
++	fixture()
++	var ally := unit("response", 0)
++	var other := unit("response", 1)
++	game.resolve_single_strike(ally, other, true)
++	check(other.card_data.health == 8 and game.enemy_hp == 40, "Response cannot attack Response")
++	var a: String = director.card_rules({"element":"evac", "modifier":"piercing"})
++	var b: String = director.card_rules({"element":"evac", "modifiers":["piercing"]})
++	check(a == b, "primary and added modifiers share effect text")
++	check("Starts with 2 Strength" in director.card_rules({"element":"brace", "strength":2}),
++		"starting Strength is described")
++
++func run() -> void:
++	game = load("res://scenes/game_3d.tscn").instantiate()
++	root.add_child(game)
++	current_scene = game
++	director = game.run_director
++	effect_consistency()
++	game.clear_battle()
++	print("OCT18 BALANCE: %d failures" % failures)
++	quit(1 if failures else 0)

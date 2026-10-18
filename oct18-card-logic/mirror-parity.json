@@ -1,0 +1,162 @@
+[
+  {
+    "path": "new-game-project/data/disaster_deck.json",
+    "source_sha256": "4ac63b819ca2975577f01f48e5ba1be9b4d78925ef58bcf452d56275d4b06847",
+    "previous_mirror_sha256": "fd6a562bb5756f7b4e8f570fb6c6fb314d4d176a4316f15d958b9bba9ca08200"
+  },
+  {
+    "path": "new-game-project/data/disaster_expansion.json",
+    "source_sha256": "07c1a726b639f14707d65cd3d996ee13c83fbceb3d5d192c95c7ffc7706de71c",
+    "previous_mirror_sha256": "279b2e7de789ad89154b102dac217881c731eecfad2fa29d87535b740381b3e0"
+  },
+  {
+    "path": "new-game-project/data/response_expansion.json",
+    "source_sha256": "916ba716d760e7507d84c2545049829194f423c93d71c3e6ab0b3f1248b7ff95",
+    "previous_mirror_sha256": "a3f4f52154cad35ee11d3f1726880492e1de8b9241694492d33e582c724398cf"
+  },
+  {
+    "path": "new-game-project/data/starter_deck.json",
+    "source_sha256": "f661f795de36adbae83f10b02cd0c3b9ca3fc5a757d37aeac763221a5d7241cd",
+    "previous_mirror_sha256": "bdd873177aa5f8eb812bdb2c3e8d31ed6511a1ee3cab373fb1a9dd6bbbe38d13"
+  },
+  {
+    "path": "new-game-project/scripts/battle_engine.gd",
+    "source_sha256": "13fd160f88f96113e51668bc427b1e11cb3fc11d91c8412f1acca18903c7f3cb",
+    "previous_mirror_sha256": null
+  },
+  {
+    "path": "new-game-project/scripts/battle_rules.gd",
+    "source_sha256": "c01114d0015bcefa110f510739955f019d7c20bfa92cc3e9a99c00f3b4536a85",
+    "previous_mirror_sha256": "0cecddf5d607cd88040e2adc5cde93941fa2d132cc5a792dccff11f85fbd11c2"
+  },
+  {
+    "path": "new-game-project/scripts/card_3d.gd",
+    "source_sha256": "32984f25b12a4ac38a8ea4913139730d8016dcb1b4cf1753f010e85e051b1716",
+    "previous_mirror_sha256": "12870b5d8244dca58ba81178f5ced5359fb34b18fa5b1311c0521ee4911d26e9"
+  },
+  {
+    "path": "new-game-project/scripts/contingency_rules.gd",
+    "source_sha256": "4b90f8d92c7d76af68a952a311f2c229279593efdf5f0854e4cb4152aa146489",
+    "previous_mirror_sha256": "16dce0ef9484cfedc537b19206a02424fb171057a17aa46b3e8f0e2902f858dc"
+  },
+  {
+    "path": "new-game-project/scripts/final_boss.gd",
+    "source_sha256": "dcf39d9cd82340f76816d930043ec893da58e968bcf87bd89923bcf0ce5f23fb",
+    "previous_mirror_sha256": "0373b994863c7307c84230f8341dae0b1ae6331366562e0a4aced55137872792"
+  },
+  {
+    "path": "new-game-project/scripts/game_3d_manager.gd",
+    "source_sha256": "8e5bf27c9b260e219a105b49531de6b1334d0676736b43b70984330f9bbffa5c",
+    "previous_mirror_sha256": "7b893fb53fa163b847a310c75d8cd489c829059ba86c11e321b47ffbbb130757"
+  },
+  {
+    "path": "new-game-project/scripts/run_director.gd",
+    "source_sha256": "73fbcb7eb026369c8bcce9e11ce6c56dcac47c1bfd6239a0c65d08f123410f44",
+    "previous_mirror_sha256": "992ac915a54a4c327f9676f476b92e032c4818a0d78fd1f224898f642e24dd00"
+  },
+  {
+    "path": "new-game-project/scripts/run_save.gd",
+    "source_sha256": "e2d28f7de79bf0470a71a798f17809af047cebf3cfde68eb3ab06c35bdc14d2e",
+    "previous_mirror_sha256": "5415253642063888aaa011823329ecbfb5b7d176ad633499e7fd4c3a49673e44"
+  },
+  {
+    "path": "new-game-project/tests/battle_behavior_smoke.gd",
+    "source_sha256": "32ce7e5286aacb705cdb600fbe6996fc7bee43439b421f4503787e40280d6c02",
+    "previous_mirror_sha256": null
+  },
+  {
+    "path": "new-game-project/tests/camera_controls_smoke.gd",
+    "source_sha256": "85aa78da8f4364a314aeb5f5087eec25ef04834cdaafc565296799dcb7de44ac",
+    "previous_mirror_sha256": "47b850744c69ae04926d8a043059dc98382988ed9044b358efa368340a69b426"
+  },
+  {
+    "path": "new-game-project/tests/classroom_integration_smoke.gd",
+    "source_sha256": "bb5f2e99f491a972a7430239528647f4519d72b3d7225d6fe8860c6df1704331",
+    "previous_mirror_sha256": "0432e636eef1237852df0aa4f46ace1aa75fb8ff446f01a955fee3cf58097cc2"
+  },
+  {
+    "path": "new-game-project/tests/explorer_mode_smoke.gd",
+    "source_sha256": "257192ab5b3d6a6a5b7d67540b5ec48bcfcf3e167eb0de2afa680710200816b6",
+    "previous_mirror_sha256": "9cf2884218f70dc67fcedd81db4d49b631479db834e580758c464c8c342c6bba"
+  },
+  {
+    "path": "new-game-project/tests/final_boss_smoke.gd",
+    "source_sha256": "d0564d1aaa900ca41170a6649d2dba279faeac2a33dc9abe08572cd986d11b73",
+    "previous_mirror_sha256": "1e0d5aa7f99f15e9fbb68ae6c93660ec967dd9f95736bc93550ce49d1e2dc644"
+  },
+  {
+    "path": "new-game-project/tests/improvements_smoke.gd",
+    "source_sha256": "b9c5dc535d37bdc0124277b839ed2e597ac39d1111783645bf4d6b7cb61e2001",
+    "previous_mirror_sha256": "ed8be131222175cfe21da872fe8d49b91174d5dc8c1a6897bf286ffebb94f4c7"
+  },
+  {
+    "path": "new-game-project/tests/oct15_smoke.gd",
+    "source_sha256": "371696c9fd3d2381859aafec0e71af3435a617b6b7caab7147a865600048481c",
+    "previous_mirror_sha256": "a120995baf257cc8895a012d11af9d046448669cb807a868056474cb138a438e"
+  },
+  {
+    "path": "new-game-project/tests/oct16_section3_smoke.gd",
+    "source_sha256": "6f4dc07b95e6c218ad0cb479b29a9121fafacd37542fbf33ff71ec62d93e9ffc",
+    "previous_mirror_sha256": "56b315893826e2668eae99fc2d8b6d93313da8031246b40a3fdbb76ce184f6e2"
+  },
+  {
+    "path": "new-game-project/tests/oct18_balance_smoke.gd",
+    "source_sha256": "16ad9b0622e3c5aa7d2b64a6d48da02e6125ce1fcc815ec82850094c47dacc07",
+    "previous_mirror_sha256": null
+  },
+  {
+    "path": "new-game-project/tests/oct18_card_logic_smoke.gd",
+    "source_sha256": "fb7444ef24dc7d7b26d64585caaeab56edab86a38f253bba0b7ceb189efac075",
+    "previous_mirror_sha256": null
+  },
+  {
+    "path": "new-game-project/tests/oct18_ui_smoke.gd",
+    "source_sha256": "6a455cbacd821ba66eabdb764010dfc326082a15fa6a8d3f5523dede265af4ff",
+    "previous_mirror_sha256": "49882536a316b2acf41f00df10e71df6bf7226000ad69d93e5ffb24fda6496b2"
+  },
+  {
+    "path": "new-game-project/tests/plans_notes_smoke.gd",
+    "source_sha256": "ec5f83e279eecf80937d42211c9c4048114c5ab61ae6734bf4a90c332f1a1457",
+    "previous_mirror_sha256": "560ccd44f4d029fbb59b2235b8e745b0de14409e2c7c485e527e50ebb09d3549"
+  },
+  {
+    "path": "new-game-project/tests/run_smoke.gd",
+    "source_sha256": "780a1840ec56c7afea7f38e5238890bd3a2e1e79b9ddb61f5c67853544c022fe",
+    "previous_mirror_sha256": "1df19c4bda3f9799f68bfe38377d8d3cd562517b98c201fd95901d9c3760e82e"
+  },
+  {
+    "path": "new-game-project/tests/ui_consistency_smoke.gd",
+    "source_sha256": "92a3a84cf4643868f16eb7a47b4c73551a59e24268651777db4fd1b4d61a50d2",
+    "previous_mirror_sha256": "742cf98033df8341882ee34132c91ff0541bb94006545a443b8a1a5956ac5a85"
+  },
+  {
+    "path": "new-game-project/tests/ui_interaction_smoke.gd",
+    "source_sha256": "2ca6eb4c39cb6eb970bb5187030256d6261c735e09518995636339fe97317fff",
+    "previous_mirror_sha256": "b7b159924da502b48d869a750be91042c1ffc202b21dd7154aaaff0e067f6c96"
+  },
+  {
+    "path": "new-game-project/tests/variety_smoke.gd",
+    "source_sha256": "78c2b24f6774afe2962478c53268de81d56655f4d7ad60bbfc595a3c850918a4",
+    "previous_mirror_sha256": "8023be3d6d1bc99ecb2b294a97c1b86cc147580f2ac5e8792fe62ac3c07282d3"
+  },
+  {
+    "path": "new-game-project/tests/visual_quality_smoke.gd",
+    "source_sha256": "f8311cae776d0db00c12f440247c4cd2dab58a15e335bc1cf8b98cbaa7d4c052",
+    "previous_mirror_sha256": "4087cb84781ff80a7cf5eda2cee3268d10880069b1ca3f6df8c4dabed3a22b9c"
+  },
+  {
+    "path": "new-game-project/scripts/battle_query_adapter.gd",
+    "source_sha256": "f907ce169f89961d8cd7579fbaf917e226472de9686554673a4292dcb0b1bcec",
+    "previous_mirror_sha256": null
+  },
+  {
+    "path": "new-game-project/scripts/battle_snapshot.gd",
+    "source_sha256": "b7cf709ce7f8c55c14dd24c3c6016273f4f11a91437a3bbdf304b9ed0aa58137",
+    "previous_mirror_sha256": null
+  },
+  {
+    "path": "new-game-project/scripts/battle_state.gd",
+    "source_sha256": "944a7f5920c82ab92b24fbba6714b6474e26ecc73868a51b87f0dfff32b73107",
+    "previous_mirror_sha256": null
+  }
+]

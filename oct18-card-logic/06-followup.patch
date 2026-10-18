@@ -1,0 +1,185 @@
+commit a805f5ff9ad7b1cf9c597ed1b9eeab31ee87271d
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 18:04:51 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 18:04:51 2026 +0800
+
+    Describe actual upgraded utility amounts consistently
+
+diff --git a/new-game-project/scripts/battle_rules.gd b/new-game-project/scripts/battle_rules.gd
+index 1f2f592..b917c8e 100644
+--- a/new-game-project/scripts/battle_rules.gd
++++ b/new-game-project/scripts/battle_rules.gd
+@@ -9,24 +9,31 @@ const BUFFS := [
+ 	{"id":"poison", "name":"Toxic Pressure", "description":"Your cards apply 1 extra Poison stack whenever they inflict Poison."},
+ 	{"id":"bleed", "name":"Deep Cuts", "description":"Your cards apply 1 extra Bleed stack whenever they inflict Bleed."},
+ 	{"id":"draw", "name":"Rapid Logistics", "description":"Draw 1 extra card in each normal draw phase, up to the hand limit."},
+-	{"id":"glass", "name":"Glass Cannon", "description":"Future units gain +2 attack, but -1 maximum health. Deployed units are unchanged. This battle only."},
++	{"id":"glass", "name":"Glass Cannon", "description":
++		"Future units gain +2 attack, but -1 maximum health. Deployed units are unchanged. This battle only."},
+ 	{"id":"overclock", "name":"Overclock", "description":"Gain 2 capacity now and +1 extra capacity growth each round (2 total normally), but take 50% more damage (rounded up)."},
+ 	{"id":"blood_pact", "name":"Blood Pact", "description":"Units gain 2 Strength. At combat end, each deployed unit that did not kill a card this combat dies. Hero hits and resting do not count."},
+ 	{"id":"patient", "name":"Patient Formation", "description":"All units regenerate 2 each round, but become Sluggish."},
+ 	{"id":"toxic_ward", "name":"Toxic Ward", "description":"Apply 2 extra Poison stacks, but all your units lose 1 attack."},
+ 	{"id":"formation", "name":"Close Ranks", "description":"Matching adjacent units deal 2 extra damage. Isolated deployed units lose 1 attack."},
+-	{"id":"spines", "name":"Bristling Defense", "description":"Future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. Deployed units are unchanged."},
++	{"id":"spines", "name":"Bristling Defense", "description":
++		"Future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. "
++		+ "Deployed units are unchanged."},
+ 	{"id":"precision", "name":"Piercing Formation", "description":"All units gain Piercing, but lose 1 attack."}
+ ]
+ const RUN_BUFFS := [
+ 	{"id":"beacon", "name":"Signal Beacon", "description":"PERMANENT: draw 1 extra card in normal draw phases."},
+ 	{"id":"bulwark", "name":"School Bulwark", "description":"PERMANENT: units gain 2 maximum health, but lose 1 attack."},
+-	{"id":"glass", "name":"Bold Strategy", "description":"PERMANENT: future units gain 2 attack, but lose 1 maximum health. Deployed units are unchanged."},
+-	{"id":"field_school", "name":"Field School", "description":"PERMANENT: +1 resources and +1 normal draw. Future units lose 1 maximum health; deployed units are unchanged."},
++	{"id":"glass", "name":"Bold Strategy", "description":
++		"PERMANENT: future units gain 2 attack, but lose 1 maximum health. Deployed units are unchanged."},
++	{"id":"field_school", "name":"Field School", "description":
++		"PERMANENT: +1 resources and +1 normal draw. Future units lose 1 maximum health; deployed units are unchanged."},
+ 	{"id":"hazard_manual", "name":"Hazard Manual", "description":"PERMANENT: apply +2 Burn, +1 Poison, +1 Bleed, but lose 1 resource capacity."},
+ 	{"id":"formation", "name":"Buddy System", "description":"PERMANENT: matching neighbors deal 2 extra damage; isolated deployed units lose 1 attack."},
+ 	{"id":"medical", "name":"Infirmary Network", "description":"PERMANENT: heal your side's health by 1 each round, but units lose 1 attack."},
+-	{"id":"spines", "name":"Jagged Barricades", "description":"PERMANENT: future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. Deployed units are unchanged."}
++	{"id":"spines", "name":"Jagged Barricades", "description":
++		"PERMANENT: future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. "
++		+ "Deployed units are unchanged."}
+ ]
+ const CHARACTER_BUFFS := [
+ 	{"id":"drill_tactics", "name":"Rooftop Preparation"},
+@@ -55,35 +62,52 @@ static func totals(battle: Dictionary, permanent: Dictionary) -> Dictionary:
+ 	return result
+ const EFFECTS := {
+ 	"delay":"Deadweight: spend the listed energy to discard this card. No other effect.",
+-	"blast":"Deal 2 fixed damage to every enemy unit, bypassing Taunt. Armor and barriers still apply.",
+-	"barrier":"All deployed allies gain 2 Barrier. Your health pool also gains 2 Barrier. Blocks attack damage, not periodic statuses.",
+-	"herb":"Remove Bleed from all deployed allies and heal each by 1.",
+-	"tablet":"Remove Healing Reduced from all deployed allies and heal each by 2.",
+-	"draw":"Draw extra cards, up to the hand limit.",
++	"blast":"Deal %d fixed damage to every enemy unit, bypassing Taunt. Armor and barriers still apply.",
++	"barrier":"All deployed allies and your health pool gain %d Barrier, capped at 3. "
++		+ "Blocks attacks, not periodic statuses.",
++	"herb":"Remove Bleed from all deployed allies and heal each by %d.",
++	"tablet":"Remove Healing Reduced from all deployed allies and heal each by %d.",
++	"draw":"Draw %d cards, up to the hand limit.",
+ 	"move":"Drag a deployed ally onto an empty Response slot.",
+ 	"tutor":"Choose an unlocked card from your draw pile and put it into your hand.",
+-	"seal":"Choose a card currently in the opposing hand. Seal it for this round and the next: it cannot be played. Draw piles and deployed units cannot be sealed.",
++	"seal":"Choose an opposing hand card. Seal it for %d rounds, including this one. It cannot be played. "
++		+ "Draw piles and deployed units cannot be sealed.",
+ 	"scout":"Reveal the Janitor's hand for the rest of this encounter. Inspect it again through the deck viewer.",
+-	"tax":"Choose an opposing hand card, including a held evolution. Response energy cost +1; Disaster sacrifice cost +1, or base-card tension cost +1. Expires after this round and the next; repeated taxes cap at +2.",
+-	"rally":"Choose a deployed ally. It gains 2 Strength (+2 attack) for this encounter.",
+-	"cleanse":"Choose a deployed ally. Heal 3 and remove Burn, Poison, and Bleed.",
++	"tax":"Choose an opposing hand card. Raise its energy, sacrifice, or base tension cost by %d, capped at +2. "
++		+ "Expires after this round and the next.",
++	"rally":"Choose a deployed ally. It gains %d Strength for this encounter; each Strength adds 1 attack.",
++	"cleanse":"Choose a deployed ally. Heal %d and remove Burn, Poison, Bleed, and Healing Reduced.",
+ 	"recover":"Return a destroyed Response unit from your graveyard to your hand. It must be played again at its normal cost. Temporary statuses and taxes are cleared. Each unit can be recovered once per battle.",
+ 	"grave_guard":"On play: gain 1 Barrier per destroyed allied unit still in your graveyard, up to 2."
+ }
+ const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "barrier":"Protect formation", "herb":"Clear Bleed", "tablet":"Restore healing", "draw":"Draw cards", "move":"Relocate ally", "tutor":"Search draw pile", "seal":"Seal card", "scout":"Reveal hand", "tax":"Raise cost", "rally":"Gain Strength", "cleanse":"Heal and cleanse", "recover":"Recover a unit", "grave_guard":"Graveyard protection"}
+ 
++static func utility_text(card: Dictionary) -> String:
++	var effect := str(card.get("effect", ""))
++	var power := int(card.get("utility_power", 0))
++	var amounts := {
++		"blast":2 + power, "barrier":2 + power, "herb":1 + power, "tablet":2 + power,
++		"draw":int(card.get("draw_count", 2)) + power, "seal":2 + power, "tax":1 + power,
++		"rally":2 + power, "cleanse":3 + 2 * power
++	}
++	var text := str(EFFECTS.get(effect, effect))
++	if effect == "draw" and int(amounts.draw) == 1: return (text % 1).replace("1 cards", "1 card")
++	return text % int(amounts[effect]) if effect in amounts else text
++
+ static func remove_utility_stats(card: Dictionary) -> void:
+ 	if not card.get("utility", false): return
+ 	for key in ["attack", "health", "preview_attack", "strength"]: card.erase(key)
+ 
+ static func modifier_text(card: Dictionary, modifier: String) -> String:
+ 	var descriptions := {
+-		"armored":"Armored: reduce ordinary damage by %d (minimum 1). Stops Piercing hero damage; Piercing ignores this armor reduction." % int(card.get("armor_value", 1)),
++		"armored":("Armored: reduce ordinary damage by %d (minimum 1). "
++			+ "Stops Piercing hero damage; Piercing ignores this armor reduction.") % int(card.get("armor_value", 1)),
+ 		"fragile":"Fragile: take 1 extra ordinary damage.",
+ 		"regenerating":"Regenerating: heal 1 at upkeep.",
+ 		"rampaging":"Rampaging: +1 unit damage when attacking second.",
+ 		"fierce":"Fierce: +2 direct hero damage.",
+-		"piercing":"Piercing: ignore a blocker's armor reduction and also hit opposing health, unless the blocker is Armored. Barriers still apply.",
++		"piercing":"Piercing: ignore a blocker's armor reduction and also hit opposing health, "
++			+ "unless the blocker is Armored. Barriers still apply.",
+ 		"sluggish":"Sluggish: attacks immediately, then rests every other round."
+ 	}
+ 	return str(descriptions.get(modifier, modifier.capitalize()))
+@@ -103,24 +127,13 @@ static func special_text(card: Dictionary) -> String:
+ 	if int(card.get("armor_value", 1)) > 1: parts.append("Armor: reduce attack damage by %d (minimum 1)." % int(card.armor_value))
+ 	if int(card.get("on_play_draw", 0)) > 0: parts.append("On play: draw %d extra." % int(card.on_play_draw))
+ 	if int(card.get("thorns", 0)) > 0: parts.append("Surviving blocks retaliate for %d." % int(card.thorns))
+-	if int(card.get("status_bonus", 0)) > 0: parts.append("+%d attack vs targets with 3+ harmful status stacks." % int(card.status_bonus))
+-	if int(card.get("utility_power", 0)) > 0:
+-		var power := int(card.utility_power)
+-		match str(card.get("effect", "")):
+-			"draw": parts.append("Draw %d total." % (2 + power))
+-			"seal": parts.append("Seal for %d rounds." % (2 + power))
+-			"tax": parts.append("Raise cost by %d." % (1 + power))
+-			"rally": parts.append("Grant %d Strength." % (2 + power))
+-			"cleanse": parts.append("Cleanse and heal %d." % (3 + 2 * power))
+-			"blast": parts.append("Deal %d to all enemy units." % (2 + power))
+-			"barrier": parts.append("Grant %d Barrier to allies and your health pool." % (2 + power))
+-			"herb": parts.append("Remove Bleed and heal each ally %d." % (1 + power))
+-			"tablet": parts.append("Restore healing and heal each ally %d." % (2 + power))
++	if int(card.get("status_bonus", 0)) > 0:
++		parts.append("+%d attack vs targets with 3+ combined Burn/Poison/Bleed stacks." % int(card.status_bonus))
+ 	if int(card.get("refund_energy", 0)) > 0: parts.append("Refund %d energy after casting." % int(card.refund_energy))
+ 	if card.has("condition"):
+ 		var trigger: Dictionary = card.condition
+ 		var who := "Self" if trigger.get("subject", "target") == "self" else "Target"
+-		var status := "harmful status" if trigger.get("status", "any") == "any" else str(trigger.status).capitalize()
++		var status := "Burn/Poison/Bleed" if trigger.get("status", "any") == "any" else str(trigger.status).capitalize()
+ 		var reward := "attack twice" if int(trigger.get("strikes", 1)) > 1 else "+%d attack" % int(trigger.get("bonus", 0))
+ 		parts.append("%s has %d+ %s stacks: %s." % [who, int(trigger.get("threshold", 3)), status, reward])
+ 	return "\n".join(parts)
+diff --git a/new-game-project/scripts/run_director.gd b/new-game-project/scripts/run_director.gd
+index 7edbef4..c77215f 100644
+--- a/new-game-project/scripts/run_director.gd
++++ b/new-game-project/scripts/run_director.gd
+@@ -102,8 +102,10 @@ func _ready() -> void:
+ 	game.load_deck_from_json("res://data/starter_deck.json", catalog)
+ 	game.load_deck_from_json("res://data/response_expansion.json", catalog)
+ 	# Utility cards belong to the reward pool, preserving the original starter deck.
+-	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "effect":"draw", "utility":true})
+-	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "effect":"move", "utility":true})
++	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance",
++		"cost":2, "effect":"draw", "utility":true})
++	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac",
++		"cost":1, "effect":"move", "utility":true})
+ 	if start_after_reload:
+ 		start_after_reload = false
+ 		new_run()
+@@ -1345,7 +1347,9 @@ func live_definition(card: Node) -> Dictionary:
+ 
+ func card_rules(card: Dictionary) -> String:
+ 	var effect: String = str(card.get("effect", ""))
+-	if card.get("utility", false): return str(Rules.EFFECTS.get(effect, effect)) + "\n" + Rules.special_text(card) + "\nChoose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
++	if card.get("utility", false):
++		return Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
++			+ "Choose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
+ 	var rules := "Adjacent matching types: +1 attack.\n" + Rules.special_text(card) + "\n"
+ 	if effect == "draw": rules += "On play: draw %d.\n" % int(card.get("draw_count", 1))
+ 	if effect == "move_ally": rules += "On play: optionally choose another ally, then an empty lane, and move it there. Skipping movement does not undo the summon.\n"
+diff --git a/new-game-project/tests/oct18_balance_smoke.gd b/new-game-project/tests/oct18_balance_smoke.gd
+index 3b5a466..85d1402 100644
+--- a/new-game-project/tests/oct18_balance_smoke.gd
++++ b/new-game-project/tests/oct18_balance_smoke.gd
+@@ -11,6 +11,11 @@ func effect_consistency() -> void:
+ 	check(a == b, "primary and added modifiers share effect text")
+ 	check("Starts with 2 Strength" in director.card_rules({"element":"brace", "strength":2}),
+ 		"starting Strength is described")
++	var blast: String = director.card_rules({"utility":true, "effect":"blast", "utility_power":1})
++	check("Deal 3 fixed damage" in blast and "Deal 2" not in blast,
++		"upgraded effect text reports the applied amount without conflicting base text")
++	var draw: String = director.card_rules({"utility":true, "effect":"draw", "draw_count":1})
++	check("Draw 1 card," in draw, "effect text respects explicit draw counts")
+ 
+ func future_adaptations() -> void:
+ 	fixture()

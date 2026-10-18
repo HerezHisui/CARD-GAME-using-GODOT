@@ -1,0 +1,110 @@
+commit 895b27b058ef1744e41f10fce30a452a52ce1e0f
+Author:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+AuthorDate: Sun Oct 18 17:59:39 2026 +0800
+Commit:     imsosimplesomeh-commits <imsosimplesomeh@gmail.com>
+CommitDate: Sun Oct 18 17:59:39 2026 +0800
+
+    Confirm deck picks in the remaining interaction tests
+
+diff --git a/new-game-project/tests/camera_controls_smoke.gd b/new-game-project/tests/camera_controls_smoke.gd
+index 888ca19..87283fc 100644
+--- a/new-game-project/tests/camera_controls_smoke.gd
++++ b/new-game-project/tests/camera_controls_smoke.gd
+@@ -43,7 +43,9 @@ func run() -> void:
+ 	for i in 200:
+ 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
+ 		await create_timer(.1).timeout
+-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
++	if game.phase == game.Phase.PLAYER_DRAW:
++		game._on_draw_button_pressed()
++		game.complete_draw_choice(game.deck[0])
+ 	check(game.can_player_act(), "real encounter accepts input")
+ 	await settle()
+ 	var school := game.get_node("SchoolEnvironment")
+diff --git a/new-game-project/tests/classroom_integration_smoke.gd b/new-game-project/tests/classroom_integration_smoke.gd
+index 1c0d6d7..f6e506e 100644
+--- a/new-game-project/tests/classroom_integration_smoke.gd
++++ b/new-game-project/tests/classroom_integration_smoke.gd
+@@ -43,7 +43,9 @@ func run() -> void:
+ 	for i in 200:
+ 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
+ 		await create_timer(0.1).timeout
+-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
++	if game.phase == game.Phase.PLAYER_DRAW:
++		game._on_draw_button_pressed()
++		game.complete_draw_choice(game.deck[0])
+ 	check(game.can_player_act(), "actual encounter remains playable")
+ 	await create_timer(0.7).timeout
+ 	for mode in [game.View.WIDE, game.View.DESK, game.View.BOARD, game.View.WIDE]:
+diff --git a/new-game-project/tests/explorer_mode_smoke.gd b/new-game-project/tests/explorer_mode_smoke.gd
+index b61a427..c86d5e6 100644
+--- a/new-game-project/tests/explorer_mode_smoke.gd
++++ b/new-game-project/tests/explorer_mode_smoke.gd
+@@ -147,7 +147,9 @@ func run() -> void:
+ 		for i in 100:
+ 			if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
+ 			await create_timer(0.1).timeout
+-		if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
++		if game.phase == game.Phase.PLAYER_DRAW:
++			game._on_draw_button_pressed()
++			game.complete_draw_choice(game.deck[0])
+ 		check(game.can_player_act() and game.player_hp == 20 and game.hero_max_hp() == 20, "unified mode reaches floor " + str(floor_number))
+ 		if floor_number == 3:
+ 			check(is_instance_valid(game.final_boss), "Midnight Warden remains accessible")
+diff --git a/new-game-project/tests/final_boss_smoke.gd b/new-game-project/tests/final_boss_smoke.gd
+index 3235a9c..531f8e1 100644
+--- a/new-game-project/tests/final_boss_smoke.gd
++++ b/new-game-project/tests/final_boss_smoke.gd
+@@ -161,6 +161,7 @@ func run() -> void:
+ 	check(is_instance_valid(game.final_boss) and game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY], "actual final encounter starts through coinflip and does not count empty enemy reserve as victory")
+ 	await capture("final_boss_live")
+ 	game._on_draw_button_pressed()
++	if game.phase == game.Phase.PLAYER_DRAW: game.complete_draw_choice(game.deck[0])
+ 	game.player_hp = 1
+ 	var lethal_curse = card({"name":"Static Echo", "type":"response", "element":"douse", "cost":0, "attack":0, "health":1, "utility":true, "effect":"draw", "draw_count":1, "curse":true})
+ 	game.try_utility(lethal_curse, game._response_slots()[3])
+diff --git a/new-game-project/tests/oct15_smoke.gd b/new-game-project/tests/oct15_smoke.gd
+index 64bd6cf..bb8b612 100644
+--- a/new-game-project/tests/oct15_smoke.gd
++++ b/new-game-project/tests/oct15_smoke.gd
+@@ -44,7 +44,9 @@ func run() -> void:
+ 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
+ 		await create_timer(0.1).timeout
+ 	check(not game.presentation.blocking and game.player_first and game.coin_result == result and game.coin_pick == result, "winning call actually plays first with no reroll")
+-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
++	if game.phase == game.Phase.PLAYER_DRAW:
++		game._on_draw_button_pressed()
++		game.complete_draw_choice(game.deck[0])
+ 	check(game.can_player_act(), "coin resolves into playable turn")
+ 	var card = game.get_hand_cards()[0]
+ 	game.hand.erase(card)
+diff --git a/new-game-project/tests/ui_consistency_smoke.gd b/new-game-project/tests/ui_consistency_smoke.gd
+index 1d04912..5703aae 100644
+--- a/new-game-project/tests/ui_consistency_smoke.gd
++++ b/new-game-project/tests/ui_consistency_smoke.gd
+@@ -168,7 +168,9 @@ func run() -> void:
+ 	for i in 100:
+ 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
+ 		await create_timer(0.1).timeout
+-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
++	if game.phase == game.Phase.PLAYER_DRAW:
++		game._on_draw_button_pressed()
++		game.complete_draw_choice(game.deck[0])
+ 	await create_timer(1.0).timeout
+ 	await capture("battle")
+ 	await polish_checks()
+diff --git a/new-game-project/tests/visual_quality_smoke.gd b/new-game-project/tests/visual_quality_smoke.gd
+index 1eccdac..e964a94 100644
+--- a/new-game-project/tests/visual_quality_smoke.gd
++++ b/new-game-project/tests/visual_quality_smoke.gd
+@@ -45,7 +45,9 @@ func run() -> void:
+ 	for i in 200:
+ 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
+ 		await create_timer(0.1).timeout
+-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
++	if game.phase == game.Phase.PLAYER_DRAW:
++		game._on_draw_button_pressed()
++		game.complete_draw_choice(game.deck[0])
+ 	await create_timer(0.8).timeout
+ 	check(game.can_player_act() and game.get_hand_cards().size() > 0, "enhanced rendering leaves real battle input available")
+ 	await process_frame
