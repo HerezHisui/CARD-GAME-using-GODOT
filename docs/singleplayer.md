@@ -137,7 +137,7 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 - Drag a hand card onto an empty lower Response slot. Right-click cancels a drag.
 
-- Draw once during the draw phase using the lower-right draw button.
+- Use Draw during the draw phase to choose an unlocked deck card for 1 energy. Opening or cancelling the picker is free.
 
 - At encounter start, call Heads or Tails on the full-screen coin event. A matching toss gives you the first turn; otherwise the Janitor plays first. The starting side alternates each round afterward. Space or End turn submits your turn.
 
@@ -155,17 +155,17 @@ Battle wins grant supplies and a choice of one of three cards. Workshops improve
 
 ### Workshops and shops
 
-Workshops have the same sorting controls as the deck browser. Preview upgrade shows the current card beside its upgraded version; only Confirm upgrade changes the collection. Every card copy can upgrade at most twice, shown as 0/2, 1/2, or 2/2. Evac gains attack and on-play draw, then health and a cheaper energy cost. Douse gains attack and Burn, then health and healing after each strike. Clearance gains attack and Poison, then health and +2 attack against targets with three harmful status stacks. Brace gains health and stronger armor, then health and retaliation. Spells first become cheaper; later upgrades strengthen draw, seal, tax, rally, or cleanse. Movement, tutor, and scouting upgrades refund energy instead. Zero-cost spells can improve their abilities. Duplicate cards retain their original identity when sorted, so only the selected copy changes.
+Workshops have the same sorting controls as the deck browser. Preview upgrade shows the current card beside its upgraded version; only Confirm upgrade changes the collection. Every card copy can upgrade at most twice, shown as 0/2, 1/2, or 2/2. Basic units gain stats first. New on-play draw, Burn, Poison and Armor effects wait until tier two. Existing abilities may improve at tier one. Evac then gains health and a cheaper cost; Douse gains health and healing after each strike; Clearance gains health and a status bonus; Brace gains health and retaliation. Spells first become cheaper; later upgrades strengthen draw, seal, tax, rally, or cleanse. Movement, tutor, and scouting upgrades refund energy instead. Zero-cost spells can improve their abilities. Duplicate cards retain their original identity when sorted, so only the selected copy changes.
 
 Shops offer four distinct cards, each with one copy in stock. Buying one marks it sold and keeps the shop open; remaining stock does not reroll. Healing can be purchased repeatedly until health is full or supplies run out. Labels show actual healing and the supplies spent, for example First aid · +1 HP · -15 supplies when only one health is missing. Full-health healing is disabled. Removal shows Destroy 1 card · -30 supplies; infirmary removal is explicitly free. The room is completed only when you press Leave shop. Infirmaries also offer an exit if you prefer to skip their service.
 
 ### Cards
 
-The original twelve-card starter deck and existing disaster cards are preserved. Card illustration windows are deliberately empty. Assign future illustrations in the ART dictionary in scripts/card_3d.gd. Backs have four corner element marks and a central double ring.
+The twelve-card starter has 3 Quick Dash, 3 Fire Drill, 2 Fire Hose, 2 Debris Clearance, 1 Evacuation Route and 1 Shelter Brace. Card illustration windows are deliberately empty. Assign future illustrations in the ART dictionary in scripts/card_3d.gd. Backs have four corner element marks and a central double ring.
 
 Evac counters Earthquake, Douse counters Fire, Clearance counters Flood, and Brace counters Typhoon at 2x damage. Weak matchups deal half damage. Two adjacent deployed cards of the same element receive +1 attack (not cumulative across both neighbors). Armored reduces incoming attack damage by one (minimum one), Fragile adds one, Regenerating heals up to maximum health, Fierce adds two to hero hits, and Rampaging adds one when attacking a card as the second side of the round.
 
-Normal attacks never deal overkill/overflow damage to the opposing hero. Even a one-health blocker stops the entire hero hit. Piercing damages the blocker normally and also deals the attacker's effective attack plus adjacency bonus to the opposing health pool. Type effectiveness applies to the blocker only. Fierce adds two to this hero hit. An open lane hits the hero once, including for Piercing cards.
+Normal attacks never deal overkill/overflow damage to the opposing hero. Even a one-health blocker stops the entire hero hit. Piercing damages the blocker normally and also deals the attacker's effective attack plus adjacency bonus to the opposing health pool. Type effectiveness applies to the blocker only. Fierce adds two to this hero hit. An open lane hits the hero once, including for Piercing cards. An Armored blocker stops the Piercing hero hit even if it dies. Piercing bypasses its armor reduction against unit damage; Barrier and Plan protection still apply.
 
 Sluggish attacks the first round it can attack, then rests the next round, repeating. Its timing is per card, rather than based on odd/even global rounds. Strength adds to attack before type effectiveness and lasts while the card exists. Temporary card statuses and costs do not alter the permanent collection.
 
@@ -195,7 +195,7 @@ Rally and Cleanse target allies by clicking them on the board. Emergency Exit us
 
 At the start of rounds 5, 10, 15, ... of each encounter, choose one of three randomly offered battle-only adaptations for your side. The Janitor does not receive an automatic adaptation from this pool. The battle pauses until you choose. Deck viewing preserves the exact offers. Adaptations expire when the encounter ends.
 
-There are fifteen battle adaptations. Strong options have explicit tradeoffs: Glass Cannon adds two attack but removes one maximum health; Overclock grants two capacity immediately and doubles ordinary capacity growth to two per round, but increases incoming damage by 50% (rounded up); Blood Pact adds three attack but applies two Bleed on selection and entry; Patient Formation regenerates two health but makes units Sluggish; Toxic Ward strengthens Poison while reducing attack; Close Ranks rewards matching neighbors but penalizes isolation; Piercing Formation grants Piercing while reducing attack; Bristling Defense retaliates for one fixed damage while reducing health. Smaller stat, status, and draw buffs remain available without drawbacks.
+There are fifteen battle adaptations. Strong options have explicit tradeoffs: Glass Cannon adds two attack but removes one maximum health; Overclock grants two capacity immediately and doubles ordinary capacity growth to two per round, but increases incoming damage by 50% (rounded up); Blood Pact gives 2 Strength; at combat end, each deployed unit that did not kill a card dies. Hero hits and resting do not count, and hand cards are exempt; Patient Formation regenerates two health but makes units Sluggish; Toxic Ward strengthens Poison while reducing attack; Close Ranks rewards matching neighbors but penalizes isolation; Piercing Formation grants Piercing while reducing attack; Bristling Defense retaliates for one fixed damage while reducing health. Smaller stat, status, and draw buffs remain available without drawbacks.
 
 After the first two floor bosses, choose one of three permanent run rewards from an eight-option pool. The Janitor does not receive an automatic reward from this pool. These stack across later battles and floors; a new run clears them. Examples include Signal Beacon (extra draws), School Bulwark (health for reduced attack), Buddy System (adjacency bonuses with an isolation penalty), Field School (resources and draws for less health), Hazard Manual (stronger statuses for reduced resources), and Infirmary Network (hero healing for reduced unit attack).
 
@@ -239,11 +239,11 @@ Four new cards join each side. Conditional effects count stacks, not the number 
 
 - Momentum Team: attacks twice with 2+ own Strength.
 
-- Last Responder: +2 attack while carrying 3+ harmful stacks.
+- Last Responder: +2 attack against a target with 2+ Bleed.
 
 - Ash Predator: attacks twice against a target with 3+ Burn.
 
-- Venom Surge: +3 attack against a target with 2+ Poison.
+- Venom Surge: +2 attack against a target with 3+ Poison.
 
 - Pressure Break: attacks twice with 3+ own Strength.
 
@@ -283,7 +283,7 @@ One contingency may be armed each round. Tokens, armed plans and temporary boost
 
 Overclock: gain 2 capacity immediately; ordinary Response growth becomes 2 per round instead of 1. Other resource bonuses still stack. Disaster tension also grows one additional capacity per round. Hero and unit damage increases by 50%, rounded up, after armor but before barriers. This includes periodic status damage, but fixed HP payments such as Static Echo remain fixed. The old draw penalty is removed.
 
-Evacuation Route: still costs 4 energy, now has 3 attack / 5 health. On play, optionally move another deployed ally to an empty lane and heal that ally by 2. The unit stays in its original slot; skipping movement does not undo its summon.
+Evacuation Route: costs 2 energy and has base 1 attack / 3 health. On play, optionally move another deployed ally to an empty lane and heal that ally by 2. The unit stays in its original slot; skipping movement does not undo its summon.
 
 Inspection and log: click a deployed card on either board to inspect its current stats, effects and statuses while combat pauses. Press L, use the Log button, or choose Combat log in the menu for a chronological backlog of up to 300 encounter events. The log resets with the next encounter. Sealed labels are rebuilt on refresh and disappear when the seal expires.
 
@@ -391,94 +391,18 @@ The three themed club leaders have deck definitions but remain disabled. Multipl
 
 ## Card catalog
 
-These are base card definitions in the current project, before upgrades, character health bonuses, global buffs or live status changes. Steve adds one unit health on deployment. The starter deck contains two copies of each of its six named cards. Cost zero on a base Disaster means its deployment normally uses one tension; evolution costs are sacrifices. Encounter scaling can change Disaster stats. Event variants and scripted boss entities are listed separately.
+Use the JSON files for base card costs, stats, effects and copy counts:
 
-### Preparedness
+- [Starter deck](../new-game-project/data/starter_deck.json)
+- [Response expansion](../new-game-project/data/response_expansion.json)
+- [Disaster deck](../new-game-project/data/disaster_deck.json)
+- [Disaster expansion](../new-game-project/data/disaster_expansion.json)
 
-| Card and type | Cost | ATK / HP | Abilities |
-| --- | --- | --- | --- |
-| Quick Dash<br>Evac | 1 energy | 2 / 1 | No special ability |
-| Fire Drill<br>Evac | 2 energy | 2 / 3 | No special ability |
-| Evacuation Route<br>Evac | 4 energy | 3 / 5 | Relocate another ally; Relocated ally heals 2 |
-| Fire Hose<br>Douse | 2 energy | 3 / 2 | No special ability |
-| Debris Clearance<br>Clearance | 1 energy | 2 / 2 | No special ability |
-| Shelter Brace<br>Brace | 3 energy | 1 / 5 | armored |
-| Needle Team<br>Evac | 3 energy | 2 / 3 | piercing |
-| Heavy Loader<br>Clearance | 3 energy | 5 / 5 | sluggish |
-| Steam Team<br>Douse | 3 energy | 2 / 4 | On hit burn 3 |
-| Shard Barrier<br>Brace | 2 energy | 1 / 4 | On hit bleed 2 |
-| Hazmat Team<br>Clearance | 3 energy | 2 / 3 | On hit poison 2 |
-| Supply Runner<br>Evac | 2 energy | 1 / 2 | On play draw 1 |
-| Drill Captain<br>Brace | 3 energy | 1 / 4 | Starting Strength 2 |
-| Search and Rescue<br>Evac | 2 energy | 0 / 1 | Utility; Search draw pile |
-| Safety Lock<br>Brace | 2 energy | 0 / 1 | Utility; Seal held card |
-| Hazard Forecast<br>Evac | 2 energy | 0 / 1 | Utility; Reveal enemy hand |
-| Containment Order<br>Clearance | 2 energy | 0 / 1 | Utility; Temporarily raise held-card cost |
-| Rally the Team<br>Brace | 1 energy | 0 / 1 | Utility; Give ally 2 Strength |
-| Decontaminate<br>Douse | 1 energy | 0 / 1 | Utility; Heal ally 3 and cleanse |
-| Lane Marshal<br>Evac | 2 energy | 1 / 3 | Relocate another ally |
-| Rescue Crane<br>Clearance | 4 energy | 3 / 5 | sluggish; Relocate another ally |
-| Field Medic<br>Douse | 3 energy | 1 / 3 | Heal other allies 2 |
-| Drill Leader<br>Brace | 4 energy | 1 / 4 | Other allies gain 1 Strength |
-| Recovery Team<br>Douse | 3 energy | 2 / 4 | Heal after attack 2 |
-| Cutting Crew<br>Clearance | 4 energy | 3 / 3 | piercing; On hit bleed 1 |
-| Heat Seeker<br>Douse | 3 energy | 2 / 4 | target burn stacks >= 3: +3 attack |
-| Toxin Hunter<br>Clearance | 4 energy | 2 / 4 | target any stacks >= 3: attack twice |
-| Momentum Team<br>Brace | 3 energy | 1 / 4 | self strength stacks >= 2: attack twice |
-| Last Responder<br>Evac | 2 energy | 2 / 3 | self any stacks >= 3: +2 attack |
-| First Aid Herb<br>Douse | 0 energy | 0 / 1 | Utility; Clear Bleed and heal allies 1 |
-| Restoration Tablet<br>Douse | 1 energy | 0 / 1 | Utility; Clear Healing Reduced and heal allies 2 |
-| Barrier Generator<br>Brace | 2 energy | 0 / 1 | Utility; Formation and hero gain 2 Barrier |
-| Alarm Sweep<br>Clearance | 2 energy | 0 / 1 | Utility; Damage all enemy units 2 |
-| Containment Lance<br>Clearance | 3 energy | 2 / 4 | Ignore guardian Taunt |
-| Silent Runner<br>Evac | 3 energy | 2 / 3 | On play draw 1; Ignore guardian Taunt |
-| Supply Cache<br>Clearance | 2 energy | 0 / 1 | Utility; On play draw 2 |
-| Emergency Exit<br>Evac | 1 energy | 0 / 1 | Utility; Drag ally to empty lane |
+Fire Drill costs 1 energy with base ATK/HP 1/2. Evacuation Route costs 2 with 1/3. Shelter Brace costs 1 with 0/3. Steve's health bonus, upgrades and battle effects apply separately. Utilities have no unit ATK or HP in the JSON.
 
-### Disasters
+Hazmat Team costs 2 energy. Recovery Detail is a 2-energy recovery utility. Relief Crew is a 3-energy Brace unit with base 2/4 and a graveyard-based Barrier effect.
 
-| Card and type | Cost | ATK / HP | Abilities |
-| --- | --- | --- | --- |
-| Ember<br>Fire | 1 tension | 2 / 2 | No special ability |
-| Tremor<br>Earthquake | 1 tension | 2 / 3 | No special ability |
-| Rising Tide<br>Flood | 1 tension | 2 / 2 | No special ability |
-| Gust<br>Typhoon | 1 tension | 2 / 2 | No special ability |
-| Wildfire<br>Fire | 2 sac. | 4 / 3 | fierce |
-| Fissure<br>Earthquake | 2 sac. | 4 / 4 | rampaging |
-| Flash Flood<br>Flood | 2 sac. | 3 / 4 | regenerating |
-| Gale Force<br>Typhoon | 2 sac. | 4 / 3 | armored |
-| Inferno<br>Fire | 3 sac. | 7 / 5 | fierce; Major evolution entry protection and draw |
-| Tsunami<br>Flood | 3 sac. | 6 / 6 | regenerating; Major evolution entry protection and draw |
-| Cinder Cloud<br>Fire | 1 tension | 1 / 3 | On hit burn 2; On sacrifice: opposing lane gains 2 Burn |
-| Glass Quake<br>Earthquake | 1 tension | 1 / 3 | On hit bleed 2; On sacrifice: draw 1 |
-| Toxic Runoff<br>Flood | 1 tension | 1 / 3 | On hit poison 2 |
-| Needle Gale<br>Typhoon | 1 sac. | 3 / 3 | piercing |
-| Sleeping Fault<br>Earthquake | 3 sac. | 6 / 6 | sluggish; Major evolution entry protection and draw |
-| Pressure Front<br>Typhoon | 1 tension | 1 / 3 | On play draw 1; Starting Strength 1 |
-| Blocked Exit<br>Earthquake | 1 tension | 0 / 1 | Utility; Seal held card |
-| Red Tape<br>Flood | 1 tension | 0 / 1 | Utility; Temporarily raise held-card cost |
-| Crosswind<br>Typhoon | 1 tension | 1 / 3 | Relocate another ally |
-| Warm Front<br>Fire | 1 tension | 1 / 3 | Heal other allies 2 |
-| Aftershock Choir<br>Earthquake | 2 sac. | 3 / 4 | Other allies gain 1 Strength |
-| Drain Vortex<br>Flood | 3 sac. | 4 / 7 | Heal after attack 2; Major evolution entry protection and draw |
-| Black Squall<br>Typhoon | 3 sac. | 5 / 5 | piercing; On hit poison 2; Major evolution entry protection and draw |
-| Worldbreaker<br>Earthquake | 4 sac. | 8 / 9 | sluggish; On hit bleed 3; Major evolution entry protection and draw |
-| Ash Predator<br>Fire | 2 sac. | 3 / 4 | target burn stacks >= 3: attack twice |
-| Venom Surge<br>Flood | 1 sac. | 2 / 4 | target poison stacks >= 2: +3 attack |
-| Pressure Break<br>Typhoon | 2 sac. | 2 / 4 | Starting Strength 2; self strength stacks >= 3: attack twice |
-| Fracture Hunter<br>Earthquake | 1 tension | 1 / 3 | target any stacks >= 3: +2 attack |
-
-### Encounter and event cards
-
-| Card | Source | Base rule |
-| --- | --- | --- |
-| Hallway Guardian | Elite signature | 2 sacrifices; ATK 4 + floor; HP 5; Armored; favored encounter element. |
-| Midnight Cataclysm | Ordinary boss signature | 3 sacrifices; ATK 6 + floor; HP 8; Fierce; favored encounter element. |
-| Experimental Steam Team | Science lab | Steam Team variant with Burn increased by 2; current on-hit Burn 5. Costs 3 hero HP to obtain. |
-| Experimental Hazmat Team | Science lab | Hazmat Team variant with Poison increased by 1; current on-hit Poison 3. Costs 3 hero HP to obtain. |
-| Paperwork | Infirmary tradeoff | 1-energy Clearance utility; ATK 0 / HP 1; paying its cost only discards it. |
-| Static Echo | Final boss curse | Temporary hand card. Cast to pay 1 HP and draw 1, or pay 1 HP and discard at round end. Not a permanent reward card. |
-| Night Watch and Hall Monitor | Final boss | Scripted guard units; Shackle, guardian and pillars follow the three-phase boss rules rather than the ordinary deck economy. |
+Supply Cache and Emergency Exit are added by `run_director.gd`. Encounter signatures, event variants and final boss cards are also defined in scripts rather than these JSON files.
 
 ## Buff and contingency catalogs
 
@@ -495,7 +419,7 @@ These are base card definitions in the current project, before upgrades, charact
 | Rapid Logistics | Draw 1 extra card in each normal draw phase, up to the hand limit. |
 | Glass Cannon | +2 attack to all units, but -1 maximum health. This battle only. |
 | Overclock | Gain 2 capacity now and +1 extra capacity growth each round (2 total normally), but take 50% more damage (rounded up). |
-| Blood Pact | +3 attack, but all units gain 2 Bleed when you choose this and when they enter. |
+| Blood Pact | 2 Strength; deployed units that did not kill a card this combat die at combat end. Hero hits and resting do not count; hand cards are exempt. |
 | Patient Formation | All units regenerate 2 each round, but become Sluggish. |
 | Toxic Ward | Apply 2 extra Poison stacks, but all your units lose 1 attack. |
 | Close Ranks | Matching adjacent units deal 2 extra damage. Isolated deployed units lose 1 attack. |
