@@ -1334,8 +1334,7 @@ func live_definition(card: Node) -> Dictionary:
 	var definition: Dictionary = card.card_data.duplicate(true)
 	definition.attack = card.effective_attack()
 	definition.preview_attack = card.effective_attack()
-	definition.modifier = ", ".join(card.modifiers)
-	definition.erase("modifiers")
+	definition.modifiers = card.modifiers.duplicate()
 	definition.strength = int(card.statuses.get("strength", 0))
 	definition.statuses = card.statuses.duplicate()
 	return definition

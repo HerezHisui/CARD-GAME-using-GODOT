@@ -94,7 +94,9 @@ func setup(data: Dictionary) -> void:
 	var self_bleed: int = 0 if preview_only else int(_manager().buffs_for(card_data).get("self_bleed", 0))
 	if self_bleed > 0: statuses.bleed = self_bleed
 	if card_data.has("modifier") and str(card_data.modifier) != "":
-		modifiers.append(str(card_data.modifier).to_lower())
+		for ability in str(card_data.modifier).split(","):
+			var normalized := ability.strip_edges().to_lower()
+			if not normalized.is_empty() and normalized not in modifiers: modifiers.append(normalized)
 
 	for card_modifier in card_data.get("modifiers", []):
 		if str(card_modifier).to_lower() not in modifiers: modifiers.append(str(card_modifier).to_lower())
@@ -570,12 +572,13 @@ func discard_to_pile() -> void:
 	queue_free()
 
 ## mult = type-effectiveness multiplier (for the popup text).
-func adjusted_damage(amt: int) -> int:
-	return BattleEngine.adjusted_damage(BattleQueries.context(_manager()), BattleQueries.card(null, self), amt)
+func adjusted_damage(amt: int, ignore_armor: bool = false) -> int:
+	return BattleEngine.adjusted_damage(
+		BattleQueries.context(_manager()), BattleQueries.card(null, self), amt, ignore_armor)
 
-func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> void:
+func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false, ignore_armor: bool = false) -> void:
 	last_evaded_hit = false
-	if not bypass_armor: amt = adjusted_damage(amt)
+	if not bypass_armor: amt = adjusted_damage(amt, ignore_armor)
 	else: amt = _manager().incoming_damage(card_data.type == "response", amt)
 	if not bypass_armor and planned_guard > 0:
 		var prevented := mini(planned_guard, amt)

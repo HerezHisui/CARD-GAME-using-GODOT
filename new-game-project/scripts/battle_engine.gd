@@ -41,7 +41,9 @@ static func is_sealed(definition: Dictionary, round_number: int) -> bool:
 	return int(definition.get("locked_until", 0)) > round_number
 
 static func definition_has_modifier(definition: Dictionary, modifier: String) -> bool:
-	return definition.get("modifier", "") == modifier or modifier in definition.get("modifiers", [])
+	var traits: Array = definition.get("modifiers", []).duplicate()
+	traits.append_array(str(definition.get("modifier", "")).split(","))
+	return traits.any(func(ability): return str(ability).strip_edges().to_lower() == modifier.to_lower())
 
 static func has_modifier(context: Dictionary, card: Dictionary, mod_name: String) -> bool:
 	var key := mod_name.to_lower()
@@ -66,8 +68,8 @@ static func effective_attack(context: Dictionary, card: Dictionary) -> int:
 	return maxi(0, int(card.card_data.get("attack", 0)) + int(card.statuses.get("strength", 0))
 		+ int(card.plan_attack_bonus) + bonus)
 
-static func adjusted_damage(context: Dictionary, card: Dictionary, amount: int) -> int:
-	if has_modifier(context, card, "armored"):
+static func adjusted_damage(context: Dictionary, card: Dictionary, amount: int, ignore_armor: bool = false) -> int:
+	if not ignore_armor and has_modifier(context, card, "armored"):
 		amount = maxi(1, amount - int(card.card_data.get("armor_value", 1)))
 	if has_modifier(context, card, "fragile"):
 		amount += 1
