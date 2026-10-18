@@ -70,6 +70,10 @@ func run() -> void:
 	game.player_hp = 19
 	director.coins = 200
 	director.show_shop()
+	director._process(0)
+	check(director.root.get_child(0).visible
+		and director.modal.offset_top >= director.root.get_child(0).offset_bottom,
+		"shop leaves the status header and navigation visible above its modal")
 	check(has_button("+1 HP · -15 supplies") and has_button("Destroy 1 card · -30 supplies"), "shop shows actual healing and explicit removal cost")
 	await capture("shop")
 	director.buy_heal()
