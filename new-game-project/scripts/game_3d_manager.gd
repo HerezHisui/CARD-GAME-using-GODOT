@@ -221,6 +221,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	_enemy_hp_ui.get_node("Caption").text = "JANITOR / %s / %s" % [kind.to_upper(), favored.to_upper()]
 	_enemy_hp_ui.get_node("Caption").add_theme_font_size_override("font_size", 14)
 	for definition in threats:
+		if kind == "elite" and definition.element != favored: continue
 		var c: Dictionary = definition.duplicate(true)
 		c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
 		c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
@@ -232,6 +233,9 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	# Keep the reserves small so fights don't drag on.
 	var base_limit := 18 if kind == "battle" else (21 if kind == "elite" else 22)
 	var evolution_limit := 8 if kind == "battle" else (13 if kind == "elite" else 14)
+	if kind == "elite":
+		fill_elite_reserve(enemy_deck, base_limit)
+		fill_elite_reserve(enemy_evolution_deck, evolution_limit - 1)
 	enemy_deck.shuffle()
 	enemy_deck.sort_custom(func(a, b): return a.element == favored and b.element != favored)
 	enemy_deck.resize(mini(base_limit, enemy_deck.size()))
@@ -253,6 +257,14 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		final_boss.setup(self)
 		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN / FINAL BOSS"
 	_start_match()
+
+func fill_elite_reserve(reserve: Array[Dictionary], limit: int) -> void:
+	var theme := reserve.duplicate(true)
+	if theme.is_empty(): return
+	var index := 0
+	while reserve.size() < limit:
+		reserve.append(theme[index % theme.size()].duplicate(true))
+		index += 1
 
 func has_special_effect(definition: Dictionary) -> bool:
 	for key in ["utility", "effect", "modifier", "modifiers", "on_hit", "on_sacrifice", "condition", "strength", "leech", "on_play_draw", "ignore_taunt"]:

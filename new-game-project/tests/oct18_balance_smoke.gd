@@ -62,6 +62,17 @@ func status_synergy() -> void:
 	check(game.conditional_attack_bonus(attacker, blocker) == 2, "Last Responder rewards Bleed support")
 	check(int(director.catalog_card("hazmat_team").cost) == 2, "Hazmat Team is an affordable Poison enabler")
 
+func elite_themes() -> void:
+	for specialty in range(4):
+		fixture()
+		game.start_encounter(director.character_deck(0), "elite", 2, specialty)
+		var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
+		var cards: Array = game.enemy_deck + game.enemy_hand + game.enemy_evolution_deck
+		check(cards.all(func(card): return card.element == favored), "elite reserves share their encounter type")
+		check(game.enemy_evolution_deck.size() == 13, "themed elites keep thirteen evolution choices")
+		var enabler: String = ["cinder_cloud", "glass_quake", "toxic_runoff", "pressure_front"][specialty]
+		check(cards.any(func(card): return card.id == enabler), "elite contains its status or Strength enabler")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -71,6 +82,7 @@ func run() -> void:
 	future_adaptations()
 	double_strikes()
 	status_synergy()
+	elite_themes()
 	game.clear_battle()
 	print("OCT18 BALANCE: %d failures" % failures)
 	quit(1 if failures else 0)
