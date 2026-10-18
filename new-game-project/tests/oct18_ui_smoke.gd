@@ -75,6 +75,19 @@ func run() -> void:
 	director.close_modal()
 	game._set_phase(game.Phase.PLAYER_DRAW, "Old instruction")
 	check(game._phase_label.text == "Pick a card to draw", "draw instruction is concise")
+	check(game.presentation.draw_reminder.visible, "draw phase starts reminder")
+	await create_timer(0.20).timeout
+	check(game.presentation.draw_reminder.modulate.a > 0.1, "reminder visibly pulses")
+	game.add_card_to_hand({"name":"Draw fixture", "type":"response", "element":"evac",
+		"cost":1, "attack":1, "health":1})
+	game.deck.assign([director.collection[0].duplicate(true)])
+	game._on_draw_button_pressed()
+	check(game.phase == game.Phase.PLAYER_PLAY, "draw completes")
+	check(not game.presentation.draw_reminder.visible, "drawing stops reminder")
+	game._set_phase(game.Phase.PLAYER_DRAW)
+	check(game.presentation.draw_reminder.visible, "next draw phase restarts reminder")
+	game._set_phase(game.Phase.GAME_OVER)
+	check(not game.presentation.draw_reminder.visible, "leaving draw phase clears reminder")
 	var hover_button: Button = director.menu_button
 	hover_button.disabled = false
 	hover_button.mouse_entered.emit()
