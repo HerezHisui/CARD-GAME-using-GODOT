@@ -85,6 +85,34 @@ func plan_display() -> void:
 	game.plans.finish_combat()
 	check(ally._atk_label.text == "2", "expired plan displays synchronously")
 
+func board_inspection() -> void:
+	fixture()
+	game._apply_view(game.BOARD_VIEW)
+	game._set_phase(game.Phase.COMBAT)
+	var ally := unit("response", 0)
+	await create_timer(0.5).timeout
+	var point: Vector2 = game.camera.unproject_position(ally.global_position)
+	check(game.card_at_board_position(point) == ally, "overhead picker finds a board card during combat")
+	var motion := InputEventMouseMotion.new()
+	motion.position = point
+	Input.parse_input_event(motion)
+	Input.flush_buffered_events()
+	await process_frame
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = point
+	Input.parse_input_event(press)
+	Input.flush_buffered_events()
+	await create_timer(0.4).timeout
+	check(director.screen == "inspect", "overhead board hold opens inspection during combat")
+	press = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = point
+	Input.parse_input_event(press)
+	Input.flush_buffered_events()
+	director.close_modal()
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -93,6 +121,7 @@ func run() -> void:
 	placement()
 	draw_choice()
 	plan_display()
+	await board_inspection()
 	game.clear_battle()
 	print("OCT18 CARD LOGIC: %d failures" % failures)
 	quit(1 if failures else 0)
