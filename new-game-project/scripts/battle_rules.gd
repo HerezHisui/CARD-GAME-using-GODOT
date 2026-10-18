@@ -72,8 +72,21 @@ const EFFECTS := {
 }
 const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "barrier":"Protect formation", "herb":"Clear Bleed", "tablet":"Restore healing", "draw":"Draw cards", "move":"Relocate ally", "tutor":"Search draw pile", "seal":"Seal card", "scout":"Reveal hand", "tax":"Raise cost", "rally":"Gain Strength", "cleanse":"Heal and cleanse", "recover":"Recover a unit", "grave_guard":"Graveyard protection"}
 
+static func modifier_text(card: Dictionary, modifier: String) -> String:
+	var descriptions := {
+		"armored":"Armored: reduce ordinary damage by %d (minimum 1)." % int(card.get("armor_value", 1)),
+		"fragile":"Fragile: take 1 extra ordinary damage.",
+		"regenerating":"Regenerating: heal 1 at upkeep.",
+		"rampaging":"Rampaging: +1 unit damage when attacking second.",
+		"fierce":"Fierce: +2 direct hero damage.",
+		"piercing":"Piercing: also hits opposing health when blocked.",
+		"sluggish":"Sluggish: attacks immediately, then rests every other round."
+	}
+	return str(descriptions.get(modifier, modifier.capitalize()))
+
 static func special_text(card: Dictionary) -> String:
 	var parts: PackedStringArray = []
+	if int(card.get("strength", 0)) > 0: parts.append("Starts with %d Strength." % int(card.strength))
 	if card.get("recovered", false): parts.append("Recovered: this unit cannot be recovered again this battle.")
 	if card.get("on_sacrifice", "") == "draw": parts.append("When sacrificed: draw 1 Disaster card.")
 	if card.get("on_sacrifice", "") == "burn": parts.append("When sacrificed: apply 2 Burn to the opposing lane card.")

@@ -1626,6 +1626,7 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 		resolve_single_strike(atk, defender, response_side)
 
 func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
+	if defender != null and defender.card_data.type == atk.card_data.type: return
 	var blocked: bool = defender != null and defender.is_alive()
 	log_event("%s attacks %s." % [atk.card_data.name, defender.card_data.name if blocked else ("Disaster health" if response_side else "Response health")])
 	if blocked:

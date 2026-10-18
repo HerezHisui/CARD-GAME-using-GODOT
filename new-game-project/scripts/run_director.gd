@@ -1107,17 +1107,9 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	if is_instance_valid(live_card):
 		for inherited in ["piercing", "sluggish"]:
 			if live_card.has_modifier(inherited) and inherited not in active_modifiers: active_modifiers.append(inherited)
-	var descriptions := {
-		"armored":"Armored: take %d less ordinary damage (minimum 1 before other modifiers)." % int(card.get("armor_value", 1)),
-		"fragile":"Fragile: take 1 extra ordinary damage.",
-		"regenerating":"Regenerating: heal 1 at upkeep.",
-		"rampaging":"Rampaging: +1 unit damage when attacking second.",
-		"fierce":"Fierce: +2 direct hero damage.",
-		"piercing":"Piercing: also damages the opposing hero when blocked.",
-		"sluggish":"Sluggish: attacks every other round."
-	}
 	for modifier in active_modifiers:
-		rules.append(descriptions.get(modifier, str(modifier).capitalize()))
+		var description := Rules.modifier_text(card, str(modifier))
+		if description not in rules: rules.append(description)
 	if not rules.is_empty(): details.text += "\n[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
 	if not hint.is_empty(): details.text += "\n\n" + hint
 	panel.add_child(details)
@@ -1358,8 +1350,10 @@ func card_rules(card: Dictionary) -> String:
 	if effect == "rally_all": rules += "On play: other deployed allies gain 1 Strength.\n"
 	if effect == "grave_guard": rules += str(Rules.EFFECTS.grave_guard) + "\n"
 	if int(card.get("leech", 0)) > 0: rules += "Heal %d after attacking.\n" % int(card.leech)
-	if card.get("modifier", "") == "piercing": rules += "Piercing: also hits opposing health for attack damage, even when blocked.\n"
-	if card.get("modifier", "") == "sluggish": rules += "Sluggish: attacks immediately, then rests every other round.\n"
+	var modifiers: Array = card.get("modifiers", []).duplicate()
+	var primary := str(card.get("modifier", "")).to_lower()
+	if not primary.is_empty() and primary not in modifiers: modifiers.append(primary)
+	for modifier in modifiers: rules += Rules.modifier_text(card, str(modifier)) + "\n"
 	if card.has("on_hit"):
 		for status in card.on_hit: rules += "On hit: %s %d to a surviving blocker.\n" % [str(status).capitalize(), int(card.on_hit[status])]
 	for element in game.TYPE_CHART.get(card.element, {}):
