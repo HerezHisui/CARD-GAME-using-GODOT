@@ -36,9 +36,9 @@ The eight Session 1 guard suites were run before and after adding the fixtures:
 |---|---|---|
 | mechanics_smoke.gd | PASS | PASS |
 | expansion_smoke.gd | PASS | PASS |
-| plans_notes_smoke.gd | PASS | PASS |
-| notes3_smoke.gd | PASS | PASS |
-| notes4_smoke.gd | PASS | PASS |
+| contingency_plans_smoke.gd | PASS | PASS |
+| board_targeting_plans_and_events_smoke.gd | PASS | PASS |
+| map_sorting_caps_and_saves_smoke.gd | PASS | PASS |
 | explorer_mode_smoke.gd | PASS | PASS |
 | final_boss_smoke.gd | PASS | PASS |
 | hover_graveyard_smoke.gd | PASS | PASS |
@@ -95,7 +95,7 @@ All checks used Godot 4.7.2 with `--headless --path new-game-project --script re
 
 | Suite | Before | After |
 |---|---|---|
-| notes4_smoke.gd | PASS | PASS |
+| map_sorting_caps_and_saves_smoke.gd | PASS | PASS |
 | graveyard_save_compatibility_smoke.gd | PASS | PASS |
 | battle_behavior_smoke.gd | PASS | PASS |
 | battle_state_smoke.gd | New | PASS |
@@ -153,7 +153,7 @@ scene references; this session's integration parity harness still instantiates t
 | battle_behavior_smoke.gd | PASS | PASS |
 | mechanics_smoke.gd | PASS | PASS |
 | expansion_smoke.gd | PASS | PASS |
-| plans_notes_smoke.gd | PASS | PASS |
+| contingency_plans_smoke.gd | PASS | PASS |
 
 All runs used Godot 4.7.2 headlessly. No test failed during the resumed session. The previous
 attempt's Engine name collision and typed-array assignment error are resolved. No assertions

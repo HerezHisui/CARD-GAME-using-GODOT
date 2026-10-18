@@ -9,7 +9,7 @@ Source: `github-publish/new-game-project`. Playable copy: `CARD-GAME-using-GODOT
 | 1 | None | Pending: replace disaster encounter icon once the reference is available; retain existing node dimensions and anchor. | None | None |
 | 2 | `scripts/run_director.gd` | Remove inspection headings and closing instructions from live and catalog inspections. | `813f27a` | Inspection (see Git history) |
 | 3 | `scripts/board_actions.gd`, `scripts/game_3d_manager.gd` | Open overhead view for board targeting, relocation, formation healing/buffs, and area utilities. Combat already opened overhead. | `8cff1ab` | Overhead (see Git history) |
-| 4 | `scripts/card_3d.gd`, `scripts/game_3d_manager.gd`, `scripts/run_director.gd`, `scripts/ui_theme.gd`; `tests/hud_navigation_smoke.gd`, `tests/plans_notes_smoke.gd`, `tests/ui_consistency_smoke.gd` | Remove redundant HUD/menu controls and explanatory text; replace card effect text with icons and keep complete rules in inspection. | `146f3fc` | Cleanup (see Git history) |
+| 4 | `scripts/card_3d.gd`, `scripts/game_3d_manager.gd`, `scripts/run_director.gd`, `scripts/ui_theme.gd`; `tests/hud_navigation_smoke.gd`, `tests/contingency_plans_smoke.gd`, `tests/ui_consistency_smoke.gd` | Remove redundant HUD/menu controls and explanatory text; replace card effect text with icons and keep complete rules in inspection. | `146f3fc` | Cleanup (see Git history) |
 | 5 | `scripts/run_director.gd`, `tests/hud_navigation_smoke.gd` | Rename player buff headings to Adaptations and Augmentations. | `2c0933f` | Labels (see Git history) |
 | 6 | `scripts/ui_theme.gd`, `scripts/game_presentation.gd`, `tests/hud_navigation_smoke.gd` | Tween button backgrounds from black to red on hover, including dynamically created buttons. | `8103f5e` | Hover (see Git history) |
 | 7 | `scripts/game_presentation.gd`, `scripts/game_3d_manager.gd`, `tests/hud_navigation_smoke.gd` | Pulse the draw button red during the draw phase and stop after drawing or leaving the phase. | `cc4dc1c` | Draw reminder (see Git history) |
@@ -35,11 +35,11 @@ Godot 4.7.2 console executable, with `--headless --path <project> --script res:/
 Source project: all ten suites passed after the relevant changes:
 
 - `hud_navigation_smoke`
-- `notes3_smoke`
+- `board_targeting_plans_and_events_smoke`
 - `recovery_coordination_smoke`
 - `battle_behavior_smoke`
 - `graveyard_save_compatibility_smoke`
-- `plans_notes_smoke`
+- `contingency_plans_smoke`
 - `ui_interaction_smoke`
 - `camera_controls_smoke`
 - `expansion_smoke`
@@ -48,9 +48,9 @@ Source project: all ten suites passed after the relevant changes:
 Playable copy: all eight suites passed:
 
 - `hud_navigation_smoke`
-- `plans_notes_smoke`
+- `contingency_plans_smoke`
 - `graveyard_save_compatibility_smoke`
-- `notes3_smoke`
+- `board_targeting_plans_and_events_smoke`
 - `ui_interaction_smoke`
 - `camera_controls_smoke`
 - `recovery_coordination_smoke`

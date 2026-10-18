@@ -1,3 +1,4 @@
+# Covers: Collection sorting, shop purchases, upgrades, relocation, buffs, and enemy decisions.
 extends SceneTree
 var game: Node
 var director: Node

@@ -6,7 +6,7 @@ Files touched:
 - `new-game-project/scripts/run_director.gd`
 - `new-game-project/scripts/game_3d_manager.gd`
 - `new-game-project/tests/expansion_smoke.gd`
-- `new-game-project/tests/improvements_smoke.gd`
+- `new-game-project/tests/collection_shop_upgrades_and_ai_smoke.gd`
 - `new-game-project/RUN_GUIDE.md`
 - `docs/singleplayer.md`
 
@@ -63,7 +63,7 @@ Commit-message-style summary: `Document victory triage and floor recovery`
 ## Validation
 
 Before editing, these headless suites passed in the source project:
-`expansion_smoke.gd`, `improvements_smoke.gd`, `notes4_smoke.gd`, and `run_smoke.gd`.
+`expansion_smoke.gd`, `collection_shop_upgrades_and_ai_smoke.gd`, `map_sorting_caps_and_saves_smoke.gd`, and `run_smoke.gd`.
 
 After editing, those four suites and `balance_rules_smoke.gd` passed in the source
 and playable mirror using Godot 4.7.2. The adaptation tests now check player-only
@@ -167,10 +167,10 @@ index 355a0e2..6d9e57d 100644
 +	director.select_buff(chosen_id)
 +	check(game.player_buffs.get(chosen_id, 0) == previous_stacks + 1 and game.enemy_buffs.is_empty(),
 +		"selected adaptation applies only to the player")
-diff --git a/new-game-project/tests/improvements_smoke.gd b/new-game-project/tests/improvements_smoke.gd
+diff --git a/new-game-project/tests/collection_shop_upgrades_and_ai_smoke.gd b/new-game-project/tests/collection_shop_upgrades_and_ai_smoke.gd
 index c9ed7a0..9e86d76 100644
---- a/new-game-project/tests/improvements_smoke.gd
-+++ b/new-game-project/tests/improvements_smoke.gd
+--- a/new-game-project/tests/collection_shop_upgrades_and_ai_smoke.gd
++++ b/new-game-project/tests/collection_shop_upgrades_and_ai_smoke.gd
 @@ -125 +125,2 @@ func run() -> void:
 -	check(director.floor_number == 2 and not game.player_run_buffs.is_empty() and not game.enemy_run_buffs.is_empty(), "floor awards persistent buff to both sides")
 +	check(director.floor_number == 2 and not game.player_run_buffs.is_empty() and game.enemy_run_buffs.is_empty(),

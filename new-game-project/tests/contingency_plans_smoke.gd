@@ -1,3 +1,4 @@
+# Covers: Contingency Plans, battle flow, inspection, statuses, and card removal.
 extends SceneTree
 var game: Node
 var director: Node
