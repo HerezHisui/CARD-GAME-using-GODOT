@@ -1714,7 +1714,8 @@ func show_menu() -> void:
 	rules_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(rules_box)
 	rules_box.add_child(label("Counters: Evac → Earthquake  /  Douse → Fire  /  Clearance → Flood  /  Brace → Typhoon", 17, TEAL, true))
-	rules_box.add_child(label("BATTLE: " + buff_summary(game.player_buffs) + "\nRUN: " + buff_summary(game.player_run_buffs), 16, TEAL, true))
+	rules_box.add_child(label("Adaptations: " + buff_summary(game.player_buffs), 16, TEAL, true))
+	rules_box.add_child(label("Augmentations: " + buff_summary(game.player_run_buffs), 16, TEAL, true))
 	button("Resume", close_modal, content)
 	if battle_active: button("Debug values  [F3]", show_debug, content)
 	button("Return to starting screen…", confirm_title, content)

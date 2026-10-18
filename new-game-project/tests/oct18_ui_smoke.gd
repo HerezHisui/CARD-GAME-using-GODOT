@@ -37,6 +37,8 @@ func run() -> void:
 	check(not has_text(director.content, "Armored reduces"), "menu explanations removed")
 	check(not has_text(director.content, "JANITOR RUN"), "Janitor buff headings removed")
 	check(not has_text(director.content, "Combat log"), "menu log removed")
+	check(has_text(director.content, "Adaptations:"), "battle buff heading renamed")
+	check(has_text(director.content, "Augmentations:"), "run buff heading renamed")
 	director.show_deck()
 	check(not has_text(director.content, "Response Graveyard"), "graveyard absent outside combat")
 	check(has_text(director.content, "DECK"), "deck uses short heading")
