@@ -1131,10 +1131,23 @@ func _begin_player_turn() -> void:
 
 func _on_draw_button_pressed() -> void:
 	if run_director and run_director.modal.visible: return
-	if phase != Phase.PLAYER_DRAW:
-		return
-	draw_cards(maxi(0, 1 + buff_value(true, "draw")))
+	if phase != Phase.PLAYER_DRAW or preparedness < 1 or get_hand_cards().size() >= HAND_SIZE_MAX: return
+	var choices := deck.filter(func(card): return not is_sealed(card))
+	if choices.is_empty(): return
+	run_director.choose_card("PICK FROM YOUR DECK", choices, complete_draw_choice, run_director.close_modal,
+		"Choose a card for 1 energy. Cancel keeps your energy and draw. Playing it uses its listed cost.")
+
+func complete_draw_choice(definition: Dictionary) -> void:
+	if phase != Phase.PLAYER_DRAW or preparedness < 1 or definition not in deck or is_sealed(definition): return
+	if get_hand_cards().size() >= HAND_SIZE_MAX: return
+	preparedness -= 1
+	deck.erase(definition)
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+	add_card_to_hand(definition)
+	draw_cards(maxi(0, buff_value(true, "draw")))
 	_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
+	_refresh_bars()
 
 func _on_end_turn_pressed() -> void:
 	if not board_input.action.is_empty(): return
