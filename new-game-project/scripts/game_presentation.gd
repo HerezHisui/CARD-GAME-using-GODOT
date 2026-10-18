@@ -228,10 +228,12 @@ func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry:
 	banner_node = panel
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
 	panel.offset_left = 350
 	panel.offset_right = -350
-	panel.offset_top = 85
-	panel.offset_bottom = 172
+	panel.offset_top = -64
+	panel.offset_bottom = 64
 	var style := UI.panel(Color.TRANSPARENT, UI.AMBER)
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(0)
@@ -244,11 +246,14 @@ func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry:
 	panel.add_child(box)
 	for words in [title, subtitle]:
 		if words.is_empty(): continue
-		var text_color: Color = UI.TEXT if words == title else UI.MUTED
-		var label: Label = game.run_director.label(words, 26 if words == title else 16, text_color)
+		var text_color: Color = UI.TEXT if words == title else UI.TEXT.darkened(0.12)
+		var label: Label = game.run_director.label(words, 38 if words == title else 20, text_color)
 		if words == title:
 			label.text = words.to_upper()
-			label.add_theme_font_override("font", UI.font(true))
+			var heading_font := FontVariation.new()
+			heading_font.base_font = UI.font(true)
+			heading_font.spacing_glyph = 2
+			label.add_theme_font_override("font", heading_font)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(label)
@@ -256,7 +261,7 @@ func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry:
 	panel.modulate.a = 0
 	banner_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	banner_tween.tween_property(panel, "modulate:a", 1.0, 0.16)
-	var slide := banner_tween.parallel().tween_property(panel, "offset_top", 96.0, 0.2).from(75.0)
+	var slide := banner_tween.parallel().tween_property(panel, "offset_top", -64.0, 0.2).from(-85.0)
 	slide.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if entry:
 		var entry_slide := banner_tween.parallel().tween_property(panel, "offset_left", 350.0, 0.2).from(550.0)
@@ -272,7 +277,8 @@ func add_banner_strip(panel: PanelContainer) -> void:
 	strip.show_behind_parent = true
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://scripts/banner_strip.gdshader")
-	material.set_shader_parameter("fill_color", Color(UI.INSET, 0.82))
-	material.set_shader_parameter("line_color", UI.AMBER)
+	material.set_shader_parameter("fill_color", Color(UI.INSET, 0.94))
+	material.set_shader_parameter("line_color", Color("ffc16b"))
+	material.set_shader_parameter("line_width", 2.5)
 	strip.material = material
 	panel.add_child(strip)
