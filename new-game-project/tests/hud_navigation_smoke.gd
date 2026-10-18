@@ -80,7 +80,11 @@ func run() -> void:
 	director.inspect_board_card(ally)
 	check(not has_text(director.content, "CARD INSPECTION"), "inspection heading removed")
 	check(not has_text(director.content, "Click the card"), "inspection instructions removed")
+	director.inspection_dossier.get_node("InspectTabs").get_child(2).button_pressed = true
+	director.inspection_dossier.get_node("InspectTabs").get_child(2).pressed.emit()
 	check(has_text(director.inspection_dossier, "Armored:"), "inspection retains modifier rules")
+	director.inspection_dossier.get_node("InspectTabs").get_child(1).button_pressed = true
+	director.inspection_dossier.get_node("InspectTabs").get_child(1).pressed.emit()
 	check(has_text(director.inspection_dossier, "Burn 3:"), "inspection retains status rules and stacks")
 	director.close_modal()
 	game.set_view(game.View.DESK)
