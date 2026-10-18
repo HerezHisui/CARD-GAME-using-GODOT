@@ -781,6 +781,7 @@ func on_card_played(card: Node) -> void:
 
 func apply_formation_effect(source: Node) -> void:
 	var effect: String = source.card_data.get("effect", "")
+	if effect in ["heal_all", "rally_all"]: set_board_view(true)
 	var slots := _response_slots() if source.card_data.type == "response" else _threat_slots()
 	for slot in slots:
 		var ally = _get_card_in_slot(slot)
@@ -863,6 +864,7 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		elif effect in ["seal", "tax"]: run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
 		else: run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
 		return true
+	if effect in ["blast", "barrier", "herb", "tablet"]: set_board_view(true)
 	consume_utility(card)
 	if effect == "draw": draw_cards(int(card.card_data.get("draw_count", 2)) + int(card.card_data.get("utility_power", 0)))
 	elif effect == "scout": run_director.show_intel()

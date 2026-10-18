@@ -14,14 +14,15 @@ func setup(manager: Node) -> void:
 func clear() -> void: action.clear()
 
 func pick(title: String, cards: Array, callback: Callable, cancel_callback: Callable) -> void:
-	game.clear_hand_hover()
+	game.set_board_view(true)
 	action = {"kind":"pick", "title":title, "cards":cards.duplicate(), "callback":callback, "cancel":cancel_callback}
 
 func relocation(source: Node) -> void:
-	game.clear_hand_hover()
+	game.set_board_view(true)
 	action = {"kind":"relocate", "title":"Drag another friendly card onto an empty lane. Esc skips movement.", "source":source, "cancel":game.cancel_move_effect}
 
 func destination(card: Node, callback: Callable) -> void:
+	game.set_board_view(true)
 	action = {"kind":"place", "title":"Click an empty friendly lane for Emergency Extraction. Esc cancels.", "card":card, "callback":callback, "cancel":Callable()}
 
 func click_card(card: Node) -> bool:
