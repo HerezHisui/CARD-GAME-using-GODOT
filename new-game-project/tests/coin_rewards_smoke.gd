@@ -22,10 +22,11 @@ func banner_style_checks() -> void:
 		var strip: ColorRect = banner.get_node("BannerStrip")
 		var material: ShaderMaterial = strip.material
 		check(style.bg_color == Color.TRANSPARENT
-			and material.get_shader_parameter("fill_color") == Color(director.UI.INSET, 0.82),
+			and material.get_shader_parameter("fill_color") == Color(director.UI.INSET, 0.94),
 			"encounter and turn banners use a translucent dark strip")
 		check(material.shader == load("res://scripts/banner_strip.gdshader")
-			and material.get_shader_parameter("line_color") == director.UI.AMBER,
+			and material.get_shader_parameter("line_color") == Color("ffc16b")
+			and material.get_shader_parameter("line_width") == 2.5,
 			"banner uses the soft edge shader with two shorter glowing amber lines")
 		check(style.border_width_bottom == 0 and style.border_width_left == 0
 			and style.border_width_right == 0, "banner omits full width borders")
@@ -33,19 +34,34 @@ func banner_style_checks() -> void:
 			"banner omits the hazard bar and heavy frame")
 		check(banner.offset_left == 350 and banner.offset_right == -350,
 			"banner keeps its horizontal bounds")
-		check(banner.offset_top == 85 and banner.offset_bottom == 172, "banner keeps its vertical bounds")
+		check(banner.anchor_top == 0.5 and banner.anchor_bottom == 0.5
+			and banner.offset_top == -64 and banner.offset_bottom == 64,
+			"banner is centered vertically over the board")
 		var title: Label = banner.get_child(0).get_child(0)
 		check(title.text == "DISASTER ENCOUNTER" and title.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER,
 			"banner keeps its centered uppercase title")
+		var heading_font: FontVariation = title.get_theme_font("font")
 		check(title.get_theme_color("font_color") == director.UI.TEXT
-			and title.get_theme_font("font") == director.UI.font(true),
+			and title.get_theme_font_size("font_size") == 38
+			and heading_font.base_font == director.UI.font(true) and heading_font.spacing_glyph == 2,
 			"banner title uses the bold condensed heading font in off-white")
 		var subtitle: Label = banner.get_child(0).get_child(1)
 		check(subtitle.text == "Prepare your formation"
 			and subtitle.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER
-			and subtitle.get_theme_color("font_color") == director.UI.MUTED
+			and subtitle.get_theme_color("font_color") == director.UI.TEXT.darkened(0.12)
+			and subtitle.get_theme_font_size("font_size") == 20
 			and subtitle.get_theme_font_size("font_size") < title.get_theme_font_size("font_size"),
 			"banner preserves its smaller dim centered subtitle")
+		check(banner.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and strip.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and banner.get_child(0).mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and title.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and subtitle.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"banner and its children let card input pass through")
+		await create_timer(0.25).timeout
+		var screen_center: Vector2 = root.get_visible_rect().get_center()
+		check(banner.get_global_rect().get_center().distance_to(screen_center) < 2.0,
+			"banner settles at the screen center after its slide")
 		game.presentation.clear_banner()
 
 func run() -> void:
@@ -55,7 +71,7 @@ func run() -> void:
 	director = game.run_director
 	director.persistence.discard()
 	director.new_run()
-	banner_style_checks()
+	await banner_style_checks()
 	await create_timer(0.6).timeout
 	director.visit(0)
 	check(game.presentation.blocking and game.phase == game.Phase.SETUP, "battle entry animation blocks input")
