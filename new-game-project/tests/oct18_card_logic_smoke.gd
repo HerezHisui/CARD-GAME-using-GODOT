@@ -51,12 +51,31 @@ func placement() -> void:
 			check(game.slot_at_screen_position(point) == slot, "visible lane center selects the same lane")
 	check(game.slot_at_screen_position(Vector2(-1000, -1000)) == null, "outside board rejects placement")
 
+func draw_choice() -> void:
+	fixture()
+	var definition := {"id":"pick", "name":"Pick", "type":"response", "element":"evac",
+		"cost":1, "attack":1, "health":1}
+	game.deck.assign([definition])
+	game._set_phase(game.Phase.PLAYER_DRAW)
+	game._on_draw_button_pressed()
+	check(director.modal.visible and director.screen == "choice", "draw opens the deck picker")
+	check(game.preparedness == 5, "opening picker is free")
+	director.close_modal()
+	check(game.deck.size() == 1 and game.preparedness == 5, "cancel preserves draw and energy")
+	game._on_draw_button_pressed()
+	game.complete_draw_choice(definition)
+	check(game.deck.is_empty() and game.get_hand_cards().size() == 1, "chosen card enters hand")
+	check(game.preparedness == 4, "picking costs exactly one energy")
+	game.complete_draw_choice(definition)
+	check(game.preparedness == 4, "duplicate picker callback cannot charge again")
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
 	director = game.run_director
 	placement()
+	draw_choice()
 	game.clear_battle()
 	print("OCT18 CARD LOGIC: %d failures" % failures)
 	quit(1 if failures else 0)
