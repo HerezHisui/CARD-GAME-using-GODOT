@@ -26,6 +26,9 @@ func select_card(picker: OptionButton, card_name: String) -> void:
 	check(false, "picker contains " + card_name)
 
 func run() -> void:
+	# Use unscaled viewport sizes so the narrow-width check measures the same UI units.
+	root.content_scale_size = Vector2i.ZERO
+	root.size = Vector2i(1280, 800)
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
@@ -53,6 +56,19 @@ func run() -> void:
 	var collection: Array = director.collection.duplicate(true)
 	unlock()
 	check(director.screen == "debug" and paused, "editor opens in a paused battle")
+	check(is_equal_approx(director.modal.size.x, 560), "debug modal is 560 pixels wide at 1280x800")
+	root.size = Vector2i(480, 800)
+	director._panel_layout("debug")
+	check(director.modal.size.x <= root.size.x - 32, "debug width stays within the viewport")
+	root.size = Vector2i(1280, 800)
+	director._panel_layout("debug")
+	var stat_labels := 0
+	for caption in director.content.find_children("*", "Label", true, false):
+		if caption.text in ["Cost", "ATK", "HP"]:
+			stat_labels += 1
+			check(caption.custom_minimum_size.x >= 72 and caption.autowrap_mode == TextServer.AUTOWRAP_OFF,
+				"card stat captions have a fixed readable width without wrapping")
+	check(stat_labels == 3, "all three card stat captions are checked")
 	var picker: OptionButton = director.content.find_child("DebugCard", true, false)
 	var cost: SpinBox = director.content.find_child("DebugCost", true, false)
 	var attack: SpinBox = director.content.find_child("DebugATK", true, false)
