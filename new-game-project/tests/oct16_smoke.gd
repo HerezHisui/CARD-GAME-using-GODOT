@@ -136,7 +136,7 @@ func run() -> void:
 	for i in 4:
 		unit("ally_%d" % i, i)
 		unit("enemy_%d" % i, i, "disaster")
-	game._apply_view(game.DESK_VIEW)
+	game.set_view(game.View.DESK)
 	game.presentation.clear_banner()
 	await create_timer(1.5).timeout
 	await capture("board_hand")

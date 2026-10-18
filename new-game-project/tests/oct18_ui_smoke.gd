@@ -23,6 +23,18 @@ func battle() -> void:
 	director.battle_active = true
 	game._set_phase(game.Phase.PLAYER_PLAY)
 
+func escape() -> void:
+	var event := InputEventKey.new()
+	event.keycode = KEY_ESCAPE
+	event.pressed = true
+	Input.parse_input_event(event)
+	await process_frame
+	event = InputEventKey.new()
+	event.keycode = KEY_ESCAPE
+	event.pressed = false
+	Input.parse_input_event(event)
+	await process_frame
+
 func run() -> void:
 	game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
@@ -55,6 +67,7 @@ func run() -> void:
 	game._set_phase(game.Phase.PLAYER_PLAY)
 	var ally = game.Card3DScene.instantiate()
 	game.add_child(ally)
+	ally.add_to_group("cards")
 	ally.setup({"name":"UI fixture", "type":"response", "element":"evac", "cost":1,
 		"attack":2, "health":5, "modifier":"armored", "effect":"rally_all"})
 	ally.place_on_slot(game._response_slots()[0])
@@ -106,6 +119,40 @@ func run() -> void:
 	hover_button.mouse_exited.emit()
 	await create_timer(0.20).timeout
 	check(fill.bg_color.is_equal_approx(director.UI.BACKGROUND), "exit returns to black")
+	battle()
+	game.plans.tokens = 2
+	var energy: int = game.preparedness
+	director.begin_tactic("brace")
+	check(not game.board_input.action.is_empty(), "target tactic waits for a board click")
+	check(game.plans.tokens == 2, "selection does not spend a Plan")
+	await escape()
+	check(game.board_input.action.is_empty(), "Esc cancels target selection")
+	check(game.plans.tokens == 2 and game.preparedness == energy, "cancel preserves resources")
+	check(game.plans.armed.is_empty(), "cancel does not arm a tactic")
+	game.plans.unlock("extract")
+	director.begin_tactic("extract")
+	game.board_input.click_card(ally)
+	check(game.board_input.action.get("kind") == "place", "extraction selects its destination on board")
+	await escape()
+	check(game.plans.tokens == 2 and game.plans.armed.is_empty(), "second-stage cancel preserves resources")
+	director.begin_tactic("extract")
+	game.board_input.click_card(ally)
+	game.board_input.choose_slot(game._response_slots()[1])
+	check(game.plans.tokens == 1, "confirming destination spends exactly one Plan")
+	check(game.plans.armed.get("destination") == game._response_slots()[1], "confirmed extraction retains target")
+	game.plans.reset()
+	var utility = game.Card3DScene.instantiate()
+	game.hand_container.add_child(utility)
+	utility.add_to_group("cards")
+	utility.setup({"name":"Target fixture", "type":"response", "element":"evac", "utility":true,
+		"cost":1, "attack":0, "health":1, "effect":"rally"})
+	utility.in_hand = true
+	game.hand.append(utility)
+	game.preparedness = 3
+	check(game.try_utility(utility, game._response_slots()[2]), "target utility begins selection")
+	await escape()
+	check(game.preparedness == 3 and is_instance_valid(utility) and utility.in_hand, "utility cancel keeps card and energy")
+	check(game.pending_utility == null and game.board_input.action.is_empty(), "utility cancel clears pending state")
 	director.persistence.discard()
 	print("OCT18 UI: %d failures" % failures)
 	quit(1 if failures else 0)

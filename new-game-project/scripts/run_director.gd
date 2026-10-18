@@ -74,7 +74,6 @@ var remove_origin := ""
 var remove_index := -1
 var board_prompt: PanelContainer
 var board_prompt_label: Label
-var extraction_card: Node
 var unlock_after := "cards"
 var event_key := ""
 var event_type := "locked"
@@ -1271,12 +1270,10 @@ func arm_brace(card: Node) -> void:
 	game.plans.arm("brace", [card])
 func select_coordination() -> void: begin_tactic("coordinate")
 func select_extraction_ally(card: Node) -> void:
-	extraction_card = card
-	game.board_input.destination(card, arm_extraction)
+	game.board_input.destination(card, arm_extraction.bind(card))
 
-func arm_extraction(slot: Node3D) -> void:
-	game.plans.arm("extract", [extraction_card], slot)
-	extraction_card = null
+func arm_extraction(slot: Node3D, card: Node) -> void:
+	game.plans.arm("extract", [card], slot)
 
 func show_graveyard() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty() or screen in DECISIONS or saved_content != null: return
