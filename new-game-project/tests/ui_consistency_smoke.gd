@@ -27,7 +27,8 @@ func capture(name: String) -> void:
 	if director.modal.visible:
 		if director.compact_layout:
 			var rect: Rect2 = director.modal.get_global_rect()
-			check(absf(rect.size.x - 420) < 2, name + " compact width is 420")
+			var width := 560.0 if director.screen == "debug" else 420.0
+			check(absf(rect.size.x - width) < 2, name + " compact width is %d" % width)
 			check(director.content.get_global_rect().end.x <= director.modal_scroll.get_global_rect().end.x + 1, name + " compact content fits without horizontal clipping")
 			check(rect.get_center().distance_to(root.get_visible_rect().size / 2) < 2, name + " compact panel is centered")
 		check(director.modal.get_global_rect().end.x <= root.get_visible_rect().size.x + 2, name + " panel fits horizontally")
