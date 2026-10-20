@@ -4,11 +4,14 @@ const UI = preload("res://scripts/ui_theme.gd")
 const RouteCanvas = preload("res://scripts/route_canvas.gd")
 const CardFace = preload("res://scripts/card_3d.gd")
 const Rules = preload("res://scripts/battle_rules.gd")
+const CardRules = preload("res://scripts/run_card_rules.gd")
+const Routes = preload("res://scripts/run_routes.gd")
+const RunDebug = preload("res://scripts/run_debug.gd")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
 const DECISIONS := ["coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff", "intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove", "remove_confirm", "contingency_reward"]
-const MAP_ROWS := 11
+const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
 const CHARACTERS := [
 	{"name":"Steve · Student", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
@@ -17,7 +20,7 @@ const CHARACTERS := [
 	{"name":"Safety Club · Leader", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
 ]
 var selected_character := 0
-const SORT_KEYS := ["name", "element", "cost", "attack", "health", "modifier", "acquired"]
+const SORT_KEYS = CardRules.SORT_KEYS
 const GOLD := UI.GOLD
 const TEAL := UI.RESPONSE
 const BG := UI.BACKGROUND
@@ -79,7 +82,7 @@ var event_key := ""
 var event_type := "locked"
 var event_cards: Array[Dictionary] = []
 var event_resolved := false
-const EVENT_TYPES := ["locked", "radio", "rooftop", "science", "infirmary", "lost_found"]
+const EVENT_TYPES = Routes.EVENT_TYPES
 var deck_sort := 0
 var upgrade_sort := 0
 var deck_descending := false
@@ -102,8 +105,10 @@ func _ready() -> void:
 	game.load_deck_from_json("res://data/starter_deck.json", catalog)
 	game.load_deck_from_json("res://data/response_expansion.json", catalog)
 	# Utility cards belong to the reward pool, preserving the original starter deck.
-	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance", "cost":2, "attack":0, "health":1, "effect":"draw", "utility":true})
-	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac", "cost":1, "attack":0, "health":1, "effect":"move", "utility":true})
+	catalog.append({"id":"supply_cache", "name":"Supply Cache", "type":"response", "element":"clearance",
+		"cost":2, "effect":"draw", "utility":true})
+	catalog.append({"id":"emergency_exit", "name":"Emergency Exit", "type":"response", "element":"evac",
+		"cost":1, "effect":"move", "utility":true})
 	if start_after_reload:
 		start_after_reload = false
 		new_run()
@@ -413,6 +418,7 @@ func _gauge(title: String, right: bool, color: Color) -> ProgressBar:
 
 func _process(_delta: float) -> void:
 	if inspect_hold_pending and not game.board_input.action.is_empty(): cancel_inspect_hold()
+	if battle_active: game.plans.preview_attack()
 	modal_dimmer.visible = modal.visible and battle_active and screen not in ["map", "inspect", "reward"]
 	game.visible = battle_active or screen == "reward"
 	board_prompt.visible = battle_active and not modal.visible and not game.board_input.action.is_empty()
@@ -475,9 +481,9 @@ func _input(event: InputEvent) -> void:
 			dismiss_inspection()
 			get_viewport().set_input_as_handled()
 		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			var on_card := is_instance_valid(inspected_face) and inspected_face.get_global_rect().has_point(event.position)
-			var on_dossier := is_instance_valid(inspection_dossier) and inspection_dossier.get_global_rect().has_point(event.position)
-			if on_card or not on_dossier:
+			var on_dossier: bool = is_instance_valid(inspection_dossier) \
+				and inspection_dossier.get_parent().get_global_rect().has_point(event.position)
+			if not on_dossier:
 				dismiss_inspection()
 				get_viewport().set_input_as_handled()
 		return
@@ -507,6 +513,7 @@ func _input(event: InputEvent) -> void:
 		match event.keycode:
 			KEY_F3: show_debug()
 			KEY_D: show_deck()
+			KEY_L: show_battle_log()
 			KEY_P: show_plans()
 			KEY_G:
 				if screen == "graveyard": close_modal()
@@ -517,7 +524,7 @@ func _input(event: InputEvent) -> void:
 					confirmation_cancel.call()
 				elif screen == "choice" and action_cancel.is_valid():
 					action_cancel.call()
-				elif screen in ["intel", "inspect", "plans", "graveyard", "debug"]: close_modal()
+				elif screen in ["intel", "inspect", "plans", "log", "graveyard", "debug"]: close_modal()
 				elif screen in ["deck", "menu", "confirm"] or (modal.visible and screen == "map" and battle_active):
 					close_modal()
 				else:
@@ -526,7 +533,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _panel_layout(kind: String) -> void:
-	compact_layout = kind in ["menu", "confirm", "debug_password", "debug", "plans", "choice", "remove_confirm"]
+	compact_layout = kind in ["menu", "confirm", "debug_password", "debug", "log", "plans", "choice", "remove_confirm"]
 	modal.custom_minimum_size = Vector2.ZERO
 	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if compact_layout:
@@ -536,7 +543,8 @@ func _panel_layout(kind: String) -> void:
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var viewport_size := get_viewport().get_visible_rect().size
 		var height := 360.0 if kind == "debug_password" else (420.0 if kind == "confirm" else 680.0)
-		var panel_size := Vector2(minf(420, viewport_size.x - 32), minf(height, viewport_size.y - 48))
+		var width := 560.0 if kind == "debug" else 420.0
+		var panel_size := Vector2(minf(width, viewport_size.x - 32), minf(height, viewport_size.y - 48))
 		modal.offset_left = (viewport_size.x - panel_size.x) / 2
 		modal.offset_right = -modal.offset_left
 		modal.offset_top = (viewport_size.y - panel_size.y) / 2
@@ -552,6 +560,7 @@ func _panel_layout(kind: String) -> void:
 	modal.offset_left = 0 if full_screen else 45
 	modal.offset_right = 0 if full_screen else -45
 	modal.offset_top = (0 if title_screen or not battle_active or kind in ["reward", "inspect"] else 78) if full_screen else 94
+	if kind == "shop": modal.offset_top = 78
 	modal.offset_bottom = 0 if full_screen else -28
 	var panel_style := style(Color(UI.BACKGROUND, 0.90) if kind in ["reward", "inspect"] else (BG if full_screen else UI.PANEL), GOLD)
 	if full_screen:
@@ -661,40 +670,12 @@ func new_run() -> void:
 	persistence.checkpoint()
 
 func generate_map() -> void:
-	rooms.clear()
 	cleared.clear()
 	current = -1
-	for row in range(MAP_ROWS):
-		for lane in range(3 if row < MAP_ROWS - 1 else 1):
-			var kind := "battle"
-			if row == MAP_ROWS - 1:
-				kind = "boss"
-			elif row == 7:
-				kind = ["elite", "rest", "upgrade"][lane]
-			elif row in [0, 3, 6, 9]:
-				kind = "elite" if row == 9 and lane == 1 else "battle"
-			elif row > 0:
-				kind = ["battle", "battle", "event", "shop", "upgrade", "rest"][rng.randi_range(0, 5)]
-			rooms.append({"id":rooms.size(), "row":row, "lane":lane if row < MAP_ROWS - 1 else 1, "kind":kind, "links":[], "event":EVENT_TYPES[rng.randi_range(0, EVENT_TYPES.size() - 1)] if kind == "event" else ""})
-	for room in rooms:
-		var candidates: Array = []
-		for next in rooms:
-			if next.row == room.row + 1 and (abs(next.lane - room.lane) <= 1 or next.kind == "boss"):
-				candidates.append(next.id)
-		if not candidates.is_empty():
-			room.links.append(candidates[rng.randi_range(0, candidates.size() - 1)])
-			for id in candidates:
-				if id not in room.links and rng.randf() < 0.38: room.links.append(id)
-	# Guarantee incoming paths too: every generated room can be reached.
-	for next in rooms:
-		if next.row == 0: continue
-		if rooms.any(func(room): return next.id in room.links): continue
-		var predecessors := rooms.filter(func(room): return room.row == next.row - 1 and (abs(room.lane - next.lane) <= 1 or next.kind == "boss"))
-		predecessors[rng.randi_range(0, predecessors.size() - 1)].links.append(next.id)
+	Routes.generate_map(rooms, rng)
 
 func reachable(id: int) -> bool:
-	if battle_active or (current >= 0 and current not in cleared): return false
-	return rooms[id].row == 0 if current < 0 else id in rooms[current].links
+	return Routes.reachable(id, rooms, current, cleared, battle_active)
 
 func show_map() -> void:
 	if _dragging(): return
@@ -1057,23 +1038,38 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 32)
 	center.add_child(row)
-	inspected_face = card_image(texture, row, 310)
 	add_dossier(row, card, "")
+	inspected_face = card_image(texture, row, 310)
 
 func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node = null) -> RichTextLabel:
 	var panel := PanelContainer.new()
-	inspection_dossier = panel
 	panel.custom_minimum_size = Vector2(440, 420)
 	parent.add_child(panel)
 	UI.decorate(panel)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	panel.add_child(body)
+	inspection_dossier = body
+	var heading := label(str(card.name), 34, UI.GOLD, true)
+	heading.name = "InspectTitle"
+	body.add_child(heading)
+	var tabs := HBoxContainer.new()
+	tabs.name = "InspectTabs"
+	tabs.add_theme_constant_override("separation", 8)
+	body.add_child(tabs)
 	var details := RichTextLabel.new()
 	details.name = "DossierText"
 	details.bbcode_enabled = true
-	details.text = "[color=#%s][b]%s[/b][/color]\n" % [UI.GOLD.to_html(false), str(card.name).to_upper()]
-	details.text += "ATK %d  /  HP %d\n\n" % [int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
+	details.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	details.add_theme_font_size_override("normal_font_size", 18)
+	details.add_theme_font_size_override("bold_font_size", 18)
+	if not card.get("utility", false):
+		details.text += "ATK %d  /  HP %d\n\n" % [
+			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
 	var disaster: bool = card.get("type", "response") == "disaster"
 	var sacrifice: bool = disaster and not card.get("utility", false) and int(card.get("cost", 0)) > 0
-	if sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
+	if card.has("boss_role"): details.text += "Encounter hazard: created by a boss pattern. No summon cost.\n\n"
+	elif sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
 	elif disaster: details.text += "Cost: %d Tension.\n\n" % int(card.get("tension_cost", 1))
 	else: details.text += "Cost: %d energy.\n\n" % int(card.get("cost", 0))
 	details.text += "[b]PERMANENT UPGRADES  %d / 2[/b]\n" % upgrade_level(card)
@@ -1089,14 +1085,15 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	for status in effects:
 		if int(effects[status]) > 0:
 			tokens.append("%s %d: %s" % [str(status).capitalize(), int(effects[status]), status_rules.get(status, "")])
-	if not tokens.is_empty(): details.text += "\n[b]CURRENT STATUSES[/b]\n" + " · ".join(tokens) + "\n"
+	var status_text := ""
+	if not tokens.is_empty(): status_text = "[b]CURRENT STATUSES[/b]\n" + "\n".join(tokens) + "\n"
 	var combat: PackedStringArray = []
 	if is_instance_valid(live_card):
 		if live_card.planned_guard > 0: combat.append("Plan protection: %d" % live_card.planned_guard)
 		if live_card.plan_attack_bonus > 0: combat.append("Plan attack: +%d" % live_card.plan_attack_bonus)
 		if live_card.plan_ignore_taunt: combat.append("Ignore Taunt")
 		if game.buff_value(live_card.card_data.type == "response", "kill_or_die") > 0: combat.append("Blood Pact: defeat a card this turn or die")
-	if not combat.is_empty(): details.text += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
+	if not combat.is_empty(): status_text += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
 	var rules: PackedStringArray = []
 	for line in card_rules(card).split("\n"):
 		if line.is_empty() or line.begins_with("Adjacent matching types:") or line.begins_with("All other matchups:") or line.begins_with("Choose an empty Response slot") or line.begins_with("Piercing:") or line.begins_with("Sluggish:"): continue
@@ -1107,20 +1104,32 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	if is_instance_valid(live_card):
 		for inherited in ["piercing", "sluggish"]:
 			if live_card.has_modifier(inherited) and inherited not in active_modifiers: active_modifiers.append(inherited)
-	var descriptions := {
-		"armored":"Armored: take %d less ordinary damage (minimum 1 before other modifiers)." % int(card.get("armor_value", 1)),
-		"fragile":"Fragile: take 1 extra ordinary damage.",
-		"regenerating":"Regenerating: heal 1 at upkeep.",
-		"rampaging":"Rampaging: +1 unit damage when attacking second.",
-		"fierce":"Fierce: +2 direct hero damage.",
-		"piercing":"Piercing: also damages the opposing hero when blocked.",
-		"sluggish":"Sluggish: attacks every other round."
-	}
 	for modifier in active_modifiers:
-		rules.append(descriptions.get(modifier, str(modifier).capitalize()))
-	if not rules.is_empty(): details.text += "\n[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
+		var description := Rules.modifier_text(card, str(modifier))
+		if description not in rules: rules.append(description)
+	var effect_text := "No card effects." if rules.is_empty() else "[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
 	if not hint.is_empty(): details.text += "\n\n" + hint
-	panel.add_child(details)
+	body.add_child(details)
+	var pages: Array[String] = [
+		details.text, status_text if not status_text.is_empty() else "No active statuses.", effect_text
+	]
+	var group := ButtonGroup.new()
+	for index in pages.size():
+		var tab := Button.new()
+		tab.text = ["Summary", "Status", "Effects"][index]
+		tab.toggle_mode = true
+		tab.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+		tab.set_meta("hover_feedback", true)
+		tab.button_group = group
+		tab.button_pressed = index == 0
+		tab.custom_minimum_size = Vector2(120, 36)
+		tab.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		for state in ["pressed", "hover_pressed"]:
+			var active := UI.panel(UI.INSET, Color("e59538"), 8)
+			active.set_border_width_all(2)
+			tab.add_theme_stylebox_override(state, active)
+		tab.pressed.connect(func(): details.text = pages[index])
+		tabs.add_child(tab)
 	return details
 
 func fit_card_grid(grid: GridContainer, scroll: ScrollContainer) -> void:
@@ -1155,8 +1164,6 @@ func show_deck() -> void:
 	var tabs := HBoxContainer.new()
 	content.add_child(tabs)
 	button("Deck (%d)" % collection.size(), deck_cards.bind(collection), tabs)
-	if battle_active and saved_content == null:
-		button("Response Graveyard", func(): close_modal(); show_graveyard(), tabs)
 	button("Close", close_modal, tabs)
 	add_sort_controls(false)
 	var scroll := ScrollContainer.new()
@@ -1213,8 +1220,24 @@ func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	row.add_theme_constant_override("separation", 32)
 	box.add_child(row)
 	card._refresh_face()
-	inspected_face = card_image(card._vp.get_texture(), row, 330)
 	add_dossier(row, live_definition(card), "", card)
+	inspected_face = card_image(card._vp.get_texture(), row, 330)
+
+## The combat log has no HUD button; L opens and closes it.
+func show_battle_log() -> void:
+	if _dragging() or screen in ["title", "title_help", "characters", "character_preview"]: return
+	if screen == "log":
+		close_modal()
+		return
+	preserve_pending_decision()
+	reset_panel("BATTLE LOG", "", "log")
+	var log_view := RichTextLabel.new()
+	log_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_view.scroll_following = true
+	log_view.add_theme_font_size_override("normal_font_size", 18)
+	log_view.text = "\n".join(game.battle_log) if not game.battle_log.is_empty() else "No battle events yet."
+	content.add_child(log_view)
+	button("Close  [L / Esc]", close_modal, content)
 
 func show_plans() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty(): return
@@ -1237,7 +1260,6 @@ func show_plans() -> void:
 		pick.disabled = not tactic_available(id)
 		pick.get_parent().get_parent().custom_minimum_size.y = 125
 	if not game.plans.armed.is_empty(): content.add_child(label("ARMED: " + str(game.plans.definition(game.plans.armed.kind).name), 18, GOLD))
-	content.add_child(label("One armed tactic per round. Targeted tactics use board clicks. Esc cancels target selection without spending.", 16))
 	button("Return to battle  [P / Esc]", close_modal, content)
 
 func tactic_available(id: String) -> bool:
@@ -1340,17 +1362,19 @@ func deck_board() -> void:
 
 func live_definition(card: Node) -> Dictionary:
 	var definition: Dictionary = card.card_data.duplicate(true)
-	definition.attack = card.effective_attack()
-	definition.preview_attack = card.effective_attack()
-	definition.modifier = ", ".join(card.modifiers)
-	definition.erase("modifiers")
-	definition.strength = int(card.statuses.get("strength", 0))
+	if not definition.get("utility", false):
+		definition.attack = card.effective_attack()
+		definition.preview_attack = card.effective_attack()
+	definition.modifiers = card.modifiers.duplicate()
+	if not definition.get("utility", false): definition.strength = int(card.statuses.get("strength", 0))
 	definition.statuses = card.statuses.duplicate()
 	return definition
 
 func card_rules(card: Dictionary) -> String:
 	var effect: String = str(card.get("effect", ""))
-	if card.get("utility", false): return str(Rules.EFFECTS.get(effect, effect)) + "\n" + Rules.special_text(card) + "\nChoose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
+	if card.get("utility", false):
+		return Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
+			+ "Choose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
 	var rules := "Adjacent matching types: +1 attack.\n" + Rules.special_text(card) + "\n"
 	if effect == "draw": rules += "On play: draw %d.\n" % int(card.get("draw_count", 1))
 	if effect == "move_ally": rules += "On play: optionally choose another ally, then an empty lane, and move it there. Skipping movement does not undo the summon.\n"
@@ -1358,8 +1382,10 @@ func card_rules(card: Dictionary) -> String:
 	if effect == "rally_all": rules += "On play: other deployed allies gain 1 Strength.\n"
 	if effect == "grave_guard": rules += str(Rules.EFFECTS.grave_guard) + "\n"
 	if int(card.get("leech", 0)) > 0: rules += "Heal %d after attacking.\n" % int(card.leech)
-	if card.get("modifier", "") == "piercing": rules += "Piercing: also hits opposing health for attack damage, even when blocked.\n"
-	if card.get("modifier", "") == "sluggish": rules += "Sluggish: attacks immediately, then rests every other round.\n"
+	var modifiers: Array = card.get("modifiers", []).duplicate()
+	var primary := str(card.get("modifier", "")).to_lower()
+	if not primary.is_empty() and primary not in modifiers: modifiers.append(primary)
+	for modifier in modifiers: rules += Rules.modifier_text(card, str(modifier)) + "\n"
 	if card.has("on_hit"):
 		for status in card.on_hit: rules += "On hit: %s %d to a surviving blocker.\n" % [str(status).capitalize(), int(card.on_hit[status])]
 	for element in game.TYPE_CHART.get(card.element, {}):
@@ -1382,23 +1408,7 @@ func deck_cards(cards: Array[Dictionary]) -> void:
 	if cards.is_empty(): grid.add_child(label("No cards here yet.", 20, TEAL))
 
 func sorted_indices(cards: Array, key_index: int, descending: bool) -> Array:
-	var indices: Array = range(cards.size())
-	var key: String = SORT_KEYS[key_index]
-	indices.sort_custom(func(a, b):
-		var left: Variant = cards[a].get(key, "")
-		var right: Variant = cards[b].get(key, "")
-		var comparison := 0
-		if key == "acquired":
-			left = int(cards[a].get(key, a))
-			right = int(cards[b].get(key, b))
-			comparison = -1 if int(left) > int(right) else (1 if int(left) < int(right) else 0)
-		elif key in ["cost", "attack", "health"]:
-			comparison = -1 if int(left) < int(right) else (1 if int(left) > int(right) else 0)
-		else: comparison = str(left).naturalnocasecmp_to(str(right))
-		if comparison == 0: return a < b
-		return comparison > 0 if descending else comparison < 0
-	)
-	return indices
+	return CardRules.sorted_indices(cards, key_index, descending)
 
 func add_sort_controls(workshop: bool) -> void:
 	var row := HBoxContainer.new()
@@ -1466,10 +1476,10 @@ func upgrade(index: int) -> void:
 	finish_room()
 
 func upgrade_level(card: Dictionary) -> int:
-	return int(card.get("upgrades", str(card.get("name", "")).count("+")))
+	return CardRules.upgrade_level(card)
 
 func can_upgrade(card: Dictionary) -> bool:
-	return upgrade_level(card) < MAX_UPGRADES
+	return CardRules.can_upgrade(card, MAX_UPGRADES)
 
 func upgraded_definition(card: Dictionary) -> Dictionary:
 	var result: Dictionary = card.duplicate(true)
@@ -1478,43 +1488,52 @@ func upgraded_definition(card: Dictionary) -> Dictionary:
 	result.upgrades = tier
 	if result.get("utility", false):
 		if tier == 1 and int(result.cost) > 0: result.cost = int(result.cost) - 1
-		elif result.get("effect", "") in ["move", "tutor", "scout", "recover"]: result.refund_energy = int(result.get("refund_energy", 0)) + 1
+		elif result.get("effect", "") in ["move", "tutor", "scout", "recover"]:
+			if tier == 2: result.refund_energy = int(result.get("refund_energy", 0)) + 1
 		else: result.utility_power = int(result.get("utility_power", 0)) + 1
 	else:
 		match str(result.get("element", "")):
 			"evac":
 				if tier == 1:
 					result.attack = int(result.attack) + 1
-					result.on_play_draw = int(result.get("on_play_draw", 0)) + 1
+					if int(result.get("on_play_draw", 0)) > 0:
+						result.on_play_draw = int(result.on_play_draw) + 1
 				else:
 					result.health = int(result.health) + 1
 					result.cost = maxi(0, int(result.cost) - 1)
+					if int(result.get("on_play_draw", 0)) == 0: result.on_play_draw = 1
 			"douse":
 				if tier == 1:
 					result.attack = int(result.attack) + 1
+				var has_burn: bool = int(result.get("on_hit", {}).get("burn", 0)) > 0
+				if (tier == 1 and has_burn) or (tier == 2 and not has_burn):
 					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
 					hits.burn = int(hits.get("burn", 0)) + 1
 					result.on_hit = hits
-				else:
+				if tier == 2:
 					result.health = int(result.health) + 1
 					result.leech = int(result.get("leech", 0)) + 1
 			"clearance":
 				if tier == 1:
 					result.attack = int(result.attack) + 1
+				var has_poison: bool = int(result.get("on_hit", {}).get("poison", 0)) > 0
+				if (tier == 1 and has_poison) or (tier == 2 and not has_poison):
 					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
 					hits.poison = int(hits.get("poison", 0)) + 1
 					result.on_hit = hits
-				else:
+				if tier == 2:
 					result.health = int(result.health) + 1
 					result.status_bonus = int(result.get("status_bonus", 0)) + 2
 			"brace":
 				if tier == 1:
 					result.health = int(result.health) + 2
+				var armored: bool = game.definition_has_modifier(result, "armored")
+				if (tier == 1 and armored) or (tier == 2 and not armored):
 					result.armor_value = int(result.get("armor_value", 1 if game.definition_has_modifier(result, "armored") else 0)) + 1
 					var traits: Array = result.get("modifiers", []).duplicate()
 					if result.get("modifier", "") != "armored" and "armored" not in traits: traits.append("armored")
 					result.modifiers = traits
-				else:
+				if tier == 2:
 					result.health = int(result.health) + 1
 					result.thorns = int(result.get("thorns", 0)) + 1
 			_:
@@ -1565,14 +1584,7 @@ func show_shop() -> void:
 	button("Leave shop", finish_room, content)
 
 func shop_price(card: Dictionary) -> int:
-	var power := int(card.get("cost", 0)) + int(card.get("attack", 0)) + int(card.get("health", 1))
-	power += int(card.get("strength", 0)) + int(card.get("leech", 0))
-	if card.has("condition"): power += 3
-	for amount in card.get("on_hit", {}).values(): power += int(amount)
-	if card.get("modifier", "") == "sluggish": power -= 3
-	elif card.get("modifier", "") != "": power += 2
-	if card.get("effect", "") in ["draw", "rally_all", "heal_all"]: power += 2
-	return 20 if power <= 5 else (30 if power <= 9 else (40 if power <= 13 else 50))
+	return CardRules.shop_price(card)
 
 func buy(card: Dictionary) -> void:
 	var stocked := shop_stock.filter(func(item): return item.id == card.id)
@@ -1738,7 +1750,7 @@ func quit_game() -> void:
 	get_tree().quit()
 
 func debug_available() -> bool:
-	return battle_active and not _dragging() and game.board_input.action.is_empty() and game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]
+	return RunDebug.debug_available(game, battle_active)
 
 func cancel_debug_password() -> void:
 	if debug_from_menu: show_menu()
@@ -1750,10 +1762,11 @@ func show_debug() -> void:
 		return
 	if not debug_available() or (modal.visible and screen != "menu"): return
 	debug_from_menu = screen == "menu"
-	reset_panel("DEBUG ACCESS", "Enter the five-character password to open debug values.", "debug_password")
+	reset_panel("DEBUG ACCESS", "", "debug_password")
 	var password := LineEdit.new()
 	password.name = "DebugPassword"
 	password.secret = true
+	password.placeholder_text = "Password"
 	content.add_child(password)
 	var error := label("", 14, UI.DANGER, true)
 	error.name = "PasswordError"
@@ -1774,14 +1787,19 @@ func show_debug() -> void:
 
 func _open_debug(password: String) -> void:
 	if password != "*****" or screen != "debug_password" or not debug_available(): return
-	reset_panel("DEBUG VALUES", "Apply changes to this run. Normal autosaves will include these values.", "debug")
+	reset_panel("DEBUG VALUES", "", "debug")
 	var fields := {}
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 24)
 	content.add_child(grid)
-	for spec in [["player_hp", "Player HP", 1, game.hero_max_hp()], ["enemy_hp", "Enemy HP", 1, game.enemy_max_hp], ["energy_cap", "Energy capacity", 1, 30], ["preparedness", "Current energy", 0, 30], ["tension_cap", "Tension capacity", 1, 30], ["tension", "Current tension", 0, 30], ["coins", "Supplies", 0, 9999], ["plans", "Plans", 0, 2]]:
+	for spec in [
+		["player_hp", "Player HP", 1, game.hero_max_hp()], ["enemy_hp", "Enemy HP", 1, game.enemy_max_hp],
+		["energy_cap", "Energy cap", 1, 30], ["preparedness", "Energy", 0, 30],
+		["tension_cap", "Tension cap", 1, 30], ["tension", "Tension", 0, 30],
+		["coins", "Supplies", 0, 9999], ["plans", "Plans", 0, 2],
+	]:
 		var caption := label(spec[1], 18)
 		caption.custom_minimum_size.x = 160
 		caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1807,36 +1825,80 @@ func _open_debug(password: String) -> void:
 		close_modal()
 		persistence.checkpoint()
 	, content)
-	content.add_child(label("LIVE CARD STATUS", 20, GOLD))
+	_debug_card_controls()
+	button("Cancel", close_modal, content)
+
+func _debug_card_controls() -> void:
+	content.add_child(label("CARD", 20, GOLD))
 	var status_row := VBoxContainer.new()
 	content.add_child(status_row)
-	var targets := game.get_tree().get_nodes_in_group("cards").filter(func(card): return is_instance_valid(card) and card.is_alive() and not card.preview_only)
+	var targets := game.get_tree().get_nodes_in_group("cards").filter(func(card):
+		return card.is_alive() and not card.preview_only and (card.in_hand or is_instance_valid(card.current_slot)))
 	var target := OptionButton.new()
+	target.name = "DebugCard"
 	target.custom_minimum_size.x = 280
 	target.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	target.clip_text = true
-	for card in targets: target.add_item(("HAND / " if card.in_hand else "BOARD / ") + str(card.card_data.name))
+	for i in targets.size():
+		var card: Node = targets[i]
+		var location := "HAND" if card.in_hand else str(card.card_data.get("type", "")).to_upper()
+		target.add_item("%d / %s / %s" % [i + 1, location, card.card_data.name])
+	if targets.is_empty(): target.add_item("No cards")
+	target.disabled = targets.is_empty()
 	status_row.add_child(target)
+	var stats := GridContainer.new()
+	stats.columns = 2
+	status_row.add_child(stats)
+	var fields := {}
+	for spec in [["cost", "Cost"], ["attack", "ATK"], ["health", "HP"]]:
+		var stat_label := label(spec[1], 18)
+		stat_label.custom_minimum_size.x = 72
+		stat_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		stats.add_child(stat_label)
+		var field := SpinBox.new()
+		field.name = "Debug" + str(spec[1])
+		field.min_value = 1 if spec[0] == "health" else 0
+		field.max_value = 9999
+		field.allow_greater = true
+		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stats.add_child(field)
+		fields[spec[0]] = field
+		field.value_changed.connect(_debug_set_card_stat.bind(targets, target, spec[0]))
+	target.item_selected.connect(func(_index): _debug_load_card_stats(targets, target, fields))
+	_debug_load_card_stats(targets, target, fields)
 	var status := OptionButton.new()
-	for key in ["strength", "bleed", "burn", "poison", "barrier", "healing_reduced"]: status.add_item(key.replace("_", " ").capitalize())
+	for key in ["strength", "bleed", "burn", "poison", "barrier", "healing_reduced"]: status.add_item(key)
 	status_row.add_child(status)
 	var amount := SpinBox.new()
 	amount.max_value = 99
 	amount.custom_minimum_size.x = 100
 	status_row.add_child(amount)
 	button("Set status", func():
-		if target.selected < 0 or target.selected >= targets.size(): return
-		var card: Node = targets[target.selected]
-		if not is_instance_valid(card) or not card.is_alive(): return
-		var key := status.get_item_text(status.selected).to_lower().replace(" ", "_")
+		var card := _debug_selected_card(targets, target)
+		if card == null: return
+		var key := status.get_item_text(status.selected)
 		if amount.value == 0: card.statuses.erase(key)
 		else: card.statuses[key] = int(amount.value)
 		card._refresh_face()
 		game.log_event("Debug status: %s · %s %d" % [card.card_data.name, key, int(amount.value)])
 		persistence.checkpoint()
 	, status_row).disabled = targets.is_empty()
-	content.add_child(label("Status amount 0 clears it. Apply values saves the resource fields above.", 14, UI.MUTED))
-	button("Cancel", close_modal, content)
+
+func _debug_selected_card(targets: Array, picker: OptionButton) -> Node:
+	return RunDebug._debug_selected_card(targets, picker.selected)
+
+func _debug_load_card_stats(targets: Array, picker: OptionButton, fields: Dictionary) -> void:
+	var card := _debug_selected_card(targets, picker)
+	for key in fields:
+		var field: SpinBox = fields[key]
+		var editable: bool = card != null and (key == "cost" or not card.card_data.get("utility", false))
+		field.editable = editable
+		field.set_value_no_signal(int(card.card_data.get(key, 0)) if editable else field.min_value)
+
+func _debug_set_card_stat(value: float, targets: Array, picker: OptionButton, key: String) -> void:
+	var card := _debug_selected_card(targets, picker)
+	if RunDebug._debug_set_card_stat(value, card, key):
+		persistence.checkpoint()
 
 func confirm_title() -> void:
 	reset_panel("RETURN TO STARTING SCREEN?", "Your unfinished run is saved. Continue it from the starting screen, or abandon it there.", "confirm")
@@ -1934,15 +1996,13 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 		for i in range(3):
 			var index := rng.randi_range(0, pool.size() - 1)
 			buff_choices.append(pool.pop_at(index))
-	var enemy_choice: Dictionary = game.choose_ai_buff(buff_choices)
-	if not restore_offers and not is_instance_valid(game.final_boss): game.add_global_buff(false, enemy_choice.id)
-	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn, "These buffs expire after this battle. The Janitor adaptation is already applied: %s." % enemy_choice.name, "buff")
-	if is_instance_valid(game.final_boss): content.get_child(1).text = "Battle-only adaptations. The final boss keeps its fixed attack pattern."
+	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn,
+		"Choose one adaptation for your side. These buffs expire after this battle.", "buff")
 	var row := HBoxContainer.new()
 	content.add_child(row)
 	for buff in buff_choices:
 		choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
-	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs) + "\nJANITOR BUFFS: " + buff_summary(game.enemy_buffs), 16, TEAL, true))
+	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs), 16, TEAL, true))
 	var box := centered_content()
 	box.custom_minimum_size.x = 1060
 
@@ -1957,7 +2017,8 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 	var pool: Array = Rules.RUN_BUFFS.duplicate(true)
 	if not restore_offers:
 		for i in range(3): buff_choices.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
-	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number, "Choose one buff for the entire run, then climb to the next floor. The Janitor also adapts permanently.", "floor_buff")
+	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number,
+		"Choose one buff for your side for the entire run, then climb to the next floor.", "floor_buff")
 	var row := HBoxContainer.new()
 	content.add_child(row)
 	for buff in buff_choices: choice_tile(buff.name, buff.description, select_floor_buff.bind(buff.id), row)
@@ -1967,9 +2028,7 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 
 func select_floor_buff(id: String) -> void:
 	if screen != "floor_buff" or not buff_choices.any(func(buff): return buff.id == id): return
-	var enemy_choice: Dictionary = game.choose_ai_buff(buff_choices)
 	game.add_global_buff(true, id, true)
-	game.add_global_buff(false, enemy_choice.id, true)
 	next_floor()
 
 func buff_summary(buffs: Dictionary) -> String:

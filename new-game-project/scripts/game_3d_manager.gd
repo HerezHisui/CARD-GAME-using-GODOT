@@ -1,4 +1,6 @@
 extends Node3D
+const BattleEngine = preload("res://scripts/battle_engine.gd")
+const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 ## Main game manager: builds the creepy classroom, the pixel-art board,
 ## the gothic HUD, and controls the deck + fanned card hand.
@@ -6,6 +8,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
 
 const HAND_SIZE_MAX := 8
+const TURN_DRAW_COST := 1
 const HAND_DIST := 3.0        # Smaller hand leaves space for the board and HUD.
 const HAND_Y := -0.86
 const DRAG_BOUNDS := Rect2(-2.45, -1.8, 4.9, 3.6)
@@ -102,8 +105,8 @@ func _ready() -> void:
 	presentation = preload("res://scripts/game_presentation.gd").new()
 	add_child(presentation)
 	presentation.setup(self)
-	# Enable temporal smoothing only on the renderer that supports it.
-	get_viewport().use_taa = RenderingServer.get_current_rendering_method() == "forward_plus"
+	# Temporal accumulation softens card text during card and camera movement.
+	get_viewport().use_taa = false
 	get_viewport().msaa_3d = Viewport.MSAA_4X
 	get_viewport().scaling_3d_scale = 1.0
 	_build_visual_finish()
@@ -187,18 +190,16 @@ func log_event(message: String) -> void:
 	if battle_log.size() > 300: battle_log.pop_front()
 
 func overclock_stacks(response_side: bool) -> int:
-	var temporary := player_buffs if response_side else enemy_buffs
-	var permanent := player_run_buffs if response_side else enemy_run_buffs
-	return int(temporary.get("overclock", 0)) + int(permanent.get("overclock", 0))
+	return BattleEngine.overclock_stacks(BattleQueries.context(self), response_side)
 
 func resource_growth(response_side: bool) -> int:
-	return maxi(1, 1 + buff_value(response_side, "energy") - overclock_stacks(response_side))
+	return BattleEngine.resource_growth(BattleQueries.context(self), response_side)
 
 func hero_max_hp() -> int:
 	return PLAYER_MAX_HP
 
 func incoming_damage(response_side: bool, amount: int) -> int:
-	return ceili(amount * (1.0 + 0.5 * buff_value(response_side, "damage_taken")))
+	return BattleEngine.incoming_damage(BattleQueries.context(self), response_side, amount)
 
 func start_encounter(collection: Array[Dictionary], kind: String, floor_level: int, specialty: int) -> void:
 	clear_battle()
@@ -221,17 +222,23 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	_enemy_hp_ui.get_node("Caption").text = "JANITOR / %s / %s" % [kind.to_upper(), favored.to_upper()]
 	_enemy_hp_ui.get_node("Caption").add_theme_font_size_override("font_size", 14)
 	for definition in threats:
+		if kind == "elite" and definition.element != favored: continue
 		var c: Dictionary = definition.duplicate(true)
-		c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
-		c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
+		var cheap: bool = int(c.cost) == 1 or (int(c.cost) == 0 and int(c.get("tension_cost", 1)) <= 1)
+		if not c.get("utility", false) and not cheap:
+			c.attack = int(c.attack) + (floor_level - 1) + (1 if kind == "boss" else 0)
+			c.health = int(c.health) + (1 if kind in ["elite", "boss"] else 0)
 		if int(c.cost) > 0:
 			if kind != "battle" or int(c.cost) <= 2: enemy_evolution_deck.append(c)
 		else:
 			enemy_deck.append(c)
 			if c.element == favored: enemy_deck.append(c.duplicate(true))
-	# Modest reserves keep encounters from becoming endless reinforcement chains.
+	# Keep the reserves small so fights don't drag on.
 	var base_limit := 18 if kind == "battle" else (21 if kind == "elite" else 22)
 	var evolution_limit := 8 if kind == "battle" else (13 if kind == "elite" else 14)
+	if kind == "elite":
+		fill_elite_reserve(enemy_deck, base_limit)
+		fill_elite_reserve(enemy_evolution_deck, evolution_limit)
 	enemy_deck.shuffle()
 	enemy_deck.sort_custom(func(a, b): return a.element == favored and b.element != favored)
 	enemy_deck.resize(mini(base_limit, enemy_deck.size()))
@@ -253,6 +260,14 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		final_boss.setup(self)
 		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN / FINAL BOSS"
 	_start_match()
+
+func fill_elite_reserve(reserve: Array[Dictionary], limit: int) -> void:
+	var theme := reserve.duplicate(true)
+	if theme.is_empty(): return
+	var index := 0
+	while reserve.size() < limit:
+		reserve.append(theme[index % theme.size()].duplicate(true))
+		index += 1
 
 func has_special_effect(definition: Dictionary) -> bool:
 	for key in ["utility", "effect", "modifier", "modifiers", "on_hit", "on_sacrifice", "condition", "strength", "leech", "on_play_draw", "ignore_taunt"]:
@@ -340,7 +355,7 @@ func _build_lighting() -> void:
 		for level in 7: env.set_glow_level(level, [0.8, 0.65, 0.4, 0.2, 0.1, 0.0, 0.0][level])
 
 func _build_visual_finish() -> void:
-	# Grade only the rendered world. The higher HUD/menus stay crisp and unfiltered.
+	# Only color-grade the 3D world, not the HUD.
 	var layer := CanvasLayer.new()
 	layer.name = "ClassroomFinish"
 	layer.layer = 0
@@ -525,6 +540,7 @@ func load_deck_from_json(path: String, target_deck: Array) -> void:
 			for i in range(def.get("count", 1)):
 				var card = def.duplicate()
 				card.erase("count")
+				preload("res://scripts/battle_rules.gd").remove_utility_stats(card)
 				target_deck.append(card)
 
 func hand_parent() -> Node3D:
@@ -554,7 +570,7 @@ func set_hand_tucked(tucked: bool) -> void:
 	is_hand_tucked = tucked
 	if hand_tuck_tween: hand_tuck_tween.kill()
 	hand_tuck_tween = create_tween().set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-	# Drop the entire container by 1.6 units to hide it safely off-screen
+	# Move the container down 1.6 to hide it off-screen
 	var target_y = -1.6 if tucked else 0.0
 	hand_tuck_tween.tween_property(hand_container, "position:y", target_y, 0.35)
 
@@ -583,18 +599,16 @@ func add_card_to_hand(definition: Dictionary) -> void:
 	update_deck_label()
 
 func is_sealed(definition: Dictionary) -> bool:
-	return int(definition.get("locked_until", 0)) > turn
+	return BattleEngine.is_sealed(definition, turn)
 
 func buffs_for(definition: Dictionary) -> Dictionary:
-	var response: bool = definition.get("type", "response") == "response"
-	return preload("res://scripts/battle_rules.gd").totals(player_buffs if response else enemy_buffs, player_run_buffs if response else enemy_run_buffs)
+	return BattleEngine.buffs_for(BattleQueries.context(self), definition)
 
 func buff_value(response: bool, id: String) -> int:
-	return int(buffs_for({"type":"response" if response else "disaster"}).get(id, 0))
+	return BattleEngine.buff_value(BattleQueries.context(self), response, id)
 
 func attack_bonus(card: Node) -> int:
-	var buffs := buffs_for(card.card_data)
-	return int(buffs.get("strength", 0)) - (int(buffs.get("isolation", 0)) if card.current_slot != null and _synergy_bonus(card) == 0 else 0)
+	return BattleEngine.attack_bonus(BattleQueries.context(self), BattleQueries.card(self, card))
 
 func prepare_card_data(definition: Dictionary) -> Dictionary:
 	if not definition.get("utility", false): definition.health = maxi(1, int(definition.get("health", 0)) + int(buffs_for(definition).get("health", 0)))
@@ -610,6 +624,12 @@ func add_global_buff(response_side: bool, id: String, permanent: bool = false) -
 	var bleed_delta := buff_value(response_side, "self_bleed") - old_bleed
 	for card in get_tree().get_nodes_in_group("cards"):
 		if (card.card_data.get("type", "response") == "response") != response_side or not card.is_alive(): continue
+		if health_delta < 0 and card.current_slot != null:
+			var excluded: Dictionary = card.card_data.get("excluded_buffs", {}).duplicate()
+			excluded[id] = int(excluded.get(id, 0)) + 1
+			card.card_data.excluded_buffs = excluded
+			card._refresh_face()
+			continue
 		if not card.card_data.get("utility", false):
 			var previous_max: int = card.max_health
 			card.max_health = maxi(1, previous_max + health_delta)
@@ -692,15 +712,41 @@ func end_hand_drag(card: Node) -> void:
 	if dragged_hand_card == card: dragged_hand_card = null
 	clear_hand_hover()
 
+func slot_at_screen_position(mouse: Vector2) -> Node3D:
+	var camera := get_viewport().get_camera_3d()
+	for slot in _response_slots():
+		var plane := Plane(Vector3.UP, slot.global_position.y)
+		var hit: Variant = plane.intersects_ray(camera.project_ray_origin(mouse), camera.project_ray_normal(mouse))
+		if hit == null: continue
+		var local: Vector3 = slot.to_local(hit)
+		var bounds: AABB = slot.get_aabb()
+		if local.x >= bounds.position.x and local.x <= bounds.end.x \
+				and local.z >= bounds.position.z and local.z <= bounds.end.z:
+			return slot
+	return null
+
 func _unhandled_input(event: InputEvent) -> void:
-	if not board_input.action.is_empty(): return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and can_player_act():
+	if run_director.modal.visible or presentation.blocking or not run_director.battle_active: return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var board_card := card_at_board_position(event.position)
+		if board_card != null:
+			if not board_input.click_card(board_card): run_director.begin_inspect_hold(board_card)
+			get_viewport().set_input_as_handled()
+			return
+		if not board_input.action.is_empty() or not can_player_act(): return
 		update_hand_hover(event.position)
 		if is_instance_valid(hovered_hand_card):
 			var picked := hovered_hand_card
 			picked._start_drag()
 			run_director.begin_inspect_hold(picked, true)
 			get_viewport().set_input_as_handled()
+
+func card_at_board_position(mouse: Vector2) -> Node:
+	for slot in _response_slots() + _threat_slots():
+		var card := _get_card_in_slot(slot)
+		if card == null or not card.is_alive(): continue
+		if Geometry2D.is_point_in_polygon(mouse, hand_card_polygon(card, false)): return card
+	return null
 
 func record_graveyard(card: Node, reason: String) -> void:
 	if card.graveyard_recorded: return
@@ -709,11 +755,11 @@ func record_graveyard(card: Node, reason: String) -> void:
 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
 	if card.card_data.get("type", "response") != "response": return
 	var entry: Dictionary = card.card_data.duplicate(true)
-	entry.health = card.max_health
+	if not card.card_data.get("utility", false): entry.health = card.max_health
 	entry.graveyard_reason = reason
 	entry.graveyard_round = turn
 	entry.statuses = card.statuses.duplicate(true)
-	entry.modifier = ", ".join(card.modifiers)
+	entry.modifiers = card.modifiers.duplicate()
 	graveyard_serial += 1
 	entry.graveyard_id = graveyard_serial
 	entry.recovery = card.base_definition.duplicate(true)
@@ -727,7 +773,7 @@ func recoverable_units() -> Array:
 
 func recovered_definition(entry: Dictionary) -> Dictionary:
 	var result: Dictionary = entry.get("recovery", entry).duplicate(true)
-	# Old checkpoints have no pre-buff definition. Their recorded HP is maximum HP.
+	# Old saves have no pre-buff data, so use the saved HP as the max.
 	if not entry.has("recovery"):
 		result.health = maxi(1, int(entry.health) - int(buffs_for(entry).get("health", 0)))
 		for definition in run_director.collection:
@@ -944,7 +990,7 @@ func increase_cost(definition: Dictionary) -> void:
 	if not definition.has("tax_original"):
 		definition.tax_original = int(definition.get(key, 1))
 		definition.tax_key = key
-	# Each temporary tax can add at most two cost; repeat casts refresh rather than permanently stacking.
+	# A tax adds at most 2 cost. Casting it again refreshes it instead of stacking.
 	definition[key] = mini(int(definition.tax_original) + 2, int(definition.get(key, 1)) + 1)
 	definition.tax_until = turn + 2
 
@@ -1120,10 +1166,27 @@ func _begin_player_turn() -> void:
 
 func _on_draw_button_pressed() -> void:
 	if run_director and run_director.modal.visible: return
-	if phase != Phase.PLAYER_DRAW:
+	if phase != Phase.PLAYER_DRAW or get_hand_cards().size() >= HAND_SIZE_MAX: return
+	var choices := deck.filter(func(card): return not is_sealed(card))
+	if choices.is_empty() or preparedness < TURN_DRAW_COST:
+		# Nothing can be drawn, so the turn moves on instead of waiting on the button.
+		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
+		_refresh_bars()
 		return
-	draw_cards(maxi(0, 1 + buff_value(true, "draw")))
+	run_director.choose_card("Pick a card to draw", choices, complete_draw_choice, run_director.close_modal, "")
+
+func complete_draw_choice(definition: Dictionary) -> void:
+	if phase != Phase.PLAYER_DRAW or preparedness < TURN_DRAW_COST: return
+	if definition not in deck or is_sealed(definition): return
+	if get_hand_cards().size() >= HAND_SIZE_MAX: return
+	preparedness -= TURN_DRAW_COST
+	deck.erase(definition)
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+	add_card_to_hand(definition)
+	draw_cards(maxi(0, buff_value(true, "draw")))
 	_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
+	_refresh_bars()
 
 func _on_end_turn_pressed() -> void:
 	if not board_input.action.is_empty(): return
@@ -1360,7 +1423,7 @@ func score_threat(definition: Dictionary, slot: Node3D, layout: Dictionary = {})
 	var hero_damage := attack + (2 if definition_has_modifier(definition, "fierce") else 0)
 	if opponent and opponent.is_alive():
 		var mult: float = TYPE_CHART.get(element, {}).get(opponent.card_data.element, 1.0)
-		var dealt: int = opponent.adjusted_damage(maxi(1, int(attack * mult)))
+		var dealt: int = opponent.adjusted_damage(maxi(1, int(attack * mult)), pierce)
 		var incoming := maxi(1, int(opponent.effective_attack() * float(TYPE_CHART.get(opponent.card_data.element, {}).get(element, 1.0))))
 		if definition_has_modifier(definition, "armored"): incoming = maxi(1, incoming - int(definition.get("armor_value", 1)))
 		can_strike = not player_first or incoming < health
@@ -1373,7 +1436,7 @@ func score_threat(definition: Dictionary, slot: Node3D, layout: Dictionary = {})
 	else:
 		score += attack * 1.6
 		if hero_damage * strikes >= player_hp: score += 50
-	if pierce and can_strike:
+	if pierce and can_strike and (opponent == null or not opponent.has_modifier("armored")):
 		score += attack * 1.2
 		if hero_damage * strikes >= player_hp: score += 70
 	for neighbor in [lane - 1, lane + 1]:
@@ -1389,7 +1452,7 @@ func score_threat(definition: Dictionary, slot: Node3D, layout: Dictionary = {})
 	return score
 
 func definition_has_modifier(definition: Dictionary, modifier: String) -> bool:
-	return definition.get("modifier", "") == modifier or modifier in definition.get("modifiers", [])
+	return BattleEngine.definition_has_modifier(definition, modifier)
 
 func live_ai_definition(card: Node) -> Dictionary:
 	var data: Dictionary = card.card_data.duplicate(true)
@@ -1461,39 +1524,8 @@ func relocate_enemy_ally(source: Node) -> void:
 				best_slot = destination
 	if best_ally: best_ally.place_on_slot(best_slot)
 
-func choose_ai_buff(options: Array) -> Dictionary:
-	if encounter_kind == "battle": return options.pick_random()
-	var best: Dictionary = options[0]
-	var best_score := -INF
-	var deck_view: Array = enemy_deck + enemy_hand + enemy_evolution_deck
-	for slot in _threat_slots():
-		var card = _get_card_in_slot(slot)
-		if card: deck_view.append(card.card_data)
-	for option in options:
-		var bonus: Dictionary = preload("res://scripts/battle_rules.gd").totals({option.id:1}, {})
-		var score := float(bonus.get("strength", 0)) * 3 + float(bonus.get("health", 0)) * 2 + float(bonus.get("energy", 0)) * 2 + float(bonus.get("draw", 0)) * 2
-		for definition in deck_view:
-			for status in ["burn", "poison", "bleed"]:
-				if definition.get("on_hit", {}).has(status): score += float(bonus.get(status, 0)) * 1.5
-		score += float(bonus.get("piercing", 0)) * 5 + float(bonus.get("regen", 0)) - float(bonus.get("self_bleed", 0)) * 3 - float(bonus.get("sluggish", 0)) * 3 - float(bonus.get("damage_taken", 0)) * 5
-		if score > best_score:
-			best_score = score
-			best = option
-	return best
-
 # ------------------------------------------------------------------- combat
-const TYPE_CHART := {
-	# Response attacking Disaster
-	"evac": {"earthquake": 2.0, "flood": 0.5},
-	"douse": {"fire": 2.0, "typhoon": 0.5},
-	"clearance": {"flood": 2.0, "earthquake": 0.5},
-	"brace": {"typhoon": 2.0, "fire": 0.5},
-	# Disaster attacking Response
-	"flood": {"evac": 2.0, "clearance": 0.5},
-	"earthquake": {"clearance": 2.0, "evac": 0.5},
-	"typhoon": {"douse": 2.0, "brace": 0.5},
-	"fire": {"brace": 2.0, "douse": 0.5},
-}
+const TYPE_CHART = BattleEngine.TYPE_CHART
 
 func _threat_slots() -> Array:
 	return [$Slots/ThreatBoard_Slot1, $Slots/ThreatBoard_Slot2, $Slots/ThreatBoard_Slot3, $Slots/ThreatBoard_Slot4]
@@ -1508,23 +1540,11 @@ func _get_card_in_slot(slot: Node3D) -> Node:
 	return null
 
 func _calc_damage(attacker: Node, defender: Node) -> Dictionary:
-	var base: int = attacker.effective_attack() + conditional_attack_bonus(attacker, defender)
-	var atk_elem: String = attacker.card_data.get("element", "")
-	var def_elem: String = defender.card_data.get("element", "")
-	var mult: float = TYPE_CHART.get(atk_elem, {}).get(def_elem, 1.0)
-	var dmg: int = maxi(1, int(base * mult))
-	dmg += _synergy_bonus(attacker)
-	if attacker.has_modifier("rampaging") and ((attacker.card_data.type == "response") != player_first): dmg += 1
-	return {"dmg": dmg, "mult": mult}
+	return BattleEngine.calc_damage(BattleQueries.context(self),
+		BattleQueries.card(self, attacker), BattleQueries.card(null, defender))
 
 func _synergy_bonus(card: Node) -> int:
-	var slots := _response_slots() if card.card_data.type == "response" else _threat_slots()
-	var index: int = slots.find(card.current_slot)
-	for neighbor in [index - 1, index + 1]:
-		if neighbor >= 0 and neighbor < slots.size():
-			var ally = _get_card_in_slot(slots[neighbor])
-			if ally and ally.is_alive() and ally.card_data.element == card.card_data.element: return 1 + int(buffs_for(card.card_data).get("synergy", 0))
-	return 0
+	return BattleEngine.synergy_bonus(BattleQueries.context(self), BattleQueries.card(self, card))
 
 func _combat() -> void:
 	for card in get_tree().get_nodes_in_group("cards"):
@@ -1587,25 +1607,18 @@ func _side_attacks(response_side: bool) -> void:
 		await _wait(0.4)
 
 func status_stacks(subject: Variant, status: String) -> int:
-	if subject == null: return 0
-	var values: Dictionary = subject if subject is Dictionary else subject.statuses
-	if status != "any": return int(values.get(status, 0))
-	return int(values.get("burn", 0)) + int(values.get("poison", 0)) + int(values.get("bleed", 0))
+	return BattleEngine.status_stacks(BattleQueries.statuses(subject), status)
 
 func condition_met(condition: Dictionary, source: Variant, target: Variant) -> bool:
-	if condition.is_empty(): return false
-	var subject: Variant = source if condition.get("subject", "target") == "self" else target
-	return subject != null and status_stacks(subject, str(condition.get("status", "any"))) >= int(condition.get("threshold", 3))
+	return BattleEngine.condition_met(condition, BattleQueries.statuses(source), BattleQueries.statuses(target))
 
 func conditional_attack_bonus(attacker: Node, defender: Node) -> int:
-	var condition: Dictionary = attacker.card_data.get("condition", {})
-	var amount := int(condition.get("bonus", 0)) if condition_met(condition, attacker, defender) else 0
-	if defender != null and status_stacks(defender, "any") >= 3: amount += int(attacker.card_data.get("status_bonus", 0))
-	return amount
+	var target: Variant = null if defender == null else BattleQueries.card(null, defender)
+	return BattleEngine.conditional_attack_bonus(BattleQueries.card(null, attacker), target)
 
 func attack_strikes(attacker: Node, defender: Node) -> int:
-	var condition: Dictionary = attacker.card_data.get("condition", {})
-	return 2 if condition_met(condition, attacker, defender) and int(condition.get("strikes", 1)) > 1 else 1
+	var target: Variant = null if defender == null else BattleQueries.card(null, defender)
+	return BattleEngine.attack_strikes(BattleQueries.card(null, attacker), target)
 
 func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 	if not atk.can_attack(turn): return
@@ -1613,17 +1626,24 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 	for strike in range(strikes):
 		if not atk.is_alive() or phase == Phase.GAME_OVER: break
 		if strike > 0:
-			var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
-			if lane >= 0: defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
+			# Keep a surviving redirected blocker; a killed or extracted target leaves the lane open.
+			if not is_instance_valid(defender) or not defender.is_alive():
+				var lane: int = (_response_slots() if response_side else _threat_slots()).find(atk.current_slot)
+				defender = null
+				if lane >= 0:
+					defender = _get_card_in_slot((_threat_slots() if response_side else _response_slots())[lane])
 			atk.spawn_popup("FOLLOW-UP STRIKE", UI.RESPONSE)
 		resolve_single_strike(atk, defender, response_side)
 
 func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
+	if defender != null and defender.card_data.type == atk.card_data.type: return
 	var blocked: bool = defender != null and defender.is_alive()
+	var piercing: bool = atk.has_modifier("piercing")
+	var armored_block: bool = blocked and defender.has_modifier("armored")
 	log_event("%s attacks %s." % [atk.card_data.name, defender.card_data.name if blocked else ("Disaster health" if response_side else "Response health")])
 	if blocked:
 		var info := _calc_damage(atk, defender)
-		defender.take_damage(info.dmg, info.mult)
+		defender.take_damage(info.dmg, info.mult, false, piercing)
 		if not defender.is_alive(): atk.set_meta("combat_kill", true)
 		# Effects land only on a surviving card. Normal damage never spills into HP.
 		if defender.is_alive() and not defender.last_evaded_hit:
@@ -1633,7 +1653,7 @@ func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> vo
 				var extra := int(buffs.get(status, 0)) * (2 if status == "burn" else 1)
 				defender.add_status(status, int(inflicted[status]) + extra)
 		shake_camera(0.08, 0.2)
-	if not blocked or atk.has_modifier("piercing"):
+	if not blocked or (piercing and not armored_block):
 		var direct: int = atk.effective_attack() + _synergy_bonus(atk) + conditional_attack_bonus(atk, defender if blocked else null)
 		if atk.has_modifier("fierce"): direct += 2
 		_damage_side(not response_side, direct)

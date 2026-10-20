@@ -27,7 +27,8 @@ func capture(name: String) -> void:
 	if director.modal.visible:
 		if director.compact_layout:
 			var rect: Rect2 = director.modal.get_global_rect()
-			check(absf(rect.size.x - 420) < 2, name + " compact width is 420")
+			var width := 560.0 if director.screen == "debug" else 420.0
+			check(absf(rect.size.x - width) < 2, name + " compact width is %d" % width)
 			check(director.content.get_global_rect().end.x <= director.modal_scroll.get_global_rect().end.x + 1, name + " compact content fits without horizontal clipping")
 			check(rect.get_center().distance_to(root.get_visible_rect().size / 2) < 2, name + " compact panel is centered")
 		check(director.modal.get_global_rect().end.x <= root.get_visible_rect().size.x + 2, name + " panel fits horizontally")
@@ -168,7 +169,10 @@ func run() -> void:
 	for i in 100:
 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
 		await create_timer(0.1).timeout
-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
+	if game.phase == game.Phase.PLAYER_DRAW:
+		game._on_draw_button_pressed()
+		if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+			game.complete_draw_choice(game.deck[0])
 	await create_timer(1.0).timeout
 	await capture("battle")
 	await polish_checks()
@@ -337,7 +341,7 @@ func polish_checks() -> void:
 	await capture("deck_navigation")
 	var buttons: Array = director.content.find_children("*", "Button", true, false)
 	check(not buttons.any(func(b): return b.text.begins_with("Hand") or b.text == "On board" or b.text.begins_with("Draw pile") or b.text == "Janitor hand"), "browser has only Deck and Response Graveyard views")
-	check(buttons.any(func(b): return b.text == "Response Graveyard"), "browser retains Response Graveyard")
+	check(not buttons.any(func(b): return b.text == "Response Graveyard"), "deck browser has no graveyard button")
 	battle()
 	var originals: Array = game.get_hand_cards().map(func(c): return c.card_data.duplicate(true))
 	for count in [1, 4, 8]:

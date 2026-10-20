@@ -82,7 +82,8 @@ func prepare_round() -> void:
 	if last_prepared_round == game.turn: return
 	last_prepared_round = game.turn
 	if stage == 2 and pillars_spawned:
-		var echo := {"id":"static_echo", "name":"Static Echo", "type":"response", "element":"douse", "cost":0, "attack":0, "health":1, "utility":true, "effect":"draw", "draw_count":1, "curse":true}
+		var echo := {"id":"static_echo", "name":"Static Echo", "type":"response", "element":"douse",
+			"cost":0, "utility":true, "effect":"draw", "draw_count":1, "curse":true}
 		if game.get_hand_cards().size() < game.HAND_SIZE_MAX: game.add_card_to_hand(echo)
 		else: game._damage_side(true, 1, true)
 	if stage == 3:

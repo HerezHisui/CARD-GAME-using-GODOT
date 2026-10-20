@@ -15,7 +15,10 @@ func run() -> void:
 	game.presentation.automated_choice = 0
 	var environment: Environment = game.get_node("WorldEnvironment").environment
 	var enhanced := RenderingServer.get_current_rendering_method() == "forward_plus"
-	check(root.msaa_3d == Viewport.MSAA_4X and root.use_taa == enhanced and is_equal_approx(root.scaling_3d_scale, 1.0), "AA layers use full rendering resolution")
+	check(root.msaa_3d == Viewport.MSAA_4X and not root.use_taa
+		and is_equal_approx(root.scaling_3d_scale, 1.0), "4x MSAA at full resolution avoids temporal text blur")
+	check(root.content_scale_mode == Window.CONTENT_SCALE_MODE_CANVAS_ITEMS,
+		"HUD text renders at window resolution instead of stretching a viewport texture")
 	check(environment.glow_enabled == enhanced and environment.glow_intensity >= 0.5, "bloom is enabled on the supported renderer")
 	var finish = game.get_node("ClassroomFinish")
 	var effect: ColorRect = finish.get_node("ClarityAndSharpness")
@@ -45,9 +48,19 @@ func run() -> void:
 	for i in 200:
 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
 		await create_timer(0.1).timeout
-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
+	if game.phase == game.Phase.PLAYER_DRAW:
+		game._on_draw_button_pressed()
+		if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+			game.complete_draw_choice(game.deck[0])
 	await create_timer(0.8).timeout
 	check(game.can_player_act() and game.get_hand_cards().size() > 0, "enhanced rendering leaves real battle input available")
+	for card in game.get_hand_cards(): check_card_face(card)
+	var preview: Node3D = game.Card3DScene.instantiate()
+	preview.preview_only = true
+	game.add_child(preview)
+	preview.setup(game.deck[0])
+	check_card_face(preview)
+	preview.queue_free()
 	await process_frame
 	check(effect.size.is_equal_approx(root.get_visible_rect().size), "sharpness grade covers the viewport without lowering resolution")
 	if DisplayServer.get_name() != "headless":
@@ -67,8 +80,22 @@ func run() -> void:
 	if failures:
 		quit(1)
 		return
-	print("PASS: supplied classroom checksum, new classroom mesh preservation, authored PBR maps, 4x MSAA/TAA/full resolution, supported bloom, clarity/sharpness layer, HUD ordering and live battle")
+	print("PASS: classroom integrity/PBR, 4x MSAA without TAA, full resolution, "
+		+ "supersampled card faces, HUD scaling, bloom, grade ordering and live battle")
 	quit()
+
+func check_card_face(card: Node) -> void:
+	var viewport: SubViewport = card._vp
+	check(viewport.size == Vector2i(528, 720), "card face rasterizes at twice its logical resolution")
+	check(viewport.size_2d_override == Vector2i(264, 360) and viewport.size_2d_override_stretch,
+		"card face preserves original layout coordinates")
+	check(viewport.oversampling and is_equal_approx(viewport.get_oversampling(), 2.0),
+		"card fonts oversample with the face viewport")
+	check(viewport.get_child(0).size == Vector2(264, 360), "card frame keeps its logical size")
+	var sprite: Sprite3D = card.art_sprite
+	check(is_equal_approx(sprite.pixel_size * viewport.size.x, card.CARD_WIDTH)
+		and is_equal_approx(sprite.pixel_size * viewport.size.y, card.card_height),
+		"higher resolution preserves card dimensions in the world")
 
 func capture(label: String) -> void:
 	await process_frame

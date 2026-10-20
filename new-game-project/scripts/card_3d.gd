@@ -1,5 +1,7 @@
 @tool
 extends Area3D
+const BattleEngine = preload("res://scripts/battle_engine.gd")
+const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 ## A single playable card.
 ## While in hand it is parented to the Camera3D so it always faces the player
 ## (like a classic 2D card game hand). While dragged it floats over the table
@@ -14,6 +16,7 @@ const CARD_WIDTH := 1.1
 const UPRIGHT := Basis(Vector3.RIGHT, PI / 2.0) # card face (+Y) -> camera (+Z)
 const FACE_W := 264
 const FACE_H := 360
+const FACE_RENDER_SCALE := 2
 
 const ELEMENT_COLORS := UI.AFFINITIES
 
@@ -79,11 +82,13 @@ func _ready() -> void:
 func setup(data: Dictionary) -> void:
 	base_definition = data.duplicate(true)
 	card_data = data.duplicate(true)
+	preload("res://scripts/battle_rules.gd").remove_utility_stats(base_definition)
+	preload("res://scripts/battle_rules.gd").remove_utility_stats(card_data)
 	if not preview_only: card_data = _manager().prepare_card_data(card_data)
 	# JSON numbers load as floats -> normalise to ints
-	for k in ["cost", "attack", "health"]:
+	for k in (["cost"] if card_data.get("utility", false) else ["cost", "attack", "health"]):
 		card_data[k] = int(card_data.get(k, 0))
-	max_health = card_data.health
+	max_health = int(card_data.get("health", 0))
 	modifiers.clear()
 	statuses.clear()
 	last_attack_turn = -1
@@ -92,14 +97,17 @@ func setup(data: Dictionary) -> void:
 	var self_bleed: int = 0 if preview_only else int(_manager().buffs_for(card_data).get("self_bleed", 0))
 	if self_bleed > 0: statuses.bleed = self_bleed
 	if card_data.has("modifier") and str(card_data.modifier) != "":
-		modifiers.append(str(card_data.modifier).to_lower())
+		for ability in str(card_data.modifier).split(","):
+			var normalized := ability.strip_edges().to_lower()
+			if not normalized.is_empty() and normalized not in modifiers: modifiers.append(normalized)
 
 	for card_modifier in card_data.get("modifiers", []):
-		if str(card_modifier).to_lower() not in modifiers: modifiers.append(str(card_modifier).to_lower())
+		var normalized := str(card_modifier).strip_edges().to_lower()
+		if not normalized.is_empty() and normalized not in modifiers: modifiers.append(normalized)
 
 	_build_face()
 	art_sprite.texture = _vp.get_texture()
-	art_sprite.pixel_size = CARD_WIDTH / FACE_W
+	art_sprite.pixel_size = CARD_WIDTH / (FACE_W * FACE_RENDER_SCALE)
 	art_sprite.scale = Vector3.ONE
 	art_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
 	art_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
@@ -124,7 +132,10 @@ func setup(data: Dictionary) -> void:
 
 func _build_face() -> void:
 	_vp = SubViewport.new()
-	_vp.size = Vector2i(FACE_W, FACE_H)
+	# Keep layout coordinates while rasterizing sharper text for 3D and UI previews.
+	_vp.size = Vector2i(FACE_W, FACE_H) * FACE_RENDER_SCALE
+	_vp.size_2d_override = Vector2i(FACE_W, FACE_H)
+	_vp.size_2d_override_stretch = true
 	_vp.transparent_bg = true
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	add_child(_vp)
@@ -156,6 +167,7 @@ func _build_face() -> void:
 	name_lbl.size = Vector2(FACE_W - 80, 48)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	UI.outline(name_lbl)
 	frame.add_child(name_lbl)
 
 	# Art window
@@ -208,20 +220,21 @@ func _build_face() -> void:
 	_cost_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_badge.add_child(_cost_caption)
 
-	# Attack (bottom-left) / Health (bottom-right)
-	var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
-	_atk_label = atk.get_child(0)
-	frame.add_child(atk)
-	var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 80, FACE_H - 80), title_font)
-	_hp_label = hp.get_child(0)
-	frame.add_child(hp)
-
-	var atk_cap := _face_label(title_font, 14, text_col)
-	atk_cap.text = "ATK            HP"
-	atk_cap.position = Vector2(0, FACE_H - 24)
-	atk_cap.size = Vector2(FACE_W, 20)
-	atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	frame.add_child(atk_cap)
+	_atk_label = null
+	_hp_label = null
+	if not card_data.get("utility", false):
+		var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
+		_atk_label = atk.get_child(0)
+		frame.add_child(atk)
+		var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
+		_hp_label = hp.get_child(0)
+		frame.add_child(hp)
+		var atk_cap := _face_label(title_font, 14, text_col)
+		atk_cap.text = "ATK            HP"
+		atk_cap.position = Vector2(0, FACE_H - 24)
+		atk_cap.size = Vector2(FACE_W, 20)
+		atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		frame.add_child(atk_cap)
 	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
@@ -256,6 +269,9 @@ func _refresh_face() -> void:
 	var cost: int = int(card_data.get("tension_cost", 1)) if disaster and not sacrifice else int(card_data.get("cost", 0))
 	if _cost_label: _cost_label.text = str(cost)
 	if _cost_caption: _cost_caption.text = "SAC" if sacrifice else ""
+	if card_data.has("boss_role"):
+		_cost_label.text = "-"
+		_cost_caption.text = "BOSS"
 
 	if _hp_label:
 		_hp_label.text = str(maxi(card_data.health, 0))
@@ -479,15 +495,7 @@ func enter_from_above(slot: Node3D) -> void:
 	await _tween.finished
 
 func _slot_under_card() -> Node3D:
-	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP, global_position + Vector3.DOWN * 5.0)
-	q.collide_with_bodies = true
-	q.collide_with_areas = false
-	var res := get_world_3d().direct_space_state.intersect_ray(q)
-	if res and res.collider:
-		var p = res.collider.get_parent()
-		if p is MeshInstance3D and "Slot" in p.name:
-			return p
-	return null
+	return _manager().slot_at_screen_position(get_viewport().get_mouse_position())
 
 func _slot_occupied(slot: Node3D) -> bool:
 	for c in get_tree().get_nodes_in_group("cards"):
@@ -500,6 +508,7 @@ func _manager() -> Node:
 
 # ---------------------------------------------------------------- combat
 func is_alive() -> bool:
+	if card_data.get("utility", false): return in_hand and not graveyard_recorded
 	return card_data.get("health", 0) > 0
 
 ## Wind-up, then lunge at `target`. Returns at the moment of impact
@@ -525,9 +534,11 @@ func attack_lunge(target: Vector3) -> void:
 	_tween.tween_property(self, "global_position", home, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	_tween.tween_property(self, "rotation:x", 0.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
+func _battle_context() -> Dictionary:
+	return {} if preview_only else BattleQueries.context(_manager())
+
 func has_modifier(mod_name: String) -> bool:
-	var key := mod_name.to_lower()
-	return key in modifiers or (not preview_only and key in ["piercing", "sluggish"] and int(_manager().buffs_for(card_data).get(key, 0)) > 0)
+	return BattleEngine.has_modifier(_battle_context(), BattleQueries.card(null, self), mod_name)
 
 func add_modifier(mod_name: String) -> void:
 	if not has_modifier(mod_name):
@@ -536,6 +547,7 @@ func add_modifier(mod_name: String) -> void:
 		spawn_popup("+" + mod_name.to_upper(), UI.GOLD)
 
 func heal(amt: int) -> void:
+	if card_data.get("utility", false): return
 	if card_data.health <= 0: return
 	if int(statuses.get("healing_reduced", 0)) > 0: amt = maxi(1, floori(amt / 2.0))
 	var before: int = card_data.health
@@ -573,18 +585,14 @@ func discard_to_pile() -> void:
 	queue_free()
 
 ## mult = type-effectiveness multiplier (for the popup text).
-func adjusted_damage(amt: int) -> int:
-	# Armored: takes 1 less damage from all attacks
-	if has_modifier("armored"):
-		amt = maxi(1, amt - int(card_data.get("armor_value", 1)))
-	# Fragile: takes 1 extra damage from all attacks
-	if has_modifier("fragile"):
-		amt += 1
-	return _manager().incoming_damage(card_data.type == "response", amt)
+func adjusted_damage(amt: int, ignore_armor: bool = false) -> int:
+	return BattleEngine.adjusted_damage(
+		BattleQueries.context(_manager()), BattleQueries.card(null, self), amt, ignore_armor)
 
-func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false) -> void:
+func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false, ignore_armor: bool = false) -> void:
+	if card_data.get("utility", false): return
 	last_evaded_hit = false
-	if not bypass_armor: amt = adjusted_damage(amt)
+	if not bypass_armor: amt = adjusted_damage(amt, ignore_armor)
 	else: amt = _manager().incoming_damage(card_data.type == "response", amt)
 	if not bypass_armor and planned_guard > 0:
 		var prevented := mini(planned_guard, amt)
@@ -681,14 +689,18 @@ func spawn_popup(text: String, col: Color) -> void:
 	t.chain().tween_callback(l.queue_free)
 
 func effective_attack() -> int:
-	if preview_only and card_data.has("preview_attack"): return int(card_data.preview_attack)
-	return maxi(0, int(card_data.get("attack", 0)) + int(statuses.get("strength", 0)) + plan_attack_bonus + (0 if preview_only else _manager().attack_bonus(self)))
+	var game: Node = null if preview_only else _manager()
+	return BattleEngine.effective_attack(_battle_context(), BattleQueries.card(game, self))
 
 func refresh_cost() -> void:
 	_refresh_face()
 
+func set_plan_attack_bonus(amount: int) -> void:
+	plan_attack_bonus = amount
+	_refresh_face()
+
 func can_attack(round_number: int) -> bool:
-	return is_alive() and (not has_modifier("sluggish") or last_attack_turn < 0 or round_number - last_attack_turn >= 2)
+	return BattleEngine.can_attack(_battle_context(), BattleQueries.card(null, self), round_number)
 
 func add_status(status: String, amount: int) -> void:
 	_manager().log_event("%s gains %d %s." % [card_data.name, amount, status.capitalize()])
@@ -698,6 +710,7 @@ func add_status(status: String, amount: int) -> void:
 	spawn_popup("%s +%d" % [status.to_upper(), amount], UI.DANGER if status != "strength" else UI.RESPONSE)
 
 func status_upkeep() -> void:
+	if card_data.get("utility", false): return
 	for status in ["burn", "poison"]:
 		var stacks := int(statuses.get(status, 0))
 		if stacks > 0 and is_alive():

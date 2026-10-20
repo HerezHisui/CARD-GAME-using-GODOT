@@ -57,7 +57,8 @@ func run() -> void:
 	director.change_sort(4, true)
 	director.show_upgrade_preview(1)
 	check(director.collection[1] == original_order[1], "preview does not mutate original")
-	check(director.upgraded_definition(director.collection[1]).on_play_draw == 1, "preview computes upgrade")
+	check(director.upgraded_definition(director.collection[1]).attack == int(director.collection[1].attack) + 1,
+		"preview computes first-tier stat upgrade")
 	await capture("upgrade_preview")
 	director.upgrade(1)
 	check(director.collection[0] == original_order[0] and director.collection[1].name.ends_with("+"), "only chosen duplicate upgraded")
@@ -90,9 +91,9 @@ func run() -> void:
 	game.complete_move_effect(game._response_slots()[3])
 	check(ally.current_slot == game._response_slots()[3] and marshal.current_slot == game._response_slots()[1] and not paused, "another card moves, source stays")
 	game.add_global_buff(true, "glass")
-	check(ally.effective_attack() == 4 and ally.max_health == 3, "strong battle buff has health downside")
+	check(ally.effective_attack() == 2 and ally.max_health == 4, "HP-reducing adaptation skips existing board units")
 	game.add_global_buff(true, "blood_pact")
-	check(ally.effective_attack() == 6 and ally.statuses.get("bleed", 0) == 0, "Blood Pact adds two Strength without the removed Bleed downside")
+	check(ally.effective_attack() == 4 and ally.statuses.get("bleed", 0) == 0, "Blood Pact adds two Strength without the removed Bleed downside")
 	game.add_global_buff(true, "beacon", true)
 	director.battle_finished(true)
 	check(game.player_buffs.is_empty() and game.enemy_buffs.is_empty() and game.player_run_buffs.beacon == 1, "battle buffs expire, permanent buff remains")
@@ -121,7 +122,8 @@ func run() -> void:
 	director.select_contingency_reward(director.buff_choices[0].id)
 	await capture("floor_reward")
 	director.select_floor_buff(director.buff_choices[0].id)
-	check(director.floor_number == 2 and not game.player_run_buffs.is_empty() and not game.enemy_run_buffs.is_empty(), "floor awards persistent buff to both sides")
+	check(director.floor_number == 2 and not game.player_run_buffs.is_empty() and game.enemy_run_buffs.is_empty(),
+		"floor awards a persistent adaptation only to the player")
 	game.player_buffs.strength = 4
 	var persistent: Dictionary = game.player_run_buffs.duplicate()
 	director.battle_active = true

@@ -130,7 +130,8 @@ func run() -> void:
 	ally = card("Rescued", "evac", 0)
 	ally.card_data.health = 5
 	var route_data: Dictionary = director.character_deck(0).filter(func(item): return item.id == "evacuation")[0]
-	check(route_data.health == 5 and route_data.effect == "move_ally" and route_data.move_heal == 2, "Evacuation Route has stronger health and a unique rescue")
+	check(route_data.cost == 2 and route_data.health == 3 and route_data.effect == "move_ally"
+		and route_data.move_heal == 2, "starter rescue remains useful at two energy")
 	var route = card("Route", "evac", 1)
 	route.card_data = route_data.duplicate(true)
 	game.begin_move_effect(route)

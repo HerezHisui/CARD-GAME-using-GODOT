@@ -49,6 +49,7 @@ func normalize(value: Variant) -> Variant:
 	if value is Dictionary:
 		var result: Dictionary = {}
 		for key in value: result[key] = normalize(value[key])
+		preload("res://scripts/battle_rules.gd").remove_utility_stats(result)
 		return result
 	return value
 
@@ -118,6 +119,7 @@ func resume() -> bool:
 		card.setup(entry.data)
 		card.card_data = entry.data.duplicate(true)
 		apply_fields(card, entry.runtime, CARD_FIELDS)
+		if card.card_data.get("utility", false): card.max_health = 0
 		if not entry.runtime.has("base_definition"):
 			card.base_definition = entry.data.duplicate(true)
 			if not card.card_data.get("utility", false): card.base_definition.health = maxi(1, card.max_health - int(game.buffs_for(card.card_data).get("health", 0)))

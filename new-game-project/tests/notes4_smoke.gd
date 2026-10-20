@@ -102,7 +102,8 @@ func run() -> void:
 	check(game.turn == 3 and game.phase == game.Phase.PLAYER_PLAY and game.get_hand_cards().size() == 1, "continue restores exact turn phase and hand")
 	var restored = game._get_card_in_slot(game._response_slots()[0])
 	check(restored.card_data.health == first.card_data.health if is_instance_valid(first) else restored.card_data.health == 6, "restore does not apply character health twice")
-	check(restored.statuses.strength == 1 and restored._atk_label.text == "4", "restore retains live statuses and displayed stats")
+	check(restored.statuses.strength == 1 and restored._atk_label.text == "5",
+		"restore retains live statuses, the armed plan and displayed stats")
 	check(game.plans.armed.kind == "coordinate" and game.plans.armed.targets.size() == 1 and "extract" in game.plans.unlocked, "restore retains armed tactic and unlocks")
 	check(game.enemy_hand.size() == 2 and game.player_graveyard.size() == 1, "restore preserves hidden hand and graveyard")
 	game.turn = 4

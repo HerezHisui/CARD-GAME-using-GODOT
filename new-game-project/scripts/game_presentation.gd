@@ -218,6 +218,7 @@ func card_feedback(face: Control) -> void:
 	face.mouse_entered.connect(func(): animate.call(1.025))
 	face.mouse_exited.connect(func(): animate.call(1.0))
 
+@warning_ignore("unused_parameter")
 func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry: bool = false) -> void:
 	if blocking and not entry: return
 	if banner_tween: banner_tween.kill()
@@ -227,28 +228,79 @@ func banner(title: String, subtitle: String = "", color: Color = UI.GOLD, entry:
 	banner_node = panel
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	panel.offset_left = 350
-	panel.offset_right = -350
-	panel.offset_top = 85
-	panel.offset_bottom = 172
-	panel.add_theme_stylebox_override("panel", UI.panel(UI.CRIMSON if entry else UI.PANEL, color))
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = 0
+	panel.offset_right = 0
+	panel.offset_top = -64
+	panel.offset_bottom = 64
+	var style := UI.panel(Color.TRANSPARENT, UI.AMBER)
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(0)
+	style.content_margin_left = 0
+	style.content_margin_right = 0
+	panel.add_theme_stylebox_override("panel", style)
 	add_child(panel)
-	UI.decorate(panel, entry)
 	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 4)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(box)
-	for words in [title, subtitle]:
-		if words.is_empty(): continue
-		var label = game.run_director.label(words, 26 if words == title else 16, color)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(label)
+	var heading: Label = add_banner_labels(box, title, subtitle)
+	var material: ShaderMaterial = add_banner_strip(panel)
 	panel.modulate.a = 0
 	banner_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	banner_tween.tween_property(panel, "modulate:a", 1.0, 0.16)
-	banner_tween.parallel().tween_property(panel, "offset_top", 96.0, 0.2).from(75.0).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	if entry:
-		banner_tween.parallel().tween_property(panel, "offset_left", 350.0, 0.2).from(550.0).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	var expand := banner_tween.parallel().tween_property(material, "shader_parameter/reveal", 1.0, 0.2)
+	expand.set_trans(Tween.TRANS_EXPO if entry else Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if heading != null: animate_banner_heading(heading)
 	banner_tween.tween_interval(0.65)
 	banner_tween.tween_property(panel, "modulate:a", 0.0, 0.2)
 	banner_tween.tween_callback(panel.queue_free)
+
+func add_banner_labels(box: VBoxContainer, title: String, subtitle: String) -> Label:
+	var heading: Label
+	for words in [title, subtitle]:
+		if words.is_empty(): continue
+		var text_color: Color = UI.TEXT if words == title else UI.TEXT.darkened(0.12)
+		var label: Label = game.run_director.label(words, 48 if words == title else 20, text_color)
+		label.clip_text = true
+		label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		if words == title:
+			heading = label
+			label.text = words.to_upper()
+			var heading_font := FontVariation.new()
+			heading_font.base_font = UI.font(true)
+			heading_font.spacing_glyph = 2
+			label.add_theme_font_override("font", heading_font)
+			label.add_theme_color_override("font_shadow_color", Color(UI.AMBER, 0.35))
+			label.add_theme_constant_override("shadow_outline_size", 4)
+			label.add_theme_constant_override("shadow_offset_x", 0)
+			label.add_theme_constant_override("shadow_offset_y", 0)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(label)
+	return heading
+
+func animate_banner_heading(heading: Label) -> void:
+	heading.modulate.a = 0.0
+	heading.scale = Vector2.ONE * 1.1
+	heading.resized.connect(func(): heading.pivot_offset = heading.size * 0.5)
+	banner_tween.parallel().tween_property(heading, "modulate:a", 1.0, 0.2)
+	var settle := banner_tween.parallel().tween_property(heading, "scale", Vector2.ONE, 0.2)
+	settle.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+func add_banner_strip(panel: PanelContainer) -> ShaderMaterial:
+	var strip := ColorRect.new()
+	strip.name = "BannerStrip"
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.show_behind_parent = true
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://scripts/banner_strip.gdshader")
+	material.set_shader_parameter("fill_color", Color(UI.INSET, 0.94))
+	material.set_shader_parameter("line_color", Color("ffc16b"))
+	material.set_shader_parameter("line_width", 2.5)
+	material.set_shader_parameter("reveal", 0.0)
+	strip.material = material
+	panel.add_child(strip)
+	return material

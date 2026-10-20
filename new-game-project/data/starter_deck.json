@@ -16,9 +16,9 @@
 	"type": "response",
 	"element": "evac",
 	"cost_type": "energy",
-	"cost": 2,
-	"attack": 2,
-	"health": 3,
+	"cost": 1,
+	"attack": 1,
+	"health": 2,
 	"count": 3
   },
   {
@@ -27,9 +27,9 @@
 	"type": "response",
 	"element": "evac",
 	"cost_type": "energy",
-	"cost": 4,
-	"attack": 3,
-	"health": 5,
+	"cost": 2,
+	"attack": 1,
+	"health": 3,
 	"count": 1,
 	"effect": "move_ally",
 	"move_heal": 2
@@ -40,9 +40,9 @@
 	"type": "response",
 	"element": "douse",
 	"cost_type": "energy",
-	"cost": 2,
-	"attack": 3,
-	"health": 2,
+	"cost": 1,
+	"attack": 2,
+	"health": 1,
 	"count": 2
   },
   {
@@ -52,7 +52,7 @@
 	"element": "clearance",
 	"cost_type": "energy",
 	"cost": 1,
-	"attack": 2,
+	"attack": 1,
 	"health": 2,
 	"count": 2
   },
@@ -62,9 +62,9 @@
 	"type": "response",
 	"element": "brace",
 	"cost_type": "energy",
-	"cost": 3,
-	"attack": 1,
-	"health": 5,
+	"cost": 1,
+	"attack": 0,
+	"health": 3,
 	"modifier": "armored",
 	"count": 1
   }

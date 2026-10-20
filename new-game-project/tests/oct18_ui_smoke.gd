@@ -13,7 +13,7 @@ func check(value: bool, message: String) -> void:
 func has_text(parent: Node, text: String) -> bool:
 	for control in parent.find_children("*", "Control", true, false):
 		if control is Label or control is Button or control is RichTextLabel:
-			if text in control.text: return true
+			if text.to_lower() in control.text.to_lower(): return true
 	return false
 
 func battle() -> void:
@@ -52,7 +52,7 @@ func run() -> void:
 	check(has_text(director.content, "Adaptations:"), "battle buff heading renamed")
 	check(has_text(director.content, "Augmentations:"), "run buff heading renamed")
 	director.show_deck()
-	check(not has_text(director.content, "Response Graveyard"), "graveyard absent outside combat")
+	check(not has_text(director.content, "Response Graveyard"), "Deck menu has no graveyard button")
 	check(has_text(director.content, "DECK"), "deck uses short heading")
 	var original_collection: Array = director.collection.duplicate(true)
 	director.collection.assign([{"name":"Composition fixture", "element":"evac", "utility":true}])
@@ -80,7 +80,11 @@ func run() -> void:
 	director.inspect_board_card(ally)
 	check(not has_text(director.content, "CARD INSPECTION"), "inspection heading removed")
 	check(not has_text(director.content, "Click the card"), "inspection instructions removed")
+	director.inspection_dossier.get_node("InspectTabs").get_child(2).button_pressed = true
+	director.inspection_dossier.get_node("InspectTabs").get_child(2).pressed.emit()
 	check(has_text(director.inspection_dossier, "Armored:"), "inspection retains modifier rules")
+	director.inspection_dossier.get_node("InspectTabs").get_child(1).button_pressed = true
+	director.inspection_dossier.get_node("InspectTabs").get_child(1).pressed.emit()
 	check(has_text(director.inspection_dossier, "Burn 3:"), "inspection retains status rules and stacks")
 	director.close_modal()
 	game.set_view(game.View.DESK)
@@ -102,7 +106,15 @@ func run() -> void:
 	game.add_card_to_hand({"name":"Draw fixture", "type":"response", "element":"evac",
 		"cost":1, "attack":1, "health":1})
 	game.deck.assign([director.collection[0].duplicate(true)])
+	game.preparedness = 3
 	game._on_draw_button_pressed()
+	check(has_text(director.modal, "Pick a card to draw"), "draw picker uses concise heading")
+	check(not has_text(director.content, "Choose a card for"), "draw picker instructions removed")
+	check(game.presentation.draw_reminder.visible, "opening picker keeps draw reminder active")
+	director.close_modal()
+	check(game.presentation.draw_reminder.visible, "cancelling picker keeps draw reminder active")
+	game._on_draw_button_pressed()
+	game.complete_draw_choice(game.deck[0])
 	check(game.phase == game.Phase.PLAYER_PLAY, "draw completes")
 	check(not game.presentation.draw_reminder.visible, "drawing stops reminder")
 	game._set_phase(game.Phase.PLAYER_DRAW)

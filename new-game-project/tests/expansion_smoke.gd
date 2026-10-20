@@ -168,12 +168,19 @@ func run() -> void:
 	game.turn = 5
 	game._begin_round()
 	check(director.screen == "buff" and director.buff_choices.size() == 3, "fifth round offers three buffs")
-	check(not game.enemy_buffs.is_empty(), "Disaster receives a buff too")
+	check(game.enemy_buffs.is_empty(), "offering adaptations does not buff the Janitor")
+	var offered_buffs: Array = director.buff_choices.duplicate(true)
 	await capture("adaptation")
 	director.show_deck()
 	director.close_modal()
 	check(director.screen == "buff", "deck viewing preserves pending buff choices")
-	director.select_buff(director.buff_choices[0].id)
+	check(director.buff_choices == offered_buffs and game.enemy_buffs.is_empty(),
+		"reopening adaptation choices preserves offers without buffing the Janitor")
+	var chosen_id: String = offered_buffs[0].id
+	var previous_stacks: int = game.player_buffs.get(chosen_id, 0)
+	director.select_buff(chosen_id)
+	check(game.player_buffs.get(chosen_id, 0) == previous_stacks + 1 and game.enemy_buffs.is_empty(),
+		"selected adaptation applies only to the player")
 	check(not paused and not director.modal.visible and game.adapted_round == 5, "choosing resumes the round")
 	await create_timer(8).timeout
 	game.player_hp = 0

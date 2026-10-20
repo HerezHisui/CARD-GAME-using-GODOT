@@ -147,7 +147,10 @@ func run() -> void:
 		for i in 100:
 			if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
 			await create_timer(0.1).timeout
-		if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
+		if game.phase == game.Phase.PLAYER_DRAW:
+			game._on_draw_button_pressed()
+			if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+				game.complete_draw_choice(game.deck[0])
 		check(game.can_player_act() and game.player_hp == 20 and game.hero_max_hp() == 20, "unified mode reaches floor " + str(floor_number))
 		if floor_number == 3:
 			check(is_instance_valid(game.final_boss), "Midnight Warden remains accessible")

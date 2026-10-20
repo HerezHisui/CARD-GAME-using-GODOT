@@ -15,7 +15,9 @@ func run() -> void:
 	var school = game.get_node("SchoolEnvironment")
 	var environment: Environment = game.get_node("WorldEnvironment").environment
 	if RenderingServer.get_current_rendering_method() == "forward_plus":
-		check(environment.ssao_enabled and environment.ssil_enabled and environment.volumetric_fog_enabled and root.use_taa, "desktop lighting includes contact shadows, bounce, haze and temporal smoothing")
+		check(environment.ssao_enabled and environment.ssil_enabled and environment.volumetric_fog_enabled,
+			"desktop lighting includes contact shadows, bounce and haze")
+		check(not root.use_taa, "temporal smoothing stays off so card text stays sharp")
 	else:
 		check(not environment.ssao_enabled and not environment.volumetric_fog_enabled and not root.use_taa, "fallback avoids unsupported lighting effects")
 	var room = school.get_node("SuppliedClassroom")
@@ -43,7 +45,10 @@ func run() -> void:
 	for i in 200:
 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
 		await create_timer(0.1).timeout
-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
+	if game.phase == game.Phase.PLAYER_DRAW:
+		game._on_draw_button_pressed()
+		if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+			game.complete_draw_choice(game.deck[0])
 	check(game.can_player_act(), "actual encounter remains playable")
 	await create_timer(0.7).timeout
 	for mode in [game.View.WIDE, game.View.DESK, game.View.BOARD, game.View.WIDE]:

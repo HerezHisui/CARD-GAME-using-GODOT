@@ -44,7 +44,9 @@ func run() -> void:
 		if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: break
 		await create_timer(0.1).timeout
 	check(not game.presentation.blocking and game.player_first and game.coin_result == result and game.coin_pick == result, "winning call actually plays first with no reroll")
-	if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
+	if game.phase == game.Phase.PLAYER_DRAW:
+		game._on_draw_button_pressed()
+		game.complete_draw_choice(game.deck[0])
 	check(game.can_player_act(), "coin resolves into playable turn")
 	var card = game.get_hand_cards()[0]
 	game.hand.erase(card)
@@ -75,7 +77,7 @@ func run() -> void:
 	var offers: Array = director.reward_stock.duplicate(true)
 	await create_timer(1.1).timeout
 	await capture("rewards")
-	var images: Array = director.content.find_children("*", "TextureRect", true, false)
+	var images: Array = director.reward_faces
 	check(images.size() == 3, "three actual card faces are shown")
 	check(images.all(func(image): return absf(image.size.x / image.size.y - 264.0 / 360.0) < 0.01), "all reward faces preserve card shape")
 	var mean_x := 0.0

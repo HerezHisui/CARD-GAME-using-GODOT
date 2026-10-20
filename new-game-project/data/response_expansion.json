@@ -48,7 +48,7 @@
 	"name": "Hazmat Team",
 	"type": "response",
 	"element": "clearance",
-	"cost": 3,
+	"cost": 2,
 	"attack": 2,
 	"health": 3,
 	"on_hit": {
@@ -82,8 +82,6 @@
 	"type": "response",
 	"element": "evac",
 	"cost": 2,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "tutor"
   },
@@ -93,8 +91,6 @@
 	"type": "response",
 	"element": "brace",
 	"cost": 2,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "seal"
   },
@@ -104,8 +100,6 @@
 	"type": "response",
 	"element": "evac",
 	"cost": 2,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "scout"
   },
@@ -115,8 +109,6 @@
 	"type": "response",
 	"element": "clearance",
 	"cost": 2,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "tax"
   },
@@ -126,8 +118,6 @@
 	"type": "response",
 	"element": "brace",
 	"cost": 1,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "rally"
   },
@@ -137,8 +127,6 @@
 	"type": "response",
 	"element": "douse",
 	"cost": 1,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "cleanse"
   },
@@ -260,9 +248,9 @@
 	"attack": 2,
 	"health": 3,
 	"condition": {
-	  "subject": "self",
-	  "status": "any",
-	  "threshold": 3,
+	  "subject": "target",
+	  "status": "bleed",
+	  "threshold": 2,
 	  "bonus": 2
 	}
   },
@@ -272,8 +260,6 @@
 	"type": "response",
 	"element": "douse",
 	"cost": 0,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "herb"
   },
@@ -283,8 +269,6 @@
 	"type": "response",
 	"element": "douse",
 	"cost": 1,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "tablet"
   },
@@ -294,8 +278,6 @@
 	"type": "response",
 	"element": "brace",
 	"cost": 2,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "barrier"
   },
@@ -305,8 +287,6 @@
 	"type": "response",
 	"element": "clearance",
 	"cost": 2,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "blast"
   },
@@ -318,7 +298,13 @@
 	"cost": 3,
 	"attack": 2,
 	"health": 4,
-	"ignore_taunt": true
+	"ignore_taunt": true,
+	"condition": {
+	  "subject": "target",
+	  "status": "any",
+	  "threshold": 3,
+	  "bonus": 2
+	}
   },
   {
 	"id": "recovery_detail",
@@ -326,8 +312,6 @@
 	"type": "response",
 	"element": "evac",
 	"cost": 2,
-	"attack": 0,
-	"health": 1,
 	"utility": true,
 	"effect": "recover"
   },
