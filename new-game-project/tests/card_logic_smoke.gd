@@ -56,58 +56,22 @@ func draw_definition(id: String, cost: int) -> Dictionary:
 
 func turn_draw() -> void:
 	fixture()
-	game.preparedness = 0
-	game.deck.assign([draw_definition("normal", 1)])
+	game.preparedness = 3
+	var normal := draw_definition("normal", 1)
+	var high := draw_definition("high", 4)
+	game.deck.assign([normal, high])
 	game._set_phase(game.Phase.PLAYER_DRAW, "Old draw instruction")
 	game._on_draw_button_pressed()
-	check(not director.modal.visible and game.phase == game.Phase.PLAYER_PLAY, "draw enters play without a picker")
-	check(game.preparedness == 0, "turn draw is free even with zero energy")
-	check(game.deck.is_empty() and game.get_hand_cards().size() == 1, "normal turn draw takes exactly one card")
+	check(director.modal.visible and director.screen == "choice", "draw opens the deck picker")
+	check(game.preparedness == 3 and game.get_hand_cards().is_empty(), "opening the picker spends nothing")
+	game.complete_draw_choice(high)
+	check(not director.modal.visible and game.phase == game.Phase.PLAYER_PLAY, "picking a card enters play")
+	check(game.preparedness == 2 and game.deck == [normal], "the chosen card costs 1 energy")
+	check(game.get_hand_cards()[0].card_data.id == "high", "the chosen card goes to hand")
 	game._on_draw_button_pressed()
-	check(game.get_hand_cards().size() == 1 and game.preparedness == 0, "repeated Draw cannot draw or charge again")
+	check(game.get_hand_cards().size() == 1 and game.preparedness == 2, "repeated Draw cannot draw or charge again")
 
-func cheap_turn_draw() -> void:
-	var selected: Array = []
-	for seed_value in range(16):
-		fixture()
-		var held := unit("response", -1, {"cost":3})
-		var high := draw_definition("high", 4)
-		game.deck.assign([draw_definition("cheap_a", 1), draw_definition("cheap_b", 1), high])
-		seed(seed_value)
-		game._set_phase(game.Phase.PLAYER_DRAW)
-		game._on_draw_button_pressed()
-		var cards: Array = game.get_hand_cards()
-		check(cards.size() == 2 and held in cards, "guarantee swaps only the new draw and preserves hand size")
-		var drawn: Node = cards[1]
-		check(drawn.card_data.cost == 1, "guarantee supplies a cost-1 card")
-		if drawn.card_data.id not in selected: selected.append(drawn.card_data.id)
-		check(game.deck.size() == 2 and high in game.deck, "the original draw returns to the pile")
-		check(game.preparedness == 5 and game.player_graveyard.is_empty(), "swap spends nothing and is not destruction")
-		check(game.battle_log.any(func(line): return "Turn draw: guaranteed" in line), "swap is logged")
-	check(selected.size() == 2, "fixed seeds exercise both random cheap-card candidates")
-	for held_cost in [0, 1]:
-		fixture()
-		unit("response", -1, {"cost":held_cost})
-		var cheap := draw_definition("cheap", 1)
-		game.deck.assign([cheap, draw_definition("high", 4)])
-		game._set_phase(game.Phase.PLAYER_DRAW)
-		game._on_draw_button_pressed()
-		check(game.get_hand_cards()[1].card_data.id == "high" and game.deck == [cheap],
-			"a held card costing at most one skips the guarantee")
-		check(not game.battle_log.any(func(line): return "Turn draw: guaranteed" in line),
-			"a skipped guarantee is not logged")
-
-func unavailable_cheap_draw() -> void:
-	for locked in [false, true]:
-		fixture()
-		var remaining := draw_definition("remaining", 1 if locked else 2)
-		if locked: remaining.locked_until = game.turn + 1
-		game.deck.assign([remaining, draw_definition("high", 4)])
-		game._set_phase(game.Phase.PLAYER_DRAW)
-		game._on_draw_button_pressed()
-		check(game.get_hand_cards().size() == 1 and game.get_hand_cards()[0].card_data.id == "high",
-			"no eligible cost-1 card leaves the original draw in hand")
-		check(game.deck == [remaining], "the guarantee never takes a sealed card or a different cost")
+func unavailable_draw() -> void:
 	fixture()
 	var sealed := draw_definition("sealed", 1)
 	sealed.locked_until = game.turn + 1
@@ -116,6 +80,13 @@ func unavailable_cheap_draw() -> void:
 	game._on_draw_button_pressed()
 	check(game.get_hand_cards().is_empty() and game.deck == [sealed], "an entirely sealed pile draws nothing")
 	check(game.phase == game.Phase.PLAYER_PLAY, "an unavailable draw still finishes the draw phase")
+	fixture()
+	game.preparedness = 0
+	game.deck.assign([draw_definition("normal", 1)])
+	game._set_phase(game.Phase.PLAYER_DRAW)
+	game._on_draw_button_pressed()
+	check(not director.modal.visible and game.get_hand_cards().is_empty(), "zero energy cannot pick a draw")
+	check(game.phase == game.Phase.PLAYER_PLAY, "zero energy still finishes the draw phase")
 
 func other_draw_effects() -> void:
 	fixture()
@@ -124,7 +95,7 @@ func other_draw_effects() -> void:
 	game.deck.assign([cheap, high])
 	game.draw_cards(1)
 	check(game.get_hand_cards()[0].card_data.id == "high" and game.deck == [cheap],
-		"normal effect draws do not use the turn-button guarantee")
+		"normal effect draws take the top card")
 	fixture()
 	var tutor := unit("response", -1, {"id":"tutor", "cost":2, "utility":true, "effect":"tutor"})
 	game.deck.assign([cheap, high])
@@ -156,7 +127,9 @@ func plan_display() -> void:
 	ally._on_mouse_entered()
 	check(ally.plan_attack_bonus == 0 and ally.card_data.health == 8, "target hover has no gameplay effect")
 	game.board_input.click_card(ally)
-	check(ally.plan_attack_bonus == 0, "arming does not apply a combat bonus early")
+	check(ally.plan_attack_bonus == 1 and ally._atk_label.text == "3", "arming shows the plan attack right away")
+	game.plans.preview_attack()
+	check(ally.plan_attack_bonus == 1, "the board preview keeps an armed plan")
 	game._set_phase(game.Phase.COMBAT)
 	game.plans.apply_combat()
 	check(ally._atk_label.text == "3", "plan attack displays synchronously")
@@ -202,8 +175,7 @@ func run() -> void:
 	director = game.run_director
 	placement()
 	turn_draw()
-	cheap_turn_draw()
-	unavailable_cheap_draw()
+	unavailable_draw()
 	other_draw_effects()
 	await turn_energy_refill()
 	plan_display()

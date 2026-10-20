@@ -161,6 +161,8 @@ func run() -> void:
 	check(is_instance_valid(game.final_boss) and game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY], "actual final encounter starts through coinflip and does not count empty enemy reserve as victory")
 	await capture("final_boss_live")
 	game._on_draw_button_pressed()
+	if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+		game.complete_draw_choice(game.deck[0])
 	game.player_hp = 1
 	var lethal_curse = card({"name":"Static Echo", "type":"response", "element":"douse", "cost":0, "attack":0, "health":1, "utility":true, "effect":"draw", "draw_count":1, "curse":true})
 	game.try_utility(lethal_curse, game._response_slots()[3])

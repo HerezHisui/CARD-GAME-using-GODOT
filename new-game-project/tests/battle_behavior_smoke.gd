@@ -154,6 +154,8 @@ func round_fixture() -> void:
 	check(game.tension_cap == 4 and game.tension == 4, "new round grows and refills Disaster Tension")
 	check(game.phase == game.Phase.PLAYER_DRAW, "next player turn awaits drawing")
 	game._on_draw_button_pressed()
+	if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+		game.complete_draw_choice(game.deck[0])
 	check(game.phase == game.Phase.PLAYER_PLAY and game.get_hand_cards().size() == 1, "draw enters play phase")
 	game.turn = 3
 	check(game.enemy_action_limit() == 1, "Floor 1 normal has one action through round three")

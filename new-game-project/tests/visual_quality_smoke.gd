@@ -50,6 +50,8 @@ func run() -> void:
 		await create_timer(0.1).timeout
 	if game.phase == game.Phase.PLAYER_DRAW:
 		game._on_draw_button_pressed()
+		if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+			game.complete_draw_choice(game.deck[0])
 	await create_timer(0.8).timeout
 	check(game.can_player_act() and game.get_hand_cards().size() > 0, "enhanced rendering leaves real battle input available")
 	for card in game.get_hand_cards(): check_card_face(card)
