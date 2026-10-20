@@ -15,7 +15,9 @@ func run() -> void:
 	var school = game.get_node("SchoolEnvironment")
 	var environment: Environment = game.get_node("WorldEnvironment").environment
 	if RenderingServer.get_current_rendering_method() == "forward_plus":
-		check(environment.ssao_enabled and environment.ssil_enabled and environment.volumetric_fog_enabled and root.use_taa, "desktop lighting includes contact shadows, bounce, haze and temporal smoothing")
+		check(environment.ssao_enabled and environment.ssil_enabled and environment.volumetric_fog_enabled,
+			"desktop lighting includes contact shadows, bounce and haze")
+		check(not root.use_taa, "temporal smoothing stays off so card text stays sharp")
 	else:
 		check(not environment.ssao_enabled and not environment.volumetric_fog_enabled and not root.use_taa, "fallback avoids unsupported lighting effects")
 	var room = school.get_node("SuppliedClassroom")
