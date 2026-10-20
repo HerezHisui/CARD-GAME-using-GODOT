@@ -92,6 +92,8 @@ func battle(variant: String, sample: int, starting_hp: int = 20) -> void:
 		elif game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] and played_round != game.turn:
 			played_round = game.turn
 			if game.phase == game.Phase.PLAYER_DRAW: game._on_draw_button_pressed()
+			if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+				game.complete_draw_choice(game.deck[0])
 			await process_frame
 			play_turn()
 			game._on_end_turn_pressed()

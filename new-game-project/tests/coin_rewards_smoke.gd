@@ -98,6 +98,8 @@ func run() -> void:
 	check(not game.presentation.blocking and game.player_first and game.coin_result == result and game.coin_pick == result, "winning call actually plays first with no reroll")
 	if game.phase == game.Phase.PLAYER_DRAW:
 		game._on_draw_button_pressed()
+		if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+			game.complete_draw_choice(game.deck[0])
 	check(game.can_player_act(), "coin resolves into playable turn")
 	var card = game.get_hand_cards()[0]
 	game.hand.erase(card)

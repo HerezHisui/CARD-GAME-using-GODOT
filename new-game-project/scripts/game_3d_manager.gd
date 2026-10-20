@@ -8,7 +8,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
 
 const HAND_SIZE_MAX := 8
-const TURN_DRAW_CHEAP_COST := 1
+const TURN_DRAW_COST := 1
 const HAND_DIST := 3.0        # Smaller hand leaves space for the board and HUD.
 const HAND_Y := -0.86
 const DRAG_BOUNDS := Rect2(-2.45, -1.8, 4.9, 3.6)
@@ -1041,7 +1041,7 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
 	if is_instance_valid(presentation): presentation.remind_to_draw(p == Phase.PLAYER_DRAW)
 	if text != "" and _phase_label:
-		_phase_label.text = "Draw a card" if p == Phase.PLAYER_DRAW else text
+		_phase_label.text = "Pick a card to draw" if p == Phase.PLAYER_DRAW else text
 	if _end_turn_btn:
 		_end_turn_btn.disabled = not (p == Phase.PLAYER_DRAW or p == Phase.PLAYER_PLAY)
 
@@ -1167,31 +1167,26 @@ func _begin_player_turn() -> void:
 func _on_draw_button_pressed() -> void:
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW or get_hand_cards().size() >= HAND_SIZE_MAX: return
-	var available := deck.filter(func(card): return not is_sealed(card))
-	var drawn_definition: Dictionary = {} if available.is_empty() else available.back()
-	var previous_size := get_hand_cards().size()
-	draw_cards(1)
-	if get_hand_cards().size() > previous_size:
-		_guarantee_cheap_turn_draw(drawn_definition)
+	var choices := deck.filter(func(card): return not is_sealed(card))
+	if choices.is_empty() or preparedness < TURN_DRAW_COST:
+		# Nothing can be drawn, so the turn moves on instead of waiting on the button.
+		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
+		_refresh_bars()
+		return
+	run_director.choose_card("Pick a card to draw", choices, complete_draw_choice, run_director.close_modal, "")
+
+func complete_draw_choice(definition: Dictionary) -> void:
+	if phase != Phase.PLAYER_DRAW or preparedness < TURN_DRAW_COST: return
+	if definition not in deck or is_sealed(definition): return
+	if get_hand_cards().size() >= HAND_SIZE_MAX: return
+	preparedness -= TURN_DRAW_COST
+	deck.erase(definition)
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+	add_card_to_hand(definition)
+	draw_cards(maxi(0, buff_value(true, "draw")))
 	_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 	_refresh_bars()
-
-func _guarantee_cheap_turn_draw(drawn_definition: Dictionary) -> void:
-	var held := get_hand_cards()
-	if held.any(func(card): return int(card.card_data.get("cost", 0)) <= TURN_DRAW_CHEAP_COST): return
-	var candidates := deck.filter(func(card):
-		return int(card.get("cost", 0)) == TURN_DRAW_CHEAP_COST and not is_sealed(card))
-	if candidates.is_empty(): return
-	var replacement: Dictionary = candidates.pick_random()
-	var drawn: Node = held.back()
-	deck.erase(replacement)
-	deck.append(drawn_definition)
-	hand.erase(drawn)
-	drawn.in_hand = false
-	drawn.remove_from_group("cards")
-	drawn.queue_free()
-	add_card_to_hand(replacement)
-	log_event("Turn draw: guaranteed a cost-%d card." % TURN_DRAW_CHEAP_COST)
 
 func _on_end_turn_pressed() -> void:
 	if not board_input.action.is_empty(): return

@@ -170,6 +170,8 @@ func run() -> void:
 		await create_timer(0.1).timeout
 	if game.phase == game.Phase.PLAYER_DRAW:
 		game._on_draw_button_pressed()
+		if game.phase == game.Phase.PLAYER_DRAW and not game.deck.is_empty():
+			game.complete_draw_choice(game.deck[0])
 	await create_timer(1.0).timeout
 	await capture("battle")
 	await polish_checks()
@@ -338,7 +340,7 @@ func polish_checks() -> void:
 	await capture("deck_navigation")
 	var buttons: Array = director.content.find_children("*", "Button", true, false)
 	check(not buttons.any(func(b): return b.text.begins_with("Hand") or b.text == "On board" or b.text.begins_with("Draw pile") or b.text == "Janitor hand"), "browser has only Deck and Response Graveyard views")
-	check(buttons.any(func(b): return b.text == "Response Graveyard"), "browser retains Response Graveyard")
+	check(not buttons.any(func(b): return b.text == "Response Graveyard"), "deck browser has no graveyard button")
 	battle()
 	var originals: Array = game.get_hand_cards().map(func(c): return c.card_data.duplicate(true))
 	for count in [1, 4, 8]:

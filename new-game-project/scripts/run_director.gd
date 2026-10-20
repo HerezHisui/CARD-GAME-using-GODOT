@@ -418,6 +418,7 @@ func _gauge(title: String, right: bool, color: Color) -> ProgressBar:
 
 func _process(_delta: float) -> void:
 	if inspect_hold_pending and not game.board_input.action.is_empty(): cancel_inspect_hold()
+	if battle_active: game.plans.preview_attack()
 	modal_dimmer.visible = modal.visible and battle_active and screen not in ["map", "inspect", "reward"]
 	game.visible = battle_active or screen == "reward"
 	board_prompt.visible = battle_active and not modal.visible and not game.board_input.action.is_empty()
@@ -512,6 +513,7 @@ func _input(event: InputEvent) -> void:
 		match event.keycode:
 			KEY_F3: show_debug()
 			KEY_D: show_deck()
+			KEY_L: show_battle_log()
 			KEY_P: show_plans()
 			KEY_G:
 				if screen == "graveyard": close_modal()
@@ -522,7 +524,7 @@ func _input(event: InputEvent) -> void:
 					confirmation_cancel.call()
 				elif screen == "choice" and action_cancel.is_valid():
 					action_cancel.call()
-				elif screen in ["intel", "inspect", "plans", "graveyard", "debug"]: close_modal()
+				elif screen in ["intel", "inspect", "plans", "log", "graveyard", "debug"]: close_modal()
 				elif screen in ["deck", "menu", "confirm"] or (modal.visible and screen == "map" and battle_active):
 					close_modal()
 				else:
@@ -531,7 +533,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _panel_layout(kind: String) -> void:
-	compact_layout = kind in ["menu", "confirm", "debug_password", "debug", "plans", "choice", "remove_confirm"]
+	compact_layout = kind in ["menu", "confirm", "debug_password", "debug", "log", "plans", "choice", "remove_confirm"]
 	modal.custom_minimum_size = Vector2.ZERO
 	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if compact_layout:
@@ -1162,8 +1164,6 @@ func show_deck() -> void:
 	var tabs := HBoxContainer.new()
 	content.add_child(tabs)
 	button("Deck (%d)" % collection.size(), deck_cards.bind(collection), tabs)
-	if battle_active and saved_content == null:
-		button("Response Graveyard", func(): close_modal(); show_graveyard(), tabs)
 	button("Close", close_modal, tabs)
 	add_sort_controls(false)
 	var scroll := ScrollContainer.new()
@@ -1223,6 +1223,22 @@ func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	add_dossier(row, live_definition(card), "", card)
 	inspected_face = card_image(card._vp.get_texture(), row, 330)
 
+## The combat log has no HUD button; L opens and closes it.
+func show_battle_log() -> void:
+	if _dragging() or screen in ["title", "title_help", "characters", "character_preview"]: return
+	if screen == "log":
+		close_modal()
+		return
+	preserve_pending_decision()
+	reset_panel("BATTLE LOG", "", "log")
+	var log_view := RichTextLabel.new()
+	log_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_view.scroll_following = true
+	log_view.add_theme_font_size_override("normal_font_size", 18)
+	log_view.text = "\n".join(game.battle_log) if not game.battle_log.is_empty() else "No battle events yet."
+	content.add_child(log_view)
+	button("Close  [L / Esc]", close_modal, content)
+
 func show_plans() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty(): return
 	if screen == "plans":
@@ -1244,7 +1260,6 @@ func show_plans() -> void:
 		pick.disabled = not tactic_available(id)
 		pick.get_parent().get_parent().custom_minimum_size.y = 125
 	if not game.plans.armed.is_empty(): content.add_child(label("ARMED: " + str(game.plans.definition(game.plans.armed.kind).name), 18, GOLD))
-	content.add_child(label("One armed tactic per round. Targeted tactics use board clicks. Esc cancels target selection without spending.", 16))
 	button("Return to battle  [P / Esc]", close_modal, content)
 
 func tactic_available(id: String) -> bool:
@@ -1987,7 +2002,7 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 	content.add_child(row)
 	for buff in buff_choices:
 		choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
-	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs) + "\nJANITOR BUFFS: " + buff_summary(game.enemy_buffs), 16, TEAL, true))
+	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs), 16, TEAL, true))
 	var box := centered_content()
 	box.custom_minimum_size.x = 1060
 
