@@ -16,7 +16,7 @@ Each side has four lanes and a hero health pool. A unit attacks the opposing lan
 
 A coin call decides the first side, which switches each round. Both sides play before one combat phase; the first side attacks first. Upkeep and resources resolve at round start. Plans last one combat. The final boss announces a separate pattern after Steve's attacks.
 
-Response starts with three hand cards, an eight-card hand limit and 3 energy capacity. The cap normally grows by 1 after combat to 7 before buffs. Choosing the normal draw costs 1 energy; opening or cancelling its picker is free. Extra draws obey the hand limit.
+Response starts with three hand cards, an eight-card hand limit and 3 energy capacity. The cap normally grows by 1 after combat to 7 before buffs. The normal draw is free: pick any card from the picker. Extra draws obey the hand limit.
 
 Disasters pay Tension for base units and spells. Evolution cards are drawn from a separate pile into the shared enemy hand. Playing an evolution sacrifices deployed allies; it does not charge another Tension payment. Sacrifices remove attacks and blockers, so a larger unit must justify the lost formation.
 
@@ -89,7 +89,7 @@ Battle snapshots are a separate development tool, not the current save format or
 
 Battle adaptations and permanent floor rewards are player-only. Old saves keep any enemy buffs already stored. Normal wins intentionally heal up to 3 HP. Elite and boss wins do not grant that healing. Advancing through `next_floor` separately heals up to 5 HP. Both paths stop at maximum HP and remain part of the balance.
 
-Drops use the visible friendly slot under the cursor. The normal draw picker costs 1 energy only when a card is chosen. Opening or cancelling it is free. Playing that card still costs its listed energy. Attacks cannot target allies, and shared effect text uses the actual upgraded amounts.
+Drops use the visible friendly slot under the cursor. The normal draw picker is free. Playing that card still costs its listed energy. Attacks cannot target allies, and shared effect text uses the actual upgraded amounts.
 
 The twelve-card starter has eleven 1-cost cards and one 2-cost Evacuation Route. It keeps cheap units weak so the early game has playable blockers without free strong units.
 

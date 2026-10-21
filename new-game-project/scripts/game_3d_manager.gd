@@ -8,7 +8,6 @@ const UI = preload("res://scripts/ui_theme.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
 
 const HAND_SIZE_MAX := 8
-const TURN_DRAW_COST := 1
 const HAND_DIST := 3.0        # Smaller hand leaves space for the board and HUD.
 const HAND_Y := -0.86
 const DRAG_BOUNDS := Rect2(-2.45, -1.8, 4.9, 3.6)
@@ -1177,7 +1176,7 @@ func _on_draw_button_pressed() -> void:
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW or get_hand_cards().size() >= HAND_SIZE_MAX: return
 	var choices := deck.filter(func(card): return not is_sealed(card))
-	if choices.is_empty() or preparedness < TURN_DRAW_COST:
+	if choices.is_empty():
 		# Nothing can be drawn, so the turn moves on instead of waiting on the button.
 		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 		_refresh_bars()
@@ -1185,10 +1184,9 @@ func _on_draw_button_pressed() -> void:
 	run_director.choose_card("Pick a card to draw", choices, complete_draw_choice, run_director.close_modal, "")
 
 func complete_draw_choice(definition: Dictionary) -> void:
-	if phase != Phase.PLAYER_DRAW or preparedness < TURN_DRAW_COST: return
+	if phase != Phase.PLAYER_DRAW: return
 	if definition not in deck or is_sealed(definition): return
 	if get_hand_cards().size() >= HAND_SIZE_MAX: return
-	preparedness -= TURN_DRAW_COST
 	deck.erase(definition)
 	run_director.action_cancel = Callable()
 	run_director.close_modal()
