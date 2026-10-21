@@ -115,7 +115,7 @@ func run() -> void:
 	game._on_draw_button_pressed()
 	check(director.modal.visible and director.screen == "choice", "turn draw opens the deck picker")
 	game.complete_draw_choice(game.deck[0])
-	check(game.get_hand_cards().size() == hand_size + 1 and game.preparedness == 2, "picked draw costs 1 energy")
+	check(game.get_hand_cards().size() == hand_size + 1 and game.preparedness == 3, "picked draw is free")
 	check(game.phase == game.Phase.PLAYER_PLAY, "draw completes")
 	check(not game.presentation.draw_reminder.visible, "drawing stops reminder")
 	game._set_phase(game.Phase.PLAYER_DRAW)
