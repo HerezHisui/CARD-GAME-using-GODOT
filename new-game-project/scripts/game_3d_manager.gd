@@ -549,9 +549,18 @@ func hand_parent() -> Node3D:
 func clamp_drag_position(point: Vector3) -> Vector3:
 	return Vector3(clampf(point.x, DRAG_BOUNDS.position.x, DRAG_BOUNDS.end.x), 1.6, clampf(point.z, DRAG_BOUNDS.position.y, DRAG_BOUNDS.end.y))
 
+## Coordinated Response targets pulse red while its board pick is open.
+func _update_target_pulse() -> void:
+	var targets: Array = []
+	if board_input.action.get("kind", "") == "pick" and board_input.action.get("tactic", "") == "coordinate":
+		targets = board_input.action.get("cards", [])
+	for card in get_tree().get_nodes_in_group("cards"):
+		card.set_target_pulse(card in targets)
+
 func _process(_delta: float) -> void:
 	if is_instance_valid(opponent_hand): opponent_hand.refresh()
 	update_hand_hover(get_viewport().get_mouse_position())
+	_update_target_pulse()
 	if phase == Phase.COMBAT:
 		if not is_hand_tucked:
 			set_hand_tucked(true)
