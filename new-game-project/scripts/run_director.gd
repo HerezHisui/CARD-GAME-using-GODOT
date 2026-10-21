@@ -7,6 +7,7 @@ const Rules = preload("res://scripts/battle_rules.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
 const Routes = preload("res://scripts/run_routes.gd")
 const RunDebug = preload("res://scripts/run_debug.gd")
+const Shop = preload("res://scripts/run_shop.gd")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -1554,94 +1555,21 @@ func show_upgrade_preview(index: int) -> void:
 	button("Confirm upgrade", upgrade.bind(index), content)
 	button("Back to workshop", show_upgrade, content)
 
-func show_shop() -> void:
-	var key := "%d:%d" % [floor_number, current]
-	if shop_key != key:
-		shop_key = key
-		shop_stock = offers(4)
-		if floor_number >= 2:
-			var remainder := shop_stock.filter(func(card): return card.id not in ["barrier", "alarm_sweep"])
-			shop_stock.clear()
-			for id in ["barrier", "alarm_sweep"]:
-				for card in catalog:
-					if card.id == id:
-						shop_stock.append(card.duplicate(true))
-						break
-			shop_stock.append(remainder[0])
-			shop_stock.append(remainder[1])
-		shop_purchased.clear()
-	reset_panel("THE SUPPLY ROOM", "Buy as many stocked items as you can afford. Card prices scale with power. First aid restores up to 5 HP for 15 supplies. Stock stays fixed.", "shop")
-	var row := HBoxContainer.new()
-	content.add_child(row)
-	for card in shop_stock:
-		var sold: bool = card.id in shop_purchased
-		var price := shop_price(card)
-		_card_tile(card, row, buy.bind(card) if not sold and coins >= price else Callable(), "Buy card · -%d supplies" % price)
-		if sold: row.get_child(row.get_child_count() - 1).get_child(0).add_child(label("SOLD OUT", 16, GOLD))
-		elif coins < price: row.get_child(row.get_child_count() - 1).get_child(0).add_child(label("Need %d supplies" % price, 14, UI.MUTED))
-	button("First aid · +%d HP · -15 supplies" % healing_gain(5), buy_heal, content).disabled = coins < 15 or game.player_hp >= game.hero_max_hp()
-	button("Destroy 1 card · -30 supplies", show_remove_cards.bind("shop"), content).disabled = coins < 30 or collection.size() <= 5
-	button("Leave shop", finish_room, content)
+func show_shop() -> void: Shop.show_shop(self)
 
-func shop_price(card: Dictionary) -> int:
-	return CardRules.shop_price(card)
+func shop_price(card: Dictionary) -> int: return Shop.shop_price(card)
 
-func buy(card: Dictionary) -> void:
-	var stocked := shop_stock.filter(func(item): return item.id == card.id)
-	if stocked.is_empty() or card.id in shop_purchased: return
-	var definition: Dictionary = stocked[0]
-	var price := shop_price(definition)
-	if coins < price: return
-	coins -= price
-	add_collection_card(definition.duplicate(true))
-	shop_purchased.append(definition.id)
-	show_shop()
+func buy(card: Dictionary) -> void: Shop.buy(self, card)
 
-func buy_heal() -> void:
-	if coins < 15 or game.player_hp >= game.hero_max_hp(): return
-	coins -= 15
-	game.player_hp = mini(game.hero_max_hp(), game.player_hp + 5)
-	show_shop()
+func buy_heal() -> void: Shop.buy_heal(self)
 
-func show_remove_cards(origin: String) -> void:
-	if battle_active or origin not in ["shop", "rest", "event"]: return
-	remove_origin = origin
-	reset_panel("REMOVE A CARD", "Choose the exact copy to retire. Keep at least 5 cards. " + ("Removal costs 30 supplies; the shop stays open." if origin == "shop" else ("This replaces healing or training at this rest node." if origin == "rest" else "Trade one card for 25 supplies.")), "remove")
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 4
-	scroll.add_child(grid)
-	fit_card_grid(grid, scroll)
-	for i in sorted_indices(collection, deck_sort, deck_descending): _card_tile(collection[i], grid, preview_remove.bind(i), "Choose this copy")
-	button("Cancel", cancel_remove, content)
+func show_remove_cards(origin: String) -> void: Shop.show_remove_cards(self, origin)
 
-func preview_remove(index: int) -> void:
-	if index < 0 or index >= collection.size(): return
-	remove_index = index
-	reset_panel("DESTROY THIS COPY?", "This removes the card from your run deck. Your other copies are kept.", "remove_confirm")
-	_card_tile(collection[index], content)
-	button("Destroy card · " + ("-30 supplies" if remove_origin == "shop" else ("+25 supplies" if remove_origin == "event" else "free")), confirm_remove, content).disabled = collection.size() <= 5 or (remove_origin == "shop" and coins < 30)
-	button("Back", show_remove_cards.bind(remove_origin), content)
+func preview_remove(index: int) -> void: Shop.preview_remove(self, index)
 
-func confirm_remove() -> void:
-	if screen != "remove_confirm" or collection.size() <= 5 or remove_index < 0 or remove_index >= collection.size(): return
-	if remove_origin == "shop" and coins < 30: return
-	if remove_origin == "shop": coins -= 30
-	collection.remove_at(remove_index)
-	remove_index = -1
-	if remove_origin == "shop": show_shop()
-	else:
-		if remove_origin == "event":
-			coins += 25
-			event_resolved = true
-		finish_room()
+func confirm_remove() -> void: Shop.confirm_remove(self)
 
-func cancel_remove() -> void:
-	if remove_origin == "shop": show_shop()
-	elif remove_origin == "event": show_event()
-	else: show_rest()
+func cancel_remove() -> void: Shop.cancel_remove(self)
 
 func catalog_card(id: String) -> Dictionary:
 	for card in catalog:
