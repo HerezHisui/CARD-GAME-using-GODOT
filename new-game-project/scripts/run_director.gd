@@ -1278,7 +1278,8 @@ func begin_tactic(id: String) -> void:
 	close_modal()
 	if id == "coordinate":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
-		game.board_input.pick("Click one ally. It and the nearest ally on each side gain +1 attack this combat. Esc cancels.", allies, arm_target_tactic.bind("coordinate"), Callable())
+		game.board_input.pick("Click one ally. It and the nearest ally on each side gain +1 attack this combat. Esc cancels.",
+			allies, arm_target_tactic.bind("coordinate"), Callable(), "coordinate")
 	elif id == "extract":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
 		game.board_input.pick("Click the ally to protect with Emergency Extraction. Esc cancels.", allies, select_extraction_ally, Callable())

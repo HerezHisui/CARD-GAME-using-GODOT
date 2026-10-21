@@ -13,9 +13,10 @@ func setup(manager: Node) -> void:
 
 func clear() -> void: action.clear()
 
-func pick(title: String, cards: Array, callback: Callable, cancel_callback: Callable) -> void:
+func pick(title: String, cards: Array, callback: Callable, cancel_callback: Callable, tactic: String = "") -> void:
 	game.set_board_view(true)
-	action = {"kind":"pick", "title":title, "cards":cards.duplicate(), "callback":callback, "cancel":cancel_callback}
+	action = {"kind":"pick", "title":title, "cards":cards.duplicate(), "callback":callback, "cancel":cancel_callback,
+		"tactic":tactic}
 
 func relocation(source: Node) -> void:
 	game.set_board_view(true)

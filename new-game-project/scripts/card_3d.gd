@@ -46,6 +46,7 @@ var last_attack_turn := -1
 
 var _tween: Tween
 var _vp: SubViewport
+var _pulse_tween: Tween
 var _hp_label: Label
 var _atk_label: Label
 var _cost_label: Label
@@ -562,6 +563,7 @@ func sacrifice_dissolve() -> void:
 	current_slot = null
 	remove_from_group("cards")
 	if _tween: _tween.kill()
+	set_target_pulse(false)
 	mesh.visible = false
 	spawn_popup("SACRIFICED", UI.DANGER)
 	_tween = create_tween().set_parallel(true)
@@ -645,6 +647,7 @@ func _die() -> void:
 	current_slot = null   # frees the slot immediately
 	remove_from_group("cards")
 	if _tween: _tween.kill()
+	set_target_pulse(false)
 	mesh.visible = false
 	var dissolve := ShaderMaterial.new()
 	dissolve.shader = preload("res://assets/card_dissolve.gdshader")
@@ -694,6 +697,19 @@ func effective_attack() -> int:
 
 func refresh_cost() -> void:
 	_refresh_face()
+
+## Red pulse while this card is a Coordinated Response target. Safe to call every frame.
+func set_target_pulse(on: bool) -> void:
+	if on == (_pulse_tween != null): return
+	if on:
+		# Bound to this card, so the tween ends when the card is freed.
+		_pulse_tween = create_tween().set_loops()
+		_pulse_tween.tween_property(art_sprite, "modulate", UI.DANGER, 0.45)
+		_pulse_tween.tween_property(art_sprite, "modulate", Color.WHITE, 0.45)
+	else:
+		_pulse_tween.kill()
+		_pulse_tween = null
+		art_sprite.modulate = Color.WHITE
 
 func set_plan_attack_bonus(amount: int) -> void:
 	plan_attack_bonus = amount
