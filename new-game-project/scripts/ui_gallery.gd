@@ -5,6 +5,18 @@ extends Control
 const UI = preload("res://scripts/ui_theme.gd")
 
 func _ready() -> void:
+	apply_styles()
+	# Follow edits to the theme file live: the "Game" palette feeds the code colors below.
+	if theme and not theme.changed.is_connected(_on_theme_changed): theme.changed.connect(_on_theme_changed)
+
+func _on_theme_changed() -> void:
+	# Reread the palette from the edited theme, then drop styles cached with the old colors.
+	UI._static_init()
+	UI.card_styles.clear()
+	UI.icons.clear()
+	apply_styles()
+
+func apply_styles() -> void:
 	# Same as run_director.gd _gauge(): energy uses RESPONSE, tension uses DANGER.
 	for pair in [["EnergyBar", UI.RESPONSE], ["TensionBar", UI.DANGER]]:
 		var bar: ProgressBar = find_child(pair[0], true, false)
@@ -25,6 +37,11 @@ func _ready() -> void:
 	# Same as run_director.gd modals: gold-edged panel with the industrial trim.
 	var dialog: Control = find_child("DialogBox", true, false)
 	dialog.add_theme_stylebox_override("panel", UI.panel(UI.PANEL, UI.GOLD))
+	# decorate() skips a control that already has its trim, so rebuild it with the new colors.
+	var old_trim := dialog.get_node_or_null("IndustrialTrim")
+	if old_trim:
+		dialog.remove_child(old_trim)
+		old_trim.queue_free()
 	UI.decorate(dialog)
 	# Same as run_director.gd label(): sizes of 22 and up use the heading font.
 	for label in find_children("*", "Label", true, false):

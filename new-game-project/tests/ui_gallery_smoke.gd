@@ -30,6 +30,7 @@ func run() -> void:
 		check(gallery.find_child(group, true, false) != null, group + " group exists")
 	check_previews(gallery)
 	check_game_styles(gallery)
+	await check_live_palette(gallery)
 	var main_scene: String = ProjectSettings.get_setting("application/run/main_scene")
 	check(not main_scene.contains("ui_gallery"), "game never starts the gallery")
 	if failures == 0: print("PASS: ui gallery loads with every group")
@@ -44,6 +45,20 @@ func check_previews(gallery: Control) -> void:
 	for type in PREVIEW_TYPES:
 		for state in PREVIEW_STATES:
 			check(found.has("%s/%s" % [type, state]), "%s %s preview exists" % [type, state])
+
+## Edits the loaded theme in memory only (never saved), like recoloring it in the editor.
+func check_live_palette(gallery: Control) -> void:
+	var file: Theme = gallery.theme
+	var bar: ProgressBar = gallery.find_child("EnergyBar", true, false)
+	var original := file.get_color("response", "Game")
+	file.set_color("response", "Game", Color("123456"))
+	await process_frame
+	var fill: StyleBoxFlat = bar.get_theme_stylebox("fill")
+	check(fill.bg_color.to_html(false) == "123456", "energy gauge follows a palette edit")
+	file.set_color("response", "Game", original)
+	await process_frame
+	fill = bar.get_theme_stylebox("fill")
+	check(fill.bg_color.is_equal_approx(original), "energy gauge returns when the edit is undone")
 
 func check_game_styles(gallery: Control) -> void:
 	for gauge in ["EnergyBar", "TensionBar", "PlayerHealthBar", "EnemyHealthBar"]:
