@@ -1,0 +1,482 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+[ext_resource type="Script" path="res://scripts/ui_gallery.gd" id="2_gallery"]
+[ext_resource type="Script" path="res://scripts/ui_state_preview.gd" id="3_preview"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_radio"]
+
+[node name="UIGallery" type="Control"]
+theme = ExtResource("1_theme")
+script = ExtResource("2_gallery")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="Panel" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+horizontal_scroll_mode = 0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Scroll"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 32
+
+[node name="Groups" type="VBoxContainer" parent="Scroll/Margin"]
+theme_override_constants/separation = 28
+
+[node name="Buttons" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/Buttons"]
+text = "BUTTONS"
+theme_override_font_sizes/font_size = 22
+
+[node name="ButtonRow" type="HBoxContainer" parent="Scroll/Margin/Groups/Buttons"]
+
+[node name="Kind" type="Label" parent="Scroll/Margin/Groups/Buttons/ButtonRow"]
+custom_minimum_size = Vector2(110, 0)
+text = "Button"
+theme_override_font_sizes/font_size = 14
+
+[node name="Normal" type="Control" parent="Scroll/Margin/Groups/Buttons/ButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "Button"
+state = "normal"
+text = "Normal"
+
+[node name="Hover" type="Control" parent="Scroll/Margin/Groups/Buttons/ButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "Button"
+state = "hover"
+text = "Hover"
+
+[node name="Pressed" type="Control" parent="Scroll/Margin/Groups/Buttons/ButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "Button"
+state = "pressed"
+text = "Pressed"
+
+[node name="Disabled" type="Control" parent="Scroll/Margin/Groups/Buttons/ButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "Button"
+state = "disabled"
+text = "Disabled"
+
+[node name="Live" type="Button" parent="Scroll/Margin/Groups/Buttons/ButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+text = "Live (hover me)"
+
+[node name="LiveDisabled" type="Button" parent="Scroll/Margin/Groups/Buttons/ButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+disabled = true
+text = "Disabled"
+
+[node name="PrimaryButtonRow" type="HBoxContainer" parent="Scroll/Margin/Groups/Buttons"]
+
+[node name="Kind" type="Label" parent="Scroll/Margin/Groups/Buttons/PrimaryButtonRow"]
+custom_minimum_size = Vector2(110, 0)
+text = "Primary"
+theme_override_font_sizes/font_size = 14
+
+[node name="Normal" type="Control" parent="Scroll/Margin/Groups/Buttons/PrimaryButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "PrimaryButton"
+state = "normal"
+text = "Normal"
+
+[node name="Hover" type="Control" parent="Scroll/Margin/Groups/Buttons/PrimaryButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "PrimaryButton"
+state = "hover"
+text = "Hover"
+
+[node name="Pressed" type="Control" parent="Scroll/Margin/Groups/Buttons/PrimaryButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "PrimaryButton"
+state = "pressed"
+text = "Pressed"
+
+[node name="Disabled" type="Control" parent="Scroll/Margin/Groups/Buttons/PrimaryButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "PrimaryButton"
+state = "disabled"
+text = "Disabled"
+
+[node name="Live" type="Button" parent="Scroll/Margin/Groups/Buttons/PrimaryButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+text = "Live (hover me)"
+theme_type_variation = &"PrimaryButton"
+
+[node name="LiveDisabled" type="Button" parent="Scroll/Margin/Groups/Buttons/PrimaryButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+disabled = true
+text = "Disabled"
+theme_type_variation = &"PrimaryButton"
+
+[node name="TerminalButtonRow" type="HBoxContainer" parent="Scroll/Margin/Groups/Buttons"]
+
+[node name="Kind" type="Label" parent="Scroll/Margin/Groups/Buttons/TerminalButtonRow"]
+custom_minimum_size = Vector2(110, 0)
+text = "Terminal"
+theme_override_font_sizes/font_size = 14
+
+[node name="Normal" type="Control" parent="Scroll/Margin/Groups/Buttons/TerminalButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "TerminalButton"
+state = "normal"
+text = "Normal"
+
+[node name="Hover" type="Control" parent="Scroll/Margin/Groups/Buttons/TerminalButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "TerminalButton"
+state = "hover"
+text = "Hover"
+
+[node name="Pressed" type="Control" parent="Scroll/Margin/Groups/Buttons/TerminalButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "TerminalButton"
+state = "pressed"
+text = "Pressed"
+
+[node name="Disabled" type="Control" parent="Scroll/Margin/Groups/Buttons/TerminalButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+script = ExtResource("3_preview")
+theme_type = "TerminalButton"
+state = "disabled"
+text = "Disabled"
+
+[node name="Live" type="Button" parent="Scroll/Margin/Groups/Buttons/TerminalButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+text = "Live (hover me)"
+theme_type_variation = &"TerminalButton"
+
+[node name="LiveDisabled" type="Button" parent="Scroll/Margin/Groups/Buttons/TerminalButtonRow"]
+custom_minimum_size = Vector2(150, 48)
+disabled = true
+text = "Disabled"
+theme_type_variation = &"TerminalButton"
+
+[node name="Labels" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/Labels"]
+text = "LABELS"
+theme_override_font_sizes/font_size = 22
+
+[node name="Sizes" type="HBoxContainer" parent="Scroll/Margin/Groups/Labels"]
+theme_override_constants/separation = 24
+
+[node name="Size13" type="Label" parent="Scroll/Margin/Groups/Labels/Sizes"]
+text = "Text 13"
+theme_override_font_sizes/font_size = 13
+
+[node name="Size14" type="Label" parent="Scroll/Margin/Groups/Labels/Sizes"]
+text = "Text 14"
+theme_override_font_sizes/font_size = 14
+
+[node name="Size16" type="Label" parent="Scroll/Margin/Groups/Labels/Sizes"]
+text = "Text 16"
+theme_override_font_sizes/font_size = 16
+
+[node name="Size18" type="Label" parent="Scroll/Margin/Groups/Labels/Sizes"]
+text = "Text 18"
+theme_override_font_sizes/font_size = 18
+
+[node name="Size20" type="Label" parent="Scroll/Margin/Groups/Labels/Sizes"]
+text = "Text 20"
+theme_override_font_sizes/font_size = 20
+
+[node name="Size22" type="Label" parent="Scroll/Margin/Groups/Labels/Sizes"]
+text = "TEXT 22"
+theme_override_font_sizes/font_size = 22
+
+[node name="Size30" type="Label" parent="Scroll/Margin/Groups/Labels/Sizes"]
+text = "TEXT 30"
+theme_override_font_sizes/font_size = 30
+
+[node name="Rich" type="RichTextLabel" parent="Scroll/Margin/Groups/Labels"]
+custom_minimum_size = Vector2(420, 0)
+bbcode_enabled = true
+fit_content = true
+text = "[b]Bold rich text[/b] and normal rich text, as in the card inspection panel."
+
+[node name="Panels" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/Panels"]
+text = "PANELS"
+theme_override_font_sizes/font_size = 22
+
+[node name="Row" type="HBoxContainer" parent="Scroll/Margin/Groups/Panels"]
+
+[node name="PanelContainer" type="PanelContainer" parent="Scroll/Margin/Groups/Panels/Row"]
+custom_minimum_size = Vector2(220, 80)
+
+[node name="Text" type="Label" parent="Scroll/Margin/Groups/Panels/Row/PanelContainer"]
+text = "PanelContainer"
+
+[node name="Panel" type="Panel" parent="Scroll/Margin/Groups/Panels/Row"]
+custom_minimum_size = Vector2(160, 80)
+
+[node name="Separator" type="HSeparator" parent="Scroll/Margin/Groups/Panels"]
+custom_minimum_size = Vector2(420, 8)
+size_flags_horizontal = 0
+
+[node name="Gauges" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/Gauges"]
+text = "GAUGES"
+theme_override_font_sizes/font_size = 22
+
+[node name="Row" type="HBoxContainer" parent="Scroll/Margin/Groups/Gauges"]
+theme_override_constants/separation = 32
+
+[node name="Energy" type="VBoxContainer" parent="Scroll/Margin/Groups/Gauges/Row"]
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Scroll/Margin/Groups/Gauges/Row/Energy"]
+text = "ENERGY  3 / 7"
+theme_override_font_sizes/font_size = 14
+
+[node name="EnergyBar" type="ProgressBar" parent="Scroll/Margin/Groups/Gauges/Row/Energy"]
+custom_minimum_size = Vector2(195, 20)
+max_value = 7.0
+value = 3.0
+show_percentage = false
+
+[node name="Tension" type="VBoxContainer" parent="Scroll/Margin/Groups/Gauges/Row"]
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Scroll/Margin/Groups/Gauges/Row/Tension"]
+text = "TENSION  2 / 4"
+theme_override_font_sizes/font_size = 14
+
+[node name="TensionBar" type="ProgressBar" parent="Scroll/Margin/Groups/Gauges/Row/Tension"]
+custom_minimum_size = Vector2(195, 20)
+max_value = 4.0
+value = 2.0
+show_percentage = false
+
+[node name="PlayerHealth" type="Control" parent="Scroll/Margin/Groups/Gauges/Row"]
+custom_minimum_size = Vector2(240, 28)
+
+[node name="LagBar" type="ProgressBar" parent="Scroll/Margin/Groups/Gauges/Row/PlayerHealth"]
+max_value = 20.0
+value = 16.0
+show_percentage = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PlayerHealthBar" type="ProgressBar" parent="Scroll/Margin/Groups/Gauges/Row/PlayerHealth"]
+max_value = 20.0
+value = 13.0
+show_percentage = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Value" type="Label" parent="Scroll/Margin/Groups/Gauges/Row/PlayerHealth"]
+text = "13 / 20"
+horizontal_alignment = 1
+vertical_alignment = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="EnemyHealth" type="Control" parent="Scroll/Margin/Groups/Gauges/Row"]
+custom_minimum_size = Vector2(240, 28)
+
+[node name="LagBar" type="ProgressBar" parent="Scroll/Margin/Groups/Gauges/Row/EnemyHealth"]
+max_value = 20.0
+value = 16.0
+show_percentage = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="EnemyHealthBar" type="ProgressBar" parent="Scroll/Margin/Groups/Gauges/Row/EnemyHealth"]
+max_value = 20.0
+value = 13.0
+show_percentage = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Value" type="Label" parent="Scroll/Margin/Groups/Gauges/Row/EnemyHealth"]
+text = "13 / 20"
+horizontal_alignment = 1
+vertical_alignment = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CardPlates" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/CardPlates"]
+text = "CARD PLATES"
+theme_override_font_sizes/font_size = 22
+
+[node name="Row" type="HBoxContainer" parent="Scroll/Margin/Groups/CardPlates"]
+theme_override_constants/separation = 24
+
+[node name="ResponsePlate" type="PanelContainer" parent="Scroll/Margin/Groups/CardPlates/Row"]
+custom_minimum_size = Vector2(132, 180)
+
+[node name="Face" type="VBoxContainer" parent="Scroll/Margin/Groups/CardPlates/Row/ResponsePlate"]
+
+[node name="CostBadge" type="Panel" parent="Scroll/Margin/Groups/CardPlates/Row/ResponsePlate/Face"]
+custom_minimum_size = Vector2(36, 36)
+size_flags_horizontal = 0
+
+[node name="AffinityBand" type="Label" parent="Scroll/Margin/Groups/CardPlates/Row/ResponsePlate/Face"]
+text = "EVAC"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+
+[node name="Name" type="Label" parent="Scroll/Margin/Groups/CardPlates/Row/ResponsePlate/Face"]
+text = "Quick Dash"
+horizontal_alignment = 1
+
+[node name="DisasterPlate" type="PanelContainer" parent="Scroll/Margin/Groups/CardPlates/Row"]
+custom_minimum_size = Vector2(132, 180)
+
+[node name="Name" type="Label" parent="Scroll/Margin/Groups/CardPlates/Row/DisasterPlate"]
+text = "Ember"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Dialog" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/Dialog"]
+text = "DIALOG"
+theme_override_font_sizes/font_size = 22
+
+[node name="DialogBox" type="PanelContainer" parent="Scroll/Margin/Groups/Dialog"]
+custom_minimum_size = Vector2(420, 0)
+size_flags_horizontal = 0
+
+[node name="Body" type="VBoxContainer" parent="Scroll/Margin/Groups/Dialog/DialogBox"]
+
+[node name="Title" type="Label" parent="Scroll/Margin/Groups/Dialog/DialogBox/Body"]
+text = "ABANDON THIS RUN?"
+theme_override_font_sizes/font_size = 22
+
+[node name="Text" type="Label" parent="Scroll/Margin/Groups/Dialog/DialogBox/Body"]
+custom_minimum_size = Vector2(380, 0)
+autowrap_mode = 3
+text = "Your saved deck and battle progress will be cleared."
+
+[node name="Actions" type="HBoxContainer" parent="Scroll/Margin/Groups/Dialog/DialogBox/Body"]
+
+[node name="Confirm" type="Button" parent="Scroll/Margin/Groups/Dialog/DialogBox/Body/Actions"]
+theme_type_variation = &"PrimaryButton"
+text = "Confirm"
+
+[node name="Cancel" type="Button" parent="Scroll/Margin/Groups/Dialog/DialogBox/Body/Actions"]
+text = "Cancel"
+
+[node name="Tooltip" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/Tooltip"]
+text = "TOOLTIP"
+theme_override_font_sizes/font_size = 22
+
+[node name="Row" type="HBoxContainer" parent="Scroll/Margin/Groups/Tooltip"]
+
+[node name="TooltipPanel" type="PanelContainer" parent="Scroll/Margin/Groups/Tooltip/Row"]
+theme_type_variation = &"TooltipPanel"
+size_flags_vertical = 0
+
+[node name="Text" type="Label" parent="Scroll/Margin/Groups/Tooltip/Row/TooltipPanel"]
+theme_type_variation = &"TooltipLabel"
+text = "Tooltip text"
+
+[node name="HoverMe" type="Button" parent="Scroll/Margin/Groups/Tooltip/Row"]
+tooltip_text = "Tooltip text"
+text = "Hover for tooltip"
+
+[node name="Toggles" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/Toggles"]
+text = "CHECKBOX AND RADIO"
+theme_override_font_sizes/font_size = 22
+
+[node name="Row" type="HBoxContainer" parent="Scroll/Margin/Groups/Toggles"]
+theme_override_constants/separation = 24
+
+[node name="Checked" type="CheckBox" parent="Scroll/Margin/Groups/Toggles/Row"]
+button_pressed = true
+text = "Checked"
+
+[node name="Unchecked" type="CheckBox" parent="Scroll/Margin/Groups/Toggles/Row"]
+text = "Unchecked"
+
+[node name="CheckDisabled" type="CheckBox" parent="Scroll/Margin/Groups/Toggles/Row"]
+disabled = true
+button_pressed = true
+text = "Disabled"
+
+[node name="RadioOn" type="CheckBox" parent="Scroll/Margin/Groups/Toggles/Row"]
+button_pressed = true
+button_group = SubResource("ButtonGroup_radio")
+text = "Radio on"
+
+[node name="RadioOff" type="CheckBox" parent="Scroll/Margin/Groups/Toggles/Row"]
+button_group = SubResource("ButtonGroup_radio")
+text = "Radio off"
+
+[node name="ScrollBars" type="VBoxContainer" parent="Scroll/Margin/Groups"]
+
+[node name="Heading" type="Label" parent="Scroll/Margin/Groups/ScrollBars"]
+text = "SCROLLBARS"
+theme_override_font_sizes/font_size = 22
+
+[node name="Row" type="HBoxContainer" parent="Scroll/Margin/Groups/ScrollBars"]
+theme_override_constants/separation = 24
+
+[node name="Horizontal" type="HScrollBar" parent="Scroll/Margin/Groups/ScrollBars/Row"]
+custom_minimum_size = Vector2(240, 16)
+size_flags_vertical = 4
+page = 30.0
+
+[node name="Vertical" type="VScrollBar" parent="Scroll/Margin/Groups/ScrollBars/Row"]
+custom_minimum_size = Vector2(16, 120)
+page = 30.0
