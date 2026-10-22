@@ -58,7 +58,7 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 24)
 	center.add_child(box)
-	var title = game.run_director.label("CALL THE COIN", 34, game.run_director.GOLD)
+	var title = game.run_director.label("CALL THE COIN", 34, UI.GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var hint = game.run_director.label("Choose a side. Match the toss to take the first turn.", 19)

@@ -1,31 +1,26 @@
 extends RefCounted
 ## Shared interface tokens and cached native control styles.
-const BACKGROUND := Color("0b0b0d")
-const PANEL := Color("1e1c20")
-const RAISED := Color("2c292e")
-const INSET := Color("111014")
-const BRONZE := Color("c69c49")
-const GOLD := Color("e0b963")
-const CRIMSON := Color("8b1e24")
-const ACTION := Color("b8252b")
-const AMBER := Color("d99b26")
-const TEXT := Color("eae4dc")
-const MUTED := Color("8c867e")
-const DISABLED := Color("77716c")
-const RESPONSE := GOLD
-const DANGER := Color("ed8985")
-const AFFINITIES := {
+## Palette colors. These are today's values; _static_init() replaces them with the
+## "Game" colors from the theme file, so they can be edited in the editor.
+static var BACKGROUND := Color("0b0b0d")
+static var PANEL := Color("1e1c20")
+static var RAISED := Color("2c292e")
+static var INSET := Color("111014")
+static var BRONZE := Color("c69c49")
+static var GOLD := Color("e0b963")
+static var CRIMSON := Color("8b1e24")
+static var ACTION := Color("b8252b")
+static var AMBER := Color("d99b26")
+static var TEXT := Color("eae4dc")
+static var MUTED := Color("8c867e")
+static var DISABLED := Color("77716c")
+static var RESPONSE := GOLD
+static var DANGER := Color("ed8985")
+static var AFFINITIES := {
 	"evac": Color("91ad59"), "douse": Color("66a9b4"),
 	"clearance": Color("da9148"), "brace": Color("b8bcc5"),
 	"earthquake": Color("c2aa57"), "fire": Color("d65349"),
 	"flood": Color("598dc3"), "typhoon": Color("a47bc1")
-}
-## Code palette, saved as theme type "Game" so it can be edited in the theme file.
-const PALETTE := {
-	"background": BACKGROUND, "panel": PANEL, "raised": RAISED, "inset": INSET,
-	"bronze": BRONZE, "gold": GOLD, "crimson": CRIMSON, "action": ACTION,
-	"amber": AMBER, "text": TEXT, "muted": MUTED, "disabled": DISABLED,
-	"response": RESPONSE, "danger": DANGER
 }
 const BODY_SIZE := 18
 const SMALL_SIZE := 14
@@ -36,6 +31,40 @@ static var body_font: SystemFont
 static var heading_font: SystemFont
 static var icons: Dictionary = {}
 static var card_styles: Dictionary = {}
+
+static func _static_init() -> void:
+	var file: Theme = load(THEME_PATH) if ResourceLoader.exists(THEME_PATH) else null
+	BACKGROUND = _game_color(file, "background", BACKGROUND)
+	PANEL = _game_color(file, "panel", PANEL)
+	RAISED = _game_color(file, "raised", RAISED)
+	INSET = _game_color(file, "inset", INSET)
+	BRONZE = _game_color(file, "bronze", BRONZE)
+	GOLD = _game_color(file, "gold", GOLD)
+	CRIMSON = _game_color(file, "crimson", CRIMSON)
+	ACTION = _game_color(file, "action", ACTION)
+	AMBER = _game_color(file, "amber", AMBER)
+	TEXT = _game_color(file, "text", TEXT)
+	MUTED = _game_color(file, "muted", MUTED)
+	DISABLED = _game_color(file, "disabled", DISABLED)
+	# Read after GOLD, so a file without "response" still matches gold.
+	RESPONSE = _game_color(file, "response", GOLD)
+	DANGER = _game_color(file, "danger", DANGER)
+	for element in AFFINITIES:
+		AFFINITIES[element] = _game_color(file, "affinity_" + element, AFFINITIES[element])
+
+## A "Game" color from the theme file, or the fallback when the file or the color is missing.
+static func _game_color(file: Theme, color_name: String, fallback: Color) -> Color:
+	if file == null or not file.has_color(color_name, "Game"): return fallback
+	return file.get_color(color_name, "Game")
+
+## Code palette, saved as theme type "Game" so it can be edited in the theme file.
+static func palette() -> Dictionary:
+	return {
+		"background": BACKGROUND, "panel": PANEL, "raised": RAISED, "inset": INSET,
+		"bronze": BRONZE, "gold": GOLD, "crimson": CRIMSON, "action": ACTION,
+		"amber": AMBER, "text": TEXT, "muted": MUTED, "disabled": DISABLED,
+		"response": RESPONSE, "danger": DANGER
+	}
 
 static func font(heading: bool = false) -> SystemFont:
 	if body_font == null:
@@ -217,7 +246,8 @@ static func build_theme() -> Theme:
 	theme.set_stylebox("fill", "ProgressBar", bar(GOLD))
 	for type in ["VBoxContainer", "HBoxContainer"]: theme.set_constant("separation", type, 12)
 	for direction in ["h_separation", "v_separation"]: theme.set_constant(direction, "GridContainer", 12)
-	for color_name in PALETTE: theme.set_color(color_name, "Game", PALETTE[color_name])
+	var colors := palette()
+	for color_name in colors: theme.set_color(color_name, "Game", colors[color_name])
 	for element in AFFINITIES: theme.set_color("affinity_" + element, "Game", AFFINITIES[element])
 	return theme
 

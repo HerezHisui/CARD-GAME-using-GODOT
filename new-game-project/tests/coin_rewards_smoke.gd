@@ -16,7 +16,7 @@ func capture(name: String) -> void:
 
 func banner_style_checks() -> void:
 	for entry in [true, false]:
-		game.presentation.banner("DISASTER ENCOUNTER", "Prepare your formation", director.GOLD, entry)
+		game.presentation.banner("DISASTER ENCOUNTER", "Prepare your formation", director.UI.GOLD, entry)
 		var banner: PanelContainer = game.presentation.banner_node
 		var style: StyleBoxFlat = banner.get_theme_stylebox("panel")
 		var strip: ColorRect = banner.get_node("BannerStrip")

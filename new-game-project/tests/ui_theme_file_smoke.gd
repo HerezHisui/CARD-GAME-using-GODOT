@@ -1,4 +1,5 @@
-# Covers: data/ui_theme.tres matches the theme ui_theme.gd builds in code.
+# Covers: data/ui_theme.tres has the same structure as the theme ui_theme.gd builds in code.
+# Colors are not compared here, so the file can be recolored; ui_palette_smoke checks the palette.
 extends SceneTree
 
 const UI = preload("res://scripts/ui_theme.gd")
@@ -29,7 +30,7 @@ func run() -> void:
 	for type in built.get_type_list():
 		check(saved.get_type_variation_base(type) == built.get_type_variation_base(type), type + " variation base")
 		for kind in KINDS: compare_kind(saved, built, type, kind)
-	if failures == 0: print("PASS: ui_theme.tres matches the code-built theme")
+	if failures == 0: print("PASS: ui_theme.tres matches the code-built theme structure")
 	quit(1 if failures else 0)
 
 func compare_kind(saved: Theme, built: Theme, type: String, kind: String) -> void:
@@ -41,14 +42,14 @@ func compare_kind(saved: Theme, built: Theme, type: String, kind: String) -> voi
 
 func same_value(saved: Variant, built: Variant, label: String) -> void:
 	if built is Texture2D:
-		check(saved is Texture2D and same_pixels(saved, built), label + " pixels")
+		check(saved is Texture2D and saved.get_size() == built.get_size(), label + " size")
 	elif built is Resource:
 		check(saved is Resource and saved.get_class() == built.get_class(), label + " class")
 		if saved is Resource: same_stored_properties(saved, built, label)
 	elif built is float:
 		check(saved is float and is_equal_approx(saved, built), label)
 	elif built is Color:
-		check(saved is Color and saved.is_equal_approx(built), label)
+		check(saved is Color, label + " is a color")
 	else:
 		check(saved == built, label)
 
@@ -58,14 +59,6 @@ func same_stored_properties(saved: Resource, built: Resource, label: String) -> 
 		if not (property.usage & PROPERTY_USAGE_STORAGE): continue
 		if name.begins_with("resource_") or name == "script": continue
 		same_value(saved.get(name), built.get(name), label + "." + name)
-
-func same_pixels(saved: Texture2D, built: Texture2D) -> bool:
-	var left := saved.get_image()
-	var right := built.get_image()
-	if left == null or right == null or left.get_size() != right.get_size(): return false
-	left.convert(Image.FORMAT_RGBA8)
-	right.convert(Image.FORMAT_RGBA8)
-	return left.get_data() == right.get_data()
 
 func sorted(values: Variant) -> Array:
 	var result: Array = Array(values)

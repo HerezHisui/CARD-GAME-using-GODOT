@@ -18,7 +18,6 @@ const FACE_W := 264
 const FACE_H := 360
 const FACE_RENDER_SCALE := 2
 
-const ELEMENT_COLORS := UI.AFFINITIES
 
 ## Intentionally blank until final artwork is supplied.
 const ART := {}
@@ -769,10 +768,10 @@ static func _card_back() -> Texture2D:
 	# Corner marks: flame, wave, fault, and spiral; no front illustration.
 	for y in range(-9, 10):
 		for x in range(-9, 10):
-			if abs(x) < floori((9 - y) / 3.0) and y > -8: img.set_pixel(22 + x, 24 + y, ELEMENT_COLORS.fire)
-			if absf(y - sin(x * 0.5) * 3) < 1.5 or absf(y - sin(x * 0.5) * 3 - 5) < 1: img.set_pixel(109 + x, 24 + y, ELEMENT_COLORS.flood)
-			if abs(x - (3 if y < 0 else -3)) <= 1: img.set_pixel(22 + x, 155 + y, ELEMENT_COLORS.earthquake)
+			if abs(x) < floori((9 - y) / 3.0) and y > -8: img.set_pixel(22 + x, 24 + y, UI.AFFINITIES.fire)
+			if absf(y - sin(x * 0.5) * 3) < 1.5 or absf(y - sin(x * 0.5) * 3 - 5) < 1: img.set_pixel(109 + x, 24 + y, UI.AFFINITIES.flood)
+			if abs(x - (3 if y < 0 else -3)) <= 1: img.set_pixel(22 + x, 155 + y, UI.AFFINITIES.earthquake)
 			var radius := Vector2(x, y).length()
-			if absf(radius - 7) < 1 or radius < 2: img.set_pixel(109 + x, 155 + y, ELEMENT_COLORS.typhoon)
+			if absf(radius - 7) < 1 or radius < 2: img.set_pixel(109 + x, 155 + y, UI.AFFINITIES.typhoon)
 	back_texture = ImageTexture.create_from_image(img)
 	return back_texture
