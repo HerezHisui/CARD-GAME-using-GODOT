@@ -3,7 +3,6 @@ extends RefCounted
 
 const UI = preload("res://scripts/ui_theme.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
-const GOLD := UI.GOLD
 
 static func show_shop(director: Node) -> void:
 	var key: String = "%d:%d" % [director.floor_number, director.current]
@@ -34,7 +33,7 @@ static func show_shop(director: Node) -> void:
 			Callable(director, "buy").bind(card) if not sold and director.coins >= price else Callable(),
 			"Buy card · -%d supplies" % price)
 		if sold:
-			row.get_child(row.get_child_count() - 1).get_child(0).add_child(director.label("SOLD OUT", 16, GOLD))
+			row.get_child(row.get_child_count() - 1).get_child(0).add_child(director.label("SOLD OUT", 16, UI.GOLD))
 		elif director.coins < price:
 			row.get_child(row.get_child_count() - 1).get_child(0).add_child(
 				director.label("Need %d supplies" % price, 14, UI.MUTED))

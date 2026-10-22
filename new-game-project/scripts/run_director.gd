@@ -22,9 +22,6 @@ const CHARACTERS := [
 ]
 var selected_character := 0
 const SORT_KEYS = CardRules.SORT_KEYS
-const GOLD := UI.GOLD
-const TEAL := UI.RESPONSE
-const BG := UI.BACKGROUND
 var game: Node
 var collection: Array[Dictionary] = []
 var acquisition_serial := 0
@@ -132,14 +129,14 @@ func show_title() -> void:
 	menu.alignment = BoxContainer.ALIGNMENT_CENTER
 	menu.add_theme_constant_override("separation", 12)
 	var menu_panel := PanelContainer.new()
-	menu_panel.add_theme_stylebox_override("panel", style(UI.PANEL, GOLD))
+	menu_panel.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
 	body.add_child(menu_panel)
 	menu_panel.add_child(menu)
-	menu.add_child(label("01 / OPERATIONS", 24, GOLD))
+	menu.add_child(label("01 / OPERATIONS", 24, UI.GOLD))
 	var has_save: bool = persistence.has_run()
 	if has_save:
 		var saved: Dictionary = persistence.read_save()
-		menu.add_child(label("UNFINISHED RUN · FLOOR %d" % int(saved.director.floor_number), 17, TEAL))
+		menu.add_child(label("UNFINISHED RUN · FLOOR %d" % int(saved.director.floor_number), 17, UI.RESPONSE))
 		button("Continue run", continue_saved_run, menu).grab_focus()
 		button("Abandon run…", confirm_abandon, menu)
 	else: button("Singleplayer · Start game", show_characters, menu).grab_focus()
@@ -161,7 +158,7 @@ func show_title() -> void:
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		art.texture = load(TITLE_ART_PATH)
 		scenery.add_child(art)
-	content.add_child(label("BUILD YOUR RESPONSE. CONTAIN THE DISASTER. SURVIVE THE NIGHT.", 16, TEAL))
+	content.add_child(label("BUILD YOUR RESPONSE. CONTAIN THE DISASTER. SURVIVE THE NIGHT.", 16, UI.RESPONSE))
 
 func continue_saved_run() -> void:
 	if not persistence.resume(): show_title()
@@ -290,7 +287,7 @@ func _build_ui() -> void:
 	var brand := VBoxContainer.new()
 	brand.custom_minimum_size.x = 225
 	row.add_child(brand)
-	brand.add_child(label("MIDNIGHT DRRILLS", 22, GOLD))
+	brand.add_child(label("MIDNIGHT DRRILLS", 22, UI.GOLD))
 	brand.add_child(label("THE SCHOOL AFTER DARK", 11, UI.MUTED))
 	summary = label("", 14)
 	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -309,7 +306,7 @@ func _build_ui() -> void:
 	scene_hud.add_child(dashboard)
 	scene_hud.move_child(dashboard, 0)
 	UI.decorate(dashboard)
-	prep = _gauge("PREPAREDNESS ENERGY", true, TEAL)
+	prep = _gauge("PREPAREDNESS ENERGY", true, UI.RESPONSE)
 	threat = _gauge("TENSION", false, UI.DANGER)
 	modal_dimmer = ColorRect.new()
 	modal_dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -324,7 +321,7 @@ func _build_ui() -> void:
 	modal.offset_right = -45
 	modal.offset_top = 94
 	modal.offset_bottom = -28
-	modal.add_theme_stylebox_override("panel", style(UI.PANEL, GOLD))
+	modal.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
 	root.add_child(modal)
 	modal.mouse_filter = Control.MOUSE_FILTER_STOP
 	UI.decorate(modal)
@@ -340,7 +337,7 @@ func _build_ui() -> void:
 	content = VBoxContainer.new()
 	content.add_theme_constant_override("separation", 14)
 	modal.add_child(content)
-	idle_hint = label("Choose your next room with School map  [M]", 20, TEAL)
+	idle_hint = label("Choose your next room with School map  [M]", 20, UI.RESPONSE)
 	idle_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(idle_hint)
 	idle_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -352,10 +349,10 @@ func _build_ui() -> void:
 	intent_panel.offset_right = -245
 	intent_panel.offset_top = 182
 	intent_panel.offset_bottom = 254
-	intent_panel.add_theme_stylebox_override("panel", style(UI.PANEL, GOLD))
+	intent_panel.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
 	intent_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(intent_panel)
-	boss_intent = label("", 16, GOLD)
+	boss_intent = label("", 16, UI.GOLD)
 	boss_intent.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	boss_intent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	boss_intent.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -380,11 +377,11 @@ func _build_ui() -> void:
 	board_prompt.offset_right = -240
 	board_prompt.offset_top = 178
 	board_prompt.offset_bottom = 257
-	board_prompt.add_theme_stylebox_override("panel", style(BG, TEAL))
+	board_prompt.add_theme_stylebox_override("panel", style(UI.BACKGROUND, UI.RESPONSE))
 	root.add_child(board_prompt)
 	var action_row := HBoxContainer.new()
 	board_prompt.add_child(action_row)
-	board_prompt_label = label("", 17, TEAL)
+	board_prompt_label = label("", 17, UI.RESPONSE)
 	board_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	board_prompt_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	action_row.add_child(board_prompt_label)
@@ -550,7 +547,7 @@ func _panel_layout(kind: String) -> void:
 		modal.offset_right = -modal.offset_left
 		modal.offset_top = (viewport_size.y - panel_size.y) / 2
 		modal.offset_bottom = -modal.offset_top
-		modal.add_theme_stylebox_override("panel", style(UI.PANEL, GOLD))
+		modal.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
 		game.visible = battle_active
 		return
 	if content.get_parent() != modal: content.reparent(modal)
@@ -563,7 +560,7 @@ func _panel_layout(kind: String) -> void:
 	modal.offset_top = (0 if title_screen or not battle_active or kind in ["reward", "inspect"] else 78) if full_screen else 94
 	if kind == "shop": modal.offset_top = 78
 	modal.offset_bottom = 0 if full_screen else -28
-	var panel_style := style(Color(UI.BACKGROUND, 0.90) if kind in ["reward", "inspect"] else (BG if full_screen else UI.PANEL), GOLD)
+	var panel_style := style(Color(UI.BACKGROUND, 0.90) if kind in ["reward", "inspect"] else (UI.BACKGROUND if full_screen else UI.PANEL), UI.GOLD)
 	if full_screen:
 		panel_style.set_border_width_all(0)
 		panel_style.set_corner_radius_all(0)
@@ -593,7 +590,7 @@ func reset_panel(title: String, subtitle: String, kind: String) -> void:
 		child.queue_free()
 	screen = kind
 	modal.show()
-	if not title.is_empty(): content.add_child(label(title, 24 if compact_layout else 30, GOLD, compact_layout))
+	if not title.is_empty(): content.add_child(label(title, 24 if compact_layout else 30, UI.GOLD, compact_layout))
 	if not subtitle.is_empty(): content.add_child(label(subtitle, 16, UI.MUTED, true))
 	game.presentation.reveal(content)
 	if compact_layout: _fit_compact_content.call_deferred()
@@ -702,14 +699,14 @@ func show_map() -> void:
 	route_row.add_child(dossier)
 	var dossier_text := VBoxContainer.new()
 	dossier.add_child(dossier_text)
-	dossier_text.add_child(label("FLOOR / %02d" % floor_number, 28, GOLD))
+	dossier_text.add_child(label("FLOOR / %02d" % floor_number, 28, UI.GOLD))
 	dossier_text.add_child(HSeparator.new())
 	var route_help := label("Choose a connected room.\n\nBATTLE / Build your deck\nELITE / Unlock a tactic\n"
 		+ "REST / Heal or train\nSHOP / Spend supplies\nEVENT / Risk and reward\nUPGRADE / Improve a card", 17, UI.MUTED)
 	route_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	route_help.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	dossier_text.add_child(route_help)
-	dossier_text.add_child(label("▲  ASCEND TO SURVIVE", 14, GOLD))
+	dossier_text.add_child(label("▲  ASCEND TO SURVIVE", 14, UI.GOLD))
 	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	animate_map.call_deferred(weakref(map_scroll), maxi(0, 1660 - 100 - (int(rooms[current].row) if current >= 0 else 0) * 145 - 280))
 	canvas.resized.connect(func():
@@ -723,7 +720,7 @@ func show_map() -> void:
 		b.custom_minimum_size = Vector2(140, 68)
 		b.size = Vector2(140, 68)
 		b.disabled = not reachable(id)
-		if not b.disabled: b.add_theme_stylebox_override("normal", style(UI.RAISED, GOLD))
+		if not b.disabled: b.add_theme_stylebox_override("normal", style(UI.RAISED, UI.GOLD))
 		if id in cleared:
 			b.add_theme_stylebox_override("disabled", style(UI.PANEL, UI.RESPONSE))
 			b.add_theme_color_override("font_disabled_color", UI.RESPONSE)
@@ -735,7 +732,8 @@ func show_map() -> void:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 18)
 	content.add_child(footer)
-	var legend := label("Battle  /  Elite  /  Rest  /  Workshop  /  Event  /  Shop  ↑  JANITOR", 16, TEAL, true)
+	var legend := label("Battle  /  Elite  /  Rest  /  Workshop  /  Event  /  Shop  ↑  JANITOR", 16,
+		UI.RESPONSE, true)
 	legend.custom_minimum_size.x = 320
 	legend.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(legend)
@@ -856,7 +854,7 @@ func show_run_victory() -> void:
 	run_active = false
 	persistence.discard()
 	reset_panel("DAWN AT LAST", "Steve has survived all three floors and contained the Midnight Warden. The school is safe.", "victory")
-	content.add_child(label("RUN COMPLETE · %d cards · %d supplies · %d health remaining" % [collection.size(), coins, game.player_hp], 20, TEAL))
+	content.add_child(label("RUN COMPLETE · %d cards · %d supplies · %d health remaining" % [collection.size(), coins, game.player_hp], 20, UI.RESPONSE))
 	button("Return to starting screen", return_title, content)
 	button("Keep exploring · endless floors", show_floor_buffs, content)
 
@@ -1247,7 +1245,7 @@ func show_plans() -> void:
 		return
 	if screen in DECISIONS or saved_content != null: return
 	reset_panel("PREPAREDNESS · CONTINGENCIES", "Save 2 unused energy at End Turn for 1 Plan. Unlock more tactics from elite and boss wins.", "plans")
-	content.add_child(label("PLANS %d / 2 · %d TACTICS UNLOCKED" % [game.plans.tokens, game.plans.unlocked.size()], 23, TEAL))
+	content.add_child(label("PLANS %d / 2 · %d TACTICS UNLOCKED" % [game.plans.tokens, game.plans.unlocked.size()], 23, UI.RESPONSE))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(scroll)
@@ -1260,7 +1258,7 @@ func show_plans() -> void:
 		var pick := choice_tile(tactic.name + " · %d Plan%s" % [tactic.cost, "s" if int(tactic.cost) > 1 else ""], tactic.description, begin_tactic.bind(id), list)
 		pick.disabled = not tactic_available(id)
 		pick.get_parent().get_parent().custom_minimum_size.y = 125
-	if not game.plans.armed.is_empty(): content.add_child(label("ARMED: " + str(game.plans.definition(game.plans.armed.kind).name), 18, GOLD))
+	if not game.plans.armed.is_empty(): content.add_child(label("ARMED: " + str(game.plans.definition(game.plans.armed.kind).name), 18, UI.GOLD))
 	button("Return to battle  [P / Esc]", close_modal, content)
 
 func tactic_available(id: String) -> bool:
@@ -1340,7 +1338,7 @@ func refresh_graveyard() -> void:
 		empty.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		list.add_child(empty)
-		var title := label("NO FALLEN RESPONSE CARDS", 22, GOLD)
+		var title := label("NO FALLEN RESPONSE CARDS", 22, UI.GOLD)
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.add_child(title)
 		var hint := label("Destroyed units and spent utilities appear here.", 16, UI.MUTED)
@@ -1407,7 +1405,7 @@ func deck_cards(cards: Array[Dictionary]) -> void:
 	scroll.add_child(grid)
 	fit_card_grid(grid, scroll)
 	for index in sorted_indices(cards, deck_sort, deck_descending): _card_tile(cards[index], grid)
-	if cards.is_empty(): grid.add_child(label("No cards here yet.", 20, TEAL))
+	if cards.is_empty(): grid.add_child(label("No cards here yet.", 20, UI.RESPONSE))
 
 func sorted_indices(cards: Array, key_index: int, descending: bool) -> Array:
 	return CardRules.sorted_indices(cards, key_index, descending)
@@ -1469,7 +1467,7 @@ func show_upgrade() -> void:
 		_card_tile(card, grid, show_upgrade_preview.bind(i) if can_upgrade(card) else Callable(), "Preview upgrade")
 		if not can_upgrade(card):
 			grid.get_child(grid.get_child_count() - 1).tooltip_text = "This card has reached its two-upgrade limit."
-			grid.get_child(grid.get_child_count() - 1).get_child(0).add_child(label("Fully upgraded", 14, GOLD))
+			grid.get_child(grid.get_child_count() - 1).get_child(0).add_child(label("Fully upgraded", 14, UI.GOLD))
 	button("Leave", finish_room, content)
 
 func upgrade(index: int) -> void:
@@ -1551,7 +1549,7 @@ func show_upgrade_preview(index: int) -> void:
 	row.add_theme_constant_override("separation", 28)
 	content.add_child(row)
 	_card_tile(collection[index], row)
-	row.add_child(label("→", 40, GOLD))
+	row.add_child(label("→", 40, UI.GOLD))
 	_card_tile(upgraded_definition(collection[index]), row)
 	button("Confirm upgrade", upgrade.bind(index), content)
 	button("Back to workshop", show_upgrade, content)
@@ -1665,9 +1663,9 @@ func show_menu() -> void:
 	var rules_box := VBoxContainer.new()
 	rules_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(rules_box)
-	rules_box.add_child(label("Counters: Evac → Earthquake  /  Douse → Fire  /  Clearance → Flood  /  Brace → Typhoon", 17, TEAL, true))
-	rules_box.add_child(label("Adaptations: " + buff_summary(game.player_buffs), 16, TEAL, true))
-	rules_box.add_child(label("Augmentations: " + buff_summary(game.player_run_buffs), 16, TEAL, true))
+	rules_box.add_child(label("Counters: Evac → Earthquake  /  Douse → Fire  /  Clearance → Flood  /  Brace → Typhoon", 17, UI.RESPONSE, true))
+	rules_box.add_child(label("Adaptations: " + buff_summary(game.player_buffs), 16, UI.RESPONSE, true))
+	rules_box.add_child(label("Augmentations: " + buff_summary(game.player_run_buffs), 16, UI.RESPONSE, true))
 	button("Resume", close_modal, content)
 	if battle_active: button("Debug values  [F3]", show_debug, content)
 	button("Return to starting screen…", confirm_title, content)
@@ -1758,7 +1756,7 @@ func _open_debug(password: String) -> void:
 	button("Cancel", close_modal, content)
 
 func _debug_card_controls() -> void:
-	content.add_child(label("CARD", 20, GOLD))
+	content.add_child(label("CARD", 20, UI.GOLD))
 	var status_row := VBoxContainer.new()
 	content.add_child(status_row)
 	var targets := game.get_tree().get_nodes_in_group("cards").filter(func(card):
@@ -1931,7 +1929,7 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 	content.add_child(row)
 	for buff in buff_choices:
 		choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
-	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs), 16, TEAL, true))
+	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs), 16, UI.RESPONSE, true))
 	var box := centered_content()
 	box.custom_minimum_size.x = 1060
 

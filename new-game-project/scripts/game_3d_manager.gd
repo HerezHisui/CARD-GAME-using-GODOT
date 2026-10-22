@@ -14,9 +14,6 @@ const DRAG_BOUNDS := Rect2(-2.45, -1.8, 4.9, 3.6)
 const UPRIGHT := Basis(Vector3.RIGHT, PI / 2.0)
 
 # Palette
-const BONE := UI.TEXT
-const GOLD := UI.GOLD
-const INK := UI.INSET
 
 var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
