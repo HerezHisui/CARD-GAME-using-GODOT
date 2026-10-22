@@ -19,8 +19,9 @@ func run() -> void:
 		quit(1)
 		return
 	var saved: Theme = load(THEME_PATH)
-	var built: Theme = UI.get_theme()
+	var built: Theme = UI.build_theme()
 	check(saved != built, "file is a separate resource from the code-built theme")
+	check(UI.get_theme() == saved, "get_theme() returns the theme file")
 	same_value(saved.default_font, built.default_font, "default_font")
 	check(saved.default_font_size == built.default_font_size, "default_font_size")
 	check(is_equal_approx(saved.default_base_scale, built.default_base_scale), "default_base_scale")

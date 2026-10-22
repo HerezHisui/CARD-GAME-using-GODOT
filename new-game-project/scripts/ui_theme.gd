@@ -23,6 +23,7 @@ const AFFINITIES := {
 const BODY_SIZE := 18
 const SMALL_SIZE := 14
 const HEADING_SIZE := 30
+const THEME_PATH := "res://data/ui_theme.tres"
 static var shared_theme: Theme
 static var body_font: SystemFont
 static var heading_font: SystemFont
@@ -133,8 +134,13 @@ static func outline(label: Control, size: int = 2) -> void:
 	label.add_theme_color_override("font_outline_color", BACKGROUND)
 	label.add_theme_constant_override("outline_size", size)
 
+## Loads the editable theme file when it exists; otherwise builds the same theme in code.
 static func get_theme() -> Theme:
 	if shared_theme != null: return shared_theme
+	shared_theme = load(THEME_PATH) if ResourceLoader.exists(THEME_PATH) else build_theme()
+	return shared_theme
+
+static func build_theme() -> Theme:
 	var theme := Theme.new()
 	theme.default_font = font()
 	theme.default_font_size = BODY_SIZE
@@ -204,7 +210,6 @@ static func get_theme() -> Theme:
 	theme.set_stylebox("fill", "ProgressBar", bar(GOLD))
 	for type in ["VBoxContainer", "HBoxContainer"]: theme.set_constant("separation", type, 12)
 	for direction in ["h_separation", "v_separation"]: theme.set_constant(direction, "GridContainer", 12)
-	shared_theme = theme
 	return theme
 
 static func apply_hud(root: Control) -> void:
