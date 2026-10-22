@@ -20,6 +20,13 @@ const AFFINITIES := {
 	"earthquake": Color("c2aa57"), "fire": Color("d65349"),
 	"flood": Color("598dc3"), "typhoon": Color("a47bc1")
 }
+## Code palette, saved as theme type "Game" so it can be edited in the theme file.
+const PALETTE := {
+	"background": BACKGROUND, "panel": PANEL, "raised": RAISED, "inset": INSET,
+	"bronze": BRONZE, "gold": GOLD, "crimson": CRIMSON, "action": ACTION,
+	"amber": AMBER, "text": TEXT, "muted": MUTED, "disabled": DISABLED,
+	"response": RESPONSE, "danger": DANGER
+}
 const BODY_SIZE := 18
 const SMALL_SIZE := 14
 const HEADING_SIZE := 30
@@ -210,6 +217,8 @@ static func build_theme() -> Theme:
 	theme.set_stylebox("fill", "ProgressBar", bar(GOLD))
 	for type in ["VBoxContainer", "HBoxContainer"]: theme.set_constant("separation", type, 12)
 	for direction in ["h_separation", "v_separation"]: theme.set_constant(direction, "GridContainer", 12)
+	for color_name in PALETTE: theme.set_color(color_name, "Game", PALETTE[color_name])
+	for element in AFFINITIES: theme.set_color("affinity_" + element, "Game", AFFINITIES[element])
 	return theme
 
 static func apply_hud(root: Control) -> void:
