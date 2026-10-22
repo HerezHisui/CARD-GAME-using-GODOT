@@ -1,3 +1,4 @@
+@tool
 extends RefCounted
 ## Shared interface tokens and cached native control styles.
 ## Palette colors. These are today's values; _static_init() replaces them with the
