@@ -415,12 +415,13 @@ func polish_checks() -> void:
 		director.show_catalog_inspection(preview.card_data, preview._vp.get_texture())
 		var dossier: String = director.inspection_dossier.get_node("DossierText").text
 		check(not dossier.contains("BADGE LEGEND") and not dossier.contains("No temporary Plan effect") and not dossier.contains("CURRENT STATUSES"), "clean previews omit tutorials and empty effect sections")
-		check(dossier.contains("PERMANENT UPGRADES  %d / 2" % director.upgrade_level(preview.card_data)), "upgrade details stay in dossier")
+		check(not dossier.contains("PERMANENT UPGRADES"), "dossier drops the upgrade count line")
+		check(not dossier.contains("× damage") and (preview.card_data.get("utility", false) or game.TYPE_CHART.get(preview.card_data.element, {}).is_empty() or dossier.contains("Deals ")), "dossier words type matchups as Deals Nx damage to X")
 		var sacrifice: bool = preview.card_data.type == "disaster" and int(preview.card_data.cost) > 0
 		check(preview._cost_caption.text == ("SAC" if sacrifice else ""), "corner badge labels sacrifices without COST text")
 		if sacrifice: check(dossier.contains("SAC: %d allied units" % int(preview.card_data.cost)), "dossier explains sacrifice requirement")
 		elif preview.card_data.type == "disaster": check(dossier.contains("Cost: 1 Tension"), "dossier explains base Tension cost")
-		else: check(dossier.contains("Cost: %d energy" % int(preview.card_data.cost)), "dossier shows energy cost")
+		else: check(not dossier.contains("Cost: %d energy" % int(preview.card_data.cost)), "dossier drops the energy cost line")
 		director.dismiss_inspection()
 		await process_frame
 	battle()
