@@ -877,21 +877,7 @@ func select_reward(index: int) -> void:
 	add_collection_card(reward_stock[index].duplicate(true))
 	finish_room()
 
-func centered_content() -> VBoxContainer:
-	var headings := content.get_children().duplicate()
-	var center := CenterContainer.new()
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(center)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 18)
-	center.add_child(box)
-	for heading in headings:
-		heading.reparent(box)
-		if heading is Label: heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	return box
-
-## Like centered_content(), but the centered box comes from a screen scene with a Center/Box node.
+## Centers a screen: the screen scene needs a Center/Box node.
 ## The title and subtitle move to the top of that box.
 func centered_screen(scene: PackedScene) -> Control:
 	var headings := content.get_children().duplicate()
