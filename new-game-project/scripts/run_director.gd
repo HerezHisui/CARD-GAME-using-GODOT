@@ -9,6 +9,7 @@ const Routes = preload("res://scripts/run_routes.gd")
 const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
 const GaugeScene = preload("res://scenes/ui/ui_gauge.tscn")
+const HeaderScene = preload("res://scenes/ui/ui_header.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -276,28 +277,18 @@ func _build_ui() -> void:
 	add_child(root)
 	UI.apply_hud(game.get_node("HUD/Root"))
 	root.theme = UI.get_theme()
-	var header := PanelContainer.new()
-	header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	header.offset_bottom = 78
-	header.add_theme_stylebox_override("panel", style(UI.PANEL))
+	# The top bar stays root child 0; other code finds it there.
+	var header: Control = HeaderScene.instantiate()
 	root.add_child(header)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	header.add_child(row)
 	UI.decorate(header)
-	var brand := VBoxContainer.new()
-	brand.custom_minimum_size.x = 225
-	row.add_child(brand)
-	brand.add_child(label("MIDNIGHT DRRILLS", 22, UI.GOLD))
-	brand.add_child(label("THE SCHOOL AFTER DARK", 11, UI.MUTED))
-	summary = label("", 14)
-	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	row.add_child(summary)
-	button("Deck  [D]", show_deck, row)
-	map_button = button("School map  [M]", toggle_map, row)
-	menu_button = button("Menu  [Esc]", show_menu, row)
+	summary = header.get_node("%Summary")
+	map_button = header.get_node("%MapButton")
+	menu_button = header.get_node("%MenuButton")
+	var deck_button: Button = header.get_node("%DeckButton")
+	deck_button.pressed.connect(show_deck)
+	map_button.pressed.connect(toggle_map)
+	menu_button.pressed.connect(show_menu)
+	for header_button in [deck_button, map_button, menu_button]: game.presentation.button_feedback(header_button)
 	dashboard = PanelContainer.new()
 	dashboard.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	dashboard.offset_top = -90

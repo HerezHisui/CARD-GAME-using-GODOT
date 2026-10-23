@@ -3,6 +3,7 @@ extends SceneTree
 
 const UI = preload("res://scripts/ui_theme.gd")
 const GAUGE_SCENE := "res://scenes/ui/ui_gauge.tscn"
+const HEADER_SCENE := "res://scenes/ui/ui_header.tscn"
 var failures := 0
 var game: Node
 var director: Node
@@ -19,6 +20,8 @@ func run() -> void:
 		theme_styles(source[1], source[0])
 	await start_game()
 	gauges()
+	header()
+	await title_hides_header()
 	if failures == 0: print("PASS: UI shell scenes and theme styles")
 	quit(1 if failures else 0)
 
@@ -80,3 +83,18 @@ func same_style(actual: StyleBox, expected: StyleBoxFlat, label: String) -> void
 	for corner in [CORNER_TOP_LEFT, CORNER_TOP_RIGHT, CORNER_BOTTOM_RIGHT, CORNER_BOTTOM_LEFT]:
 		check(box.get_corner_radius(corner) == expected.get_corner_radius(corner), label + " corner radius")
 	check(box.corner_detail == expected.corner_detail, label + " corner detail")
+
+func header() -> void:
+	var bar: Node = director.root.get_child(0)
+	check(bar.scene_file_path == HEADER_SCENE, "top bar comes from ui_header.tscn and stays root child 0")
+	check(director.summary == bar.get_node_or_null("%Summary"), "summary is the header's Summary label")
+	check(director.map_button == bar.get_node_or_null("%MapButton"), "map button is the header's")
+	check(director.menu_button == bar.get_node_or_null("%MenuButton"), "menu button is the header's")
+	for button_name in ["%DeckButton", "%MapButton", "%MenuButton"]:
+		var button: Node = bar.get_node_or_null(button_name)
+		check(button != null and button.has_meta("hover_feedback"), button_name + " has hover feedback")
+
+func title_hides_header() -> void:
+	director.show_title()
+	await process_frame
+	check(not director.root.get_child(0).visible, "title screen hides the top bar")
