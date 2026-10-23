@@ -1,0 +1,22 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="SortRow" type="HBoxContainer"]
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 12
+
+[node name="SortLabel" type="Label" parent="."]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Sort by"
+
+[node name="Picker" type="OptionButton" parent="."]
+custom_minimum_size = Vector2(190, 40)
+layout_mode = 2
+
+[node name="OrderButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Ascending ↑"
