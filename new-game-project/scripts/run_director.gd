@@ -8,6 +8,7 @@ const CardRules = preload("res://scripts/run_card_rules.gd")
 const Routes = preload("res://scripts/run_routes.gd")
 const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
+const GaugeScene = preload("res://scenes/ui/ui_gauge.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -306,8 +307,10 @@ func _build_ui() -> void:
 	scene_hud.add_child(dashboard)
 	scene_hud.move_child(dashboard, 0)
 	UI.decorate(dashboard)
-	prep = _gauge("PREPAREDNESS ENERGY", true, UI.RESPONSE)
-	threat = _gauge("TENSION", false, UI.DANGER)
+	prep = _make_gauge("PREPAREDNESS ENERGY", UI.RESPONSE, "EnergyBar", true)
+	_place(prep.get_parent(), Control.PRESET_BOTTOM_LEFT, 24, -78, 240, -12)
+	threat = _make_gauge("TENSION", UI.DANGER, "TensionBar", false)
+	_place(threat.get_parent(), Control.PRESET_TOP_RIGHT, -240, 158, -24, 215)
 	modal_dimmer = ColorRect.new()
 	modal_dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal_dimmer.offset_top = 78
@@ -395,24 +398,26 @@ func place_dashboard_button(control: Control, left: float, right: float, align_r
 	control.offset_top = -73
 	control.offset_bottom = -17
 
-func _gauge(title: String, right: bool, color: Color) -> ProgressBar:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
+## A gauge from ui_gauge.tscn on root; returns its bar. Tension has no Detail line.
+func _make_gauge(title: String, color: Color, variation: String, keep_detail: bool) -> ProgressBar:
+	var box: Control = GaugeScene.instantiate()
 	root.add_child(box)
-	box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT if right else Control.PRESET_TOP_RIGHT)
-	box.offset_left = 24 if right else -240
-	box.offset_right = 240 if right else -24
-	box.offset_top = -78 if right else 158
-	box.offset_bottom = -12 if right else 215
-	box.add_child(label(title, 14, color))
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(195, 20)
-	bar.add_theme_stylebox_override("background", UI.panel(UI.INSET, UI.BRONZE, 0))
-	bar.add_theme_stylebox_override("fill", UI.bar(color))
-	box.add_child(bar)
-	if right: box.add_child(label("", 13, UI.MUTED))
+	var heading: Label = box.get_node("Title")
+	heading.text = title
+	heading.add_theme_color_override("font_color", color)
+	var bar: ProgressBar = box.get_node("%Bar")
+	bar.theme_type_variation = variation
+	# free() so the box has 2 children straight away.
+	if not keep_detail: box.get_node("Detail").free()
 	return bar
+
+## Anchors a control to a preset, then sets its four offsets.
+func _place(control: Control, preset: int, left: float, top: float, right: float, bottom: float) -> void:
+	control.set_anchors_and_offsets_preset(preset)
+	control.offset_left = left
+	control.offset_top = top
+	control.offset_right = right
+	control.offset_bottom = bottom
 
 func _process(_delta: float) -> void:
 	if inspect_hold_pending and not game.board_input.action.is_empty(): cancel_inspect_hold()
@@ -437,9 +442,9 @@ func _process(_delta: float) -> void:
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
 	threat.value = game.tension
-	prep.get_parent().get_child(0).text = "ENERGY  %d / %d" % [game.preparedness, game.energy_cap]
-	threat.get_parent().get_child(0).text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
-	prep.get_parent().get_child(2).text = "Deck %d" % game.deck.size()
+	prep.get_parent().get_node("Title").text = "ENERGY  %d / %d" % [game.preparedness, game.energy_cap]
+	threat.get_parent().get_node("Title").text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
+	prep.get_parent().get_node("Detail").text = "Deck %d" % game.deck.size()
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = "Draw · %d left" % game.deck.size()
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
