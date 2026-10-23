@@ -4,6 +4,7 @@ extends SceneTree
 const UI = preload("res://scripts/ui_theme.gd")
 const GAUGE_SCENE := "res://scenes/ui/ui_gauge.tscn"
 const HEADER_SCENE := "res://scenes/ui/ui_header.tscn"
+const PROMPT_SCENE := "res://scenes/ui/ui_board_prompt.tscn"
 var failures := 0
 var game: Node
 var director: Node
@@ -21,6 +22,7 @@ func run() -> void:
 	await start_game()
 	gauges()
 	header()
+	await board_prompt()
 	await title_hides_header()
 	if failures == 0: print("PASS: UI shell scenes and theme styles")
 	quit(1 if failures else 0)
@@ -98,3 +100,18 @@ func title_hides_header() -> void:
 	director.show_title()
 	await process_frame
 	check(not director.root.get_child(0).visible, "title screen hides the top bar")
+
+func board_prompt() -> void:
+	var prompt: Node = director.board_prompt
+	check(prompt.scene_file_path == PROMPT_SCENE, "board prompt comes from ui_board_prompt.tscn")
+	check(director.board_prompt_label == prompt.get_node_or_null("%PromptLabel"), "prompt label is the scene's")
+	var cancel: Node = prompt.get_node_or_null("%CancelButton")
+	check(cancel != null and cancel.has_meta("hover_feedback"), "prompt Cancel button has hover feedback")
+	director.battle_active = true
+	director.modal.hide()
+	game.board_input.pick("Pick a test target", [], func(_card): pass, Callable())
+	await process_frame
+	check(prompt.visible and director.board_prompt_label.text == "Pick a test target", "open pick shows the prompt")
+	if cancel: cancel.pressed.emit()
+	check(game.board_input.action.is_empty(), "prompt Cancel button ends the pick")
+	director.battle_active = false
