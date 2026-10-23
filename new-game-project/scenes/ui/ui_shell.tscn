@@ -1,0 +1,60 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_header.tscn" id="2_header"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_gauge.tscn" id="3_gauge"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_modal_frame.tscn" id="4_frame"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_boss_intent.tscn" id="5_intent"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_board_prompt.tscn" id="6_prompt"]
+
+[node name="Shell" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("1_theme")
+
+[node name="Header" parent="." instance=ExtResource("2_header")]
+layout_mode = 1
+
+[node name="EnergyGauge" parent="." instance=ExtResource("3_gauge")]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -78.0
+offset_right = 240.0
+offset_bottom = -12.0
+
+[node name="TensionGauge" parent="." instance=ExtResource("3_gauge")]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -240.0
+offset_top = 158.0
+offset_right = -24.0
+offset_bottom = 215.0
+
+[node name="ModalFrame" parent="." instance=ExtResource("4_frame")]
+layout_mode = 1
+
+[node name="IdleHint" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -60.0
+offset_bottom = -20.0
+text = "Choose your next room with School map  [M]"
+horizontal_alignment = 1
+
+[node name="BossIntent" parent="." instance=ExtResource("5_intent")]
+layout_mode = 1
+
+[node name="BoardPrompt" parent="." instance=ExtResource("6_prompt")]
+layout_mode = 1
