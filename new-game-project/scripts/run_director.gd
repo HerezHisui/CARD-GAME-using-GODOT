@@ -10,6 +10,7 @@ const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
 const GaugeScene = preload("res://scenes/ui/ui_gauge.tscn")
 const HeaderScene = preload("res://scenes/ui/ui_header.tscn")
+const BoardPromptScene = preload("res://scenes/ui/ui_board_prompt.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -365,22 +366,12 @@ func _build_ui() -> void:
 	graveyard_button.name = "GraveyardButton"
 	graveyard_button.tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
 	place_dashboard_button(graveyard_button, -560, -394)
-	board_prompt = PanelContainer.new()
-	board_prompt.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	board_prompt.offset_left = 240
-	board_prompt.offset_right = -240
-	board_prompt.offset_top = 178
-	board_prompt.offset_bottom = 257
-	board_prompt.add_theme_stylebox_override("panel", style(UI.BACKGROUND, UI.RESPONSE))
+	board_prompt = BoardPromptScene.instantiate()
 	root.add_child(board_prompt)
-	var action_row := HBoxContainer.new()
-	board_prompt.add_child(action_row)
-	board_prompt_label = label("", 17, UI.RESPONSE)
-	board_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	board_prompt_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	action_row.add_child(board_prompt_label)
-	button("Cancel [Esc]", func(): game.board_input.cancel(), action_row)
-	board_prompt.hide()
+	board_prompt_label = board_prompt.get_node("%PromptLabel")
+	var cancel_button: Button = board_prompt.get_node("%CancelButton")
+	cancel_button.pressed.connect(func(): game.board_input.cancel())
+	game.presentation.button_feedback(cancel_button)
 
 func place_dashboard_button(control: Control, left: float, right: float, align_right: bool = true) -> void:
 	control.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT if align_right else Control.PRESET_BOTTOM_LEFT)
