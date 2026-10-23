@@ -1,8 +1,6 @@
 # Midnight DRRills
 
-A school-themed card roguelike made in Godot 4.7 (GDScript). You play Steve, using Preparedness cards to hold off Disaster encounters and the Janitor. Fires, earthquakes, floods and typhoons come at you, and you build up a deck as you climb the map.
-
-Multiplayer is in the menu but not playable yet.
+A school-themed card roguelike made in Godot 4.7 (GDScript). Using Preparedness cards to hold off Disaster encounters and the Janitor. Fires, earthquakes, floods and typhoons come at you, and you build up a deck as you climb the map.
 
 ## How to run
 
@@ -17,13 +15,3 @@ Multiplayer is in the menu but not playable yet.
 - [Multiplayer plan](docs/multiplayer.md): ideas for a future mode
 
 For development: [refactor plan](docs/refactor-plan.md) and [refactor notes](docs/refactor-notes.md).
-
-## Tests
-
-Each test is a script in `new-game-project/tests/` that ends in `_smoke.gd`. Run one from the `new-game-project` folder:
-
-```
-godot --headless --path . --script res://tests/run_smoke.gd
-```
-
-The graphical ones (`classroom_integration`, `camera_controls`, `visual_quality`) need a normal renderer instead of `--headless`.
