@@ -2,7 +2,10 @@
 extends SceneTree
 
 const UI = preload("res://scripts/ui_theme.gd")
+const GAUGE_SCENE := "res://scenes/ui/ui_gauge.tscn"
 var failures := 0
+var game: Node
+var director: Node
 
 func _initialize() -> void: call_deferred("run")
 
@@ -14,8 +17,32 @@ func check(value: bool, message: String) -> void:
 func run() -> void:
 	for source in [["file", load(UI.THEME_PATH)], ["build_theme", UI.build_theme()]]:
 		theme_styles(source[1], source[0])
+	await start_game()
+	gauges()
 	if failures == 0: print("PASS: UI shell scenes and theme styles")
 	quit(1 if failures else 0)
+
+func start_game() -> void:
+	root.size = Vector2i(1440, 900)
+	game = load("res://scenes/game_3d.tscn").instantiate()
+	root.add_child(game)
+	current_scene = game
+	director = game.run_director
+	director.persistence.enabled = false
+	await process_frame
+	director.new_run()
+	await process_frame
+
+func gauges() -> void:
+	var prep_box: Node = director.prep.get_parent()
+	var threat_box: Node = director.threat.get_parent()
+	check(prep_box.scene_file_path == GAUGE_SCENE, "energy gauge comes from ui_gauge.tscn")
+	check(threat_box.scene_file_path == GAUGE_SCENE, "tension gauge comes from ui_gauge.tscn")
+	check(prep_box.get_child_count() == 3 and threat_box.get_child_count() == 2, "gauge child counts")
+	check(director.prep.theme_type_variation == &"EnergyBar", "energy bar style")
+	check(director.threat.theme_type_variation == &"TensionBar", "tension bar style")
+	check(director.prep.custom_minimum_size == Vector2(195, 20) and not director.prep.show_percentage,
+		"gauge bar size and no percentage")
 
 ## Expected look of each named style, built the same way the old code built it.
 func expected_styles() -> Array:

@@ -1,0 +1,19 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="Gauge" type="VBoxContainer"]
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="."]
+theme_override_font_sizes/font_size = 14
+
+[node name="Bar" type="ProgressBar" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(195, 20)
+show_percentage = false
+
+[node name="Detail" type="Label" parent="."]
+theme_override_colors/font_color = Color(0.54901963, 0.5254902, 0.49411765, 1)
+theme_override_font_sizes/font_size = 13
