@@ -11,6 +11,7 @@ const Shop = preload("res://scripts/run_shop.gd")
 const GaugeScene = preload("res://scenes/ui/ui_gauge.tscn")
 const HeaderScene = preload("res://scenes/ui/ui_header.tscn")
 const BoardPromptScene = preload("res://scenes/ui/ui_board_prompt.tscn")
+const BossIntentScene = preload("res://scenes/ui/ui_boss_intent.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -338,21 +339,9 @@ func _build_ui() -> void:
 	idle_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	idle_hint.offset_top = -60
 	idle_hint.offset_bottom = -20
-	var intent_panel := PanelContainer.new()
-	intent_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	intent_panel.offset_left = 245
-	intent_panel.offset_right = -245
-	intent_panel.offset_top = 182
-	intent_panel.offset_bottom = 254
-	intent_panel.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
-	intent_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var intent_panel: Control = BossIntentScene.instantiate()
 	root.add_child(intent_panel)
-	boss_intent = label("", 16, UI.GOLD)
-	boss_intent.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	boss_intent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	boss_intent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	intent_panel.add_child(boss_intent)
-	intent_panel.hide()
+	boss_intent = intent_panel.get_node("%IntentLabel")
 	var plans_box := VBoxContainer.new()
 	plans_box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	plans_box.offset_left = 260
