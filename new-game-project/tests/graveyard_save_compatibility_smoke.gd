@@ -26,7 +26,7 @@ func run() -> void:
 	check(not scene.has_node("Table") and not scene.has_node("SpookyLight"), "obsolete table and light are absent from the saved scene")
 	for name in ["OrbGauge_2", "OrbGauge_3", "DeckShadow", "DrawCaption", "EnemyDeckPlaque"]:
 		check(not scene.has_node("HUD/Root/" + name), "unused HUD widget removed: " + name)
-	check(scene.get_node("HUD/Root/EndTurnButton").text == "End turn  [Space]", "saved HUD uses the current controls")
+	check(scene.get_node("HUD/Root/EndTurnButton").text == "End turn", "saved HUD uses the current controls")
 	root.add_child(scene)
 	current_scene = scene
 	var director = scene.run_director

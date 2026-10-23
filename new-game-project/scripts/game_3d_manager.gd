@@ -83,8 +83,6 @@ const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "di
 # HUD references
 @onready var _deck_count: Label = $HUD/Root/DeckDrawButton/DeckCountLabel
 @onready var _turn_label: Label = $HUD/Root/TurnPlaque/TurnLabel
-@onready var _hint_w: Label = $HUD/Root/HintW
-@onready var _hint_s: Label = $HUD/Root/HintS
 @onready var _phase_label: Label = $HUD/Root/PhaseLabel
 @onready var _end_turn_btn: Button = $HUD/Root/EndTurnButton
 
@@ -129,6 +127,8 @@ func _ready() -> void:
 	_build_lighting()
 	$HUD/Root/DeckDrawButton.pressed.connect(_on_draw_button_pressed)
 	_end_turn_btn.pressed.connect(_on_end_turn_pressed)
+	# Placeholder icon button; it will be replaced by the Limbus Company restyle.
+	$HUD/Root/ViewIconPlaceholder.pressed.connect(toggle_view_icon)
 
 	load_deck_from_json("res://data/starter_deck.json", deck)
 	var all_disaster: Array[Dictionary] = []
@@ -146,7 +146,6 @@ func _ready() -> void:
 
 	update_deck_label()
 	_refresh_bars()
-	_refresh_view_hints()
 	run_director = preload("res://scripts/run_director.gd").new()
 	add_child(run_director)
 
@@ -215,7 +214,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	load_deck_from_json("res://data/disaster_deck.json", threats)
 	load_deck_from_json("res://data/disaster_expansion.json", threats)
 	var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
-	_enemy_hp_ui.get_node("Caption").text = "JANITOR / %s / %s" % [kind.to_upper(), favored.to_upper()]
+	_enemy_hp_ui.get_node("Caption").text = "JANITOR"
 	_enemy_hp_ui.get_node("Caption").add_theme_font_size_override("font_size", 14)
 	for definition in threats:
 		if kind == "elite" and definition.element != favored: continue
@@ -460,13 +459,10 @@ func enemy_draw_evolutions(count: int) -> void:
 		enemy_hand.append(enemy_evolution_deck.pop_back())
 		log_event("Disaster draws an evolution into its hand.")
 
-func _refresh_view_hints() -> void:
-	if _hint_w:
-		_hint_w.text = "W · " + ("Table view" if view_mode == View.WIDE else "Overhead view")
-		_hint_w.modulate.a = 0.35 if view_mode == View.BOARD else 0.9
-	if _hint_s:
-		_hint_s.text = "S · " + ("Table view" if view_mode == View.BOARD else "Wide view")
-		_hint_s.modulate.a = 0.35 if view_mode == View.WIDE else 0.9
+## The view icon button: switches between the overhead and wide views. W and S still step one view.
+func toggle_view_icon() -> void:
+	if presentation.blocking: return
+	set_view(View.WIDE if view_mode == View.BOARD else View.BOARD)
 
 # W and S move one step through Room <-> Table <-> Overhead.
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -491,7 +487,6 @@ func set_view(mode: int) -> void:
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
 	_shift_camera(view_settings(view_mode))
-	_refresh_view_hints()
 
 func set_board_view(on: bool) -> void:
 	set_view(View.BOARD if on else View.DESK)

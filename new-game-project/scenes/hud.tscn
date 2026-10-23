@@ -96,23 +96,17 @@ layout_mode = 2
 text = "Turn 1"
 horizontal_alignment = 1
 
-[node name="HintW" type="Label" parent="Root" unique_id=503125375]
-modulate = Color(1, 1, 1, 0.9)
+[node name="ViewIconPlaceholder" type="Button" parent="Root" unique_id=503125375]
+editor_description = "Placeholder view icon. It will be replaced by the Limbus Company restyle. Click toggles overhead and wide view."
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
 offset_left = 24.0
 offset_top = 160.0
-offset_right = 162.0
-offset_bottom = 179.0
-text = "W · Overhead view"
-
-[node name="HintS" type="Label" parent="Root" unique_id=845198651]
-modulate = Color(1, 1, 1, 0.9)
-layout_mode = 0
-offset_left = 24.0
-offset_top = 186.0
-offset_right = 129.0
-offset_bottom = 205.0
-text = "S · Wide view"
+offset_right = 64.0
+offset_bottom = 200.0
+tooltip_text = "Switch view"
+focus_mode = 0
+mouse_default_cursor_shape = 2
 
 [node name="PhaseLabel" type="Label" parent="Root" unique_id=1203948571]
 layout_mode = 1
@@ -142,7 +136,7 @@ grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
 disabled = true
-text = "End turn  [Space]"
+text = "End turn"
 
 [node name="EnemyHealth" type="Control" parent="Root" unique_id=1900000100]
 layout_mode = 1
@@ -160,7 +154,7 @@ mouse_filter = 2
 layout_mode = 0
 offset_right = 260.0
 offset_bottom = 26.0
-text = "THE JANITOR / DISASTER"
+text = "JANITOR"
 
 [node name="LagBar" type="ProgressBar" parent="Root/EnemyHealth" unique_id=1900000102]
 layout_mode = 0
@@ -251,7 +245,7 @@ custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
 tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
 mouse_default_cursor_shape = 2
-text = "Contingency 0/2  [P]"
+text = "Contingency 0/2"
 
 [node name="GraveyardButton" type="Button" parent="Root"]
 custom_minimum_size = Vector2(130, 42)
@@ -267,4 +261,4 @@ offset_right = -394.0
 offset_bottom = -17.0
 tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
 mouse_default_cursor_shape = 2
-text = "Graveyard [G]"
+text = "Graveyard"

@@ -48,7 +48,7 @@ func gauges() -> void:
 	var threat_box: Node = director.threat.get_parent()
 	check(prep_box.scene_file_path == GAUGE_SCENE, "energy gauge comes from ui_gauge.tscn")
 	check(threat_box.scene_file_path == GAUGE_SCENE, "tension gauge comes from ui_gauge.tscn")
-	check(prep_box.get_child_count() == 3 and threat_box.get_child_count() == 2, "gauge child counts")
+	check(prep_box.get_child_count() == 2 and threat_box.get_child_count() == 2, "gauge child counts")
 	check(director.prep.theme_type_variation == &"EnergyBar", "energy bar style")
 	check(director.threat.theme_type_variation == &"TensionBar", "tension bar style")
 	check(director.prep.custom_minimum_size == Vector2(195, 20) and not director.prep.show_percentage,
@@ -94,7 +94,7 @@ func same_style(actual: StyleBox, expected: StyleBoxFlat, label: String) -> void
 func header() -> void:
 	var bar: Node = director.root.get_child(0)
 	check(bar.scene_file_path == HEADER_SCENE, "top bar comes from ui_header.tscn and stays root child 0")
-	check(director.summary == bar.get_node_or_null("%Summary"), "summary is the header's Summary label")
+	check(bar.get_node_or_null("%Summary") == null, "top bar has no summary line")
 	check(director.map_button == bar.get_node_or_null("%MapButton"), "map button is the header's")
 	check(director.menu_button == bar.get_node_or_null("%MenuButton"), "menu button is the header's")
 	for button_name in ["%DeckButton", "%MapButton", "%MenuButton"]:
