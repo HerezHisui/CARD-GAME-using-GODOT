@@ -149,7 +149,6 @@ func resume() -> bool:
 	if not snapshot.game.has("view_mode"): game.view_mode = game.View.BOARD if game.in_board_view else game.View.DESK
 	game.in_board_view = game.view_mode == game.View.BOARD
 	game._apply_view(game.view_settings(game.view_mode))
-	game._refresh_view_hints()
 	game._refresh_bars()
 	game.update_deck_label()
 	game.opponent_hand.signature = -1

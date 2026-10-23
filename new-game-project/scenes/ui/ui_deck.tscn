@@ -18,7 +18,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-text = "Deck (12)"
+text = "Cards (12)"
 
 [node name="CloseButton" type="Button" parent="Tabs"]
 custom_minimum_size = Vector2(130, 42)

@@ -76,7 +76,6 @@ var encounter := "battle"
 var root: Control
 var modal: PanelContainer
 var content: VBoxContainer
-var summary: Label
 var prep: ProgressBar
 var threat: ProgressBar
 var screen := ""
@@ -305,8 +304,6 @@ func _build_ui() -> void:
 	root.theme = UI.get_theme()
 	# The top bar stays root child 0; other code finds it there.
 	var header: Control = root.get_node("Header")
-	UI.decorate(header)
-	summary = header.get_node("%Summary")
 	map_button = header.get_node("%MapButton")
 	menu_button = header.get_node("%MenuButton")
 	var deck_button: Button = header.get_node("%DeckButton")
@@ -318,8 +315,8 @@ func _build_ui() -> void:
 	var scene_hud := game.get_node("HUD/Root")
 	dashboard = scene_hud.get_node("Dashboard")
 	UI.decorate(dashboard)
-	prep = _make_gauge("EnergyGauge", "PREPAREDNESS ENERGY", UI.RESPONSE, "EnergyBar", true)
-	threat = _make_gauge("TensionGauge", "TENSION", UI.DANGER, "TensionBar", false)
+	prep = _make_gauge("EnergyGauge", "PREPAREDNESS ENERGY", UI.RESPONSE, "EnergyBar")
+	threat = _make_gauge("TensionGauge", "TENSION", UI.DANGER, "TensionBar")
 	var modal_frame: Control = root.get_node("ModalFrame")
 	modal_dimmer = modal_frame.get_node("%ModalDimmer")
 	modal = modal_frame.get_node("%Modal")
@@ -351,16 +348,14 @@ func _build_ui() -> void:
 	cancel_button.pressed.connect(func(): game.board_input.cancel())
 	game.presentation.button_feedback(cancel_button)
 
-## A gauge from ui_gauge.tscn on root; returns its bar. Tension has no Detail line.
-func _make_gauge(box_name: String, title: String, color: Color, variation: String, keep_detail: bool) -> ProgressBar:
+## A gauge from ui_gauge.tscn on root; returns its bar. Gauges have a title and a bar only.
+func _make_gauge(box_name: String, title: String, color: Color, variation: String) -> ProgressBar:
 	var box: Control = root.get_node(box_name)
 	var heading: Label = box.get_node("Title")
 	heading.text = title
 	heading.add_theme_color_override("font_color", color)
 	var bar: ProgressBar = box.get_node("%Bar")
 	bar.theme_type_variation = variation
-	# free() so the box has 2 children straight away.
-	if not keep_detail: box.get_node("Detail").free()
 	return bar
 
 func _process(_delta: float) -> void:
@@ -374,21 +369,19 @@ func _process(_delta: float) -> void:
 	game.get_node("HUD/Root/EndTurnButton").disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or not game.board_input.action.is_empty() or _dragging()
 	plans_button.visible = battle_active and not modal.visible
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
-	plans_button.text = "Contingency %d/2 [P]" % game.plans.tokens
+	plans_button.text = "Contingency %d/2" % game.plans.tokens
 	dashboard.visible = battle_active and not modal.visible
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	boss_intent.visible = is_instance_valid(game.final_boss) and battle_active and not modal.visible and game.board_input.action.is_empty()
 	boss_intent.get_parent().visible = boss_intent.visible
 	if boss_intent.visible: boss_intent.text = game.final_boss.intent()
-	summary.text = status_text()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
 	threat.value = game.tension
 	prep.get_parent().get_node("Title").text = "ENERGY  %d / %d" % [game.preparedness, game.energy_cap]
 	threat.get_parent().get_node("Title").text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
-	prep.get_parent().get_node("Detail").text = "Deck %d" % game.deck.size()
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = "Draw · %d left" % game.deck.size()
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
@@ -628,7 +621,7 @@ func show_map() -> void:
 	if _dragging(): return
 	if saved_content: return
 	if screen in DECISIONS: return
-	reset_panel("THE SCHOOL MAP", "Choose an illuminated room. Follow the connected route upward to the Janitor.", "map")
+	reset_panel("THE SCHOOL MAP", "", "map")
 	# The layout lives in ui_map.tscn; the room buttons are made here because the route changes each run.
 	unpack_screen(MapScene)
 	var map_scroll: ScrollContainer = content.get_node("RouteRow/MapScroll")
@@ -936,9 +929,6 @@ func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), a
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			begin_catalog_hold(card, face)
 	)
-	var caption: Label = box.get_node("Caption")
-	caption.text = "UPGRADE  %d / 2" % upgrade_level(card)
-	if compact_layout: caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var action_button: Button = box.get_node("ActionButton")
 	if not action.is_valid():
 		action_button.free()
@@ -1070,11 +1060,11 @@ func show_deck() -> void:
 		content = VBoxContainer.new()
 		content.add_theme_constant_override("separation", 14)
 		modal.add_child(content)
-	reset_panel("Deck", "%d collected cards" % collection.size(), "deck")
+	reset_panel("Deck", "", "deck")
 	# The layout lives in ui_deck.tscn; the card tiles are made in deck_cards().
 	unpack_screen(DeckScene)
 	var deck_button: Button = content.get_node("Tabs/DeckButton")
-	deck_button.text = "Deck (%d)" % collection.size()
+	deck_button.text = "Cards (%d)" % collection.size()
 	hook_button(deck_button, deck_cards.bind(collection))
 	hook_button(content.get_node("Tabs/CloseButton"), close_modal)
 	setup_sort_controls(content.get_node("SortRow"), false)
