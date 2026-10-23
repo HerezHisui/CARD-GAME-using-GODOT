@@ -19,6 +19,14 @@ const MapScene = preload("res://scenes/ui/ui_map.tscn")
 const SortRowScene = preload("res://scenes/ui/ui_sort_row.tscn")
 const DeckScene = preload("res://scenes/ui/ui_deck.tscn")
 const GraveyardScene = preload("res://scenes/ui/ui_graveyard.tscn")
+const RestScene = preload("res://scenes/ui/ui_rest.tscn")
+const ResultScene = preload("res://scenes/ui/ui_result.tscn")
+const VictoryScene = preload("res://scenes/ui/ui_victory.tscn")
+const RewardsScene = preload("res://scenes/ui/ui_rewards.tscn")
+const ContingencyRewardScene = preload("res://scenes/ui/ui_contingency_reward.tscn")
+const UpgradeScene = preload("res://scenes/ui/ui_upgrade.tscn")
+const UpgradePreviewScene = preload("res://scenes/ui/ui_upgrade_preview.tscn")
+const EventScene = preload("res://scenes/ui/ui_event.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -697,10 +705,14 @@ func finish_room() -> void:
 
 func show_rest() -> void:
 	reset_panel("THE INFIRMARY", "Choose one: recover 7 health, train a card, or remove one card from your deck.", "event")
-	button("Rest · +%d HP · free" % healing_gain(7), rest, content).disabled = healing_gain(7) == 0
-	button("Train · upgrade 1 card · free", show_upgrade, content)
-	button("Destroy 1 card · free", show_remove_cards.bind("rest"), content).disabled = collection.size() <= 5
-	button("Leave infirmary", finish_room, content)
+	# The layout lives in ui_rest.tscn.
+	unpack_screen(RestScene)
+	var rest_button: Button = content.get_node("RestButton")
+	rest_button.text = "Rest · +%d HP · free" % healing_gain(7)
+	hook_button(rest_button, rest).disabled = healing_gain(7) == 0
+	hook_button(content.get_node("TrainButton"), show_upgrade)
+	hook_button(content.get_node("DestroyButton"), show_remove_cards.bind("rest")).disabled = collection.size() <= 5
+	hook_button(content.get_node("LeaveButton"), finish_room)
 
 func healing_gain(amount: int) -> int:
 	return maxi(0, mini(amount, game.hero_max_hp() - game.player_hp))
@@ -720,7 +732,8 @@ func battle_finished(won: bool) -> void:
 		run_active = false
 		persistence.discard()
 		reset_panel("TRAPPED AFTER MIDNIGHT", "Your run has ended. Begin again with a new school layout.", "result")
-		button("Return to starting screen", return_title, content)
+		unpack_screen(ResultScene)
+		hook_button(content.get_node("ReturnButton"), return_title)
 		return
 	var triage := healing_gain(3) if encounter == "battle" else 0
 	game.player_hp += triage
@@ -745,11 +758,11 @@ func show_contingency_reward(next_screen: String, restore_offers: bool = false) 
 	if not restore_offers:
 		for i in range(mini(3, locked.size())): buff_choices.append(locked.pop_at(rng.randi_range(0, locked.size() - 1)))
 	reset_panel("NEW CONTINGENCY", "Elite and boss victories teach a new tactic. Choose one to unlock for the rest of this run.", "contingency_reward")
-	var row := HBoxContainer.new()
-	content.add_child(row)
+	# The layout lives in ui_contingency_reward.tscn; the tactic tiles are made here.
+	var box := centered_screen(ContingencyRewardScene)
+	var row: Control = box.get_node("Row")
 	for tactic in buff_choices:
 		choice_tile(tactic.name + " · %d Plan%s" % [tactic.cost, "s" if int(tactic.cost) > 1 else ""], tactic.description, select_contingency_reward.bind(tactic.id), row)
-	centered_content().custom_minimum_size.x = 1060
 
 func select_contingency_reward(id: String) -> void:
 	if screen != "contingency_reward" or not buff_choices.any(func(tactic): return tactic.id == id): return
@@ -766,9 +779,12 @@ func show_run_victory() -> void:
 	run_active = false
 	persistence.discard()
 	reset_panel("DAWN AT LAST", "Steve has survived all three floors and contained the Midnight Warden. The school is safe.", "victory")
-	content.add_child(label("RUN COMPLETE · %d cards · %d supplies · %d health remaining" % [collection.size(), coins, game.player_hp], 20, UI.RESPONSE))
-	button("Return to starting screen", return_title, content)
-	button("Keep exploring · endless floors", show_floor_buffs, content)
+	# The layout lives in ui_victory.tscn.
+	unpack_screen(VictoryScene)
+	content.get_node("Summary").text = "RUN COMPLETE · %d cards · %d supplies · %d health remaining" % [
+		collection.size(), coins, game.player_hp]
+	hook_button(content.get_node("ReturnButton"), return_title)
+	hook_button(content.get_node("ExploreButton"), show_floor_buffs)
 
 func next_floor() -> void:
 	run_active = true
@@ -804,13 +820,13 @@ func show_rewards(selected: int = -1) -> void:
 	reward_selection = selected
 	reward_faces.clear()
 	reset_panel("DISASTER CONTAINED", "Click a card to inspect it. Click the enlarged card again to keep it.", "reward")
-	var box := centered_content()
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 24)
-	box.add_child(row)
+	# The layout lives in ui_rewards.tscn; the card faces are made here.
+	var box := centered_screen(RewardsScene)
+	var row: Control = box.get_node("Row")
+	var skip: Button = box.get_node("SkipButton")
 	if reward_stock.is_empty(): reward_stock = offers(3)
 	if selected >= 0 and selected < reward_stock.size():
+		skip.free()
 		inspected_face = reward_face(selected, row, 330)
 		add_dossier(row, reward_stock[selected], "Press this card again to claim it. Press outside to compare rewards.")
 	else:
@@ -821,7 +837,7 @@ func show_rewards(selected: int = -1) -> void:
 			var face := reward_face(i, column, 245)
 			game.presentation.card_feedback(face)
 			game.presentation.reveal(column)
-		button("Skip card reward", finish_room, box)
+		hook_button(skip, finish_room)
 
 func reward_face(index: int, parent: Node, width: float) -> TextureRect:
 	var card: Dictionary = reward_stock[index]
@@ -866,6 +882,19 @@ func centered_content() -> VBoxContainer:
 	center.add_child(box)
 	for heading in headings:
 		heading.reparent(box)
+		if heading is Label: heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return box
+
+## Like centered_content(), but the centered box comes from a screen scene with a Center/Box node.
+## The title and subtitle move to the top of that box.
+func centered_screen(scene: PackedScene) -> Control:
+	var headings := content.get_children().duplicate()
+	unpack_screen(scene)
+	var box: Control = content.get_node("Center/Box")
+	for index in headings.size():
+		var heading: Node = headings[index]
+		heading.reparent(box)
+		box.move_child(heading, index)
 		if heading is Label: heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return box
 
@@ -1351,13 +1380,11 @@ func reverse_sort(workshop: bool) -> void:
 
 func show_upgrade() -> void:
 	reset_panel("THE WORKSHOP", "Each card can upgrade twice. Preview type-specific abilities and improvements before confirming.", "upgrade")
-	add_sort_controls(true)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 4
-	scroll.add_child(grid)
+	# The layout lives in ui_upgrade.tscn; the card tiles are made here.
+	unpack_screen(UpgradeScene)
+	setup_sort_controls(content.get_node("SortRow"), true)
+	var scroll: ScrollContainer = content.get_node("Cards")
+	var grid: GridContainer = scroll.get_node("Grid")
 	fit_card_grid(grid, scroll)
 	for i in sorted_indices(collection, upgrade_sort, upgrade_descending):
 		var card := collection[i]
@@ -1365,7 +1392,7 @@ func show_upgrade() -> void:
 		if not can_upgrade(card):
 			grid.get_child(grid.get_child_count() - 1).tooltip_text = "This card has reached its two-upgrade limit."
 			grid.get_child(grid.get_child_count() - 1).get_child(0).add_child(label("Fully upgraded", 14, UI.GOLD))
-	button("Leave", finish_room, content)
+	hook_button(content.get_node("LeaveButton"), finish_room)
 
 func upgrade(index: int) -> void:
 	if index < 0 or index >= collection.size() or not can_upgrade(collection[index]): return
@@ -1442,14 +1469,14 @@ func upgraded_definition(card: Dictionary) -> Dictionary:
 func show_upgrade_preview(index: int) -> void:
 	if not can_upgrade(collection[index]): return
 	reset_panel("UPGRADE PREVIEW", "Left: current card. Right: upgraded card. Only Confirm applies the upgrade.", "upgrade_preview")
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 28)
-	content.add_child(row)
+	# The layout lives in ui_upgrade_preview.tscn; the two card tiles go on each side of the arrow.
+	unpack_screen(UpgradePreviewScene)
+	var row: Control = content.get_node("Row")
 	_card_tile(collection[index], row)
-	row.add_child(label("→", 40, UI.GOLD))
+	row.move_child(row.get_child(row.get_child_count() - 1), 0)
 	_card_tile(upgraded_definition(collection[index]), row)
-	button("Confirm upgrade", upgrade.bind(index), content)
-	button("Back to workshop", show_upgrade, content)
+	hook_button(content.get_node("ConfirmButton"), upgrade.bind(index))
+	hook_button(content.get_node("BackButton"), show_upgrade)
 
 func show_shop() -> void: Shop.show_shop(self)
 
@@ -1489,36 +1516,51 @@ func show_event() -> void:
 			poison.name = "Experimental Hazmat Team"
 			poison.on_hit.poison = int(poison.on_hit.poison) + 1
 			event_cards.assign([burn, poison])
+	var group_name: String
 	match event_type:
 		"radio":
 			reset_panel("THE EMERGENCY RADIO", "The utility kit contains Hazard Forecast and Search and Rescue.", "event")
-			button("Utility kit · +2 cards · -20 supplies", resolve_event.bind("radio_buy"), content).disabled = coins < 20
-			button("Report the safe route · +10 supplies", resolve_event.bind("safe"), content)
+			group_name = "Radio"
 		"rooftop":
 			reset_panel("ROOFTOP DRILLS", "Training gives a starting Plan but reduces energy capacity in every battle for the rest of this run.", "event")
-			button("Train · +1 starting Plan · -1 energy capacity", resolve_event.bind("training"), content)
-			button("Collect equipment · +10 supplies", resolve_event.bind("safe"), content)
+			group_name = "Rooftop"
 		"science":
 			reset_panel("THE SCIENCE LAB", "Unstable experiments offer stronger status cards. Each experiment costs 3 health.", "event")
-			var row := HBoxContainer.new()
-			content.add_child(row)
-			for i in range(event_cards.size()): _card_tile(event_cards[i], row, resolve_event.bind("science_%d" % i) if game.player_hp > 3 else Callable(), "Take card · -3 HP")
-			button("Leave experiments · +10 supplies", resolve_event.bind("safe"), content)
+			group_name = "Science"
 		"infirmary":
 			reset_panel("A VOLUNTEER'S OFFER", "Full treatment adds Paperwork to your deck: spend 1 energy to discard it. A short break has no downside.", "event")
-			button("Full treatment · +%d HP · add Paperwork" % healing_gain(8), resolve_event.bind("treatment"), content).disabled = game.player_hp >= game.hero_max_hp()
-			button("Short break · +%d HP · free" % healing_gain(3), resolve_event.bind("rest"), content)
+			group_name = "Infirmary"
 		"lost_found":
 			reset_panel("LOST AND FOUND", "The supply monitor will trade for one card you no longer need.", "event")
-			button("Trade 1 card · +25 supplies", show_remove_cards.bind("event"), content).disabled = collection.size() <= 5
-			button("Keep your deck · +10 supplies", resolve_event.bind("safe"), content)
+			group_name = "LostFound"
 		_:
 			reset_panel("A LOCKED CLASSROOM", "Emergency supplies wait behind broken glass. Take the risk, or search safely.", "event")
-			button("Break glass · +1 card · +30 supplies · -3 HP", event_risk, content).disabled = game.player_hp <= 3
-			button("Search the hallway · +10 supplies", resolve_event.bind("safe"), content)
-
-	var box := centered_content()
-	box.custom_minimum_size.x = 940
+			group_name = "Locked"
+	# The layout lives in ui_event.tscn: one group of buttons per event. Only this event's group stays.
+	var box := centered_screen(EventScene)
+	for other in box.get_children():
+		if other is VBoxContainer and other.name != group_name: other.free()
+	var group: Control = box.get_node(group_name)
+	match group_name:
+		"Radio":
+			hook_button(group.get_node("BuyButton"), resolve_event.bind("radio_buy")).disabled = coins < 20
+		"Rooftop":
+			hook_button(group.get_node("TrainButton"), resolve_event.bind("training"))
+		"Science":
+			var row: Control = group.get_node("Stock")
+			for i in range(event_cards.size()): _card_tile(event_cards[i], row, resolve_event.bind("science_%d" % i) if game.player_hp > 3 else Callable(), "Take card · -3 HP")
+		"Infirmary":
+			var treatment: Button = group.get_node("TreatmentButton")
+			treatment.text = "Full treatment · +%d HP · add Paperwork" % healing_gain(8)
+			hook_button(treatment, resolve_event.bind("treatment")).disabled = game.player_hp >= game.hero_max_hp()
+			var short_break: Button = group.get_node("RestButton")
+			short_break.text = "Short break · +%d HP · free" % healing_gain(3)
+			hook_button(short_break, resolve_event.bind("rest"))
+		"LostFound":
+			hook_button(group.get_node("TradeButton"), show_remove_cards.bind("event")).disabled = collection.size() <= 5
+		"Locked":
+			hook_button(group.get_node("RiskButton"), event_risk).disabled = game.player_hp <= 3
+	if group.has_node("SafeButton"): hook_button(group.get_node("SafeButton"), resolve_event.bind("safe"))
 
 func resolve_event(choice: String) -> void:
 	if screen != "event" or event_resolved: return

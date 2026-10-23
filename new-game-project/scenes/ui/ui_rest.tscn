@@ -1,0 +1,36 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="RestScreen" type="VBoxContainer"]
+offset_right = 900.0
+offset_bottom = 400.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="RestButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Rest · +7 HP · free"
+
+[node name="TrainButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Train · upgrade 1 card · free"
+
+[node name="DestroyButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"PrimaryButton"
+text = "Destroy 1 card · free"
+
+[node name="LeaveButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Leave infirmary"
