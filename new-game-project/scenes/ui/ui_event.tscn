@@ -1,0 +1,114 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="EventScreen" type="VBoxContainer"]
+offset_right = 1330.0
+offset_bottom = 800.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Box" type="VBoxContainer" parent="Center"]
+custom_minimum_size = Vector2(940, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Radio" type="VBoxContainer" parent="Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="BuyButton" type="Button" parent="Center/Box/Radio"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Utility kit · +2 cards · -20 supplies"
+
+[node name="SafeButton" type="Button" parent="Center/Box/Radio"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Report the safe route · +10 supplies"
+
+[node name="Rooftop" type="VBoxContainer" parent="Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="TrainButton" type="Button" parent="Center/Box/Rooftop"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Train · +1 starting Plan · -1 energy capacity"
+
+[node name="SafeButton" type="Button" parent="Center/Box/Rooftop"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Collect equipment · +10 supplies"
+
+[node name="Science" type="VBoxContainer" parent="Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Stock" type="HBoxContainer" parent="Center/Box/Science"]
+layout_mode = 2
+
+[node name="SafeButton" type="Button" parent="Center/Box/Science"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Leave experiments · +10 supplies"
+
+[node name="Infirmary" type="VBoxContainer" parent="Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="TreatmentButton" type="Button" parent="Center/Box/Infirmary"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Full treatment · +8 HP · add Paperwork"
+
+[node name="RestButton" type="Button" parent="Center/Box/Infirmary"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Short break · +3 HP · free"
+
+[node name="LostFound" type="VBoxContainer" parent="Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="TradeButton" type="Button" parent="Center/Box/LostFound"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Trade 1 card · +25 supplies"
+
+[node name="SafeButton" type="Button" parent="Center/Box/LostFound"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Keep your deck · +10 supplies"
+
+[node name="Locked" type="VBoxContainer" parent="Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="RiskButton" type="Button" parent="Center/Box/Locked"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Break glass · +1 card · +30 supplies · -3 HP"
+
+[node name="SafeButton" type="Button" parent="Center/Box/Locked"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Search the hallway · +10 supplies"
