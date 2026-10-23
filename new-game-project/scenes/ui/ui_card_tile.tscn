@@ -1,0 +1,27 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="CardTile" type="PanelContainer"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+theme = ExtResource("1_theme")
+
+[node name="Box" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Center" type="CenterContainer" parent="Box"]
+layout_mode = 2
+
+[node name="Caption" type="Label" parent="Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.54901963, 0.5254902, 0.49411765, 1)
+theme_override_font_sizes/font_size = 13
+text = "UPGRADE  0 / 2"
+horizontal_alignment = 1
+
+[node name="ActionButton" type="Button" parent="Box"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Choose"

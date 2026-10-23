@@ -1,0 +1,55 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="Dossier" type="PanelContainer"]
+custom_minimum_size = Vector2(440, 420)
+theme = ExtResource("1_theme")
+
+[node name="Body" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="InspectTitle" type="Label" parent="Body"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 34
+text = "CARD NAME"
+autowrap_mode = 3
+
+[node name="InspectTabs" type="HBoxContainer" parent="Body"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SummaryTab" type="Button" parent="Body/InspectTabs"]
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_pressed = true
+action_mode = 0
+text = "Summary"
+
+[node name="StatusTab" type="Button" parent="Body/InspectTabs"]
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+toggle_mode = true
+action_mode = 0
+text = "Status"
+
+[node name="EffectsTab" type="Button" parent="Body/InspectTabs"]
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+toggle_mode = true
+action_mode = 0
+text = "Effects"
+
+[node name="DossierText" type="RichTextLabel" parent="Body"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/normal_font_size = 18
+theme_override_font_sizes/bold_font_size = 18
+bbcode_enabled = true
