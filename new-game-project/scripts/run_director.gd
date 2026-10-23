@@ -32,6 +32,11 @@ const CharacterPreviewScene = preload("res://scenes/ui/ui_character_preview.tscn
 const BattleLogScene = preload("res://scenes/ui/ui_battle_log.tscn")
 const PlansScene = preload("res://scenes/ui/ui_plans.tscn")
 const IntelScene = preload("res://scenes/ui/ui_intel.tscn")
+const ConfirmScene = preload("res://scenes/ui/ui_confirm.tscn")
+const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
+const ChooseSlotScene = preload("res://scenes/ui/ui_choose_slot.tscn")
+const BuffChoicesScene = preload("res://scenes/ui/ui_buff_choices.tscn")
+const FloorBuffsScene = preload("res://scenes/ui/ui_floor_buffs.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -177,8 +182,7 @@ func continue_saved_run() -> void:
 func confirm_abandon() -> void:
 	reset_panel("ABANDON THIS RUN?", "Your saved deck, school route and battle progress will be cleared. Start again from character selection.", "confirm")
 	confirmation_cancel = show_title
-	button("Abandon run", abandon_run, content)
-	button("Keep my run", show_title, content)
+	confirm_buttons("Abandon run", abandon_run, "Keep my run", show_title)
 
 func abandon_run() -> void:
 	run_active = false
@@ -1719,8 +1723,21 @@ func _debug_set_card_stat(value: float, targets: Array, picker: OptionButton, ke
 func confirm_title() -> void:
 	reset_panel("RETURN TO STARTING SCREEN?", "Your unfinished run is saved. Continue it from the starting screen, or abandon it there.", "confirm")
 	confirmation_cancel = close_modal
-	button("Return to starting screen", return_title, content)
-	button("Keep playing", close_modal, content)
+	confirm_buttons("Return to starting screen", return_title, "Keep playing", close_modal)
+
+## The two buttons of a confirm dialog, from ui_confirm.tscn.
+func confirm_buttons(yes_text: String, yes: Callable, no_text: String, no: Callable) -> void:
+	unpack_screen(ConfirmScene)
+	var yes_button: Button = content.get_node("ConfirmButton")
+	var no_button: Button = content.get_node("CancelButton")
+	yes_button.text = yes_text
+	yes_button.tooltip_text = yes_text
+	no_button.text = no_text
+	no_button.tooltip_text = no_text
+	# Same rule as button(): risky actions get the primary style.
+	if yes_text.begins_with("Abandon"): yes_button.theme_type_variation = "PrimaryButton"
+	hook_button(yes_button, yes)
+	hook_button(no_button, no)
 
 func return_title() -> void:
 	persistence.checkpoint()
@@ -1739,14 +1756,10 @@ func restart_scene() -> void: return_title()
 func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable, subtitle: String = "Choose one card. Cancel keeps your spell and energy.") -> void:
 	reset_panel(title, subtitle, "choice")
 	action_cancel = cancel
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 16)
-	grid.add_theme_constant_override("v_separation", 16)
-	scroll.add_child(grid)
+	# The layout lives in ui_choose_cards.tscn; the card tiles are made here.
+	unpack_screen(ChooseCardsScene)
+	var scroll: ScrollContainer = content.get_node("Cards")
+	var grid: GridContainer = scroll.get_node("Grid")
 	fit_card_grid(grid, scroll)
 	var sorted := cards.duplicate()
 	sorted.sort_custom(func(a, b):
@@ -1757,7 +1770,7 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 	for entry in sorted:
 		var definition: Dictionary = live_definition(entry) if entry is Node else entry
 		_card_tile(definition, grid, callback.bind(entry), "Choose")
-	button("Cancel  [Esc]", cancel, content)
+	hook_button(content.get_node("CancelButton"), cancel)
 
 func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> void:
 	if intel_revealed:
@@ -1765,12 +1778,11 @@ func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> vo
 		return
 	reset_panel("CHOOSE AN ENEMY HAND CARD", "Only cards currently held by the Janitor can be targeted. Cast Hazard Forecast to reveal their faces first.", "choice")
 	action_cancel = cancel
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
-	var grid := GridContainer.new()
+	# Same layout as choose_card(), from ui_choose_cards.tscn.
+	unpack_screen(ChooseCardsScene)
+	var scroll: ScrollContainer = content.get_node("Cards")
+	var grid: GridContainer = scroll.get_node("Grid")
 	grid.columns = 1
-	scroll.add_child(grid)
 	fit_card_grid(grid, scroll)
 	for i in range(cards.size()):
 		var box := VBoxContainer.new()
@@ -1782,13 +1794,18 @@ func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> vo
 		back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		box.add_child(back)
 		button("Hand card %d" % (i + 1), callback.bind(cards[i]), box)
-	button("Cancel", cancel, content)
+	var cancel_button: Button = content.get_node("CancelButton")
+	cancel_button.text = "Cancel"
+	cancel_button.tooltip_text = "Cancel"
+	hook_button(cancel_button, cancel)
 
 func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
 	reset_panel("CHOOSE AN EMPTY LANE", "Your selected ally moves to this slot. The newly played card stays on board.", "choice")
 	action_cancel = cancel
 	for slot in slots: button("Lane %d" % (game._response_slots().find(slot) + 1), callback.bind(slot), content)
-	button("Skip movement", cancel, content)
+	# The lane buttons change each time; the Skip button comes from ui_choose_slot.tscn.
+	unpack_screen(ChooseSlotScene)
+	hook_button(content.get_node("SkipButton"), cancel)
 
 func show_intel() -> void:
 	intel_revealed = true
@@ -1809,13 +1826,12 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 			buff_choices.append(pool.pop_at(index))
 	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn,
 		"Choose one adaptation for your side. These buffs expire after this battle.", "buff")
-	var row := HBoxContainer.new()
-	content.add_child(row)
+	# The layout lives in ui_buff_choices.tscn; the buff tiles are made here.
+	var box := centered_screen(BuffChoicesScene)
+	var row: Control = box.get_node("Row")
 	for buff in buff_choices:
 		choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
-	content.add_child(label("YOUR BUFFS: " + buff_summary(game.player_buffs), 16, UI.RESPONSE, true))
-	var box := centered_content()
-	box.custom_minimum_size.x = 1060
+	box.get_node("Summary").text = "YOUR BUFFS: " + buff_summary(game.player_buffs)
 
 func select_buff(id: String) -> void:
 	if screen != "buff" or not buff_choices.any(func(buff): return buff.id == id): return
@@ -1830,12 +1846,11 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 		for i in range(3): buff_choices.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number,
 		"Choose one buff for your side for the entire run, then climb to the next floor.", "floor_buff")
-	var row := HBoxContainer.new()
-	content.add_child(row)
+	# The layout lives in ui_floor_buffs.tscn; the buff tiles are made here.
+	var box := centered_screen(FloorBuffsScene)
+	var row: Control = box.get_node("Row")
 	for buff in buff_choices: choice_tile(buff.name, buff.description, select_floor_buff.bind(buff.id), row)
-	button("Return to starting screen", return_title, content)
-	var box := centered_content()
-	box.custom_minimum_size.x = 1060
+	hook_button(box.get_node("ReturnButton"), return_title)
 
 func select_floor_buff(id: String) -> void:
 	if screen != "floor_buff" or not buff_choices.any(func(buff): return buff.id == id): return
