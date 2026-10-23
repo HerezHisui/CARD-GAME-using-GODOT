@@ -88,6 +88,9 @@ var suppress_inspect_release := false
 var inspection_dossier: Control
 var modal_scroll: ScrollContainer
 var compact_layout := false
+## True while a "choice" screen shows cards (choose_card, choose_enemy_hand), false for the lane picker.
+var card_picker := false
+const CARD_PICKER_WIDTH := 1000.0
 var debug_from_menu := false
 var confirmation_cancel := Callable()
 var modal_dimmer: ColorRect
@@ -483,7 +486,8 @@ func _panel_layout(kind: String) -> void:
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var viewport_size := get_viewport().get_visible_rect().size
 		var height := 360.0 if kind == "debug_password" else (420.0 if kind == "confirm" else 680.0)
-		var width := 560.0 if kind == "debug" else 420.0
+		# Card pickers are wide so 3-4 cards fit side by side; the lane picker stays narrow.
+		var width := 560.0 if kind == "debug" else (CARD_PICKER_WIDTH if kind == "choice" and card_picker else 420.0)
 		var panel_size := Vector2(minf(width, viewport_size.x - 32), minf(height, viewport_size.y - 48))
 		modal.offset_left = (viewport_size.x - panel_size.x) / 2
 		modal.offset_right = -modal.offset_left
@@ -1696,13 +1700,12 @@ func _dragging() -> bool:
 func restart_scene() -> void: return_title()
 
 func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable, subtitle: String = "Choose one card. Cancel keeps your spell and energy.") -> void:
+	card_picker = true
 	reset_panel(title, subtitle, "choice")
 	action_cancel = cancel
-	# The layout lives in ui_choose_cards.tscn; the card tiles are made here.
+	# The layout lives in ui_choose_cards.tscn: one row of cards that scrolls sideways.
 	unpack_screen(ChooseCardsScene)
-	var scroll: ScrollContainer = content.get_node("Cards")
-	var grid: GridContainer = scroll.get_node("Grid")
-	fit_card_grid(grid, scroll)
+	var row: Control = content.get_node("Cards/Row")
 	var sorted := cards.duplicate()
 	sorted.sort_custom(func(a, b):
 		var first: Dictionary = a.card_data if a is Node else a
@@ -1711,24 +1714,22 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 	)
 	for entry in sorted:
 		var definition: Dictionary = live_definition(entry) if entry is Node else entry
-		_card_tile(definition, grid, callback.bind(entry), "Choose")
+		_card_tile(definition, row, callback.bind(entry), "Choose")
 	hook_button(content.get_node("CancelButton"), cancel)
 
 func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> void:
 	if intel_revealed:
 		choose_card("CHOOSE AN ENEMY HAND CARD", cards, callback, cancel)
 		return
+	card_picker = true
 	reset_panel("CHOOSE AN ENEMY HAND CARD", "Only cards currently held by the Janitor can be targeted. Cast Hazard Forecast to reveal their faces first.", "choice")
 	action_cancel = cancel
 	# Same layout as choose_card(), from ui_choose_cards.tscn.
 	unpack_screen(ChooseCardsScene)
-	var scroll: ScrollContainer = content.get_node("Cards")
-	var grid: GridContainer = scroll.get_node("Grid")
-	grid.columns = 1
-	fit_card_grid(grid, scroll)
+	var row: Control = content.get_node("Cards/Row")
 	for i in range(cards.size()):
 		var box := VBoxContainer.new()
-		grid.add_child(box)
+		row.add_child(box)
 		var back := TextureRect.new()
 		back.texture = CardFace._card_back()
 		back.custom_minimum_size = Vector2(180, 235)
@@ -1742,6 +1743,7 @@ func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> vo
 	hook_button(cancel_button, cancel)
 
 func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
+	card_picker = false
 	reset_panel("CHOOSE AN EMPTY LANE", "Your selected ally moves to this slot. The newly played card stays on board.", "choice")
 	action_cancel = cancel
 	for slot in slots: button("Lane %d" % (game._response_slots().find(slot) + 1), callback.bind(slot), content)

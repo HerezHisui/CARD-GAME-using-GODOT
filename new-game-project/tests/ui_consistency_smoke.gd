@@ -27,7 +27,7 @@ func capture(name: String) -> void:
 	if director.modal.visible:
 		if director.compact_layout:
 			var rect: Rect2 = director.modal.get_global_rect()
-			var width := 560.0 if director.screen == "debug" else 420.0
+			var width: float = 560.0 if director.screen == "debug" else (director.CARD_PICKER_WIDTH if director.screen == "choice" and director.card_picker else 420.0)
 			check(absf(rect.size.x - width) < 2, name + " compact width is %d" % width)
 			check(director.content.get_global_rect().end.x <= director.modal_scroll.get_global_rect().end.x + 1, name + " compact content fits without horizontal clipping")
 			check(rect.get_center().distance_to(root.get_visible_rect().size / 2) < 2, name + " compact panel is centered")
@@ -35,7 +35,7 @@ func capture(name: String) -> void:
 		check(director.modal.get_global_rect().end.y <= root.get_visible_rect().size.y + 2, name + " panel fits vertically")
 		for control in director.content.find_children("*", "Control", true, false):
 			if control is Button and control.is_visible_in_tree():
-				check(control.get_global_rect().end.x <= root.get_visible_rect().size.x + 2, name + " button fits horizontally: " + control.text)
+				if not _inside_sideways_scroll(control): check(control.get_global_rect().end.x <= root.get_visible_rect().size.x + 2, name + " button fits horizontally: " + control.text)
 				if not control.get_parent() is ScrollContainer and not _inside_scroll(control):
 					check(control.get_global_rect().end.y <= root.get_visible_rect().size.y + 2, name + " button fits vertically: " + control.text)
 	for face in director.root.find_children("*", "TextureRect", true, false):
@@ -55,6 +55,14 @@ func capture(name: String) -> void:
 		pixels.save_png(path)
 		evidence.append({"screen": name, "path": path, "pixels": [pixels.get_width(), pixels.get_height()]})
 	captures += 1
+
+## True inside a card row that scrolls sideways (not the compact modal scroll).
+func _inside_sideways_scroll(control: Control) -> bool:
+	var parent := control.get_parent()
+	while parent != director.modal and parent != null:
+		if parent is ScrollContainer and parent != director.modal_scroll 				and parent.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED: return true
+		parent = parent.get_parent()
+	return false
 
 func _inside_scroll(control: Control) -> bool:
 	var parent := control.get_parent()
@@ -336,7 +344,7 @@ func polish_checks() -> void:
 	battle()
 	game._apply_view(game.DESK_VIEW)
 	await create_timer(0.3).timeout
-	check(director.prep.get_parent().get_child(2).text == "Deck %d" % game.deck.size(), "HUD keeps Deck without Hand readout")
+	check(director.prep.get_parent().get_child_count() == 2, "HUD energy gauge has no Deck or Hand readout")
 	director.show_deck()
 	await capture("deck_navigation")
 	var buttons: Array = director.content.find_children("*", "Button", true, false)
