@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_sort_row.tscn" id="2_sort"]
+
+[node name="DeckScreen" type="VBoxContainer"]
+offset_right = 1330.0
+offset_bottom = 800.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="Tabs" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="DeckButton" type="Button" parent="Tabs"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Deck (12)"
+
+[node name="CloseButton" type="Button" parent="Tabs"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Close"
+
+[node name="SortRow" parent="." instance=ExtResource("2_sort")]
+layout_mode = 2
+
+[node name="Cards" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3

@@ -16,6 +16,9 @@ const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
 const DebugPasswordScene = preload("res://scenes/ui/ui_debug_password.tscn")
 const DebugScene = preload("res://scenes/ui/ui_debug.tscn")
 const MapScene = preload("res://scenes/ui/ui_map.tscn")
+const SortRowScene = preload("res://scenes/ui/ui_sort_row.tscn")
+const DeckScene = preload("res://scenes/ui/ui_deck.tscn")
+const GraveyardScene = preload("res://scenes/ui/ui_graveyard.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -1069,15 +1072,13 @@ func show_deck() -> void:
 		content.add_theme_constant_override("separation", 14)
 		modal.add_child(content)
 	reset_panel("Deck", "%d collected cards" % collection.size(), "deck")
-	var tabs := HBoxContainer.new()
-	content.add_child(tabs)
-	button("Deck (%d)" % collection.size(), deck_cards.bind(collection), tabs)
-	button("Close", close_modal, tabs)
-	add_sort_controls(false)
-	var scroll := ScrollContainer.new()
-	scroll.name = "Cards"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
+	# The layout lives in ui_deck.tscn; the card tiles are made in deck_cards().
+	unpack_screen(DeckScene)
+	var deck_button: Button = content.get_node("Tabs/DeckButton")
+	deck_button.text = "Deck (%d)" % collection.size()
+	hook_button(deck_button, deck_cards.bind(collection))
+	hook_button(content.get_node("Tabs/CloseButton"), close_modal)
+	setup_sort_controls(content.get_node("SortRow"), false)
 	deck_cards(collection)
 
 func preserve_pending_decision() -> void:
@@ -1216,45 +1217,29 @@ func show_graveyard() -> void:
 
 func refresh_graveyard() -> void:
 	reset_panel("RESPONSE GRAVEYARD (%d)" % game.player_graveyard.size(), "Recovery Detail returns a destroyed Response unit once per battle.", "graveyard")
-	var tabs := HBoxContainer.new()
-	content.add_child(tabs)
-	button("Close", close_modal, tabs)
-	var sort := OptionButton.new()
+	# The layout lives in ui_graveyard.tscn; the entry buttons are made here.
+	unpack_screen(GraveyardScene)
+	var tabs: Control = content.get_node("Tabs")
+	hook_button(tabs.get_node("CloseButton"), close_modal)
+	var sort: OptionButton = tabs.get_node("Sort")
 	for key in SORT_KEYS: sort.add_item("Recently added" if key == "acquired" else str(key).capitalize())
 	sort.select(deck_sort)
 	sort.item_selected.connect(func(index): deck_sort = index; refresh_graveyard())
-	tabs.add_child(sort)
-	button("Descending" if deck_descending else "Ascending", func(): deck_descending = not deck_descending; refresh_graveyard(), tabs)
-	for control in tabs.get_children(): control.custom_minimum_size.x = 100
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(list)
+	var order: Button = tabs.get_node("OrderButton")
+	order.text = "Descending" if deck_descending else "Ascending"
+	hook_button(order, func(): deck_descending = not deck_descending; refresh_graveyard())
+	var list: Control = content.get_node("Scroll/List")
 	var cards: Array = game.player_graveyard
 	viewed_cards.assign(cards)
-	var details := RichTextLabel.new()
-	details.custom_minimum_size.y = 100
-	details.text = "Select an entry to read its effects."
+	var details: RichTextLabel = content.get_node("Details")
+	if not cards.is_empty(): list.get_node("EmptyNote").free()
 	for index in sorted_indices(cards, deck_sort, deck_descending):
 		var entry: Dictionary = cards[index]
 		var row := button("%s · %s · round %d" % [entry.name, entry.get("graveyard_reason", "Destroyed"), int(entry.get("graveyard_round", 1))], func(): details.text = "%s · Cost %d · Attack %d · Health %d\n%s" % [entry.name, int(entry.get("cost", 0)), int(entry.get("attack", 0)), int(entry.get("health", 1)), card_rules(entry)], list)
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	if cards.is_empty():
-		var empty := VBoxContainer.new()
-		empty.alignment = BoxContainer.ALIGNMENT_CENTER
-		empty.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		list.add_child(empty)
-		var title := label("NO FALLEN RESPONSE CARDS", 22, UI.GOLD)
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty.add_child(title)
-		var hint := label("Destroyed units and spent utilities appear here.", 16, UI.MUTED)
-		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty.add_child(hint)
 		details.text = "RECOVERY DETAIL\nReturn a destroyed unit to your hand once per battle."
-	content.add_child(details)
 
 func deck_hand() -> void:
 	var cards: Array[Dictionary] = []
@@ -1319,19 +1304,22 @@ func deck_cards(cards: Array[Dictionary]) -> void:
 func sorted_indices(cards: Array, key_index: int, descending: bool) -> Array:
 	return CardRules.sorted_indices(cards, key_index, descending)
 
+## Adds a sort row from ui_sort_row.tscn to the end of content.
 func add_sort_controls(workshop: bool) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	var row: Control = SortRowScene.instantiate()
 	content.add_child(row)
-	row.add_child(label("Sort by", 16))
-	var picker := OptionButton.new()
-	picker.custom_minimum_size = Vector2(190, 40)
+	setup_sort_controls(row, workshop)
+
+## Fills a sort row: the picker items, the current sort and the order button.
+func setup_sort_controls(row: Control, workshop: bool) -> void:
+	var picker: OptionButton = row.get_node("Picker")
 	for title in ["Name", "Type", "Cost", "Attack", "Health", "Modifier", "Recently added"]: picker.add_item(title)
 	picker.select(upgrade_sort if workshop else deck_sort)
 	picker.item_selected.connect(change_sort.bind(workshop))
-	row.add_child(picker)
 	var descending := upgrade_descending if workshop else deck_descending
-	button("Descending ↓" if descending else "Ascending ↑", reverse_sort.bind(workshop), row)
+	var order: Button = row.get_node("OrderButton")
+	order.text = "Descending ↓" if descending else "Ascending ↑"
+	hook_button(order, reverse_sort.bind(workshop))
 
 func change_sort(index: int, workshop: bool) -> void:
 	if workshop:
