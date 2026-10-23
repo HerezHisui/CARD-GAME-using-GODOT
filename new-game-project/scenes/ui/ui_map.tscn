@@ -1,0 +1,91 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+[ext_resource type="Script" uid="uid://bsnrm0i3112n3" path="res://scripts/route_canvas.gd" id="2_canvas"]
+
+[node name="MapScreen" type="VBoxContainer"]
+offset_right = 1330.0
+offset_bottom = 800.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="RouteRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MapScroll" type="ScrollContainer" parent="RouteRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Canvas" type="Control" parent="RouteRow/MapScroll"]
+custom_minimum_size = Vector2(580, 1660)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_canvas")
+
+[node name="Dossier" type="PanelContainer" parent="RouteRow"]
+custom_minimum_size = Vector2(255, 0)
+layout_mode = 2
+
+[node name="DossierText" type="VBoxContainer" parent="RouteRow/Dossier"]
+layout_mode = 2
+
+[node name="FloorLabel" type="Label" parent="RouteRow/Dossier/DossierText"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 28
+text = "FLOOR / 01"
+
+[node name="Separator" type="HSeparator" parent="RouteRow/Dossier/DossierText"]
+layout_mode = 2
+
+[node name="RouteHelp" type="Label" parent="RouteRow/Dossier/DossierText"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.54901963, 0.5254902, 0.49411765, 1)
+theme_override_font_sizes/font_size = 17
+text = "Choose a connected room.
+
+BATTLE / Build your deck
+ELITE / Unlock a tactic
+REST / Heal or train
+SHOP / Spend supplies
+EVENT / Risk and reward
+UPGRADE / Improve a card"
+autowrap_mode = 3
+
+[node name="Ascend" type="Label" parent="RouteRow/Dossier/DossierText"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 14
+text = "▲  ASCEND TO SURVIVE"
+
+[node name="Footer" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Legend" type="Label" parent="Footer"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 16
+text = "Battle  /  Elite  /  Rest  /  Workshop  /  Event  /  Shop  ↑  JANITOR"
+autowrap_mode = 3
+
+[node name="ReturnButton" type="Button" parent="Footer"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Return to battle"
+
+[node name="MenuButton" type="Button" parent="Footer"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Menu  [Esc]"

@@ -15,6 +15,7 @@ const TitleScene = preload("res://scenes/ui/ui_title.tscn")
 const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
 const DebugPasswordScene = preload("res://scenes/ui/ui_debug_password.tscn")
 const DebugScene = preload("res://scenes/ui/ui_debug.tscn")
+const MapScene = preload("res://scenes/ui/ui_map.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -611,34 +612,14 @@ func show_map() -> void:
 	if saved_content: return
 	if screen in DECISIONS: return
 	reset_panel("THE SCHOOL MAP", "Choose an illuminated room. Follow the connected route upward to the Janitor.", "map")
-	var canvas := RouteCanvas.new()
+	# The layout lives in ui_map.tscn; the room buttons are made here because the route changes each run.
+	unpack_screen(MapScene)
+	var map_scroll: ScrollContainer = content.get_node("RouteRow/MapScroll")
+	var canvas: RouteCanvas = map_scroll.get_node("Canvas")
 	canvas.rooms = rooms
 	canvas.current = current
 	canvas.cleared = cleared
-	canvas.custom_minimum_size = Vector2(580, 1660)
-	canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var route_row := HBoxContainer.new()
-	route_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(route_row)
-	var map_scroll := ScrollContainer.new()
-	map_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	map_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	route_row.add_child(map_scroll)
-	map_scroll.add_child(canvas)
-	var dossier := PanelContainer.new()
-	dossier.custom_minimum_size.x = 255
-	route_row.add_child(dossier)
-	var dossier_text := VBoxContainer.new()
-	dossier.add_child(dossier_text)
-	dossier_text.add_child(label("FLOOR / %02d" % floor_number, 28, UI.GOLD))
-	dossier_text.add_child(HSeparator.new())
-	var route_help := label("Choose a connected room.\n\nBATTLE / Build your deck\nELITE / Unlock a tactic\n"
-		+ "REST / Heal or train\nSHOP / Spend supplies\nEVENT / Risk and reward\nUPGRADE / Improve a card", 17, UI.MUTED)
-	route_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	route_help.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	dossier_text.add_child(route_help)
-	dossier_text.add_child(label("▲  ASCEND TO SURVIVE", 14, UI.GOLD))
-	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content.get_node("RouteRow/Dossier/DossierText/FloorLabel").text = "FLOOR / %02d" % floor_number
 	animate_map.call_deferred(weakref(map_scroll), maxi(0, 1660 - 100 - (int(rooms[current].row) if current >= 0 else 0) * 145 - 280))
 	canvas.resized.connect(func():
 		for b in canvas.get_children():
@@ -660,16 +641,13 @@ func show_map() -> void:
 			b.text = "FINAL BOSS"
 			b.tooltip_text = "Final boss: three telegraphed phases. Prepare healing, barriers and AoE."
 		b.position = canvas.point(room) - b.size / 2
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 18)
-	content.add_child(footer)
-	var legend := label("Battle  /  Elite  /  Rest  /  Workshop  /  Event  /  Shop  ↑  JANITOR", 16,
-		UI.RESPONSE, true)
-	legend.custom_minimum_size.x = 320
-	legend.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(legend)
-	if battle_active: button("Return to battle", close_modal, footer)
-	else: button("Menu  [Esc]", show_menu, footer)
+	var footer: Control = content.get_node("Footer")
+	if battle_active:
+		hook_button(footer.get_node("ReturnButton"), close_modal)
+		footer.get_node("MenuButton").free()
+	else:
+		footer.get_node("ReturnButton").free()
+		hook_button(footer.get_node("MenuButton"), show_menu)
 
 func animate_map(reference: WeakRef, destination: int) -> void:
 	var scroll = reference.get_ref()
