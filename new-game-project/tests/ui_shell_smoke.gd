@@ -5,6 +5,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 const GAUGE_SCENE := "res://scenes/ui/ui_gauge.tscn"
 const HEADER_SCENE := "res://scenes/ui/ui_header.tscn"
 const PROMPT_SCENE := "res://scenes/ui/ui_board_prompt.tscn"
+const INTENT_SCENE := "res://scenes/ui/ui_boss_intent.tscn"
 var failures := 0
 var game: Node
 var director: Node
@@ -23,6 +24,7 @@ func run() -> void:
 	gauges()
 	header()
 	await board_prompt()
+	boss_intent()
 	await title_hides_header()
 	if failures == 0: print("PASS: UI shell scenes and theme styles")
 	quit(1 if failures else 0)
@@ -115,3 +117,9 @@ func board_prompt() -> void:
 	if cancel: cancel.pressed.emit()
 	check(game.board_input.action.is_empty(), "prompt Cancel button ends the pick")
 	director.battle_active = false
+
+func boss_intent() -> void:
+	var panel: Control = director.boss_intent.get_parent()
+	check(panel.scene_file_path == INTENT_SCENE, "boss intent panel comes from ui_boss_intent.tscn")
+	check(panel.mouse_filter == Control.MOUSE_FILTER_IGNORE, "boss intent panel ignores the mouse")
+	check(director.boss_intent.mouse_filter == Control.MOUSE_FILTER_IGNORE, "boss intent label ignores the mouse")
