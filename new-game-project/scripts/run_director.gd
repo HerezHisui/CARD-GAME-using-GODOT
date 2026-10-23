@@ -8,11 +8,8 @@ const CardRules = preload("res://scripts/run_card_rules.gd")
 const Routes = preload("res://scripts/run_routes.gd")
 const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
-const GaugeScene = preload("res://scenes/ui/ui_gauge.tscn")
-const HeaderScene = preload("res://scenes/ui/ui_header.tscn")
-const BoardPromptScene = preload("res://scenes/ui/ui_board_prompt.tscn")
-const BossIntentScene = preload("res://scenes/ui/ui_boss_intent.tscn")
-const ModalFrameScene = preload("res://scenes/ui/ui_modal_frame.tscn")
+## Header, gauges, modal frame, idle hint, boss intent and board prompt, placed in the editor.
+const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -274,15 +271,13 @@ func choice_tile(title: String, description: String, action: Callable, parent: N
 	return pick
 
 func _build_ui() -> void:
-	root = Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Positions come from ui_shell.tscn; move things there in the editor.
+	root = ShellScene.instantiate()
 	add_child(root)
 	UI.apply_hud(game.get_node("HUD/Root"))
 	root.theme = UI.get_theme()
 	# The top bar stays root child 0; other code finds it there.
-	var header: Control = HeaderScene.instantiate()
-	root.add_child(header)
+	var header: Control = root.get_node("Header")
 	UI.decorate(header)
 	summary = header.get_node("%Summary")
 	map_button = header.get_node("%MapButton")
@@ -296,12 +291,9 @@ func _build_ui() -> void:
 	var scene_hud := game.get_node("HUD/Root")
 	dashboard = scene_hud.get_node("Dashboard")
 	UI.decorate(dashboard)
-	prep = _make_gauge("PREPAREDNESS ENERGY", UI.RESPONSE, "EnergyBar", true)
-	_place(prep.get_parent(), Control.PRESET_BOTTOM_LEFT, 24, -78, 240, -12)
-	threat = _make_gauge("TENSION", UI.DANGER, "TensionBar", false)
-	_place(threat.get_parent(), Control.PRESET_TOP_RIGHT, -240, 158, -24, 215)
-	var modal_frame: Control = ModalFrameScene.instantiate()
-	root.add_child(modal_frame)
+	prep = _make_gauge("EnergyGauge", "PREPAREDNESS ENERGY", UI.RESPONSE, "EnergyBar", true)
+	threat = _make_gauge("TensionGauge", "TENSION", UI.DANGER, "TensionBar", false)
+	var modal_frame: Control = root.get_node("ModalFrame")
 	modal_dimmer = modal_frame.get_node("%ModalDimmer")
 	modal = modal_frame.get_node("%Modal")
 	modal_scroll = modal_frame.get_node("%ModalScroll")
@@ -313,31 +305,28 @@ func _build_ui() -> void:
 	get_viewport().size_changed.connect(func():
 		if modal.visible: _panel_layout(screen)
 	)
-	idle_hint = label("Choose your next room with School map  [M]", 20, UI.RESPONSE)
-	idle_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	root.add_child(idle_hint)
-	idle_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	idle_hint.offset_top = -60
-	idle_hint.offset_bottom = -20
-	var intent_panel: Control = BossIntentScene.instantiate()
-	root.add_child(intent_panel)
+	# Same font, size and color that label() gives.
+	idle_hint = root.get_node("IdleHint")
+	if compact_layout: idle_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	idle_hint.add_theme_font_override("font", UI.font(false))
+	idle_hint.add_theme_font_size_override("font_size", 20)
+	idle_hint.add_theme_color_override("font_color", UI.RESPONSE)
+	var intent_panel: Control = root.get_node("BossIntent")
 	boss_intent = intent_panel.get_node("%IntentLabel")
 	plans_button = scene_hud.get_node("PlansBox/PlansButton")
 	plans_button.pressed.connect(show_plans)
 	graveyard_button = scene_hud.get_node("GraveyardButton")
 	graveyard_button.pressed.connect(show_graveyard)
 	for hud_button in [plans_button, graveyard_button]: game.presentation.button_feedback(hud_button)
-	board_prompt = BoardPromptScene.instantiate()
-	root.add_child(board_prompt)
+	board_prompt = root.get_node("BoardPrompt")
 	board_prompt_label = board_prompt.get_node("%PromptLabel")
 	var cancel_button: Button = board_prompt.get_node("%CancelButton")
 	cancel_button.pressed.connect(func(): game.board_input.cancel())
 	game.presentation.button_feedback(cancel_button)
 
 ## A gauge from ui_gauge.tscn on root; returns its bar. Tension has no Detail line.
-func _make_gauge(title: String, color: Color, variation: String, keep_detail: bool) -> ProgressBar:
-	var box: Control = GaugeScene.instantiate()
-	root.add_child(box)
+func _make_gauge(box_name: String, title: String, color: Color, variation: String, keep_detail: bool) -> ProgressBar:
+	var box: Control = root.get_node(box_name)
 	var heading: Label = box.get_node("Title")
 	heading.text = title
 	heading.add_theme_color_override("font_color", color)
@@ -346,14 +335,6 @@ func _make_gauge(title: String, color: Color, variation: String, keep_detail: bo
 	# free() so the box has 2 children straight away.
 	if not keep_detail: box.get_node("Detail").free()
 	return bar
-
-## Anchors a control to a preset, then sets its four offsets.
-func _place(control: Control, preset: int, left: float, top: float, right: float, bottom: float) -> void:
-	control.set_anchors_and_offsets_preset(preset)
-	control.offset_left = left
-	control.offset_top = top
-	control.offset_right = right
-	control.offset_bottom = bottom
 
 func _process(_delta: float) -> void:
 	if inspect_hold_pending and not game.board_input.action.is_empty(): cancel_inspect_hold()
