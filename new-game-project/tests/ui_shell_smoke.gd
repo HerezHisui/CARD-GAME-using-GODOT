@@ -25,6 +25,7 @@ func run() -> void:
 	header()
 	await board_prompt()
 	boss_intent()
+	dashboard()
 	await title_hides_header()
 	if failures == 0: print("PASS: UI shell scenes and theme styles")
 	quit(1 if failures else 0)
@@ -123,3 +124,20 @@ func boss_intent() -> void:
 	check(panel.scene_file_path == INTENT_SCENE, "boss intent panel comes from ui_boss_intent.tscn")
 	check(panel.mouse_filter == Control.MOUSE_FILTER_IGNORE, "boss intent panel ignores the mouse")
 	check(director.boss_intent.mouse_filter == Control.MOUSE_FILTER_IGNORE, "boss intent label ignores the mouse")
+
+func dashboard() -> void:
+	var hud: Node = game.get_node("HUD/Root")
+	check(director.dashboard == hud.get_node_or_null("Dashboard") and hud.get_child(0) == director.dashboard,
+		"dashboard is HUD/Root child 0 from hud.tscn")
+	check(director.dashboard.theme_type_variation == &"DashboardPanel", "dashboard style")
+	check(director.plans_button == hud.get_node_or_null("PlansBox/PlansButton"), "Plans button lives in hud.tscn")
+	check(director.graveyard_button == hud.get_node_or_null("GraveyardButton"), "Graveyard button lives in hud.tscn")
+	for button in [director.plans_button, director.graveyard_button]:
+		check(button.has_meta("hover_feedback"), button.name + " has hover feedback")
+		check(button.mouse_filter == Control.MOUSE_FILTER_STOP, button.name + " stops mouse clicks")
+	director.battle_active = true
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	director.plans_button.pressed.emit()
+	check(director.screen == "plans", "pressing the Plans button opens plans")
+	director.close_modal()
+	director.battle_active = false

@@ -29,6 +29,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="Dashboard" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -90.0
+mouse_filter = 2
+theme_type_variation = &"DashboardPanel"
+
 [node name="Vignette_0" type="TextureRect" parent="Root" unique_id=2116371047]
 layout_mode = 1
 anchors_preset = 10
@@ -225,3 +235,36 @@ offset_bottom = 56.0
 text = "20 / 20"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="PlansBox" type="VBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 260.0
+offset_top = -78.0
+offset_right = 450.0
+offset_bottom = -15.0
+
+[node name="PlansButton" type="Button" parent="Root/PlansBox"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
+mouse_default_cursor_shape = 2
+text = "Contingency 0/2  [P]"
+
+[node name="GraveyardButton" type="Button" parent="Root"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -560.0
+offset_top = -73.0
+offset_right = -394.0
+offset_bottom = -17.0
+tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
+mouse_default_cursor_shape = 2
+text = "Graveyard [G]"
