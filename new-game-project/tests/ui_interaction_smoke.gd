@@ -248,48 +248,35 @@ func inspection_layout_checks() -> void:
 	var title: Label = dossier.get_node("InspectTitle")
 	check(title.text == title.text.to_upper() and title.get_theme_font_size("font_size") == 34,
 		"inspection uses a large uppercase title")
-	var tabs := dossier.get_node("InspectTabs").get_children()
-	check(tabs.map(func(tab): return tab.text) == ["Summary", "Status", "Effects"], "inspection has three tabs")
-	check(tabs[0].button_pressed, "inspection starts on Summary")
-	var active: StyleBoxFlat = tabs[0].get_theme_stylebox("pressed")
-	check(active.border_color == Color("e59538") and active.border_width_top == 2,
-		"active inspection tab has an orange outline")
+	check(not dossier.has_node("InspectTabs") and dossier.find_children("*", "Button", true, false).is_empty(),
+		"inspection has no tab buttons")
 	var details: RichTextLabel = dossier.get_node("DossierText")
 	check(details.get_theme_font_size("normal_font_size") == 18
 		and details.get_theme_font_size("bold_font_size") == 18, "dossier body text uses 18-point fonts")
-	var summary := details.text
-	for index in [1, 2, 0]:
-		tabs[index].button_pressed = true
-		tabs[index].pressed.emit()
-		check(not details.text.is_empty(), "each inspection tab shows details")
-	check(details.text == summary, "returning to Summary restores card details")
+	check(not details.text.is_empty(), "the one dossier box shows details")
+	check(not details.text.contains("ATK ") and not details.text.contains("PERMANENT UPGRADES"),
+		"dossier drops lines the card face already shows")
 	var original_size := root.size
 	root.size = Vector2i(1280, 800)
 	await process_frame
 	var panel_rect: Rect2 = dossier.get_parent().get_global_rect()
 	check(root.get_visible_rect().encloses(panel_rect), "dossier panel fits the 1280x800 window")
 	check(panel_rect.encloses(details.get_global_rect()), "dossier text stays inside its panel")
-	for tab in tabs:
-		check(panel_rect.encloses(tab.get_global_rect()), "inspection tabs stay inside their panel")
 	# Restore the input fixture's coordinate scale before injecting mouse events.
 	root.size = original_size
 	await process_frame
-	mouse(true, tabs[1].get_global_rect().get_center())
-	mouse(false, tabs[1].get_global_rect().get_center())
-	check(tabs[1].button_pressed and details.text != summary, "a real click switches inspection tabs")
 	var face_rect: Rect2 = director.inspected_face.get_global_rect()
 	var panel: Control = dossier.get_parent()
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.pressed = true
-	# The dossier must take precedence even if a preview hitbox overlaps its tabs.
+	# The dossier must take precedence even if a preview hitbox overlaps its text.
 	director.inspected_face.global_position = panel.global_position
 	director.inspected_face.size = panel.size
-	for tab in tabs:
-		press.position = tab.get_global_rect().get_center()
-		press.global_position = press.position
-		director._input(press)
-		check(dossier.is_visible_in_tree(), "synthetic tab presses cannot dismiss the dossier")
+	press.position = details.get_global_rect().get_center()
+	press.global_position = press.position
+	director._input(press)
+	check(dossier.is_visible_in_tree(), "synthetic presses on the dossier text cannot dismiss it")
 	press.position = panel.get_global_rect().position + Vector2(2, 2)
 	press.global_position = press.position
 	director._input(press)

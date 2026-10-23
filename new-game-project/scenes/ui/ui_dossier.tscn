@@ -18,35 +18,6 @@ theme_override_font_sizes/font_size = 34
 text = "CARD NAME"
 autowrap_mode = 3
 
-[node name="InspectTabs" type="HBoxContainer" parent="Body"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="SummaryTab" type="Button" parent="Body/InspectTabs"]
-custom_minimum_size = Vector2(120, 36)
-layout_mode = 2
-mouse_default_cursor_shape = 2
-toggle_mode = true
-button_pressed = true
-action_mode = 0
-text = "Summary"
-
-[node name="StatusTab" type="Button" parent="Body/InspectTabs"]
-custom_minimum_size = Vector2(120, 36)
-layout_mode = 2
-mouse_default_cursor_shape = 2
-toggle_mode = true
-action_mode = 0
-text = "Status"
-
-[node name="EffectsTab" type="Button" parent="Body/InspectTabs"]
-custom_minimum_size = Vector2(120, 36)
-layout_mode = 2
-mouse_default_cursor_shape = 2
-toggle_mode = true
-action_mode = 0
-text = "Effects"
-
 [node name="DossierText" type="RichTextLabel" parent="Body"]
 layout_mode = 2
 size_flags_vertical = 3

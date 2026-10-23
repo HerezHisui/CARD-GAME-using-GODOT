@@ -968,18 +968,13 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	var body: Control = panel.get_node("Body")
 	inspection_dossier = body
 	body.get_node("InspectTitle").text = str(card.name).to_upper()
-	var tabs: Control = body.get_node("InspectTabs")
+	# One box: the card face already shows attack, health and energy cost.
 	var details: RichTextLabel = body.get_node("DossierText")
-	if not card.get("utility", false):
-		details.text += "ATK %d  /  HP %d\n\n" % [
-			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
 	var disaster: bool = card.get("type", "response") == "disaster"
 	var sacrifice: bool = disaster and not card.get("utility", false) and int(card.get("cost", 0)) > 0
 	if card.has("boss_role"): details.text += "Encounter hazard: created by a boss pattern. No summon cost.\n\n"
 	elif sacrifice: details.text += "SAC: %d allied units to evolve.\n\n" % int(card.cost)
 	elif disaster: details.text += "Cost: %d Tension.\n\n" % int(card.get("tension_cost", 1))
-	else: details.text += "Cost: %d energy.\n\n" % int(card.get("cost", 0))
-	details.text += "[b]PERMANENT UPGRADES  %d / 2[/b]\n" % upgrade_level(card)
 	var effects: Dictionary = live_card.statuses if is_instance_valid(live_card) else card.get("statuses", {})
 	var status_rules := {
 		"strength":"Adds attack.", "burn":"Deals damage each round, then halves its stacks.",
@@ -1014,22 +1009,11 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	for modifier in active_modifiers:
 		var description := Rules.modifier_text(card, str(modifier))
 		if description not in rules: rules.append(description)
-	var effect_text := "No card effects." if rules.is_empty() else "[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
-	if not hint.is_empty(): details.text += "\n\n" + hint
-	var pages: Array[String] = [
-		details.text, status_text if not status_text.is_empty() else "No active statuses.", effect_text
-	]
-	var group := ButtonGroup.new()
-	for index in pages.size():
-		var tab: Button = tabs.get_child(index)
-		tab.set_meta("hover_feedback", true)
-		tab.button_group = group
-		tab.button_pressed = index == 0
-		for state in ["pressed", "hover_pressed"]:
-			var active := UI.panel(UI.INSET, Color("e59538"), 8)
-			active.set_border_width_all(2)
-			tab.add_theme_stylebox_override(state, active)
-		tab.pressed.connect(func(): details.text = pages[index])
+	var effect_text := "No card effects.\n" if rules.is_empty() else "[b]CARD EFFECTS[/b]\n" + "\n".join(rules) + "\n"
+	# Effects, statuses and the hint all go in the same box; there are no tabs.
+	details.text += effect_text
+	if not status_text.is_empty(): details.text += "\n" + status_text
+	if not hint.is_empty(): details.text += "\n" + hint
 	return details
 
 func fit_card_grid(grid: GridContainer, scroll: ScrollContainer) -> void:
@@ -1266,7 +1250,10 @@ func card_rules(card: Dictionary) -> String:
 	if card.has("on_hit"):
 		for status in card.on_hit: rules += "On hit: %s %d to a surviving blocker.\n" % [str(status).capitalize(), int(card.on_hit[status])]
 	for element in game.TYPE_CHART.get(card.element, {}):
-		rules += "%s: %s× damage\n" % [str(element).capitalize(), game.TYPE_CHART[card.element][element]]
+		var mult: float = float(game.TYPE_CHART[card.element][element])
+		# Whole numbers read "2x", others "0.5x".
+		var amount := str(int(mult)) if is_equal_approx(mult, roundf(mult)) else str(mult)
+		rules += "Deals %sx damage to %s\n" % [amount, str(element).capitalize()]
 	return rules + "All other matchups: normal damage."
 
 func deck_cards(cards: Array[Dictionary]) -> void:
