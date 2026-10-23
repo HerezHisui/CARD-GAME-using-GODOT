@@ -3,6 +3,10 @@ extends RefCounted
 
 const UI = preload("res://scripts/ui_theme.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
+## Screen layouts. Edit them in the editor; the card tiles are still made in code.
+const ShopScene = preload("res://scenes/ui/ui_shop.tscn")
+const RemoveScene = preload("res://scenes/ui/ui_remove_cards.tscn")
+const RemoveConfirmScene = preload("res://scenes/ui/ui_remove_confirm.tscn")
 
 static func show_shop(director: Node) -> void:
 	var key: String = "%d:%d" % [director.floor_number, director.current]
@@ -24,8 +28,8 @@ static func show_shop(director: Node) -> void:
 	director.reset_panel("THE SUPPLY ROOM",
 		"Buy as many stocked items as you can afford. Card prices scale with power. First aid restores up to 5 HP for 15 supplies. Stock stays fixed.",
 		"shop")
-	var row := HBoxContainer.new()
-	director.content.add_child(row)
+	director.unpack_screen(ShopScene)
+	var row: Control = director.content.get_node("Stock")
 	for card in director.shop_stock:
 		var sold: bool = card.id in director.shop_purchased
 		var price: int = director.shop_price(card)
@@ -37,12 +41,14 @@ static func show_shop(director: Node) -> void:
 		elif director.coins < price:
 			row.get_child(row.get_child_count() - 1).get_child(0).add_child(
 				director.label("Need %d supplies" % price, 14, UI.MUTED))
-	director.button("First aid · +%d HP · -15 supplies" % director.healing_gain(5), Callable(director, "buy_heal"),
-		director.content).disabled = director.coins < 15 \
+	var heal: Button = director.content.get_node("HealButton")
+	heal.text = "First aid · +%d HP · -15 supplies" % director.healing_gain(5)
+	director.hook_button(heal, Callable(director, "buy_heal")).disabled = director.coins < 15 \
 		or director.game.player_hp >= director.game.hero_max_hp()
-	director.button("Destroy 1 card · -30 supplies", Callable(director, "show_remove_cards").bind("shop"),
-		director.content).disabled = director.coins < 30 or director.collection.size() <= 5
-	director.button("Leave shop", Callable(director, "finish_room"), director.content)
+	director.hook_button(director.content.get_node("DestroyButton"),
+		Callable(director, "show_remove_cards").bind("shop")).disabled = director.coins < 30 \
+		or director.collection.size() <= 5
+	director.hook_button(director.content.get_node("LeaveButton"), Callable(director, "finish_room"))
 
 static func shop_price(card: Dictionary) -> int:
 	return CardRules.shop_price(card)
@@ -71,17 +77,14 @@ static func show_remove_cards(director: Node, origin: String) -> void:
 		+ ("Removal costs 30 supplies; the shop stays open." if origin == "shop"
 		else ("This replaces healing or training at this rest node." if origin == "rest"
 		else "Trade one card for 25 supplies.")), "remove")
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	director.content.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 4
-	scroll.add_child(grid)
+	director.unpack_screen(RemoveScene)
+	var scroll: ScrollContainer = director.content.get_node("Cards")
+	var grid: GridContainer = scroll.get_node("Grid")
 	director.fit_card_grid(grid, scroll)
 	for i in director.sorted_indices(director.collection, director.deck_sort, director.deck_descending):
 		director._card_tile(director.collection[i], grid, Callable(director, "preview_remove").bind(i),
 			"Choose this copy")
-	director.button("Cancel", Callable(director, "cancel_remove"), director.content)
+	director.hook_button(director.content.get_node("CancelButton"), Callable(director, "cancel_remove"))
 
 static func preview_remove(director: Node, index: int) -> void:
 	if index < 0 or index >= director.collection.size(): return
@@ -89,11 +92,16 @@ static func preview_remove(director: Node, index: int) -> void:
 	director.reset_panel("DESTROY THIS COPY?",
 		"This removes the card from your run deck. Your other copies are kept.", "remove_confirm")
 	director._card_tile(director.collection[index], director.content)
-	director.button("Destroy card · " + ("-30 supplies" if director.remove_origin == "shop"
-		else ("+25 supplies" if director.remove_origin == "event" else "free")), Callable(director, "confirm_remove"),
-		director.content).disabled = director.collection.size() <= 5 \
+	director.unpack_screen(RemoveConfirmScene)
+	var confirm: Button = director.content.get_node("ConfirmButton")
+	confirm.text = "Destroy card · " + ("-30 supplies" if director.remove_origin == "shop"
+		else ("+25 supplies" if director.remove_origin == "event" else "free"))
+	confirm.tooltip_text = confirm.text
+	director.hook_button(confirm, Callable(director, "confirm_remove")).disabled = director.collection.size() <= 5 \
 		or (director.remove_origin == "shop" and director.coins < 30)
-	director.button("Back", Callable(director, "show_remove_cards").bind(director.remove_origin), director.content)
+	var back: Button = director.content.get_node("BackButton")
+	back.tooltip_text = back.text
+	director.hook_button(back, Callable(director, "show_remove_cards").bind(director.remove_origin))
 
 static func confirm_remove(director: Node) -> void:
 	if director.screen != "remove_confirm" or director.collection.size() <= 5 or director.remove_index < 0 \
