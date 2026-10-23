@@ -12,6 +12,7 @@ const GaugeScene = preload("res://scenes/ui/ui_gauge.tscn")
 const HeaderScene = preload("res://scenes/ui/ui_header.tscn")
 const BoardPromptScene = preload("res://scenes/ui/ui_board_prompt.tscn")
 const BossIntentScene = preload("res://scenes/ui/ui_boss_intent.tscn")
+const ModalFrameScene = preload("res://scenes/ui/ui_modal_frame.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -299,35 +300,19 @@ func _build_ui() -> void:
 	_place(prep.get_parent(), Control.PRESET_BOTTOM_LEFT, 24, -78, 240, -12)
 	threat = _make_gauge("TENSION", UI.DANGER, "TensionBar", false)
 	_place(threat.get_parent(), Control.PRESET_TOP_RIGHT, -240, 158, -24, 215)
-	modal_dimmer = ColorRect.new()
-	modal_dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal_dimmer.offset_top = 78
-	modal_dimmer.color = Color(UI.BACKGROUND, 0.86)
-	modal_dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
-	root.add_child(modal_dimmer)
-	modal_dimmer.hide()
-	modal = PanelContainer.new()
-	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal.offset_left = 45
-	modal.offset_right = -45
-	modal.offset_top = 94
-	modal.offset_bottom = -28
-	modal.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
-	root.add_child(modal)
-	modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	var modal_frame: Control = ModalFrameScene.instantiate()
+	root.add_child(modal_frame)
+	modal_dimmer = modal_frame.get_node("%ModalDimmer")
+	modal = modal_frame.get_node("%Modal")
+	modal_scroll = modal_frame.get_node("%ModalScroll")
+	content = modal_frame.get_node("%Content")
 	UI.decorate(modal)
+	# Keep the trim as the modal's first child, as before the scene existed.
+	modal.move_child(modal.get_node("IndustrialTrim"), 0)
 	modal.gui_input.connect(_modal_input)
-	modal_scroll = ScrollContainer.new()
-	modal_scroll.follow_focus = true
-	modal_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	modal.add_child(modal_scroll)
-	modal_scroll.hide()
 	get_viewport().size_changed.connect(func():
 		if modal.visible: _panel_layout(screen)
 	)
-	content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 14)
-	modal.add_child(content)
 	idle_hint = label("Choose your next room with School map  [M]", 20, UI.RESPONSE)
 	idle_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(idle_hint)
