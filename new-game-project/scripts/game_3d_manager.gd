@@ -24,6 +24,7 @@ var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
 var hovered_hand_card: Node
 var dragged_hand_card: Node
+var _drop_target_material: StandardMaterial3D
 var turn := 1
 var presentation: Node
 var coin_result := -1
@@ -161,6 +162,7 @@ func clear_battle(preserve_result: bool = false) -> void:
 	player_barrier = 0
 	clear_hand_hover()
 	dragged_hand_card = null
+	show_drop_targets(false)
 	if not preserve_result:
 		player_graveyard.clear()
 		graveyard_serial = 0
@@ -706,11 +708,26 @@ func begin_hand_drag(card: Node) -> bool:
 	if not board_input.action.is_empty() or not can_player_act() or is_instance_valid(dragged_hand_card): return false
 	dragged_hand_card = card
 	clear_hand_hover()
+	show_drop_targets(true)
 	return true
 
 func end_hand_drag(card: Node) -> void:
 	if dragged_hand_card == card: dragged_hand_card = null
 	clear_hand_hover()
+	show_drop_targets(false)
+
+## Lights every empty Response slot while a hand card is dragged, so the drop target is clear.
+## The slot meshes are normally hidden under the playmat; this shows them with a soft gold glow.
+func show_drop_targets(on: bool) -> void:
+	if _drop_target_material == null:
+		_drop_target_material = StandardMaterial3D.new()
+		_drop_target_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_drop_target_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_drop_target_material.albedo_color = Color(UI.GOLD, 0.35)
+	for slot in _response_slots():
+		var lit: bool = on and _get_card_in_slot(slot) == null
+		slot.visible = lit
+		slot.material_override = _drop_target_material if lit else null
 
 func slot_at_screen_position(mouse: Vector2) -> Node3D:
 	var camera := get_viewport().get_camera_3d()
