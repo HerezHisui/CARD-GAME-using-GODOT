@@ -291,14 +291,9 @@ func _build_ui() -> void:
 	map_button.pressed.connect(toggle_map)
 	menu_button.pressed.connect(show_menu)
 	for header_button in [deck_button, map_button, menu_button]: game.presentation.button_feedback(header_button)
-	dashboard = PanelContainer.new()
-	dashboard.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	dashboard.offset_top = -90
-	dashboard.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dashboard.add_theme_stylebox_override("panel", style(UI.INSET, UI.BRONZE))
+	# The dashboard, Plans and Graveyard buttons live in hud.tscn; the dashboard is HUD/Root child 0.
 	var scene_hud := game.get_node("HUD/Root")
-	scene_hud.add_child(dashboard)
-	scene_hud.move_child(dashboard, 0)
+	dashboard = scene_hud.get_node("Dashboard")
 	UI.decorate(dashboard)
 	prep = _make_gauge("PREPAREDNESS ENERGY", UI.RESPONSE, "EnergyBar", true)
 	_place(prep.get_parent(), Control.PRESET_BOTTOM_LEFT, 24, -78, 240, -12)
@@ -342,32 +337,17 @@ func _build_ui() -> void:
 	var intent_panel: Control = BossIntentScene.instantiate()
 	root.add_child(intent_panel)
 	boss_intent = intent_panel.get_node("%IntentLabel")
-	var plans_box := VBoxContainer.new()
-	plans_box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	plans_box.offset_left = 260
-	plans_box.offset_right = 450
-	plans_box.offset_top = -78
-	plans_box.offset_bottom = -15
-	root.add_child(plans_box)
-	plans_button = button("Contingency 0/2  [P]", show_plans, plans_box)
-	plans_button.tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
-	graveyard_button = button("Graveyard [G]", show_graveyard, root)
-	graveyard_button.name = "GraveyardButton"
-	graveyard_button.tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
-	place_dashboard_button(graveyard_button, -560, -394)
+	plans_button = scene_hud.get_node("PlansBox/PlansButton")
+	plans_button.pressed.connect(show_plans)
+	graveyard_button = scene_hud.get_node("GraveyardButton")
+	graveyard_button.pressed.connect(show_graveyard)
+	for hud_button in [plans_button, graveyard_button]: game.presentation.button_feedback(hud_button)
 	board_prompt = BoardPromptScene.instantiate()
 	root.add_child(board_prompt)
 	board_prompt_label = board_prompt.get_node("%PromptLabel")
 	var cancel_button: Button = board_prompt.get_node("%CancelButton")
 	cancel_button.pressed.connect(func(): game.board_input.cancel())
 	game.presentation.button_feedback(cancel_button)
-
-func place_dashboard_button(control: Control, left: float, right: float, align_right: bool = true) -> void:
-	control.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT if align_right else Control.PRESET_BOTTOM_LEFT)
-	control.offset_left = left
-	control.offset_right = right
-	control.offset_top = -73
-	control.offset_bottom = -17
 
 ## A gauge from ui_gauge.tscn on root; returns its bar. Tension has no Detail line.
 func _make_gauge(title: String, color: Color, variation: String, keep_detail: bool) -> ProgressBar:
