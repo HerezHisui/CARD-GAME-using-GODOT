@@ -184,6 +184,7 @@ func input_playtest() -> void:
 	mouse(false, destination)
 	await create_timer(0.4).timeout
 	check(not card.in_hand and card.current_slot == game._response_slots()[0], "real drag/release plays into a lane")
+	check(game._response_slots().all(func(slot): return not slot.visible), "dropping the card removes the slot highlight")
 	check(game.preparedness == 9, "deployment pays cost exactly once")
 	await create_timer(0.3).timeout
 	point = game.camera.unproject_position(card.global_position)

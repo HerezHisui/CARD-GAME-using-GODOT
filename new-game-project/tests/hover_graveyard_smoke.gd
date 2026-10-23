@@ -86,11 +86,17 @@ func run() -> void:
 	check(right.is_dragging and game.dragged_hand_card == right and not left.is_hovered and not right.is_hovered, "hover is suppressed while carrying a card")
 	left._start_drag()
 	check(not left.is_dragging, "only one card can be dragged")
+	var empty_slots: Array = game._response_slots().filter(func(slot): return game._get_card_in_slot(slot) == null)
+	check(not empty_slots.is_empty() and empty_slots.all(func(slot): return slot.visible and slot.material_override != null),
+		"dragging lights every empty Response slot")
+	check(game._response_slots().all(func(slot): return slot.visible == (slot in empty_slots)), "occupied slots stay dark")
 	var cancel := InputEventMouseButton.new()
 	cancel.button_index = MOUSE_BUTTON_RIGHT
 	cancel.pressed = true
 	right._input(cancel)
 	check(not right.is_dragging and game.dragged_hand_card == null and right.get_parent() == game.hand_parent(), "right-click cancellation restores hand and releases hover lock")
+	check(game._response_slots().all(func(slot): return not slot.visible and slot.material_override == null),
+		"cancelling the drag removes the slot highlight")
 	game.update_hand_hover(mouse)
 	check(game.hovered_hand_card != null, "hover resumes after cancellation")
 	director.show_deck()
