@@ -1,0 +1,75 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="MenuScreen" type="VBoxContainer"]
+offset_right = 380.0
+offset_bottom = 600.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="RulesScroll" type="ScrollContainer" parent="."]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+size_flags_vertical = 3
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="Rules" type="VBoxContainer" parent="RulesScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Counters" type="Label" parent="RulesScroll/Rules"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 17
+text = "Counters: Evac → Earthquake  /  Douse → Fire  /  Clearance → Flood  /  Brace → Typhoon"
+autowrap_mode = 3
+
+[node name="Adaptations" type="Label" parent="RulesScroll/Rules"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 16
+text = "Adaptations: "
+autowrap_mode = 3
+
+[node name="Augmentations" type="Label" parent="RulesScroll/Rules"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 16
+text = "Augmentations: "
+autowrap_mode = 3
+
+[node name="ResumeButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Resume"
+mouse_default_cursor_shape = 2
+text = "Resume"
+clip_text = true
+
+[node name="DebugButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Debug values  [F3]"
+mouse_default_cursor_shape = 2
+text = "Debug values  [F3]"
+clip_text = true
+
+[node name="TitleButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Return to starting screen…"
+mouse_default_cursor_shape = 2
+text = "Return to starting screen…"
+clip_text = true
+
+[node name="QuitButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Quit game"
+mouse_default_cursor_shape = 2
+text = "Quit game"
+clip_text = true
