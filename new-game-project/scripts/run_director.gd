@@ -10,6 +10,9 @@ const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
 ## Header, gauges, modal frame, idle hint, boss intent and board prompt, placed in the editor.
 const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
+## Screen layouts that go inside the modal. Edit them in the editor.
+const TitleScene = preload("res://scenes/ui/ui_title.tscn")
+const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -122,37 +125,25 @@ func show_title() -> void:
 	battle_active = false
 	reset_panel("MIDNIGHT DRRILLS", "THE SCHOOL AFTER DARK", "title")
 	content.get_child(0).add_theme_font_size_override("font_size", 54)
-	var body := HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 50)
-	content.add_child(body)
-	var menu := VBoxContainer.new()
-	menu.custom_minimum_size.x = 340
-	menu.alignment = BoxContainer.ALIGNMENT_CENTER
-	menu.add_theme_constant_override("separation", 12)
-	var menu_panel := PanelContainer.new()
-	menu_panel.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
-	body.add_child(menu_panel)
-	menu_panel.add_child(menu)
-	menu.add_child(label("01 / OPERATIONS", 24, UI.GOLD))
+	# The layout lives in ui_title.tscn; here we only pick buttons and hook them up.
+	var title_screen: Control = TitleScene.instantiate()
+	content.add_child(title_screen)
+	var menu: Control = title_screen.get_node("%Menu")
 	var has_save: bool = persistence.has_run()
 	if has_save:
 		var saved: Dictionary = persistence.read_save()
-		menu.add_child(label("UNFINISHED RUN · FLOOR %d" % int(saved.director.floor_number), 17, UI.RESPONSE))
-		button("Continue run", continue_saved_run, menu).grab_focus()
-		button("Abandon run…", confirm_abandon, menu)
-	else: button("Singleplayer · Start game", show_characters, menu).grab_focus()
-	var multiplayer_button := button("Multiplayer · Coming soon", Callable(), menu)
-	multiplayer_button.disabled = true
-	button("Quit", quit_game, menu)
+		title_screen.get_node("%SaveLabel").text = "UNFINISHED RUN · FLOOR %d" % int(saved.director.floor_number)
+		hook_button(title_screen.get_node("%ContinueButton"), continue_saved_run).grab_focus()
+		hook_button(title_screen.get_node("%AbandonButton"), confirm_abandon)
+		title_screen.get_node("%StartButton").free()
+	else:
+		for unused in ["%SaveLabel", "%ContinueButton", "%AbandonButton"]: title_screen.get_node(unused).free()
+		hook_button(title_screen.get_node("%StartButton"), show_characters).grab_focus()
+	hook_button(title_screen.get_node("%MultiplayerButton"), Callable())
+	hook_button(title_screen.get_node("%QuitButton"), quit_game)
 	for item in menu.get_children():
-		if item is Button:
-			item.theme_type_variation = "TerminalButton"
-			item.custom_minimum_size.y = 44 if item is OptionButton else 64
-			UI.decorate(item, item.disabled)
-	var scenery := preload("res://scripts/title_backdrop.gd").new()
-	scenery.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(scenery)
+		if item is Button: UI.decorate(item, item.disabled)
+	var scenery: Control = title_screen.get_node("%Scenery")
 	if ResourceLoader.exists(TITLE_ART_PATH):
 		var art := TextureRect.new()
 		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -160,7 +151,6 @@ func show_title() -> void:
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		art.texture = load(TITLE_ART_PATH)
 		scenery.add_child(art)
-	content.add_child(label("BUILD YOUR RESPONSE. CONTAIN THE DISASTER. SURVIVE THE NIGHT.", 16, UI.RESPONSE))
 
 func continue_saved_run() -> void:
 	if not persistence.resume(): show_title()
@@ -253,6 +243,23 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 		b.theme_type_variation = "PrimaryButton"
 	game.presentation.button_feedback(b)
 	return b
+
+## Hooks up a button that comes from a screen scene: its click action and hover feedback.
+func hook_button(b: Button, action: Callable) -> Button:
+	if action.is_valid(): b.pressed.connect(action)
+	game.presentation.button_feedback(b)
+	return b
+
+## Moves the nodes of a screen scene straight into content, so content keeps the same children as before.
+## Find them afterwards with content.get_node("Name").
+func unpack_screen(scene: PackedScene) -> void:
+	var layout := scene.instantiate()
+	# The nodes leave the scene, so they should not keep it as their owner.
+	for node in layout.find_children("*", "", true, false): node.owner = null
+	for child in layout.get_children():
+		layout.remove_child(child)
+		content.add_child(child)
+	layout.free()
 
 func choice_tile(title: String, description: String, action: Callable, parent: Node) -> Button:
 	var panel := PanelContainer.new()
@@ -1577,21 +1584,15 @@ func show_menu() -> void:
 	if saved_content: return
 	if screen in DECISIONS: return
 	reset_panel("MIDNIGHT DRRILLS", "", "menu")
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.y = 140
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	content.add_child(scroll)
-	var rules_box := VBoxContainer.new()
-	rules_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(rules_box)
-	rules_box.add_child(label("Counters: Evac → Earthquake  /  Douse → Fire  /  Clearance → Flood  /  Brace → Typhoon", 17, UI.RESPONSE, true))
-	rules_box.add_child(label("Adaptations: " + buff_summary(game.player_buffs), 16, UI.RESPONSE, true))
-	rules_box.add_child(label("Augmentations: " + buff_summary(game.player_run_buffs), 16, UI.RESPONSE, true))
-	button("Resume", close_modal, content)
-	if battle_active: button("Debug values  [F3]", show_debug, content)
-	button("Return to starting screen…", confirm_title, content)
-	button("Quit game", quit_game, content)
+	# The layout lives in ui_menu.tscn; here we only fill in text and hook up buttons.
+	unpack_screen(MenuScene)
+	content.get_node("RulesScroll/Rules/Adaptations").text = "Adaptations: " + buff_summary(game.player_buffs)
+	content.get_node("RulesScroll/Rules/Augmentations").text = "Augmentations: " + buff_summary(game.player_run_buffs)
+	hook_button(content.get_node("ResumeButton"), close_modal)
+	if battle_active: hook_button(content.get_node("DebugButton"), show_debug)
+	else: content.get_node("DebugButton").free()
+	hook_button(content.get_node("TitleButton"), confirm_title)
+	hook_button(content.get_node("QuitButton"), quit_game)
 
 func quit_game() -> void:
 	persistence.checkpoint()

@@ -1,0 +1,95 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+[ext_resource type="Script" uid="uid://rira3faqpmob" path="res://scripts/title_backdrop.gd" id="2_backdrop"]
+
+[node name="TitleScreen" type="VBoxContainer"]
+offset_right = 1330.0
+offset_bottom = 700.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="Body" type="HBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 50
+
+[node name="MenuPanel" type="PanelContainer" parent="Body"]
+layout_mode = 2
+theme_type_variation = &"ModalPanel"
+
+[node name="Menu" type="VBoxContainer" parent="Body/MenuPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="Heading" type="Label" parent="Body/MenuPanel/Menu"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 24
+text = "01 / OPERATIONS"
+
+[node name="SaveLabel" type="Label" parent="Body/MenuPanel/Menu"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 17
+text = "UNFINISHED RUN · FLOOR 1"
+
+[node name="ContinueButton" type="Button" parent="Body/MenuPanel/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"TerminalButton"
+text = "Continue run"
+
+[node name="AbandonButton" type="Button" parent="Body/MenuPanel/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"TerminalButton"
+text = "Abandon run…"
+
+[node name="StartButton" type="Button" parent="Body/MenuPanel/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"TerminalButton"
+text = "Singleplayer · Start game"
+
+[node name="MultiplayerButton" type="Button" parent="Body/MenuPanel/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"TerminalButton"
+disabled = true
+text = "Multiplayer · Coming soon"
+
+[node name="QuitButton" type="Button" parent="Body/MenuPanel/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"TerminalButton"
+text = "Quit"
+
+[node name="Scenery" type="Control" parent="Body"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_backdrop")
+
+[node name="Footer" type="Label" parent="."]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 16
+text = "BUILD YOUR RESPONSE. CONTAIN THE DISASTER. SURVIVE THE NIGHT."
