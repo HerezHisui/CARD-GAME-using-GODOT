@@ -247,10 +247,24 @@ static func build_theme() -> Theme:
 	theme.set_stylebox("fill", "ProgressBar", bar(GOLD))
 	for type in ["VBoxContainer", "HBoxContainer"]: theme.set_constant("separation", type, 12)
 	for direction in ["h_separation", "v_separation"]: theme.set_constant(direction, "GridContainer", 12)
+	add_shell_styles(theme)
 	var colors := palette()
 	for color_name in colors: theme.set_color(color_name, "Game", colors[color_name])
 	for element in AFFINITIES: theme.set_color("affinity_" + element, "Game", AFFINITIES[element])
 	return theme
+
+## Named styles for the UI shell scenes in scenes/ui (header, gauges, prompt, modal, dashboard).
+static func add_shell_styles(theme: Theme) -> void:
+	for spec in [["HeaderPanel", panel(PANEL)], ["ModalPanel", panel(PANEL, GOLD)],
+			["DashboardPanel", panel(INSET, BRONZE)], ["PromptPanel", panel(BACKGROUND, RESPONSE)]]:
+		theme.set_type_variation(spec[0], "PanelContainer")
+		theme.set_stylebox("panel", spec[0], spec[1])
+	for spec in [["EnergyBar", RESPONSE], ["TensionBar", DANGER]]:
+		theme.set_type_variation(spec[0], "ProgressBar")
+		theme.set_stylebox("background", spec[0], panel(INSET, BRONZE, 0))
+		theme.set_stylebox("fill", spec[0], bar(spec[1]))
+	theme.set_type_variation("HeadingLabel", "Label")
+	theme.set_font("font", "HeadingLabel", font(true))
 
 static func apply_hud(root: Control) -> void:
 	root.theme = get_theme()
