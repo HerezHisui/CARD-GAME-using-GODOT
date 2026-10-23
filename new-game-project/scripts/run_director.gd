@@ -37,6 +37,12 @@ const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
 const ChooseSlotScene = preload("res://scenes/ui/ui_choose_slot.tscn")
 const BuffChoicesScene = preload("res://scenes/ui/ui_buff_choices.tscn")
 const FloorBuffsScene = preload("res://scenes/ui/ui_floor_buffs.tscn")
+## Pieces that many screens reuse.
+const ChoiceTileScene = preload("res://scenes/ui/ui_choice_tile.tscn")
+const CardTileScene = preload("res://scenes/ui/ui_card_tile.tscn")
+const DossierScene = preload("res://scenes/ui/ui_dossier.tscn")
+const CatalogInspectionScene = preload("res://scenes/ui/ui_catalog_inspection.tscn")
+const InspectScene = preload("res://scenes/ui/ui_inspect.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -279,19 +285,16 @@ func unpack_screen(scene: PackedScene) -> void:
 	layout.free()
 
 func choice_tile(title: String, description: String, action: Callable, parent: Node) -> Button:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(290, 190)
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The tile layout lives in ui_choice_tile.tscn.
+	var panel: Control = ChoiceTileScene.instantiate()
 	parent.add_child(panel)
-	var box := VBoxContainer.new()
-	panel.add_child(box)
-	var pick := button(title, action, box)
-	pick.custom_minimum_size.y = 54
-	var details := label(description, 18, UI.MUTED)
-	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	details.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(details)
+	var pick: Button = panel.get_node("Box/PickButton")
+	pick.text = title
+	if compact_layout:
+		pick.clip_text = true
+		pick.tooltip_text = title
+	hook_button(pick, action)
+	panel.get_node("Box/Details").text = description
 	return pick
 
 func _build_ui() -> void:
@@ -922,15 +925,12 @@ func _modal_input(event: InputEvent) -> void:
 		return
 
 func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), action_text: String = "") -> void:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(220, 0)
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The tile layout lives in ui_card_tile.tscn; the card face is made here.
+	var panel: Control = CardTileScene.instantiate()
 	panel.add_theme_stylebox_override("panel", style(UI.PANEL, UI.BRONZE))
 	parent.add_child(panel)
-	var box := VBoxContainer.new()
-	panel.add_child(box)
-	var center := CenterContainer.new()
-	box.add_child(center)
+	var box: Control = panel.get_node("Box")
+	var center: Control = box.get_node("Center")
 	var preview = game.Card3DScene.instantiate()
 	preview.preview_only = true
 	preview.input_ray_pickable = false
@@ -950,10 +950,18 @@ func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), a
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			begin_catalog_hold(card, face)
 	)
-	var caption := label("UPGRADE  %d / 2" % upgrade_level(card), 13, UI.MUTED)
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(caption)
-	if action.is_valid(): button(action_text, action, box)
+	var caption: Label = box.get_node("Caption")
+	caption.text = "UPGRADE  %d / 2" % upgrade_level(card)
+	if compact_layout: caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var action_button: Button = box.get_node("ActionButton")
+	if not action.is_valid():
+		action_button.free()
+		return
+	action_button.text = action_text
+	if compact_layout:
+		action_button.clip_text = true
+		action_button.tooltip_text = action_text
+	hook_button(action_button, action)
 
 func begin_catalog_hold(card: Dictionary, face: Control) -> void:
 	cancel_inspect_hold()
@@ -968,44 +976,24 @@ func begin_catalog_hold(card: Dictionary, face: Control) -> void:
 
 func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	if root.has_node("CatalogInspection"): return
-	var overlay := ColorRect.new()
-	overlay.name = "CatalogInspection"
-	overlay.color = Color(UI.BACKGROUND, 0.96)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# The overlay layout lives in ui_catalog_inspection.tscn.
+	var overlay: Control = CatalogInspectionScene.instantiate()
 	if run_active: overlay.offset_top = 78
 	root.add_child(overlay)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(center)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 32)
-	center.add_child(row)
+	var row: Control = overlay.get_node("Center/Row")
 	add_dossier(row, card, "")
 	inspected_face = card_image(texture, row, 310)
 
 func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node = null) -> RichTextLabel:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(440, 420)
+	# The dossier layout lives in ui_dossier.tscn; the text is written here.
+	var panel: Control = DossierScene.instantiate()
 	parent.add_child(panel)
 	UI.decorate(panel)
-	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 14)
-	panel.add_child(body)
+	var body: Control = panel.get_node("Body")
 	inspection_dossier = body
-	var heading := label(str(card.name), 34, UI.GOLD, true)
-	heading.name = "InspectTitle"
-	body.add_child(heading)
-	var tabs := HBoxContainer.new()
-	tabs.name = "InspectTabs"
-	tabs.add_theme_constant_override("separation", 8)
-	body.add_child(tabs)
-	var details := RichTextLabel.new()
-	details.name = "DossierText"
-	details.bbcode_enabled = true
-	details.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	details.add_theme_font_size_override("normal_font_size", 18)
-	details.add_theme_font_size_override("bold_font_size", 18)
+	body.get_node("InspectTitle").text = str(card.name).to_upper()
+	var tabs: Control = body.get_node("InspectTabs")
+	var details: RichTextLabel = body.get_node("DossierText")
 	if not card.get("utility", false):
 		details.text += "ATK %d  /  HP %d\n\n" % [
 			int(card.get("preview_attack", card.get("attack", 0))), int(card.get("health", 0))]
@@ -1052,27 +1040,20 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 		if description not in rules: rules.append(description)
 	var effect_text := "No card effects." if rules.is_empty() else "[b]CARD EFFECTS[/b]\n" + "\n".join(rules)
 	if not hint.is_empty(): details.text += "\n\n" + hint
-	body.add_child(details)
 	var pages: Array[String] = [
 		details.text, status_text if not status_text.is_empty() else "No active statuses.", effect_text
 	]
 	var group := ButtonGroup.new()
 	for index in pages.size():
-		var tab := Button.new()
-		tab.text = ["Summary", "Status", "Effects"][index]
-		tab.toggle_mode = true
-		tab.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+		var tab: Button = tabs.get_child(index)
 		tab.set_meta("hover_feedback", true)
 		tab.button_group = group
 		tab.button_pressed = index == 0
-		tab.custom_minimum_size = Vector2(120, 36)
-		tab.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		for state in ["pressed", "hover_pressed"]:
 			var active := UI.panel(UI.INSET, Color("e59538"), 8)
 			active.set_border_width_all(2)
 			tab.add_theme_stylebox_override(state, active)
 		tab.pressed.connect(func(): details.text = pages[index])
-		tabs.add_child(tab)
 	return details
 
 func fit_card_grid(grid: GridContainer, scroll: ScrollContainer) -> void:
@@ -1155,11 +1136,9 @@ func begin_inspect_hold(card: Node, from_hand: bool = false) -> void:
 func inspect_board_card(card: Node, allow_hand: bool = false) -> void:
 	if not battle_active or modal.visible or _dragging() or not is_instance_valid(card) or (card.in_hand and not allow_hand): return
 	reset_panel("", "", "inspect")
-	var box := centered_content()
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 32)
-	box.add_child(row)
+	# The layout lives in ui_inspect.tscn.
+	var box := centered_screen(InspectScene)
+	var row: Control = box.get_node("Row")
 	card._refresh_face()
 	add_dossier(row, live_definition(card), "", card)
 	inspected_face = card_image(card._vp.get_texture(), row, 330)

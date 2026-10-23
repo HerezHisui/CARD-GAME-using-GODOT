@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="ChoiceTile" type="PanelContainer"]
+custom_minimum_size = Vector2(290, 190)
+size_flags_horizontal = 3
+theme = ExtResource("1_theme")
+
+[node name="Box" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="PickButton" type="Button" parent="Box"]
+custom_minimum_size = Vector2(130, 54)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Choice"
+
+[node name="Details" type="Label" parent="Box"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.54901963, 0.5254902, 0.49411765, 1)
+theme_override_font_sizes/font_size = 18
+text = "Description"
+autowrap_mode = 3
