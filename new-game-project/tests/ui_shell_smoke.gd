@@ -6,6 +6,7 @@ const GAUGE_SCENE := "res://scenes/ui/ui_gauge.tscn"
 const HEADER_SCENE := "res://scenes/ui/ui_header.tscn"
 const PROMPT_SCENE := "res://scenes/ui/ui_board_prompt.tscn"
 const INTENT_SCENE := "res://scenes/ui/ui_boss_intent.tscn"
+const FRAME_SCENE := "res://scenes/ui/ui_modal_frame.tscn"
 var failures := 0
 var game: Node
 var director: Node
@@ -26,6 +27,7 @@ func run() -> void:
 	await board_prompt()
 	boss_intent()
 	dashboard()
+	await modal_frame()
 	await title_hides_header()
 	if failures == 0: print("PASS: UI shell scenes and theme styles")
 	quit(1 if failures else 0)
@@ -139,5 +141,31 @@ func dashboard() -> void:
 	game._set_phase(game.Phase.PLAYER_PLAY)
 	director.plans_button.pressed.emit()
 	check(director.screen == "plans", "pressing the Plans button opens plans")
+	director.close_modal()
+	director.battle_active = false
+
+func modal_frame() -> void:
+	var modal: Control = director.modal
+	check(modal.owner != null and modal.owner.scene_file_path == FRAME_SCENE, "modal comes from ui_modal_frame.tscn")
+	check(director.modal_dimmer.owner == modal.owner, "dimmer is in the modal frame scene")
+	check(modal.get_child(0).name == "IndustrialTrim", "modal trim stays the first child")
+	director.battle_active = true
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	director.show_menu()
+	await process_frame
+	check(director.content.get_parent() == director.modal_scroll, "compact menu scrolls its content")
+	check(absf(modal.get_global_rect().size.x - 420) < 2, "menu modal is 420 wide")
+	root.size = Vector2i(1280, 800)
+	await process_frame
+	await process_frame
+	var centre := modal.get_global_rect().get_center()
+	check(centre.distance_to(root.get_visible_rect().size / 2) < 2, "menu modal stays centred after a resize")
+	check(absf(modal.get_global_rect().size.x - 420) < 2, "menu modal keeps its width after a resize")
+	root.size = Vector2i(1440, 900)
+	director.close_modal()
+	director.screen = "debug_password"
+	director._open_debug("*****")
+	await process_frame
+	check(director.screen == "debug" and absf(modal.get_global_rect().size.x - 560) < 2, "debug modal is 560 wide")
 	director.close_modal()
 	director.battle_active = false
