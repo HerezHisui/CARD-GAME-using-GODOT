@@ -1,0 +1,210 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="DebugScreen" type="VBoxContainer"]
+offset_right = 500.0
+offset_bottom = 900.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="Values" type="GridContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 24
+columns = 2
+
+[node name="player_hpLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Player HP"
+autowrap_mode = 3
+
+[node name="player_hp" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="enemy_hpLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Enemy HP"
+autowrap_mode = 3
+
+[node name="enemy_hp" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="energy_capLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Energy cap"
+autowrap_mode = 3
+
+[node name="energy_cap" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="preparednessLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Energy"
+autowrap_mode = 3
+
+[node name="preparedness" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="tension_capLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Tension cap"
+autowrap_mode = 3
+
+[node name="tension_cap" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="tensionLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Tension"
+autowrap_mode = 3
+
+[node name="tension" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="coinsLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Supplies"
+autowrap_mode = 3
+
+[node name="coins" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="plansLabel" type="Label" parent="Values"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Plans"
+autowrap_mode = 3
+
+[node name="plans" type="SpinBox" parent="Values"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ApplyButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Apply values"
+mouse_default_cursor_shape = 2
+text = "Apply values"
+clip_text = true
+
+[node name="CardHeading" type="Label" parent="."]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
+theme_override_font_sizes/font_size = 20
+text = "CARD"
+autowrap_mode = 3
+
+[node name="StatusRow" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="DebugCard" type="OptionButton" parent="StatusRow"]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Stats" type="GridContainer" parent="StatusRow"]
+layout_mode = 2
+columns = 2
+
+[node name="CostLabel" type="Label" parent="StatusRow/Stats"]
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Cost"
+
+[node name="DebugCost" type="SpinBox" parent="StatusRow/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 9999.0
+allow_greater = true
+
+[node name="ATKLabel" type="Label" parent="StatusRow/Stats"]
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "ATK"
+
+[node name="DebugATK" type="SpinBox" parent="StatusRow/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 9999.0
+allow_greater = true
+
+[node name="HPLabel" type="Label" parent="StatusRow/Stats"]
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "HP"
+
+[node name="DebugHP" type="SpinBox" parent="StatusRow/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 9999.0
+allow_greater = true
+
+[node name="Status" type="OptionButton" parent="StatusRow"]
+layout_mode = 2
+
+[node name="Amount" type="SpinBox" parent="StatusRow"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+max_value = 99.0
+
+[node name="SetStatusButton" type="Button" parent="StatusRow"]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Set status"
+mouse_default_cursor_shape = 2
+text = "Set status"
+clip_text = true
+
+[node name="CancelButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+tooltip_text = "Cancel"
+mouse_default_cursor_shape = 2
+text = "Cancel"
+clip_text = true

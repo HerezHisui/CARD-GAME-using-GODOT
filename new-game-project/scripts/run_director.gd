@@ -13,6 +13,8 @@ const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
 const TitleScene = preload("res://scenes/ui/ui_title.tscn")
 const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
+const DebugPasswordScene = preload("res://scenes/ui/ui_debug_password.tscn")
+const DebugScene = preload("res://scenes/ui/ui_debug.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -1613,14 +1615,10 @@ func show_debug() -> void:
 	if not debug_available() or (modal.visible and screen != "menu"): return
 	debug_from_menu = screen == "menu"
 	reset_panel("DEBUG ACCESS", "", "debug_password")
-	var password := LineEdit.new()
-	password.name = "DebugPassword"
-	password.secret = true
-	password.placeholder_text = "Password"
-	content.add_child(password)
-	var error := label("", 14, UI.DANGER, true)
-	error.name = "PasswordError"
-	content.add_child(error)
+	# The layout lives in ui_debug_password.tscn.
+	unpack_screen(DebugPasswordScene)
+	var password: LineEdit = content.get_node("DebugPassword")
+	var error: Label = content.get_node("PasswordError")
 	var submit := func():
 		if password.text != "*****":
 			error.text = "Incorrect password."
@@ -1631,39 +1629,28 @@ func show_debug() -> void:
 			return
 		_open_debug("*****")
 	password.text_submitted.connect(func(_text): submit.call())
-	button("Unlock", submit, content)
-	button("Cancel", cancel_debug_password, content)
+	hook_button(content.get_node("UnlockButton"), submit)
+	hook_button(content.get_node("CancelButton"), cancel_debug_password)
 	password.grab_focus()
 
 func _open_debug(password: String) -> void:
 	if password != "*****" or screen != "debug_password" or not debug_available(): return
 	reset_panel("DEBUG VALUES", "", "debug")
+	# The layout lives in ui_debug.tscn; each SpinBox there is named after its value.
+	unpack_screen(DebugScene)
 	var fields := {}
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 24)
-	content.add_child(grid)
 	for spec in [
 		["player_hp", "Player HP", 1, game.hero_max_hp()], ["enemy_hp", "Enemy HP", 1, game.enemy_max_hp],
 		["energy_cap", "Energy cap", 1, 30], ["preparedness", "Energy", 0, 30],
 		["tension_cap", "Tension cap", 1, 30], ["tension", "Tension", 0, 30],
 		["coins", "Supplies", 0, 9999], ["plans", "Plans", 0, 2],
 	]:
-		var caption := label(spec[1], 18)
-		caption.custom_minimum_size.x = 160
-		caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(caption)
-		var field := SpinBox.new()
-		field.custom_minimum_size.x = 140
-		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var field: SpinBox = content.get_node("Values/" + spec[0])
 		field.min_value = spec[2]
 		field.max_value = spec[3]
-		field.step = 1
 		field.value = coins if spec[0] == "coins" else (game.plans.tokens if spec[0] == "plans" else game.get(spec[0]))
-		grid.add_child(field)
 		fields[spec[0]] = field
-	button("Apply values", func():
+	hook_button(content.get_node("ApplyButton"), func():
 		for key in fields:
 			if key == "coins": coins = int(fields[key].value)
 			elif key == "plans": game.plans.tokens = int(fields[key].value)
@@ -1674,56 +1661,32 @@ func _open_debug(password: String) -> void:
 		game.log_event("Debug values applied.")
 		close_modal()
 		persistence.checkpoint()
-	, content)
+	)
 	_debug_card_controls()
-	button("Cancel", close_modal, content)
+	hook_button(content.get_node("CancelButton"), close_modal)
 
 func _debug_card_controls() -> void:
-	content.add_child(label("CARD", 20, UI.GOLD))
-	var status_row := VBoxContainer.new()
-	content.add_child(status_row)
+	var status_row: Control = content.get_node("StatusRow")
 	var targets := game.get_tree().get_nodes_in_group("cards").filter(func(card):
 		return card.is_alive() and not card.preview_only and (card.in_hand or is_instance_valid(card.current_slot)))
-	var target := OptionButton.new()
-	target.name = "DebugCard"
-	target.custom_minimum_size.x = 280
-	target.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	target.clip_text = true
+	var target: OptionButton = status_row.get_node("DebugCard")
 	for i in targets.size():
 		var card: Node = targets[i]
 		var location := "HAND" if card.in_hand else str(card.card_data.get("type", "")).to_upper()
 		target.add_item("%d / %s / %s" % [i + 1, location, card.card_data.name])
 	if targets.is_empty(): target.add_item("No cards")
 	target.disabled = targets.is_empty()
-	status_row.add_child(target)
-	var stats := GridContainer.new()
-	stats.columns = 2
-	status_row.add_child(stats)
 	var fields := {}
 	for spec in [["cost", "Cost"], ["attack", "ATK"], ["health", "HP"]]:
-		var stat_label := label(spec[1], 18)
-		stat_label.custom_minimum_size.x = 72
-		stat_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		stats.add_child(stat_label)
-		var field := SpinBox.new()
-		field.name = "Debug" + str(spec[1])
-		field.min_value = 1 if spec[0] == "health" else 0
-		field.max_value = 9999
-		field.allow_greater = true
-		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		stats.add_child(field)
+		var field: SpinBox = status_row.get_node("Stats/Debug" + str(spec[1]))
 		fields[spec[0]] = field
 		field.value_changed.connect(_debug_set_card_stat.bind(targets, target, spec[0]))
 	target.item_selected.connect(func(_index): _debug_load_card_stats(targets, target, fields))
 	_debug_load_card_stats(targets, target, fields)
-	var status := OptionButton.new()
+	var status: OptionButton = status_row.get_node("Status")
 	for key in ["strength", "bleed", "burn", "poison", "barrier", "healing_reduced"]: status.add_item(key)
-	status_row.add_child(status)
-	var amount := SpinBox.new()
-	amount.max_value = 99
-	amount.custom_minimum_size.x = 100
-	status_row.add_child(amount)
-	button("Set status", func():
+	var amount: SpinBox = status_row.get_node("Amount")
+	hook_button(status_row.get_node("SetStatusButton"), func():
 		var card := _debug_selected_card(targets, target)
 		if card == null: return
 		var key := status.get_item_text(status.selected)
@@ -1732,7 +1695,7 @@ func _debug_card_controls() -> void:
 		card._refresh_face()
 		game.log_event("Debug status: %s · %s %d" % [card.card_data.name, key, int(amount.value)])
 		persistence.checkpoint()
-	, status_row).disabled = targets.is_empty()
+	).disabled = targets.is_empty()
 
 func _debug_selected_card(targets: Array, picker: OptionButton) -> Node:
 	return RunDebug._debug_selected_card(targets, picker.selected)
