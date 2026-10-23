@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+
+[node name="IntelScreen" type="VBoxContainer"]
+offset_right = 1330.0
+offset_bottom = 600.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme = ExtResource("1_theme")
+theme_override_constants/separation = 14
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Row" type="HBoxContainer" parent="Scroll"]
+layout_mode = 2
+
+[node name="EmptyLabel" type="Label" parent="Scroll/Row"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.91764706, 0.89411765, 0.8627451, 1)
+theme_override_font_sizes/font_size = 20
+text = "The Janitor's hand is empty."
+
+[node name="ReturnButton" type="Button" parent="."]
+custom_minimum_size = Vector2(130, 42)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Return to battle"

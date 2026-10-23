@@ -27,6 +27,11 @@ const ContingencyRewardScene = preload("res://scenes/ui/ui_contingency_reward.ts
 const UpgradeScene = preload("res://scenes/ui/ui_upgrade.tscn")
 const UpgradePreviewScene = preload("res://scenes/ui/ui_upgrade_preview.tscn")
 const EventScene = preload("res://scenes/ui/ui_event.tscn")
+const CharactersScene = preload("res://scenes/ui/ui_characters.tscn")
+const CharacterPreviewScene = preload("res://scenes/ui/ui_character_preview.tscn")
+const BattleLogScene = preload("res://scenes/ui/ui_battle_log.tscn")
+const PlansScene = preload("res://scenes/ui/ui_plans.tscn")
+const IntelScene = preload("res://scenes/ui/ui_intel.tscn")
 const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
@@ -184,19 +189,15 @@ func abandon_run() -> void:
 
 func show_characters() -> void:
 	reset_panel("CHOOSE YOUR CHARACTER", "Each character has a 12-card starter deck and a permanent starting perk.", "characters")
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 18)
-	content.add_child(grid)
+	# The layout lives in ui_characters.tscn; the character tiles are made here.
+	var box := centered_screen(CharactersScene)
+	var grid: Control = box.get_node("Grid")
 	for i in CHARACTERS.size():
 		var character: Dictionary = CHARACTERS[i]
 		var pick := choice_tile(character.name, "IDENTITY %02d / %s\n\n%s" % [i + 1, "ACTIVE" if character.available else "AVAILABLE SOON", character.description], show_character_preview.bind(i), grid)
 		pick.disabled = not character.available
 		UI.decorate(pick.get_parent().get_parent(), not character.available)
-	button("Back", show_title, content)
-	var box := centered_content()
-	box.custom_minimum_size.x = 940
+	hook_button(box.get_node("BackButton"), show_title)
 
 func character_deck(index: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -212,18 +213,16 @@ func character_deck(index: int) -> Array[Dictionary]:
 
 func show_character_preview(index: int) -> void:
 	reset_panel(CHARACTERS[index].name, CHARACTERS[index].description, "character_preview")
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 16)
-	grid.add_theme_constant_override("v_separation", 16)
-	scroll.add_child(grid)
+	# The layout lives in ui_character_preview.tscn; the card tiles are made here.
+	unpack_screen(CharacterPreviewScene)
+	var scroll: ScrollContainer = content.get_node("Cards")
+	var grid: GridContainer = scroll.get_node("Grid")
 	fit_card_grid(grid, scroll)
 	for card in character_deck(index): _card_tile(card, grid)
-	button("Begin run" if CHARACTERS[index].available else "Available soon", start_character.bind(index), content).disabled = not CHARACTERS[index].available
-	button("Back to characters", show_characters, content)
+	var begin: Button = content.get_node("BeginButton")
+	begin.text = "Begin run" if CHARACTERS[index].available else "Available soon"
+	hook_button(begin, start_character.bind(index)).disabled = not CHARACTERS[index].available
+	hook_button(content.get_node("BackButton"), show_characters)
 
 func start_character(index: int) -> void:
 	if index < 0 or index >= CHARACTERS.size() or not CHARACTERS[index].available: return
@@ -1169,13 +1168,11 @@ func show_battle_log() -> void:
 		return
 	preserve_pending_decision()
 	reset_panel("BATTLE LOG", "", "log")
-	var log_view := RichTextLabel.new()
-	log_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_view.scroll_following = true
-	log_view.add_theme_font_size_override("normal_font_size", 18)
+	# The layout lives in ui_battle_log.tscn.
+	unpack_screen(BattleLogScene)
+	var log_view: RichTextLabel = content.get_node("Log")
 	log_view.text = "\n".join(game.battle_log) if not game.battle_log.is_empty() else "No battle events yet."
-	content.add_child(log_view)
-	button("Close  [L / Esc]", close_modal, content)
+	hook_button(content.get_node("CloseButton"), close_modal)
 
 func show_plans() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty(): return
@@ -1184,21 +1181,19 @@ func show_plans() -> void:
 		return
 	if screen in DECISIONS or saved_content != null: return
 	reset_panel("PREPAREDNESS · CONTINGENCIES", "Save 2 unused energy at End Turn for 1 Plan. Unlock more tactics from elite and boss wins.", "plans")
-	content.add_child(label("PLANS %d / 2 · %d TACTICS UNLOCKED" % [game.plans.tokens, game.plans.unlocked.size()], 23, UI.RESPONSE))
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 12)
-	scroll.add_child(list)
+	# The layout lives in ui_plans.tscn; the tactic tiles are made here.
+	unpack_screen(PlansScene)
+	content.get_node("Status").text = "PLANS %d / 2 · %d TACTICS UNLOCKED" % [game.plans.tokens, game.plans.unlocked.size()]
+	var list: Control = content.get_node("Scroll/List")
 	for id in game.plans.unlocked:
 		var tactic: Dictionary = game.plans.definition(id)
 		var pick := choice_tile(tactic.name + " · %d Plan%s" % [tactic.cost, "s" if int(tactic.cost) > 1 else ""], tactic.description, begin_tactic.bind(id), list)
 		pick.disabled = not tactic_available(id)
 		pick.get_parent().get_parent().custom_minimum_size.y = 125
-	if not game.plans.armed.is_empty(): content.add_child(label("ARMED: " + str(game.plans.definition(game.plans.armed.kind).name), 18, UI.GOLD))
-	button("Return to battle  [P / Esc]", close_modal, content)
+	var armed: Label = content.get_node("Armed")
+	if game.plans.armed.is_empty(): armed.free()
+	else: armed.text = "ARMED: " + str(game.plans.definition(game.plans.armed.kind).name)
+	hook_button(content.get_node("ReturnButton"), close_modal)
 
 func tactic_available(id: String) -> bool:
 	var tactic: Dictionary = game.plans.definition(id)
@@ -1798,17 +1793,12 @@ func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
 func show_intel() -> void:
 	intel_revealed = true
 	reset_panel("HAZARD FORECAST", "The Janitor's current hand. This reveal lasts until the encounter ends.", "intel")
-	var row := HBoxContainer.new()
-	content.add_child(row)
-	# Use a scrollable row for a full hand.
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.remove_child(row)
-	content.add_child(scroll)
-	scroll.add_child(row)
+	# The layout lives in ui_intel.tscn: a scrollable row for a full hand.
+	unpack_screen(IntelScene)
+	var row: Control = content.get_node("Scroll/Row")
+	if not game.enemy_hand.is_empty(): row.get_node("EmptyLabel").free()
 	for card in game.enemy_hand: _card_tile(card, row)
-	if game.enemy_hand.is_empty(): row.add_child(label("The Janitor's hand is empty."))
-	button("Return to battle", close_modal, content)
+	hook_button(content.get_node("ReturnButton"), close_modal)
 
 func show_buff_choices(restore_offers: bool = false) -> void:
 	if not restore_offers: buff_choices.clear()
