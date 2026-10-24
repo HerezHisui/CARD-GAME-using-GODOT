@@ -495,7 +495,8 @@ func _panel_layout(kind: String) -> void:
 	game.visible = battle_active or kind == "reward"
 	modal.offset_left = 0 if full_screen else 45
 	modal.offset_right = 0 if full_screen else -45
-	modal.offset_top = (0 if title_screen or not battle_active or kind in ["reward", "inspect"] else 78) if full_screen else 94
+	# Battle popups start just under the header buttons, which end at y 58.
+	modal.offset_top = (0 if title_screen or not battle_active or kind in ["reward", "inspect"] else 78) if full_screen else 66
 	if kind == "shop": modal.offset_top = 78
 	modal.offset_bottom = 0 if full_screen else -28
 	var panel_style := style(Color(UI.BACKGROUND, 0.90) if kind in ["reward", "inspect"] else (UI.BACKGROUND if full_screen else UI.PANEL), UI.GOLD)
@@ -952,7 +953,7 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	if root.has_node("CatalogInspection"): return
 	# The overlay layout lives in ui_catalog_inspection.tscn.
 	var overlay: Control = CatalogInspectionScene.instantiate()
-	if run_active: overlay.offset_top = 78
+	if run_active: overlay.offset_top = 66 if battle_active else 78
 	root.add_child(overlay)
 	var row: Control = overlay.get_node("Center/Row")
 	add_dossier(row, card, "")
