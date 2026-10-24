@@ -86,6 +86,8 @@ const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "di
 @onready var _turn_label: Label = $HUD/Root/TurnPlaque/TurnLabel
 @onready var _phase_label: Label = $HUD/Root/PhaseLabel
 @onready var _end_turn_btn: Button = $HUD/Root/EndTurnButton
+@onready var _view_forward_btn: Button = $HUD/Root/ViewForwardButton
+@onready var _view_back_btn: Button = $HUD/Root/ViewBackButton
 
 @onready var _player_hp_ui: Control = $HUD/Root/PlayerHealth
 @onready var _enemy_hp_ui: Control = $HUD/Root/EnemyHealth
@@ -128,8 +130,9 @@ func _ready() -> void:
 	_build_lighting()
 	$HUD/Root/DeckDrawButton.pressed.connect(_on_draw_button_pressed)
 	_end_turn_btn.pressed.connect(_on_end_turn_pressed)
-	# Placeholder icon button; it will be replaced by the Limbus Company restyle.
-	$HUD/Root/ViewIconPlaceholder.pressed.connect(toggle_view_icon)
+	# W and S view buttons, same steps as the W and S keys.
+	_view_forward_btn.pressed.connect(view_button_pressed.bind(1))
+	_view_back_btn.pressed.connect(view_button_pressed.bind(-1))
 
 	load_deck_from_json("res://data/starter_deck.json", deck)
 	var all_disaster: Array[Dictionary] = []
@@ -461,10 +464,10 @@ func enemy_draw_evolutions(count: int) -> void:
 		enemy_hand.append(enemy_evolution_deck.pop_back())
 		log_event("Disaster draws an evolution into its hand.")
 
-## The view icon button: switches between the overhead and wide views. W and S still step one view.
-func toggle_view_icon() -> void:
+## The W and S view buttons: step one view forward (1) or back (-1).
+func view_button_pressed(direction: int) -> void:
 	if presentation.blocking: return
-	set_view(View.WIDE if view_mode == View.BOARD else View.BOARD)
+	step_view(direction)
 
 # W and S move one step through Room <-> Table <-> Overhead.
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -489,6 +492,13 @@ func set_view(mode: int) -> void:
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
 	_shift_camera(view_settings(view_mode))
+	_update_view_buttons()
+
+# Dim W at the overhead view and S at the wide view.
+func _update_view_buttons() -> void:
+	if _view_forward_btn == null or _view_back_btn == null: return
+	_view_forward_btn.disabled = view_mode == View.BOARD
+	_view_back_btn.disabled = view_mode == View.WIDE
 
 func set_board_view(on: bool) -> void:
 	set_view(View.BOARD if on else View.DESK)
