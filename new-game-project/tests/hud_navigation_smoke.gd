@@ -99,7 +99,7 @@ func run() -> void:
 	check(not has_text(director.content, "Auto-save 2 energy"), "autosave indicator removed")
 	director.close_modal()
 	game._set_phase(game.Phase.PLAYER_DRAW, "Old instruction")
-	check(game._phase_label.text == "Pick a card to draw", "draw instruction is concise")
+	check(game._phase_label.text == "Draw", "draw instruction is concise")
 	check(game.presentation.draw_reminder.visible, "draw phase starts reminder")
 	await create_timer(0.20).timeout
 	check(game.presentation.draw_reminder.modulate.a > 0.1, "reminder visibly pulses")
@@ -109,9 +109,8 @@ func run() -> void:
 	game.preparedness = 3
 	var hand_size: int = game.get_hand_cards().size()
 	game._on_draw_button_pressed()
-	check(director.modal.visible and director.screen == "choice", "turn draw opens the deck picker")
-	game.complete_draw_choice(game.deck[0])
-	check(game.get_hand_cards().size() == hand_size + 1 and game.preparedness == 3, "picked draw is free")
+	check(not director.modal.visible, "turn draw opens no picker")
+	check(game.get_hand_cards().size() == hand_size + 1 and game.preparedness == 3, "turn draw is free")
 	check(game.phase == game.Phase.PLAYER_PLAY, "draw completes")
 	check(not game.presentation.draw_reminder.visible, "drawing stops reminder")
 	game._set_phase(game.Phase.PLAYER_DRAW)
