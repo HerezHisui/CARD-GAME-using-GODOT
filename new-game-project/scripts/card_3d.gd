@@ -291,7 +291,7 @@ func _refresh_face() -> void:
 		_atk_label.text = str(effective_attack())
 	# Only the first keyword fits; the rest stay in the icon row and inspect box.
 	if _keyword_label:
-		_keyword_label.text = modifiers[0].to_upper() if not modifiers.is_empty() else ""
+		_keyword_label.text = _face_keyword().to_upper()
 	if _status_row:
 		for child in _status_row.get_children():
 			_status_row.remove_child(child)
@@ -314,6 +314,14 @@ func _refresh_face() -> void:
 		if not preview_only and _manager().is_sealed(card_data): _add_effect_icon("sealed")
 		if has_modifier("sluggish") and not can_attack(_manager().turn): _add_effect_icon("resting")
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+## The one keyword on the face: printed first, then buff-granted Piercing/Sluggish, then boss Taunt.
+func _face_keyword() -> String:
+	if not modifiers.is_empty(): return modifiers[0]
+	for passive in ["piercing", "sluggish"]:
+		if has_modifier(passive): return passive
+	if card_data.get("boss_role", "") == "taunt": return "taunt"
+	return ""
 
 func _add_effect_icon(kind: String, stacks: int = 0) -> void:
 	if _status_row.get_child_count() >= 19:
