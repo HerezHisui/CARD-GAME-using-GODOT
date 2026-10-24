@@ -25,6 +25,7 @@ var graveyard_serial := 0
 var hovered_hand_card: Node
 var dragged_hand_card: Node
 var _drop_target_material: StandardMaterial3D
+var _slots_lit := false
 var turn := 1
 var presentation: Node
 var coin_result := -1
@@ -552,13 +553,34 @@ func hand_parent() -> Node3D:
 func clamp_drag_position(point: Vector3) -> Vector3:
 	return Vector3(clampf(point.x, DRAG_BOUNDS.position.x, DRAG_BOUNDS.end.x), 1.6, clampf(point.z, DRAG_BOUNDS.position.y, DRAG_BOUNDS.end.y))
 
+## Half of one blink. Two blinks per second.
+const BLINK_HALF := 0.25
+
+## One looping blink used by every highlight: lit, then dim, forever until killed.
+func blink_tween(owner: Node, target: Object, property: NodePath, lit: Variant, dim: Variant) -> Tween:
+	var tween := owner.create_tween().set_loops()
+	tween.tween_property(target, property, lit, BLINK_HALF)
+	tween.tween_property(target, property, dim, BLINK_HALF)
+	return tween
+
 ## Coordinated Response targets pulse red while its board pick is open.
+## Now every board pick blinks its valid cards, and lane picks blink the empty lanes.
 func _update_target_pulse() -> void:
+	var kind: String = board_input.action.get("kind", "")
 	var targets: Array = []
-	if board_input.action.get("kind", "") == "pick" and board_input.action.get("tactic", "") == "coordinate":
+	if kind == "pick":
 		targets = board_input.action.get("cards", [])
+	elif kind == "relocate" and not is_instance_valid(moving_ally):
+		# Same rule as board_actions.click_card for a relocation.
+		var source: Node = board_input.action.get("source")
+		for slot in _response_slots():
+			var ally := _get_card_in_slot(slot)
+			if ally != null and ally != source and ally.is_alive() and plans.eligible(ally): targets.append(ally)
 	for card in get_tree().get_nodes_in_group("cards"):
 		card.set_target_pulse(card in targets)
+	# A dragged card (hand or relocating ally) or a lane pick lights the empty lanes.
+	var want_slots: bool = is_instance_valid(dragged_hand_card) or kind == "place"
+	if want_slots != _slots_lit: show_drop_targets(want_slots)
 
 func _process(_delta: float) -> void:
 	if is_instance_valid(opponent_hand): opponent_hand.refresh()
@@ -734,6 +756,9 @@ func show_drop_targets(on: bool) -> void:
 		_drop_target_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_drop_target_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_drop_target_material.albedo_color = Color(UI.GOLD, 0.35)
+		# The shared material blinks for good; it only shows while slots are lit.
+		blink_tween(self, _drop_target_material, "albedo_color", Color(UI.GOLD, 0.6), Color(UI.GOLD, 0.15))
+	_slots_lit = on
 	for slot in _response_slots():
 		var lit: bool = on and _get_card_in_slot(slot) == null
 		slot.visible = lit

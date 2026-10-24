@@ -697,14 +697,13 @@ func effective_attack() -> int:
 func refresh_cost() -> void:
 	_refresh_face()
 
-## Red pulse while this card is a Coordinated Response target. Safe to call every frame.
+## Gold blink while this card is a valid board pick target (Coordinated Response, Brace, Rally...).
+## Safe to call every frame.
 func set_target_pulse(on: bool) -> void:
 	if on == (_pulse_tween != null): return
 	if on:
 		# Bound to this card, so the tween ends when the card is freed.
-		_pulse_tween = create_tween().set_loops()
-		_pulse_tween.tween_property(art_sprite, "modulate", UI.DANGER, 0.45)
-		_pulse_tween.tween_property(art_sprite, "modulate", Color.WHITE, 0.45)
+		_pulse_tween = _manager().blink_tween(self, art_sprite, "modulate", UI.GOLD, Color.WHITE)
 	else:
 		_pulse_tween.kill()
 		_pulse_tween = null
