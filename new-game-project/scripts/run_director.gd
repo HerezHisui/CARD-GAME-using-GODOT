@@ -43,7 +43,6 @@ const CardTileScene = preload("res://scenes/ui/ui_card_tile.tscn")
 const DossierScene = preload("res://scenes/ui/ui_dossier.tscn")
 const CatalogInspectionScene = preload("res://scenes/ui/ui_catalog_inspection.tscn")
 const InspectScene = preload("res://scenes/ui/ui_inspect.tscn")
-const TITLE_ART_PATH := "res://assets/title_screen.png"
 static var start_after_reload := false
 static var last_character := 0
 const DECISIONS := ["coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff", "intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove", "remove_confirm", "contingency_reward"]
@@ -155,34 +154,27 @@ func show_title() -> void:
 	game.presentation.clear_banner()
 	get_tree().paused = false
 	battle_active = false
-	reset_panel("MIDNIGHT DRRILLS", "THE SCHOOL AFTER DARK", "title")
-	content.get_child(0).add_theme_font_size_override("font_size", 54)
-	# The layout lives in ui_title.tscn; here we only pick buttons and hook them up.
+	# The title, art and effects live in ui_title.tscn and title_screen.gd.
+	reset_panel("", "", "title")
+	# Here we only pick buttons and hook them up. The menu items are plain text, so they skip
+	# hook_button's plate fill; title_screen.gd gives them their hover look.
 	var title_screen: Control = TitleScene.instantiate()
 	content.add_child(title_screen)
-	var menu: Control = title_screen.get_node("%Menu")
 	var has_save: bool = persistence.has_run()
 	if has_save:
 		var saved: Dictionary = persistence.read_save()
 		title_screen.get_node("%SaveLabel").text = "UNFINISHED RUN · FLOOR %d" % int(saved.director.floor_number)
-		hook_button(title_screen.get_node("%ContinueButton"), continue_saved_run).grab_focus()
-		hook_button(title_screen.get_node("%AbandonButton"), confirm_abandon)
+		var continue_button: Button = title_screen.get_node("%ContinueButton")
+		continue_button.pressed.connect(continue_saved_run)
+		continue_button.grab_focus()
+		title_screen.get_node("%AbandonButton").pressed.connect(confirm_abandon)
 		title_screen.get_node("%StartButton").free()
 	else:
 		for unused in ["%SaveLabel", "%ContinueButton", "%AbandonButton"]: title_screen.get_node(unused).free()
-		hook_button(title_screen.get_node("%StartButton"), show_characters).grab_focus()
-	hook_button(title_screen.get_node("%MultiplayerButton"), Callable())
-	hook_button(title_screen.get_node("%QuitButton"), quit_game)
-	for item in menu.get_children():
-		if item is Button: UI.decorate(item, item.disabled)
-	var scenery: Control = title_screen.get_node("%Scenery")
-	if ResourceLoader.exists(TITLE_ART_PATH):
-		var art := TextureRect.new()
-		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.texture = load(TITLE_ART_PATH)
-		scenery.add_child(art)
+		var start_button: Button = title_screen.get_node("%StartButton")
+		start_button.pressed.connect(show_characters)
+		start_button.grab_focus()
+	title_screen.get_node("%QuitButton").pressed.connect(quit_game)
 
 func continue_saved_run() -> void:
 	if not persistence.resume(): show_title()
@@ -514,6 +506,8 @@ func _panel_layout(kind: String) -> void:
 		panel_style.content_margin_right = 55
 		panel_style.content_margin_top = 45 if title_screen else 20
 		panel_style.content_margin_bottom = 35 if title_screen else 20
+		# The title art runs edge to edge.
+		if kind == "title": panel_style.set_content_margin_all(0)
 	modal.add_theme_stylebox_override("panel", panel_style)
 	if kind == "graveyard":
 		var viewport_size := get_viewport().get_visible_rect().size
