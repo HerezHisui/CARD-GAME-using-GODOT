@@ -183,7 +183,7 @@ func sacrifice_fixture() -> void:
 	check(evolution.statuses.is_empty(), "two sacrifices have no major evolution entry reward")
 	game.enemy_deck.append(definition("entry_draw", "disaster"))
 	game.major_evolution_entry(evolution, 4)
-	check(evolution.statuses.get("barrier", 0) == 3, "four sacrifices grant three Barrier")
+	check(evolution.statuses.get("barrier", 0) == 2, "four sacrifices grant two Barrier")
 	check(game.enemy_hand.size() == 2 and opposing.card_data.health == 19, "major entry draws and shocks enemies")
 	var unaffordable: Dictionary = definition("unaffordable", "disaster")
 	unaffordable.cost = 2

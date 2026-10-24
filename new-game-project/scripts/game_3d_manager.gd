@@ -1719,7 +1719,7 @@ func sacrifice_reward(card: Node) -> void:
 
 func major_evolution_entry(card: Node, sacrifices: int) -> void:
 	if sacrifices < 3: return
-	card.add_status("barrier", 3 if sacrifices >= 4 else 2)
+	card.add_status("barrier", 2 if sacrifices >= 4 else 1)
 	enemy_draw_cards(1)
 	if sacrifices >= 4:
 		for lane in _response_slots():
