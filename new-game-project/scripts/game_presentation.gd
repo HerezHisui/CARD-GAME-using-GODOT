@@ -6,7 +6,7 @@ var game: Node
 var blocking := false
 var automated_choice := -1 # Explicit opt-in for integration fixtures, never set by gameplay.
 var coin_root: ColorRect
-var coin_sprite: TextureRect
+var coin_pivot: Node3D
 var choice_buttons: Array[Button] = []
 var coin_busy := false
 var coin_epoch := 0
@@ -15,7 +15,6 @@ var banner_node: Control
 var banner_tween: Tween
 var draw_reminder: Panel
 var draw_reminder_tween: Tween
-var coin_status: Label
 
 func setup(owner_game: Node) -> void:
 	game = owner_game
@@ -46,11 +45,6 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	coin_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	coin_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(coin_root)
-	coin_status = game.run_director.label(game.run_director.status_text(), 14)
-	coin_status.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	coin_status.offset_top = 16
-	coin_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	coin_root.add_child(coin_status)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	coin_root.add_child(center)
@@ -67,12 +61,7 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	var coin_space := CenterContainer.new()
 	coin_space.custom_minimum_size = Vector2(600, 340)
 	box.add_child(coin_space)
-	coin_sprite = TextureRect.new()
-	coin_sprite.texture = coin_textures[0]
-	coin_sprite.custom_minimum_size = Vector2(170, 170)
-	coin_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	coin_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	coin_space.add_child(coin_sprite)
+	coin_space.add_child(make_coin_view())
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 24)
@@ -90,23 +79,20 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	elif automated_choice >= 0: select_coin.call_deferred(automated_choice)
 	var pick: int = await coin_chosen
 	if pick < 0 or epoch != coin_epoch: return -1
-	var rest: Vector2 = coin_sprite.position
-	coin_sprite.pivot_offset = coin_sprite.size / 2
 	var toss := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	toss.tween_method(func(t: float):
 		if epoch != coin_epoch: return
-		coin_sprite.position = rest + Vector2(0, -70 * sin(t * PI))
-		var angle := t * (TAU * 4 + PI * result)
-		coin_sprite.scale.x = maxf(0.06, absf(cos(angle)))
-		coin_sprite.rotation = sin(t * TAU) * 0.12
-		coin_sprite.texture = coin_textures[0 if cos(angle) >= 0 else 1]
+		# Hop up and down while flipping; ends Heads up for 0, Tails up for 1.
+		coin_pivot.position.y = 0.9 * sin(t * PI)
+		coin_pivot.rotation.x = t * (TAU * 4 + PI * result)
+		coin_pivot.rotation.z = sin(t * TAU) * 0.12
 	, 0.0, 1.0, 1.15)
 	await toss.finished
 	if epoch != coin_epoch:
 		event_root.queue_free()
 		return -1
-	coin_sprite.texture = coin_textures[result]
-	coin_sprite.scale = Vector2.ONE
+	coin_pivot.position = Vector3.ZERO
+	coin_pivot.rotation = Vector3(PI * result, 0, 0)
 	title.text = "HEADS" if result == 0 else "TAILS"
 	hint.text = "You take the first turn." if pick == result else "The Janitor takes the first turn."
 	for button in choice_buttons: button.hide()
@@ -122,9 +108,55 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	blocking = false
 	return pick
 
-func _process(_delta: float) -> void:
-	if is_instance_valid(coin_root) and is_instance_valid(coin_status):
-		coin_status.text = game.run_director.status_text()
+## Small 3D view with its own world, so the classroom does not show behind the coin.
+func make_coin_view() -> SubViewportContainer:
+	var view_box := SubViewportContainer.new()
+	view_box.custom_minimum_size = Vector2(240, 240)
+	view_box.stretch = true
+	view_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var view := SubViewport.new()
+	view.own_world_3d = true
+	view.transparent_bg = true
+	view_box.add_child(view)
+	var camera := Camera3D.new()
+	camera.position = Vector3(0, 0, 3.6)
+	view.add_child(camera)
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-30, 20, 0)
+	view.add_child(light)
+	coin_pivot = make_coin()
+	view.add_child(coin_pivot)
+	return view_box
+
+## A short cylinder with the Heads art on the front and the Tails art on the back.
+func make_coin() -> Node3D:
+	var pivot := Node3D.new()
+	var body := MeshInstance3D.new()
+	var cylinder := CylinderMesh.new()
+	cylinder.top_radius = 1.0
+	cylinder.bottom_radius = 1.0
+	cylinder.height = 0.12
+	var edge := StandardMaterial3D.new()
+	edge.albedo_color = UI.BRONZE
+	edge.metallic = 0.6
+	cylinder.material = edge
+	body.mesh = cylinder
+	body.rotation.x = PI / 2 # Turn the flat sides toward the camera.
+	pivot.add_child(body)
+	for side in 2:
+		var face := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(2, 2)
+		var art := StandardMaterial3D.new()
+		art.albedo_texture = coin_textures[side]
+		art.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		quad.material = art
+		face.mesh = quad
+		# Heads faces the camera; Tails sits on the back, flipped so it reads upright after the toss.
+		face.position.z = 0.065 if side == 0 else -0.065
+		face.rotation.x = 0.0 if side == 0 else PI
+		pivot.add_child(face)
+	return pivot
 
 func cancel_coin() -> void:
 	coin_epoch += 1
