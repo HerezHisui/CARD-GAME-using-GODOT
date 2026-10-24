@@ -96,7 +96,7 @@ func run() -> void:
 	director.show_deck()
 	check(not has_button("Graveyards"), "graveyard has its own compact HUD button instead of a deck tab")
 	director.show_graveyard()
-	check(director.content.get_child(0).text.begins_with("RESPONSE GRAVEYARD"), "battle graveyard opens")
+	check(director.content.get_child(0).text == "GRAVEYARD", "battle graveyard opens")
 	director.close_modal()
 	director.toggle_map()
 	check(director.screen == "map", "M opens battle map")
