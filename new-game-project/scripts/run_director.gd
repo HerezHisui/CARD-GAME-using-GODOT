@@ -1181,7 +1181,7 @@ func show_graveyard() -> void:
 	refresh_graveyard()
 
 func refresh_graveyard() -> void:
-	reset_panel("RESPONSE GRAVEYARD (%d)" % game.player_graveyard.size(), "Recovery Detail returns a destroyed Response unit once per battle.", "graveyard")
+	reset_panel("Graveyard", "", "graveyard")
 	# The layout lives in ui_graveyard.tscn; the entry buttons are made here.
 	unpack_screen(GraveyardScene)
 	var tabs: Control = content.get_node("Tabs")
@@ -1204,7 +1204,6 @@ func refresh_graveyard() -> void:
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	if cards.is_empty():
 		list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		details.text = "RECOVERY DETAIL\nReturn a destroyed unit to your hand once per battle."
 
 func deck_hand() -> void:
 	var cards: Array[Dictionary] = []
