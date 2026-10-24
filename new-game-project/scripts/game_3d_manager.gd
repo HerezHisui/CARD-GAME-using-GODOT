@@ -1058,7 +1058,7 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
 	if is_instance_valid(presentation): presentation.remind_to_draw(p == Phase.PLAYER_DRAW)
 	if text != "" and _phase_label:
-		_phase_label.text = "Pick a card to draw" if p == Phase.PLAYER_DRAW else text
+		_phase_label.text = "Draw" if p == Phase.PLAYER_DRAW else text
 	if _end_turn_btn:
 		_end_turn_btn.disabled = not (p == Phase.PLAYER_DRAW or p == Phase.PLAYER_PLAY)
 
@@ -1190,15 +1190,14 @@ func _on_draw_button_pressed() -> void:
 		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 		_refresh_bars()
 		return
-	run_director.choose_card("Pick a card to draw", choices, complete_draw_choice, run_director.close_modal, "")
+	# Turn draw is random. Only Search and Rescue lets you pick.
+	complete_draw_choice(choices.pick_random())
 
 func complete_draw_choice(definition: Dictionary) -> void:
 	if phase != Phase.PLAYER_DRAW: return
 	if definition not in deck or is_sealed(definition): return
 	if get_hand_cards().size() >= HAND_SIZE_MAX: return
 	deck.erase(definition)
-	run_director.action_cancel = Callable()
-	run_director.close_modal()
 	add_card_to_hand(definition)
 	draw_cards(maxi(0, buff_value(true, "draw")))
 	_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
