@@ -88,6 +88,17 @@ const ART: Dictionary = {
 	"Wildfire": "res://assets/card_art/wildfire.png",
 	"Worldbreaker": "res://assets/card_art/worldbreaker.png",
 }
+
+
+## Card name -> ART key. Drops trailing "+" and a leading "Experimental ".
+static func art_key(card_name: String) -> String:
+	var key := card_name.strip_edges()
+	while key.ends_with("+"):
+		key = key.left(key.length() - 1)
+	if key.begins_with("Experimental "):
+		key = key.substr("Experimental ".length())
+	return key.strip_edges()
+
 static var back_texture: Texture2D
 static var face_font: SystemFont
 
@@ -256,7 +267,7 @@ func _build_face() -> void:
 	_status_row.add_theme_constant_override("h_separation", 3)
 	_status_row.add_theme_constant_override("v_separation", 2)
 	frame.add_child(_status_row)
-	var art_path: String = ART.get(card_data.get("name", ""), "")
+	var art_path: String = ART.get(art_key(str(card_data.get("name", ""))), "")
 	# No art or missing file: keep the plain art window.
 	if art_path != "" and ResourceLoader.exists(art_path):
 		var art_image := TextureRect.new()
