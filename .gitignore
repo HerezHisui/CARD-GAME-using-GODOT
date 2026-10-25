@@ -1,0 +1,3 @@
+# Local agent skills (re-create with: npx impeccable install)
+.claude/
+.agents/

@@ -20,14 +20,11 @@ theme = ExtResource("1_theme")
 layout_mode = 1
 
 [node name="EnergyGauge" parent="." instance=ExtResource("3_gauge")]
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -78.0
-offset_right = 240.0
-offset_bottom = -12.0
+layout_mode = 0
+offset_left = 44.0
+offset_top = 96.0
+offset_right = 248.0
+offset_bottom = 140.0
 
 [node name="TensionGauge" parent="." instance=ExtResource("3_gauge")]
 layout_mode = 1

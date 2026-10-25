@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://e5m3q1dd7fhh"]
 
 [ext_resource type="Script" path="res://scripts/hud_theme.gd" id="1_theme"]
+[ext_resource type="StyleBox" path="res://data/ui_stat_plate_style.tres" id="2_plate"]
 
 [sub_resource type="Gradient" id="Gradient_toqtt"]
 colors = PackedColorArray(0, 0, 0, 0.75, 0, 0, 0, 0)
@@ -101,9 +102,9 @@ editor_description = "W: move the view one step forward (toward overhead)."
 custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
 offset_left = 24.0
-offset_top = 88.0
+offset_top = 160.0
 offset_right = 64.0
-offset_bottom = 128.0
+offset_bottom = 200.0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 text = "W"
@@ -113,9 +114,9 @@ editor_description = "S: move the view one step back (toward the wide room view)
 custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
 offset_left = 72.0
-offset_top = 88.0
+offset_top = 160.0
 offset_right = 112.0
-offset_bottom = 128.0
+offset_bottom = 200.0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 text = "S"
@@ -155,10 +156,10 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -280.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = 76.0
+offset_left = -460.0
+offset_top = 16.0
+offset_right = -200.0
+offset_bottom = 72.0
 grow_horizontal = 0
 mouse_filter = 2
 
@@ -200,24 +201,34 @@ vertical_alignment = 1
 [node name="PlayerHealth" type="Control" parent="Root" unique_id=1900000200]
 layout_mode = 1
 anchors_preset = 0
-offset_left = 24.0
-offset_top = 20.0
-offset_right = 284.0
-offset_bottom = 76.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 292.0
+offset_bottom = 80.0
 grow_vertical = 0
 mouse_filter = 2
 
+[node name="Plate" type="Panel" parent="Root/PlayerHealth"]
+layout_mode = 0
+offset_right = 276.0
+offset_bottom = 68.0
+mouse_filter = 2
+theme_override_styles/panel = ExtResource("2_plate")
+
 [node name="Caption" type="Label" parent="Root/PlayerHealth" unique_id=1900000201]
 layout_mode = 0
-offset_right = 260.0
-offset_bottom = 26.0
+offset_left = 32.0
+offset_top = 8.0
+offset_right = 244.0
+offset_bottom = 30.0
 text = "STUDENT / RESPONSE"
 
 [node name="LagBar" type="ProgressBar" parent="Root/PlayerHealth" unique_id=1900000202]
 layout_mode = 0
-offset_top = 28.0
-offset_right = 260.0
-offset_bottom = 56.0
+offset_left = 32.0
+offset_top = 32.0
+offset_right = 244.0
+offset_bottom = 58.0
 mouse_filter = 2
 max_value = 20.0
 value = 20.0
@@ -225,9 +236,10 @@ show_percentage = false
 
 [node name="Bar" type="ProgressBar" parent="Root/PlayerHealth" unique_id=1900000203]
 layout_mode = 0
-offset_top = 28.0
-offset_right = 260.0
-offset_bottom = 56.0
+offset_left = 32.0
+offset_top = 32.0
+offset_right = 244.0
+offset_bottom = 58.0
 mouse_filter = 2
 max_value = 20.0
 value = 20.0
@@ -235,12 +247,23 @@ show_percentage = false
 
 [node name="Value" type="Label" parent="Root/PlayerHealth" unique_id=1900000204]
 layout_mode = 0
-offset_top = 28.0
-offset_right = 260.0
-offset_bottom = 56.0
+offset_left = 32.0
+offset_top = 32.0
+offset_right = 244.0
+offset_bottom = 58.0
 text = "20 / 20"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="EnergyPlate" type="Panel" parent="Root"]
+editor_description = "Frame behind the Energy gauge (the gauge itself is in ui_shell.tscn)."
+layout_mode = 0
+offset_left = 16.0
+offset_top = 88.0
+offset_right = 292.0
+offset_bottom = 148.0
+mouse_filter = 2
+theme_override_styles/panel = ExtResource("2_plate")
 
 [node name="PlansBox" type="VBoxContainer" parent="Root"]
 layout_mode = 1

@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
+[ext_resource type="StyleBox" path="res://data/ui_icon_button_style.tres" id="2_icon"]
 
 [node name="Header" type="MarginContainer"]
 anchors_preset = 10
@@ -10,33 +11,54 @@ grow_horizontal = 2
 mouse_filter = 2
 theme = ExtResource("1_theme")
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
+theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 16
 
 [node name="Row" type="HBoxContainer" parent="."]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 8
 alignment = 2
 
 [node name="DeckButton" type="Button" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 42)
+custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+tooltip_text = "Deck"
 mouse_default_cursor_shape = 2
-text = "Deck"
+theme_override_font_sizes/font_size = 22
+theme_override_styles/focus = ExtResource("2_icon")
+theme_override_styles/disabled = ExtResource("2_icon")
+theme_override_styles/hover = ExtResource("2_icon")
+theme_override_styles/pressed = ExtResource("2_icon")
+theme_override_styles/normal = ExtResource("2_icon")
+text = "D"
 
 [node name="MapButton" type="Button" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 42)
+custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+tooltip_text = "School map"
 mouse_default_cursor_shape = 2
-text = "School map"
+theme_override_font_sizes/font_size = 22
+theme_override_styles/focus = ExtResource("2_icon")
+theme_override_styles/disabled = ExtResource("2_icon")
+theme_override_styles/hover = ExtResource("2_icon")
+theme_override_styles/pressed = ExtResource("2_icon")
+theme_override_styles/normal = ExtResource("2_icon")
+text = "M"
 
 [node name="MenuButton" type="Button" parent="Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 42)
+custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+tooltip_text = "Menu"
 mouse_default_cursor_shape = 2
-text = "Menu"
+theme_override_font_sizes/font_size = 22
+theme_override_styles/focus = ExtResource("2_icon")
+theme_override_styles/disabled = ExtResource("2_icon")
+theme_override_styles/hover = ExtResource("2_icon")
+theme_override_styles/pressed = ExtResource("2_icon")
+theme_override_styles/normal = ExtResource("2_icon")
+text = "≡"

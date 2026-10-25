@@ -259,7 +259,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		final_boss = preload("res://scripts/final_boss.gd").new()
 		add_child(final_boss)
 		final_boss.setup(self)
-		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN / FINAL BOSS"
+		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN"
 	_start_match()
 
 func fill_elite_reserve(reserve: Array[Dictionary], limit: int) -> void:

@@ -1529,6 +1529,10 @@ func event_risk() -> void: resolve_event("risk")
 
 func show_menu() -> void:
 	if _dragging(): return
+	# Pressing Menu again closes it, like Resume.
+	if screen == "menu":
+		close_modal()
+		return
 	if saved_content: return
 	if screen in DECISIONS: return
 	reset_panel("MIDNIGHT DRRILLS", "", "menu")

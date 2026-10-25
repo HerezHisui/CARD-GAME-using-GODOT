@@ -224,7 +224,11 @@ func button_feedback(button: Button) -> void:
 		live_button.pivot_offset = live_button.size / 2
 		tween[0] = live_button.create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		tween[0].tween_property(live_button, "scale", Vector2.ONE * scale_value, 0.10)
-		tween[0].tween_property(fill[0], "bg_color", color, 0.14)
+		# Art frames have no bg_color, so tint them instead.
+		if fill[0] is StyleBoxTexture:
+			tween[0].tween_property(fill[0], "modulate_color", _texture_tint(color), 0.14)
+		else:
+			tween[0].tween_property(fill[0], "bg_color", color, 0.14)
 	button.mouse_entered.connect(func():
 		var live_button = reference.get_ref()
 		if is_instance_valid(live_button) and not live_button.disabled: animate.call(1.0, UI.ACTION)
@@ -236,6 +240,12 @@ func button_feedback(button: Button) -> void:
 		if is_instance_valid(live_button):
 			animate.call(1.0, UI.ACTION if live_button.is_hovered() else UI.BACKGROUND)
 	)
+
+## Hover brightens an art frame, press darkens it, rest is plain white.
+func _texture_tint(color: Color) -> Color:
+	if color == UI.ACTION: return Color(1.2, 1.2, 1.2)
+	if color == UI.CRIMSON: return Color(0.8, 0.8, 0.8)
+	return Color.WHITE
 
 func card_feedback(face: Control) -> void:
 	var tween: Array = [null]
