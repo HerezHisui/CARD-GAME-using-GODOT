@@ -53,7 +53,7 @@ func run() -> void:
 	check(has_text(director.content, "Augmentations:"), "run buff heading renamed")
 	director.show_deck()
 	check(not has_text(director.content, "GRAVEYARD"), "graveyard absent outside combat")
-	check(has_text(director.content, "DECK"), "deck uses short heading")
+	check(has_text(director.content, "CARDS"), "deck uses short heading")
 	var original_collection: Array = director.collection.duplicate(true)
 	director.collection.assign([{"name":"Composition fixture", "element":"evac", "utility":true}])
 	var strip: String = director.status_text()

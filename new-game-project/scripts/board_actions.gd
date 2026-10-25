@@ -20,11 +20,11 @@ func pick(title: String, cards: Array, callback: Callable, cancel_callback: Call
 
 func relocation(source: Node) -> void:
 	game.set_board_view(true)
-	action = {"kind":"relocate", "title":"Drag another friendly card onto an empty lane. Esc skips movement.", "source":source, "cancel":game.cancel_move_effect}
+	action = {"kind":"relocate", "title":"Drag another friendly card onto an empty lane.", "source":source, "cancel":game.cancel_move_effect}
 
 func destination(card: Node, callback: Callable) -> void:
 	game.set_board_view(true)
-	action = {"kind":"place", "title":"Click an empty friendly lane for Emergency Extraction. Esc cancels.", "card":card, "callback":callback, "cancel":Callable()}
+	action = {"kind":"place", "title":"Click an empty friendly lane for Emergency Extraction.", "card":card, "callback":callback, "cancel":Callable()}
 
 func click_card(card: Node) -> bool:
 	if action.is_empty() or game.run_director.modal.visible: return false

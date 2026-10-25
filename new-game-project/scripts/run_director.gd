@@ -180,7 +180,7 @@ func continue_saved_run() -> void:
 	if not persistence.resume(): show_title()
 
 func confirm_abandon() -> void:
-	reset_panel("ABANDON THIS RUN?", "Your saved deck, school route and battle progress will be cleared. Start again from character selection.", "confirm")
+	reset_panel("ABANDON THIS RUN?", "Your deck, route and battle progress will be cleared.", "confirm")
 	confirmation_cancel = show_title
 	confirm_buttons("Abandon run", abandon_run, "Keep my run", show_title)
 
@@ -192,7 +192,7 @@ func abandon_run() -> void:
 	show_title()
 
 func show_characters() -> void:
-	reset_panel("CHOOSE YOUR CHARACTER", "Each character has a 12-card starter deck and a permanent starting perk.", "characters")
+	reset_panel("CHOOSE YOUR CHARACTER", "", "characters")
 	# The layout lives in ui_characters.tscn; the character tiles are made here.
 	var box := centered_screen(CharactersScene)
 	var grid: Control = box.get_node("Grid")
@@ -702,7 +702,7 @@ func finish_room() -> void:
 	show_map()
 
 func show_rest() -> void:
-	reset_panel("THE INFIRMARY", "Choose one: recover 7 health, train a card, or remove one card from your deck.", "event")
+	reset_panel("THE INFIRMARY", "", "event")
 	# The layout lives in ui_rest.tscn.
 	unpack_screen(RestScene)
 	var rest_button: Button = content.get_node("RestButton")
@@ -729,7 +729,7 @@ func battle_finished(won: bool) -> void:
 	if not won:
 		run_active = false
 		persistence.discard()
-		reset_panel("TRAPPED AFTER MIDNIGHT", "Your run has ended. Begin again with a new school layout.", "result")
+		reset_panel("TRAPPED AFTER MIDNIGHT", "", "result")
 		unpack_screen(ResultScene)
 		hook_button(content.get_node("ReturnButton"), return_title)
 		return
@@ -755,7 +755,7 @@ func show_contingency_reward(next_screen: String, restore_offers: bool = false) 
 		return
 	if not restore_offers:
 		for i in range(mini(3, locked.size())): buff_choices.append(locked.pop_at(rng.randi_range(0, locked.size() - 1)))
-	reset_panel("NEW CONTINGENCY", "Elite and boss victories teach a new tactic. Choose one to unlock for the rest of this run.", "contingency_reward")
+	reset_panel("NEW CONTINGENCY", "Unlock one tactic for this run.", "contingency_reward")
 	# The layout lives in ui_contingency_reward.tscn; the tactic tiles are made here.
 	var box := centered_screen(ContingencyRewardScene)
 	var row: Control = box.get_node("Row")
@@ -776,7 +776,7 @@ func finish_unlock_reward() -> void:
 func show_run_victory() -> void:
 	run_active = false
 	persistence.discard()
-	reset_panel("DAWN AT LAST", "Steve has survived all three floors and contained the Midnight Warden. The school is safe.", "victory")
+	reset_panel("DAWN AT LAST", "", "victory")
 	# The layout lives in ui_victory.tscn.
 	unpack_screen(VictoryScene)
 	content.get_node("Summary").text = "RUN COMPLETE · %d cards · %d supplies · %d health remaining" % [
@@ -817,7 +817,7 @@ func offers(count: int) -> Array[Dictionary]:
 func show_rewards(selected: int = -1) -> void:
 	reward_selection = selected
 	reward_faces.clear()
-	reset_panel("DISASTER CONTAINED", "Click a card to inspect it. Click the enlarged card again to keep it.", "reward")
+	reset_panel("DISASTER CONTAINED", "Click a card twice to keep it.", "reward")
 	# The layout lives in ui_rewards.tscn; the card faces are made here.
 	var box := centered_screen(RewardsScene)
 	var row: Control = box.get_node("Row")
@@ -826,7 +826,7 @@ func show_rewards(selected: int = -1) -> void:
 	if selected >= 0 and selected < reward_stock.size():
 		skip.free()
 		inspected_face = reward_face(selected, row, 330)
-		add_dossier(row, reward_stock[selected], "Press this card again to claim it. Press outside to compare rewards.")
+		add_dossier(row, reward_stock[selected], "")
 	else:
 		reward_selection = -1
 		for i in reward_stock.size():
@@ -852,7 +852,6 @@ func reward_face(index: int, parent: Node, width: float) -> TextureRect:
 	preview.set_process(false)
 	preview.hide()
 	var face := card_image(preview._vp.get_texture(), parent, width)
-	face.tooltip_text = "Press to inspect. Press the enlarged card again to claim."
 	reward_faces.append(face)
 	face.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -1043,7 +1042,7 @@ func show_deck() -> void:
 		content = VBoxContainer.new()
 		content.add_theme_constant_override("separation", 14)
 		modal.add_child(content)
-	reset_panel("Deck", "", "deck")
+	reset_panel("", "", "deck")
 	# The layout lives in ui_deck.tscn; the card tiles are made in deck_cards().
 	unpack_screen(DeckScene)
 	var deck_button: Button = content.get_node("Tabs/DeckButton")
@@ -1152,15 +1151,15 @@ func begin_tactic(id: String) -> void:
 	close_modal()
 	if id == "coordinate":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
-		game.board_input.pick("Click one ally. It and the nearest ally on each side gain +1 attack this combat. Esc cancels.",
+		game.board_input.pick("Click one ally. It and the nearest ally on each side gain +1 attack this combat.",
 			allies, arm_target_tactic.bind("coordinate"), Callable(), "coordinate")
 	elif id == "extract":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
-		game.board_input.pick("Click the ally to protect with Emergency Extraction. Esc cancels.", allies, select_extraction_ally, Callable())
+		game.board_input.pick("Click the ally to protect with Emergency Extraction.", allies, select_extraction_ally, Callable())
 	elif id in ["supply", "shelter"]: game.plans.arm(id, [])
 	else:
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
-		game.board_input.pick("Click a deployed ally for " + str(game.plans.definition(id).name) + ". Esc cancels.", allies, arm_target_tactic.bind(id), Callable())
+		game.board_input.pick("Click a deployed ally for " + str(game.plans.definition(id).name) + ".", allies, arm_target_tactic.bind(id), Callable())
 
 func arm_target_tactic(card: Node, id: String) -> void: game.plans.arm(id, [card])
 func select_brace() -> void: begin_tactic("brace")
@@ -1318,7 +1317,7 @@ func reverse_sort(workshop: bool) -> void:
 		content.move_child(content.get_child(content.get_child_count() - 1), 3)
 
 func show_upgrade() -> void:
-	reset_panel("THE WORKSHOP", "Each card can upgrade twice. Preview type-specific abilities and improvements before confirming.", "upgrade")
+	reset_panel("THE WORKSHOP", "Each card can upgrade twice.", "upgrade")
 	# The layout lives in ui_upgrade.tscn; the card tiles are made here.
 	unpack_screen(UpgradeScene)
 	setup_sort_controls(content.get_node("SortRow"), true)
@@ -1407,7 +1406,7 @@ func upgraded_definition(card: Dictionary) -> Dictionary:
 
 func show_upgrade_preview(index: int) -> void:
 	if not can_upgrade(collection[index]): return
-	reset_panel("UPGRADE PREVIEW", "Left: current card. Right: upgraded card. Only Confirm applies the upgrade.", "upgrade_preview")
+	reset_panel("UPGRADE PREVIEW", "", "upgrade_preview")
 	# The layout lives in ui_upgrade_preview.tscn; the two card tiles go on each side of the arrow.
 	unpack_screen(UpgradePreviewScene)
 	var row: Control = content.get_node("Row")
@@ -1458,22 +1457,22 @@ func show_event() -> void:
 	var group_name: String
 	match event_type:
 		"radio":
-			reset_panel("THE EMERGENCY RADIO", "The utility kit contains Hazard Forecast and Search and Rescue.", "event")
+			reset_panel("THE EMERGENCY RADIO", "Kit: Hazard Forecast, Search and Rescue.", "event")
 			group_name = "Radio"
 		"rooftop":
-			reset_panel("ROOFTOP DRILLS", "Training gives a starting Plan but reduces energy capacity in every battle for the rest of this run.", "event")
+			reset_panel("ROOFTOP DRILLS", "Energy loss lasts the rest of the run.", "event")
 			group_name = "Rooftop"
 		"science":
-			reset_panel("THE SCIENCE LAB", "Unstable experiments offer stronger status cards. Each experiment costs 3 health.", "event")
+			reset_panel("THE SCIENCE LAB", "", "event")
 			group_name = "Science"
 		"infirmary":
-			reset_panel("A VOLUNTEER'S OFFER", "Full treatment adds Paperwork to your deck: spend 1 energy to discard it. A short break has no downside.", "event")
+			reset_panel("A VOLUNTEER'S OFFER", "Paperwork: spend 1 energy to discard it.", "event")
 			group_name = "Infirmary"
 		"lost_found":
-			reset_panel("LOST AND FOUND", "The supply monitor will trade for one card you no longer need.", "event")
+			reset_panel("LOST AND FOUND", "", "event")
 			group_name = "LostFound"
 		_:
-			reset_panel("A LOCKED CLASSROOM", "Emergency supplies wait behind broken glass. Take the risk, or search safely.", "event")
+			reset_panel("A LOCKED CLASSROOM", "", "event")
 			group_name = "Locked"
 	# The layout lives in ui_event.tscn: one group of buttons per event. Only this event's group stays.
 	var box := centered_screen(EventScene)
@@ -1661,7 +1660,7 @@ func _debug_set_card_stat(value: float, targets: Array, picker: OptionButton, ke
 		persistence.checkpoint()
 
 func confirm_title() -> void:
-	reset_panel("RETURN TO STARTING SCREEN?", "Your unfinished run is saved. Continue it from the starting screen, or abandon it there.", "confirm")
+	reset_panel("RETURN TO STARTING SCREEN?", "Your run is saved.", "confirm")
 	confirmation_cancel = close_modal
 	confirm_buttons("Return to starting screen", return_title, "Keep playing", close_modal)
 
@@ -1693,7 +1692,7 @@ func _dragging() -> bool:
 
 func restart_scene() -> void: return_title()
 
-func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable, subtitle: String = "Choose one card. Cancel keeps your spell and energy.") -> void:
+func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable, subtitle: String = "") -> void:
 	card_picker = true
 	reset_panel(title, subtitle, "choice")
 	action_cancel = cancel
@@ -1738,7 +1737,7 @@ func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> vo
 
 func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
 	card_picker = false
-	reset_panel("CHOOSE AN EMPTY LANE", "Your selected ally moves to this slot. The newly played card stays on board.", "choice")
+	reset_panel("CHOOSE AN EMPTY LANE", "", "choice")
 	action_cancel = cancel
 	for slot in slots: button("Lane %d" % (game._response_slots().find(slot) + 1), callback.bind(slot), content)
 	# The lane buttons change each time; the Skip button comes from ui_choose_slot.tscn.
@@ -1747,7 +1746,7 @@ func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
 
 func show_intel() -> void:
 	intel_revealed = true
-	reset_panel("HAZARD FORECAST", "The Janitor's current hand. This reveal lasts until the encounter ends.", "intel")
+	reset_panel("HAZARD FORECAST", "Revealed until the encounter ends.", "intel")
 	# The layout lives in ui_intel.tscn: a scrollable row for a full hand.
 	unpack_screen(IntelScene)
 	var row: Control = content.get_node("Scroll/Row")
@@ -1763,7 +1762,7 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 			var index := rng.randi_range(0, pool.size() - 1)
 			buff_choices.append(pool.pop_at(index))
 	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn,
-		"Choose one adaptation for your side. These buffs expire after this battle.", "buff")
+		"Lasts this battle.", "buff")
 	# The layout lives in ui_buff_choices.tscn; the buff tiles are made here.
 	var box := centered_screen(BuffChoicesScene)
 	var row: Control = box.get_node("Row")
@@ -1783,7 +1782,7 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 	if not restore_offers:
 		for i in range(3): buff_choices.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number,
-		"Choose one buff for your side for the entire run, then climb to the next floor.", "floor_buff")
+		"Lasts the whole run.", "floor_buff")
 	# The layout lives in ui_floor_buffs.tscn; the buff tiles are made here.
 	var box := centered_screen(FloorBuffsScene)
 	var row: Control = box.get_node("Row")
