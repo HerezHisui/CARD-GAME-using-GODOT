@@ -62,12 +62,11 @@ func turn_draw() -> void:
 	game.deck.assign([normal, high])
 	game._set_phase(game.Phase.PLAYER_DRAW, "Old draw instruction")
 	game._on_draw_button_pressed()
-	check(director.modal.visible and director.screen == "choice", "draw opens the deck picker")
-	check(game.preparedness == 3 and game.get_hand_cards().is_empty(), "opening the picker spends nothing")
-	game.complete_draw_choice(high)
-	check(not director.modal.visible and game.phase == game.Phase.PLAYER_PLAY, "picking a card enters play")
-	check(game.preparedness == 3 and game.deck == [normal], "the chosen card is free")
-	check(game.get_hand_cards()[0].card_data.id == "high", "the chosen card goes to hand")
+	check(not director.modal.visible and game.phase == game.Phase.PLAYER_PLAY, "draw adds a card without a picker")
+	check(game.get_hand_cards().size() == 1 and game.deck.size() == 1, "draw takes one card from the pile")
+	var drawn: Dictionary = game.get_hand_cards()[0].card_data
+	check(drawn.id in ["normal", "high"] and drawn.id != game.deck[0].id, "the drawn card leaves the pile")
+	check(game.preparedness == 3, "the drawn card is free")
 	game._on_draw_button_pressed()
 	check(game.get_hand_cards().size() == 1 and game.preparedness == 3, "repeated Draw cannot draw again")
 
@@ -86,8 +85,7 @@ func unavailable_draw() -> void:
 	game.deck.assign([free_pick])
 	game._set_phase(game.Phase.PLAYER_DRAW)
 	game._on_draw_button_pressed()
-	check(director.modal.visible and director.screen == "choice", "zero energy still opens the picker")
-	game.complete_draw_choice(free_pick)
+	check(not director.modal.visible, "zero energy draw opens no picker")
 	check(game.get_hand_cards().size() == 1 and game.get_hand_cards()[0].card_data.id == "normal",
 		"zero energy still draws the picked card")
 	check(game.preparedness == 0 and game.phase == game.Phase.PLAYER_PLAY, "zero-energy draw spends nothing")

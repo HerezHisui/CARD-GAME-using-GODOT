@@ -70,7 +70,7 @@ offset_right = -224.0
 offset_bottom = -17.0
 grow_horizontal = 0
 grow_vertical = 0
-tooltip_text = "Draw your card for this turn. D opens the full deck."
+tooltip_text = "Draw your card for this turn."
 focus_mode = 0
 disabled = true
 
@@ -87,32 +87,38 @@ layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -80.0
-offset_top = 90.0
+offset_top = 20.0
 offset_right = 80.0
-offset_bottom = 136.0
+offset_bottom = 66.0
 
 [node name="TurnLabel" type="Label" parent="Root/TurnPlaque" unique_id=1113960464]
 layout_mode = 2
 text = "Turn 1"
 horizontal_alignment = 1
 
-[node name="HintW" type="Label" parent="Root" unique_id=503125375]
-modulate = Color(1, 1, 1, 0.9)
+[node name="ViewForwardButton" type="Button" parent="Root" unique_id=503125375]
+editor_description = "W: move the view one step forward (toward overhead)."
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
 offset_left = 24.0
-offset_top = 160.0
-offset_right = 162.0
-offset_bottom = 179.0
-text = "W · Overhead view"
+offset_top = 88.0
+offset_right = 64.0
+offset_bottom = 128.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "W"
 
-[node name="HintS" type="Label" parent="Root" unique_id=845198651]
-modulate = Color(1, 1, 1, 0.9)
+[node name="ViewBackButton" type="Button" parent="Root"]
+editor_description = "S: move the view one step back (toward the wide room view)."
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
-offset_left = 24.0
-offset_top = 186.0
-offset_right = 129.0
-offset_bottom = 205.0
-text = "S · Wide view"
+offset_left = 72.0
+offset_top = 88.0
+offset_right = 112.0
+offset_bottom = 128.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "S"
 
 [node name="PhaseLabel" type="Label" parent="Root" unique_id=1203948571]
 layout_mode = 1
@@ -120,9 +126,9 @@ anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -300.0
-offset_top = 145.0
+offset_top = 73.0
 offset_right = 300.0
-offset_bottom = 175.0
+offset_bottom = 103.0
 grow_horizontal = 2
 text = "Draw, deploy, end your turn."
 horizontal_alignment = 1
@@ -142,7 +148,7 @@ grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
 disabled = true
-text = "End turn  [Space]"
+text = "End turn"
 
 [node name="EnemyHealth" type="Control" parent="Root" unique_id=1900000100]
 layout_mode = 1
@@ -150,9 +156,9 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -280.0
-offset_top = 92.0
+offset_top = 20.0
 offset_right = -20.0
-offset_bottom = 148.0
+offset_bottom = 76.0
 grow_horizontal = 0
 mouse_filter = 2
 
@@ -160,7 +166,7 @@ mouse_filter = 2
 layout_mode = 0
 offset_right = 260.0
 offset_bottom = 26.0
-text = "THE JANITOR / DISASTER"
+text = "JANITOR"
 
 [node name="LagBar" type="ProgressBar" parent="Root/EnemyHealth" unique_id=1900000102]
 layout_mode = 0
@@ -195,9 +201,9 @@ vertical_alignment = 1
 layout_mode = 1
 anchors_preset = 0
 offset_left = 24.0
-offset_top = 92.0
+offset_top = 20.0
 offset_right = 284.0
-offset_bottom = 148.0
+offset_bottom = 76.0
 grow_vertical = 0
 mouse_filter = 2
 
@@ -251,7 +257,7 @@ custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
 tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
 mouse_default_cursor_shape = 2
-text = "Contingency 0/2  [P]"
+text = "Contingency 0/2"
 
 [node name="GraveyardButton" type="Button" parent="Root"]
 custom_minimum_size = Vector2(130, 42)
@@ -267,4 +273,4 @@ offset_right = -394.0
 offset_bottom = -17.0
 tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
 mouse_default_cursor_shape = 2
-text = "Graveyard [G]"
+text = "Graveyard"

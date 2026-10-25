@@ -53,9 +53,9 @@ clip_text = true
 [node name="DebugButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Debug values  [F3]"
+tooltip_text = "Debug values"
 mouse_default_cursor_shape = 2
-text = "Debug values  [F3]"
+text = "Debug values"
 clip_text = true
 
 [node name="TitleButton" type="Button" parent="."]

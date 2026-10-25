@@ -24,6 +24,8 @@ var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
 var hovered_hand_card: Node
 var dragged_hand_card: Node
+var _drop_target_material: StandardMaterial3D
+var _slots_lit := false
 var turn := 1
 var presentation: Node
 var coin_result := -1
@@ -83,10 +85,10 @@ const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "di
 # HUD references
 @onready var _deck_count: Label = $HUD/Root/DeckDrawButton/DeckCountLabel
 @onready var _turn_label: Label = $HUD/Root/TurnPlaque/TurnLabel
-@onready var _hint_w: Label = $HUD/Root/HintW
-@onready var _hint_s: Label = $HUD/Root/HintS
 @onready var _phase_label: Label = $HUD/Root/PhaseLabel
 @onready var _end_turn_btn: Button = $HUD/Root/EndTurnButton
+@onready var _view_forward_btn: Button = $HUD/Root/ViewForwardButton
+@onready var _view_back_btn: Button = $HUD/Root/ViewBackButton
 
 @onready var _player_hp_ui: Control = $HUD/Root/PlayerHealth
 @onready var _enemy_hp_ui: Control = $HUD/Root/EnemyHealth
@@ -129,6 +131,9 @@ func _ready() -> void:
 	_build_lighting()
 	$HUD/Root/DeckDrawButton.pressed.connect(_on_draw_button_pressed)
 	_end_turn_btn.pressed.connect(_on_end_turn_pressed)
+	# W and S view buttons, same steps as the W and S keys.
+	_view_forward_btn.pressed.connect(view_button_pressed.bind(1))
+	_view_back_btn.pressed.connect(view_button_pressed.bind(-1))
 
 	load_deck_from_json("res://data/starter_deck.json", deck)
 	var all_disaster: Array[Dictionary] = []
@@ -146,7 +151,6 @@ func _ready() -> void:
 
 	update_deck_label()
 	_refresh_bars()
-	_refresh_view_hints()
 	run_director = preload("res://scripts/run_director.gd").new()
 	add_child(run_director)
 
@@ -162,6 +166,7 @@ func clear_battle(preserve_result: bool = false) -> void:
 	player_barrier = 0
 	clear_hand_hover()
 	dragged_hand_card = null
+	show_drop_targets(false)
 	if not preserve_result:
 		player_graveyard.clear()
 		graveyard_serial = 0
@@ -215,7 +220,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	load_deck_from_json("res://data/disaster_deck.json", threats)
 	load_deck_from_json("res://data/disaster_expansion.json", threats)
 	var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
-	_enemy_hp_ui.get_node("Caption").text = "JANITOR / %s / %s" % [kind.to_upper(), favored.to_upper()]
+	_enemy_hp_ui.get_node("Caption").text = "JANITOR"
 	_enemy_hp_ui.get_node("Caption").add_theme_font_size_override("font_size", 14)
 	for definition in threats:
 		if kind == "elite" and definition.element != favored: continue
@@ -460,13 +465,10 @@ func enemy_draw_evolutions(count: int) -> void:
 		enemy_hand.append(enemy_evolution_deck.pop_back())
 		log_event("Disaster draws an evolution into its hand.")
 
-func _refresh_view_hints() -> void:
-	if _hint_w:
-		_hint_w.text = "W · " + ("Table view" if view_mode == View.WIDE else "Overhead view")
-		_hint_w.modulate.a = 0.35 if view_mode == View.BOARD else 0.9
-	if _hint_s:
-		_hint_s.text = "S · " + ("Table view" if view_mode == View.BOARD else "Wide view")
-		_hint_s.modulate.a = 0.35 if view_mode == View.WIDE else 0.9
+## The W and S view buttons: step one view forward (1) or back (-1).
+func view_button_pressed(direction: int) -> void:
+	if presentation.blocking: return
+	step_view(direction)
 
 # W and S move one step through Room <-> Table <-> Overhead.
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -491,7 +493,13 @@ func set_view(mode: int) -> void:
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
 	_shift_camera(view_settings(view_mode))
-	_refresh_view_hints()
+	_update_view_buttons()
+
+# Dim W at the overhead view and S at the wide view.
+func _update_view_buttons() -> void:
+	if _view_forward_btn == null or _view_back_btn == null: return
+	_view_forward_btn.disabled = view_mode == View.BOARD
+	_view_back_btn.disabled = view_mode == View.WIDE
 
 func set_board_view(on: bool) -> void:
 	set_view(View.BOARD if on else View.DESK)
@@ -545,13 +553,34 @@ func hand_parent() -> Node3D:
 func clamp_drag_position(point: Vector3) -> Vector3:
 	return Vector3(clampf(point.x, DRAG_BOUNDS.position.x, DRAG_BOUNDS.end.x), 1.6, clampf(point.z, DRAG_BOUNDS.position.y, DRAG_BOUNDS.end.y))
 
+## Half of one blink. Two blinks per second.
+const BLINK_HALF := 0.25
+
+## One looping blink used by every highlight: lit, then dim, forever until killed.
+func blink_tween(owner: Node, target: Object, property: NodePath, lit: Variant, dim: Variant) -> Tween:
+	var tween := owner.create_tween().set_loops()
+	tween.tween_property(target, property, lit, BLINK_HALF)
+	tween.tween_property(target, property, dim, BLINK_HALF)
+	return tween
+
 ## Coordinated Response targets pulse red while its board pick is open.
+## Now every board pick blinks its valid cards, and lane picks blink the empty lanes.
 func _update_target_pulse() -> void:
+	var kind: String = board_input.action.get("kind", "")
 	var targets: Array = []
-	if board_input.action.get("kind", "") == "pick" and board_input.action.get("tactic", "") == "coordinate":
+	if kind == "pick":
 		targets = board_input.action.get("cards", [])
+	elif kind == "relocate" and not is_instance_valid(moving_ally):
+		# Same rule as board_actions.click_card for a relocation.
+		var source: Node = board_input.action.get("source")
+		for slot in _response_slots():
+			var ally := _get_card_in_slot(slot)
+			if ally != null and ally != source and ally.is_alive() and plans.eligible(ally): targets.append(ally)
 	for card in get_tree().get_nodes_in_group("cards"):
 		card.set_target_pulse(card in targets)
+	# A dragged card (hand or relocating ally) or a lane pick lights the empty lanes.
+	var want_slots: bool = is_instance_valid(dragged_hand_card) or kind == "place"
+	if want_slots != _slots_lit: show_drop_targets(want_slots)
 
 func _process(_delta: float) -> void:
 	if is_instance_valid(opponent_hand): opponent_hand.refresh()
@@ -711,11 +740,29 @@ func begin_hand_drag(card: Node) -> bool:
 	if not board_input.action.is_empty() or not can_player_act() or is_instance_valid(dragged_hand_card): return false
 	dragged_hand_card = card
 	clear_hand_hover()
+	show_drop_targets(true)
 	return true
 
 func end_hand_drag(card: Node) -> void:
 	if dragged_hand_card == card: dragged_hand_card = null
 	clear_hand_hover()
+	show_drop_targets(false)
+
+## Lights every empty Response slot while a hand card is dragged, so the drop target is clear.
+## The slot meshes are normally hidden under the playmat; this shows them with a soft gold glow.
+func show_drop_targets(on: bool) -> void:
+	if _drop_target_material == null:
+		_drop_target_material = StandardMaterial3D.new()
+		_drop_target_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_drop_target_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_drop_target_material.albedo_color = Color(UI.GOLD, 0.35)
+		# The shared material blinks for good; it only shows while slots are lit.
+		blink_tween(self, _drop_target_material, "albedo_color", Color(UI.GOLD, 0.6), Color(UI.GOLD, 0.15))
+	_slots_lit = on
+	for slot in _response_slots():
+		var lit: bool = on and _get_card_in_slot(slot) == null
+		slot.visible = lit
+		slot.material_override = _drop_target_material if lit else null
 
 func slot_at_screen_position(mouse: Vector2) -> Node3D:
 	var camera := get_viewport().get_camera_3d()
@@ -913,7 +960,7 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		if card.get_parent() != hand_container: card.reparent(hand_container, true)
 		arrange_hand_centered()
 		if effect in ["rally", "cleanse"]:
-			board_input.pick("Click a friendly deployed card for " + str(card.card_data.name) + ". Esc cancels without spending.", choices, complete_utility_choice, cancel_utility_choice)
+			board_input.pick("Click a friendly deployed card for " + str(card.card_data.name) + ".", choices, complete_utility_choice, cancel_utility_choice)
 		elif effect in ["seal", "tax"]: run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
 		else: run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
 		return true
@@ -1046,7 +1093,7 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
 	if is_instance_valid(presentation): presentation.remind_to_draw(p == Phase.PLAYER_DRAW)
 	if text != "" and _phase_label:
-		_phase_label.text = "Pick a card to draw" if p == Phase.PLAYER_DRAW else text
+		_phase_label.text = "Draw" if p == Phase.PLAYER_DRAW else text
 	if _end_turn_btn:
 		_end_turn_btn.disabled = not (p == Phase.PLAYER_DRAW or p == Phase.PLAYER_PLAY)
 
@@ -1178,15 +1225,14 @@ func _on_draw_button_pressed() -> void:
 		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 		_refresh_bars()
 		return
-	run_director.choose_card("Pick a card to draw", choices, complete_draw_choice, run_director.close_modal, "")
+	# Turn draw is random. Only Search and Rescue lets you pick.
+	complete_draw_choice(choices.pick_random())
 
 func complete_draw_choice(definition: Dictionary) -> void:
 	if phase != Phase.PLAYER_DRAW: return
 	if definition not in deck or is_sealed(definition): return
 	if get_hand_cards().size() >= HAND_SIZE_MAX: return
 	deck.erase(definition)
-	run_director.action_cancel = Callable()
-	run_director.close_modal()
 	add_card_to_hand(definition)
 	draw_cards(maxi(0, buff_value(true, "draw")))
 	_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
@@ -1708,7 +1754,7 @@ func sacrifice_reward(card: Node) -> void:
 
 func major_evolution_entry(card: Node, sacrifices: int) -> void:
 	if sacrifices < 3: return
-	card.add_status("barrier", 3 if sacrifices >= 4 else 2)
+	card.add_status("barrier", 2 if sacrifices >= 4 else 1)
 	enemy_draw_cards(1)
 	if sacrifices >= 4:
 		for lane in _response_slots():

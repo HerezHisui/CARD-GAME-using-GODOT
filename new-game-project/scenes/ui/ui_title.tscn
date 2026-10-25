@@ -1,95 +1,212 @@
 [gd_scene format=3]
 
 [ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
-[ext_resource type="Script" uid="uid://rira3faqpmob" path="res://scripts/title_backdrop.gd" id="2_backdrop"]
+[ext_resource type="Script" uid="uid://wi36hakpwvww" path="res://scripts/title_screen.gd" id="2_script"]
+[ext_resource type="Texture2D" uid="uid://dx44putvhflcm" path="res://assets/title/sunray_art.png" id="3_rays"]
+[ext_resource type="Texture2D" uid="uid://nhtw8a4l2npb" path="res://assets/title/dust_mote_art.png" id="4_dust"]
+[ext_resource type="Shader" uid="uid://cq7lkhjs4em0g" path="res://assets/title/title_text_glow.gdshader" id="5_glow"]
 
-[node name="TitleScreen" type="VBoxContainer"]
-offset_right = 1330.0
-offset_bottom = 700.0
+[sub_resource type="CanvasItemMaterial" id="Additive"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="DustFade"]
+offsets = PackedFloat32Array(0, 0.2, 0.75, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="DustFadeTexture"]
+gradient = SubResource("DustFade")
+
+[sub_resource type="ParticleProcessMaterial" id="DustMotion"]
+particle_flag_disable_z = true
+emission_shape = 3
+emission_box_extents = Vector3(780, 510, 1)
+direction = Vector3(1, 0.75, 0)
+spread = 12.0
+initial_velocity_min = 7.0
+initial_velocity_max = 16.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.08
+scale_max = 0.22
+color_ramp = SubResource("DustFadeTexture")
+turbulence_enabled = true
+turbulence_noise_strength = 1.0
+turbulence_noise_scale = 6.0
+turbulence_influence_min = 0.02
+turbulence_influence_max = 0.06
+
+[sub_resource type="ShaderMaterial" id="TitleGlowMaterial"]
+shader = ExtResource("5_glow")
+shader_parameter/strength = 0.85
+
+[node name="TitleScreen" type="Control"]
+offset_right = 1440.0
+offset_bottom = 900.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
+mouse_filter = 2
 theme = ExtResource("1_theme")
-theme_override_constants/separation = 14
+script = ExtResource("2_script")
 
-[node name="Body" type="HBoxContainer" parent="."]
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 50
-
-[node name="MenuPanel" type="PanelContainer" parent="Body"]
-layout_mode = 2
-theme_type_variation = &"ModalPanel"
-
-[node name="Menu" type="VBoxContainer" parent="Body/MenuPanel"]
+[node name="Backdrop" type="Control" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(340, 0)
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
-[node name="Heading" type="Label" parent="Body/MenuPanel/Menu"]
-layout_mode = 2
+[node name="Rays" type="TextureRect" parent="Backdrop"]
+unique_name_in_owner = true
+material = SubResource("Additive")
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("3_rays")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Dust" type="GPUParticles2D" parent="Backdrop"]
+unique_name_in_owner = true
+material = SubResource("Additive")
+amount = 50
+texture = ExtResource("4_dust")
+lifetime = 16.0
+preprocess = 16.0
+process_material = SubResource("DustMotion")
+
+[node name="TitleBox" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_top = 0.07
+anchor_right = 1.0
+anchor_bottom = 0.34
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="TitleGlow" type="CanvasGroup" parent="TitleBox"]
+unique_name_in_owner = true
+material = SubResource("TitleGlowMaterial")
+fit_margin = 40.0
+clear_margin = 40.0
+use_mipmaps = true
+
+[node name="GlowLabel" type="Label" parent="TitleBox/TitleGlow"]
+unique_name_in_owner = true
+offset_right = 1440.0
+offset_bottom = 150.0
 theme_type_variation = &"HeadingLabel"
-theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
-theme_override_font_sizes/font_size = 24
-text = "01 / OPERATIONS"
+theme_override_constants/outline_size = 16
+theme_override_font_sizes/font_size = 120
+text = "MIDNIGHT"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="SaveLabel" type="Label" parent="Body/MenuPanel/Menu"]
+[node name="SubGlowLabel" type="Label" parent="TitleBox/TitleGlow"]
+unique_name_in_owner = true
+offset_top = 150.0
+offset_right = 1440.0
+offset_bottom = 243.0
+theme_type_variation = &"HeadingLabel"
+theme_override_constants/outline_size = 12
+theme_override_font_sizes/font_size = 72
+text = "DRRills"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Title" type="Label" parent="TitleBox"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 0.62
+grow_horizontal = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 120
+text = "MIDNIGHT"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Subtitle" type="Label" parent="TitleBox"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_top = 0.62
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 72
+text = "DRRills"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Menu" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.7
+anchor_right = 0.5
+anchor_bottom = 0.7
+offset_left = -220.0
+offset_right = 220.0
+grow_horizontal = 2
+theme_override_constants/separation = 4
+
+[node name="SaveLabel" type="Label" parent="Menu"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 16
 text = "UNFINISHED RUN · FLOOR 1"
+horizontal_alignment = 1
 
-[node name="ContinueButton" type="Button" parent="Body/MenuPanel/Menu"]
+[node name="ContinueButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 64)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_type_variation = &"TerminalButton"
-text = "Continue run"
+theme_override_font_sizes/font_size = 22
+text = "Continue"
 
-[node name="AbandonButton" type="Button" parent="Body/MenuPanel/Menu"]
+[node name="AbandonButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 64)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_type_variation = &"TerminalButton"
-text = "Abandon run…"
+theme_override_font_sizes/font_size = 22
+text = "Abandon Run…"
 
-[node name="StartButton" type="Button" parent="Body/MenuPanel/Menu"]
+[node name="StartButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 64)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_type_variation = &"TerminalButton"
-text = "Singleplayer · Start game"
+theme_override_font_sizes/font_size = 22
+text = "Start Game"
 
-[node name="MultiplayerButton" type="Button" parent="Body/MenuPanel/Menu"]
+[node name="OptionsButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 64)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
-mouse_default_cursor_shape = 2
-theme_type_variation = &"TerminalButton"
+theme_override_font_sizes/font_size = 22
 disabled = true
-text = "Multiplayer · Coming soon"
+text = "Options"
 
-[node name="QuitButton" type="Button" parent="Body/MenuPanel/Menu"]
+[node name="QuitButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 64)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_type_variation = &"TerminalButton"
+theme_override_font_sizes/font_size = 22
 text = "Quit"
 
-[node name="Scenery" type="Control" parent="Body"]
+[node name="Markers" type="Control" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-script = ExtResource("2_backdrop")
-
-[node name="Footer" type="Label" parent="."]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
-theme_override_font_sizes/font_size = 16
-text = "BUILD YOUR RESPONSE. CONTAIN THE DISASTER. SURVIVE THE NIGHT."
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

@@ -119,7 +119,7 @@ static func special_text(card: Dictionary) -> String:
 	if card.get("on_sacrifice", "") == "draw": parts.append("When sacrificed: draw 1 Disaster card.")
 	if card.get("on_sacrifice", "") == "burn": parts.append("When sacrificed: apply 2 Burn to the opposing lane card.")
 	if card.get("type", "response") == "disaster" and int(card.get("cost", 0)) >= 3:
-		parts.append("On evolution: gain %d Barrier and draw 1." % (3 if int(card.cost) >= 4 else 2))
+		parts.append("On evolution: gain %d Barrier and draw 1." % (2 if int(card.cost) >= 4 else 1))
 		if int(card.cost) >= 4: parts.append("On evolution: deal 1 fixed damage to each enemy unit.")
 	if int(card.get("move_heal", 0)) > 0: parts.append("Relocated ally heals %d." % int(card.move_heal))
 	if card.get("ignore_taunt", false): parts.append("Ignore Taunt: strike your lane target through a guardian.")

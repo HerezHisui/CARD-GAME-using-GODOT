@@ -51,6 +51,7 @@ var _atk_label: Label
 var _cost_label: Label
 var _status_row: GridContainer
 var _cost_caption: Label
+var _keyword_label: Label
 var face_signature := 0
 const FACE_CHECK_INTERVAL := 0.1
 var face_check_elapsed := 0.0
@@ -222,6 +223,7 @@ func _build_face() -> void:
 
 	_atk_label = null
 	_hp_label = null
+	_keyword_label = null
 	if not card_data.get("utility", false):
 		var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
 		_atk_label = atk.get_child(0)
@@ -235,6 +237,15 @@ func _build_face() -> void:
 		atk_cap.size = Vector2(FACE_W, 20)
 		atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		frame.add_child(atk_cap)
+		# First keyword, in the gap between the ATK and HP badges.
+		_keyword_label = _face_label(title_font, 14, text_col)
+		_keyword_label.name = "Keyword"
+		_keyword_label.position = Vector2(76, 284)
+		_keyword_label.size = Vector2(FACE_W - 152, 22)
+		_keyword_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_keyword_label.clip_text = true
+		UI.outline(_keyword_label)
+		frame.add_child(_keyword_label)
 	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
@@ -278,6 +289,9 @@ func _refresh_face() -> void:
 		_hp_label.add_theme_color_override("font_color", UI.DANGER if card_data.health < max_health else UI.TEXT)
 	if _atk_label:
 		_atk_label.text = str(effective_attack())
+	# Only the first keyword fits; the rest stay in the icon row and inspect box.
+	if _keyword_label:
+		_keyword_label.text = _face_keyword().to_upper()
 	if _status_row:
 		for child in _status_row.get_children():
 			_status_row.remove_child(child)
@@ -300,6 +314,14 @@ func _refresh_face() -> void:
 		if not preview_only and _manager().is_sealed(card_data): _add_effect_icon("sealed")
 		if has_modifier("sluggish") and not can_attack(_manager().turn): _add_effect_icon("resting")
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+## The one keyword on the face: printed first, then buff-granted Piercing/Sluggish, then boss Taunt.
+func _face_keyword() -> String:
+	if not modifiers.is_empty(): return modifiers[0]
+	for passive in ["piercing", "sluggish"]:
+		if has_modifier(passive): return passive
+	if card_data.get("boss_role", "") == "taunt": return "taunt"
+	return ""
 
 func _add_effect_icon(kind: String, stacks: int = 0) -> void:
 	if _status_row.get_child_count() >= 19:
@@ -697,14 +719,13 @@ func effective_attack() -> int:
 func refresh_cost() -> void:
 	_refresh_face()
 
-## Red pulse while this card is a Coordinated Response target. Safe to call every frame.
+## Gold blink while this card is a valid board pick target (Coordinated Response, Brace, Rally...).
+## Safe to call every frame.
 func set_target_pulse(on: bool) -> void:
 	if on == (_pulse_tween != null): return
 	if on:
 		# Bound to this card, so the tween ends when the card is freed.
-		_pulse_tween = create_tween().set_loops()
-		_pulse_tween.tween_property(art_sprite, "modulate", UI.DANGER, 0.45)
-		_pulse_tween.tween_property(art_sprite, "modulate", Color.WHITE, 0.45)
+		_pulse_tween = _manager().blink_tween(self, art_sprite, "modulate", UI.GOLD, Color.WHITE)
 	else:
 		_pulse_tween.kill()
 		_pulse_tween = null

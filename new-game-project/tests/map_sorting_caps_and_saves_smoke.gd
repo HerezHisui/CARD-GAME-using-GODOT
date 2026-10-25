@@ -84,7 +84,7 @@ func run() -> void:
 	check(game.enemy_hand.size() == 1, "sacrifice refunds a card from finite draw pile")
 	game.enemy_deck.append({"id":"refill", "name":"Refill", "type":"disaster", "element":"fire", "cost":0, "attack":1, "health":2})
 	game.major_evolution_entry(foe, 3)
-	check(foe.statuses.barrier == 2 and game.enemy_hand.size() == 2, "three sacrifices gain immediate protection and draw")
+	check(foe.statuses.barrier == 1 and game.enemy_hand.size() == 2, "three sacrifices gain immediate protection and draw")
 	var health_before: int = first.card_data.health
 	game.major_evolution_entry(foe, 4)
 	check(foe.statuses.barrier == 3 and first.card_data.health == health_before - 1, "four sacrifices gain capped protection and formation damage")
