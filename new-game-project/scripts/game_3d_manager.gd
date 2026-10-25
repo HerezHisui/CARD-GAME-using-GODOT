@@ -960,7 +960,7 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		if card.get_parent() != hand_container: card.reparent(hand_container, true)
 		arrange_hand_centered()
 		if effect in ["rally", "cleanse"]:
-			board_input.pick("Click a friendly deployed card for " + str(card.card_data.name) + ". Esc cancels without spending.", choices, complete_utility_choice, cancel_utility_choice)
+			board_input.pick("Click a friendly deployed card for " + str(card.card_data.name) + ".", choices, complete_utility_choice, cancel_utility_choice)
 		elif effect in ["seal", "tax"]: run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
 		else: run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
 		return true
