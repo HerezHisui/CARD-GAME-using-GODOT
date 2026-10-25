@@ -20,7 +20,74 @@ const FACE_RENDER_SCALE := 2
 
 
 ## Intentionally blank until final artwork is supplied.
-const ART := {}
+## Art is now supplied: card name -> art file path.
+const ART: Dictionary = {
+	"Aftershock Choir": "res://assets/card_art/aftershock_choir.png",
+	"Alarm Sweep": "res://assets/card_art/alarm_sweep.png",
+	"Ash Predator": "res://assets/card_art/ash_predator.png",
+	"Barrier Generator": "res://assets/card_art/barrier_generator.png",
+	"Black Squall": "res://assets/card_art/black_squall.png",
+	"Blocked Exit": "res://assets/card_art/blocked_exit.png",
+	"Cinder Cloud": "res://assets/card_art/cinder_cloud.png",
+	"Containment Lance": "res://assets/card_art/containment_lance.png",
+	"Containment Order": "res://assets/card_art/containment_order.png",
+	"Crosswind": "res://assets/card_art/crosswind.png",
+	"Cutting Crew": "res://assets/card_art/cutting_crew.png",
+	"Debris Clearance": "res://assets/card_art/debris_clearance.png",
+	"Decontaminate": "res://assets/card_art/decontaminate.png",
+	"Drain Vortex": "res://assets/card_art/drain_vortex.png",
+	"Drill Captain": "res://assets/card_art/drill_captain.png",
+	"Drill Leader": "res://assets/card_art/drill_leader.png",
+	"Ember": "res://assets/card_art/ember.png",
+	"Evacuation Route": "res://assets/card_art/evacuation_route.png",
+	"Field Medic": "res://assets/card_art/field_medic.png",
+	"Fire Drill": "res://assets/card_art/fire_drill.png",
+	"Fire Hose": "res://assets/card_art/fire_hose.png",
+	"First Aid Herb": "res://assets/card_art/first_aid_herb.png",
+	"Fissure": "res://assets/card_art/fissure.png",
+	"Flash Flood": "res://assets/card_art/flash_flood.png",
+	"Fracture Hunter": "res://assets/card_art/fracture_hunter.png",
+	"Gale Force": "res://assets/card_art/gale_force.png",
+	"Glass Quake": "res://assets/card_art/glass_quake.png",
+	"Gust": "res://assets/card_art/gust.png",
+	"Hazard Forecast": "res://assets/card_art/hazard_forecast.png",
+	"Hazmat Team": "res://assets/card_art/hazmat_team.png",
+	"Heat Seeker": "res://assets/card_art/heat_seeker.png",
+	"Heavy Loader": "res://assets/card_art/heavy_loader.png",
+	"Inferno": "res://assets/card_art/inferno.png",
+	"Lane Marshal": "res://assets/card_art/lane_marshal.png",
+	"Last Responder": "res://assets/card_art/last_responder.png",
+	"Momentum Team": "res://assets/card_art/momentum_team.png",
+	"Needle Gale": "res://assets/card_art/needle_gale.png",
+	"Needle Team": "res://assets/card_art/needle_team.png",
+	"Pressure Break": "res://assets/card_art/pressure_break.png",
+	"Pressure Front": "res://assets/card_art/pressure_front.png",
+	"Quick Dash": "res://assets/card_art/quick_dash.png",
+	"Rally the Team": "res://assets/card_art/rally_the_team.png",
+	"Recovery Detail": "res://assets/card_art/recovery_detail.png",
+	"Recovery Team": "res://assets/card_art/recovery_team.png",
+	"Red Tape": "res://assets/card_art/red_tape.png",
+	"Relief Crew": "res://assets/card_art/relief_crew.png",
+	"Rescue Crane": "res://assets/card_art/rescue_crane.png",
+	"Restoration Tablet": "res://assets/card_art/restoration_tablet.png",
+	"Rising Tide": "res://assets/card_art/rising_tide.png",
+	"Safety Lock": "res://assets/card_art/safety_lock.png",
+	"Search and Rescue": "res://assets/card_art/search_and_rescue.png",
+	"Shard Barrier": "res://assets/card_art/shard_barrier.png",
+	"Shelter Brace": "res://assets/card_art/shelter_brace.png",
+	"Silent Runner": "res://assets/card_art/silent_runner.png",
+	"Sleeping Fault": "res://assets/card_art/sleeping_fault.png",
+	"Steam Team": "res://assets/card_art/steam_team.png",
+	"Supply Runner": "res://assets/card_art/supply_runner.png",
+	"Toxic Runoff": "res://assets/card_art/toxic_runoff.png",
+	"Toxin Hunter": "res://assets/card_art/toxin_hunter.png",
+	"Tremor": "res://assets/card_art/tremor.png",
+	"Tsunami": "res://assets/card_art/tsunami.png",
+	"Venom Surge": "res://assets/card_art/venom_surge.png",
+	"Warm Front": "res://assets/card_art/warm_front.png",
+	"Wildfire": "res://assets/card_art/wildfire.png",
+	"Worldbreaker": "res://assets/card_art/worldbreaker.png",
+}
 static var back_texture: Texture2D
 static var face_font: SystemFont
 
@@ -190,7 +257,8 @@ func _build_face() -> void:
 	_status_row.add_theme_constant_override("v_separation", 2)
 	frame.add_child(_status_row)
 	var art_path: String = ART.get(card_data.get("name", ""), "")
-	if art_path != "":
+	# No art or missing file: keep the plain art window.
+	if art_path != "" and ResourceLoader.exists(art_path):
 		var art_image := TextureRect.new()
 		art_image.texture = load(art_path)
 		art_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
