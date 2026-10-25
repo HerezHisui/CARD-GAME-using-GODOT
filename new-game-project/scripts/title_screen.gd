@@ -1,48 +1,36 @@
 extends Control
-## The title screen: layered art with mouse parallax, sunrays, dust and a soft glow.
+## The title screen: one hallway picture with mouse parallax, blur, sunrays, dust and a soft glow.
 ## run_director.gd picks which menu buttons to keep and hooks up their clicks.
 const UI = preload("res://scripts/ui_theme.gd")
 const GlowShader = preload("res://assets/title/title_glow.gdshader")
 
-## Drop these three files into assets/title/ to get a three-layer background (far, mid, near).
-## Turn on mipmaps in their import tab so the glow stays soft.
-const LAYER_PATHS: Array[String] = [
-	"res://assets/title/title_far_art.png",
-	"res://assets/title/title_mid_art.png",
-	"res://assets/title/title_near_art.png",
-]
-## Used when the three layers above are not all there.
-const SINGLE_LAYER_PATH := "res://assets/title/title_bg_art.png"
-## Most pixels each layer moves with the mouse.
-const LAYER_PARALLAX: Array[float] = [3.0, 7.0, 12.0]
-const SINGLE_PARALLAX := 6.0
-## The sunrays move this much more than the nearest layer.
+## The background picture. Keep mipmaps on in its import tab so the glow stays soft.
+const BACKGROUND_PATH := "res://assets/title/title_bg_art.png"
+## Most pixels the background moves with the mouse.
+const BACKGROUND_PARALLAX := 6.0
+## The sunrays move this much more than the background.
 const RAY_PARALLAX_SCALE := 1.5
 ## Higher is snappier. Used for the parallax and the menu markers.
 const SMOOTHING := 5.0
 ## One slow shimmer of the sunrays takes this long.
 const SHIMMER_SECONDS := 8.0
 const RAY_ALPHA := 0.5
-## UV x ranges of the eyes in title_bg_art.png. One range blinks at a time.
-const EYE_BANDS: Array[Vector2] = [
-	Vector2(0.13, 0.17), Vector2(0.25, 0.28), Vector2(0.30, 0.33),
-	Vector2(0.66, 0.70), Vector2(0.81, 0.87),
-]
-const BLINK_SECONDS := 0.14
+## Extra space between title letters, in pixels.
+const TITLE_SPACING := 18
+const SUBTITLE_SPACING := 6
+## The title text dims by at most this much in its slow flicker.
+const FLICKER_AMOUNT := 0.07
 ## Gap between a menu item's text and its arrow marker.
 const MARKER_GAP := 22.0
 
-## One switch for every effect: parallax, sunrays, dust, glow, pulse and blink.
+## One switch for every effect: parallax, blur, sunrays, dust, glow, pulse and flicker.
 static var effects_enabled := true
 
-var layers: Array[TextureRect] = []
-var layer_parallax: Array[float] = []
+var background: TextureRect
 var glow_material: ShaderMaterial
 var parallax_on := true
 var mouse_offset := Vector2.ZERO
 var time := 0.0
-var blink_wait := 3.0
-var blink_left := 0.0
 var selected: Button
 ## Only set when the Compatibility renderer is used.
 var cpu_dust: CPUParticles2D
@@ -51,14 +39,17 @@ var marker_y := -1.0
 @onready var backdrop: Control = %Backdrop
 @onready var rays: TextureRect = %Rays
 @onready var dust: GPUParticles2D = %Dust
+@onready var title_box: Control = %TitleBox
 @onready var title_label: Label = %Title
+@onready var subtitle_label: Label = %Subtitle
 @onready var title_glow: CanvasGroup = %TitleGlow
 @onready var glow_label: Label = %GlowLabel
+@onready var sub_glow_label: Label = %SubGlowLabel
 @onready var menu: VBoxContainer = %Menu
 @onready var markers: Control = %Markers
 
 func _ready() -> void:
-	build_layers()
+	build_background()
 	style_text()
 	for item in menu.get_children():
 		if item is Button: style_menu_button(item)
@@ -68,41 +59,48 @@ func _ready() -> void:
 	set_effects(effects_enabled)
 	fit_to_size.call_deferred()
 
-## Uses the three layer files when they all exist, otherwise the single picture.
-func build_layers() -> void:
-	var paths: Array[String] = [SINGLE_LAYER_PATH]
-	layer_parallax = [SINGLE_PARALLAX]
-	if LAYER_PATHS.all(func(path: String) -> bool: return ResourceLoader.exists(path)):
-		paths = LAYER_PATHS
-		layer_parallax = LAYER_PARALLAX
+## The hallway picture sits behind the sunrays and dust.
+func build_background() -> void:
 	glow_material = ShaderMaterial.new()
 	glow_material.shader = GlowShader
-	for path in paths:
-		var layer := TextureRect.new()
-		layer.texture = load(path)
-		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		backdrop.add_child(layer)
-		backdrop.move_child(layer, layers.size())
-		layers.append(layer)
+	background = TextureRect.new()
+	background.texture = load(BACKGROUND_PATH)
+	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	background.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.add_child(background)
+	backdrop.move_child(background, 0)
 
 func style_text() -> void:
-	# A slightly tracked copy of the heading face; the font itself stays the theme's.
-	var face := FontVariation.new()
-	face.base_font = title_label.get_theme_font("font")
-	face.spacing_glyph = 4
+	# Tracked copies of the heading face; the font itself stays the theme's.
+	var title_face := spaced_face(TITLE_SPACING)
+	var subtitle_face := spaced_face(SUBTITLE_SPACING)
 	for label in [title_label, glow_label]:
-		label.add_theme_font_override("font", face)
+		label.add_theme_font_override("font", title_face)
+	for label in [subtitle_label, sub_glow_label]:
+		label.add_theme_font_override("font", subtitle_face)
+	# Bone-white MIDNIGHT and dark red DRRills, both with a thin dark outline.
 	title_label.add_theme_color_override("font_color", UI.TEXT)
-	glow_label.add_theme_color_override("font_color", UI.ACTION)
-	glow_label.add_theme_color_override("font_outline_color", UI.ACTION)
+	subtitle_label.add_theme_color_override("font_color", UI.ACTION.darkened(0.2))
+	for label in [title_label, subtitle_label]:
+		label.add_theme_color_override("font_outline_color", Color.BLACK)
+	# The glow copies are red, with a thick outline so the halo is wide.
+	for label in [glow_label, sub_glow_label]:
+		label.add_theme_color_override("font_color", UI.ACTION)
+		label.add_theme_color_override("font_outline_color", UI.ACTION)
 	rays.modulate = Color(UI.TEXT, RAY_ALPHA)
 	dust.modulate = Color(UI.TEXT, 0.55)
 	if cpu_dust: cpu_dust.modulate = dust.modulate
 	%SaveLabel.add_theme_color_override("font_color", UI.MUTED)
 	UI.outline(%SaveLabel)
+
+## The theme's heading font with extra space between letters.
+func spaced_face(spacing: int) -> FontVariation:
+	var face := FontVariation.new()
+	face.base_font = title_label.get_theme_font("font")
+	face.spacing_glyph = spacing
+	return face
 
 ## Plain text items: no plate, gold when selected, and the mouse selects what it points at.
 func style_menu_button(button: Button) -> void:
@@ -131,18 +129,22 @@ func set_effects(on: bool) -> void:
 	particles.visible = on
 	particles.set("emitting", on)
 	title_glow.visible = on
-	for layer in layers:
-		layer.material = glow_material if on else null
-	if not on: mouse_offset = Vector2.ZERO
+	background.material = glow_material if on else null
+	if not on:
+		mouse_offset = Vector2.ZERO
+		title_box.modulate = Color.WHITE
 
-## Keeps every layer a little bigger than the screen, so parallax never shows an edge.
+## Keeps the background a little bigger than the screen, so parallax never shows an edge.
 func fit_to_size() -> void:
-	for i in layers.size():
-		var margin := layer_parallax[i] + 2.0
-		layers[i].size = size + Vector2.ONE * margin * 2.0
+	var margin := BACKGROUND_PARALLAX + 2.0
+	background.size = size + Vector2.ONE * margin * 2.0
 	var ray_margin := ray_parallax() + 2.0
 	rays.size = size + Vector2.ONE * ray_margin * 2.0
+	# The glow copies sit exactly on top of the real labels.
+	glow_label.position = title_label.position
 	glow_label.size = title_label.size
+	sub_glow_label.position = subtitle_label.position
+	sub_glow_label.size = subtitle_label.size
 	# The dust spawns over the whole screen plus a border, from the center.
 	var half := size * 0.5 + Vector2(60.0, 60.0)
 	(dust.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(half.x, half.y, 1.0)
@@ -157,7 +159,7 @@ func fit_to_size() -> void:
 	markers.queue_redraw()
 
 func ray_parallax() -> float:
-	return layer_parallax[-1] * RAY_PARALLAX_SCALE
+	return BACKGROUND_PARALLAX * RAY_PARALLAX_SCALE
 
 func _process(delta: float) -> void:
 	var weight := 1.0 - exp(-SMOOTHING * delta)
@@ -176,27 +178,21 @@ func _process(delta: float) -> void:
 	var shimmer := 0.8 + 0.12 * sin(time * TAU / SHIMMER_SECONDS)
 	shimmer += 0.08 * sin(time * TAU / (SHIMMER_SECONDS * 0.63))
 	rays.modulate.a = RAY_ALPHA * shimmer
-	update_blink(delta)
+	update_flicker()
 
-## Each layer moves against the mouse; nearer layers move more. The title and menu stay still.
+## The background moves against the mouse; the sunrays move more. The title and menu stay still.
 func move_layers() -> void:
-	for i in layers.size():
-		var margin := layer_parallax[i] + 2.0
-		layers[i].position = -Vector2.ONE * margin - mouse_offset * layer_parallax[i]
+	var margin := BACKGROUND_PARALLAX + 2.0
+	background.position = -Vector2.ONE * margin - mouse_offset * BACKGROUND_PARALLAX
 	var ray_margin := ray_parallax() + 2.0
 	rays.position = -Vector2.ONE * ray_margin - mouse_offset * ray_parallax()
 
-## Now and then one group of eyes shuts for a moment.
-func update_blink(delta: float) -> void:
-	if blink_left > 0.0:
-		blink_left -= delta
-		if blink_left <= 0.0: glow_material.set_shader_parameter("blink_band", Vector2(1.0, 0.0))
-		return
-	blink_wait -= delta
-	if blink_wait > 0.0: return
-	blink_wait = randf_range(2.5, 6.0)
-	blink_left = BLINK_SECONDS
-	glow_material.set_shader_parameter("blink_band", EYE_BANDS.pick_random())
+## The title and its glow dim a little, slowly, like a weak light.
+func update_flicker() -> void:
+	# Three waves at odd speeds, so the flicker does not look like a loop.
+	var wave := sin(time * 0.9) * 0.5 + sin(time * 2.3) * 0.3 + sin(time * 5.1) * 0.2
+	var light := 1.0 - FLICKER_AMOUNT * (wave * 0.5 + 0.5)
+	title_box.modulate = Color(light, light, light, 1.0)
 
 ## Parallax pauses when the window loses focus or a controller is used; the mouse brings it back.
 func _notification(what: int) -> void:

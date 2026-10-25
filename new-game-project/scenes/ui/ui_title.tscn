@@ -77,10 +77,11 @@ preprocess = 16.0
 process_material = SubResource("DustMotion")
 
 [node name="TitleBox" type="Control" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
-anchor_top = 0.035
+anchor_top = 0.07
 anchor_right = 1.0
-anchor_bottom = 0.165
+anchor_bottom = 0.34
 grow_horizontal = 2
 mouse_filter = 2
 
@@ -94,25 +95,50 @@ use_mipmaps = true
 [node name="GlowLabel" type="Label" parent="TitleBox/TitleGlow"]
 unique_name_in_owner = true
 offset_right = 1440.0
-offset_bottom = 117.0
+offset_bottom = 150.0
 theme_type_variation = &"HeadingLabel"
 theme_override_constants/outline_size = 16
-theme_override_font_sizes/font_size = 104
-text = "MIDNIGHT DRRILLS"
+theme_override_font_sizes/font_size = 120
+text = "MIDNIGHT"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SubGlowLabel" type="Label" parent="TitleBox/TitleGlow"]
+unique_name_in_owner = true
+offset_top = 150.0
+offset_right = 1440.0
+offset_bottom = 243.0
+theme_type_variation = &"HeadingLabel"
+theme_override_constants/outline_size = 12
+theme_override_font_sizes/font_size = 72
+text = "DRRills"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Title" type="Label" parent="TitleBox"]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 0.62
+grow_horizontal = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 120
+text = "MIDNIGHT"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Subtitle" type="Label" parent="TitleBox"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_top = 0.62
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
-grow_vertical = 2
 theme_type_variation = &"HeadingLabel"
-theme_override_font_sizes/font_size = 104
-text = "MIDNIGHT DRRILLS"
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 72
+text = "DRRills"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -120,9 +146,9 @@ vertical_alignment = 1
 unique_name_in_owner = true
 layout_mode = 1
 anchor_left = 0.5
-anchor_top = 0.62
+anchor_top = 0.7
 anchor_right = 0.5
-anchor_bottom = 0.62
+anchor_bottom = 0.7
 offset_left = -220.0
 offset_right = 220.0
 grow_horizontal = 2
@@ -137,42 +163,42 @@ horizontal_alignment = 1
 
 [node name="ContinueButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 22
 text = "Continue"
 
 [node name="AbandonButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 22
 text = "Abandon Run…"
 
 [node name="StartButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 22
 text = "Start Game"
 
 [node name="OptionsButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 22
 disabled = true
 text = "Options"
 
 [node name="QuitButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 22
 text = "Quit"
 
 [node name="Markers" type="Control" parent="."]
