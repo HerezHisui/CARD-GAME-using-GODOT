@@ -263,9 +263,10 @@ func _build_face() -> void:
 	affinity_line.size = Vector2(FACE_W - 36, 3)
 	frame.add_child(affinity_line)
 	_status_row = GridContainer.new()
-	_status_row.columns = 10
-	_status_row.position = Vector2(22, 240)
-	_status_row.size = Vector2(FACE_W - 44, 14)
+	# Icons sit in the gap between the ATK and HP badges, above the keyword.
+	_status_row.columns = 5
+	_status_row.position = Vector2(86, 280)
+	_status_row.size = Vector2(92, 34)
 	_status_row.add_theme_constant_override("h_separation", 3)
 	_status_row.add_theme_constant_override("v_separation", 2)
 	frame.add_child(_status_row)
@@ -321,12 +322,31 @@ func _build_face() -> void:
 		# First keyword, in the gap between the ATK and HP badges.
 		_keyword_label = _face_label(title_font, 14, text_col)
 		_keyword_label.name = "Keyword"
-		_keyword_label.position = Vector2(76, 284)
+		_keyword_label.position = Vector2(76, 314)
 		_keyword_label.size = Vector2(FACE_W - 152, 22)
 		_keyword_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_keyword_label.clip_text = true
 		UI.outline(_keyword_label)
 		frame.add_child(_keyword_label)
+	else:
+		# Spell cards: one icon row under the banner, effect text where ATK/HP would be.
+		_status_row.columns = 10
+		_status_row.position = Vector2(38, 252)
+		_status_row.size = Vector2(187, 16)
+		var effect_lbl := _face_label(UI.font(), 11, text_col)
+		effect_lbl.name = "EffectText"
+		effect_lbl.text = preload("res://scripts/battle_rules.gd").utility_text(card_data)
+		effect_lbl.position = Vector2(18, 272)
+		effect_lbl.size = Vector2(FACE_W - 36, 76)
+		effect_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		# Long text stops at 5 lines with "..."; the inspect view shows all of it.
+		effect_lbl.max_lines_visible = 5
+		effect_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		effect_lbl.clip_text = true
+		effect_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		effect_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		UI.outline(effect_lbl)
+		frame.add_child(effect_lbl)
 	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
@@ -405,7 +425,7 @@ func _face_keyword() -> String:
 	return ""
 
 func _add_effect_icon(kind: String, stacks: int = 0) -> void:
-	if _status_row.get_child_count() >= 19:
+	if _status_row.get_child_count() >= 9:
 		var overflow := _status_row.get_node_or_null("More")
 		if overflow:
 			var count := overflow.get_child(0) as Label
@@ -416,10 +436,14 @@ func _add_effect_icon(kind: String, stacks: int = 0) -> void:
 	var badge := TextureRect.new()
 	badge.name = kind.capitalize().replace(" ", "")
 	badge.texture = UI.icon(kind)
-	badge.custom_minimum_size = Vector2(18, 18)
+	badge.custom_minimum_size = Vector2(16, 16)
 	badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_status_row.add_child(badge)
+	# Center the creature icon row in the gap between the ATK and HP badges.
+	if not card_data.get("utility", false):
+		var cols := mini(_status_row.get_child_count(), 5)
+		_status_row.position.x = 76 + (112 - (cols * 16 + (cols - 1) * 3)) / 2
 	if stacks > 0:
 		var count := _face_label(UI.font(true), 10, UI.TEXT)
 		count.text = str(stacks)

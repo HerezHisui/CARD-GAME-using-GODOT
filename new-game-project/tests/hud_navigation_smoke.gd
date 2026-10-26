@@ -75,7 +75,7 @@ func run() -> void:
 	check(ally._status_row.has_node("Burn"), "status has an icon")
 	check(ally._status_row.has_node("Armored"), "modifier has an icon")
 	for i in 30: ally._add_effect_icon("fixture_%d" % i)
-	check(ally._status_row.get_child_count() == 20, "effect grid has two bounded rows")
+	check(ally._status_row.get_child_count() == 10, "effect grid has two bounded rows")
 	check(ally._status_row.has_node("More"), "overflow has an indicator")
 	director.inspect_board_card(ally)
 	check(not has_text(director.content, "CARD INSPECTION"), "inspection heading removed")
