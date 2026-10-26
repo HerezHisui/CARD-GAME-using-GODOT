@@ -5,7 +5,6 @@ extends CanvasLayer
 const SLIDE := 40.0
 
 var game: Node
-var hint: Control
 var tween: Tween
 
 @onready var band: Control = $Band
@@ -14,7 +13,6 @@ var tween: Tween
 
 func setup(owner_game: Node) -> void:
 	game = owner_game
-	hint = game.get_node_or_null("HUD/Root/PhaseLabel")
 	band.visible = false
 
 func is_playing() -> bool:
@@ -28,7 +26,6 @@ func play(number: int) -> void:
 	band.pivot_offset = band.size / 2
 	band.scale = Vector2(1, 0.6)
 	text_box.position.x = -SLIDE
-	if hint: hint.visible = false
 	tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	# Fade and grow in, text slides in from the left.
 	tween.tween_property(band, "modulate:a", 1.0, 0.15)
@@ -44,7 +41,6 @@ func stop() -> void:
 	if tween: tween.kill()
 	tween = null
 	band.visible = false
-	if hint: hint.visible = true
 
 func _process(_delta: float) -> void:
 	# Hide while a modal screen (Deck, Map, Menu) is open.

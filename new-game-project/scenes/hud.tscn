@@ -145,6 +145,7 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="TurnPlaque" type="PanelContainer" parent="Root" unique_id=781379965]
+visible = false
 layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
@@ -184,6 +185,7 @@ mouse_default_cursor_shape = 2
 text = "S"
 
 [node name="PhaseLabel" type="Label" parent="Root" unique_id=1203948571]
+visible = false
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
