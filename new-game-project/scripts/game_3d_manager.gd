@@ -28,6 +28,7 @@ var _drop_target_material: StandardMaterial3D
 var _slots_lit := false
 var turn := 1
 var presentation: Node
+var turn_banner: CanvasLayer
 var coin_result := -1
 var coin_pick := -1
 var encounter_serial := 0
@@ -103,6 +104,9 @@ func _ready() -> void:
 	presentation = preload("res://scripts/game_presentation.gd").new()
 	add_child(presentation)
 	presentation.setup(self)
+	turn_banner = preload("res://scenes/ui/ui_turn_banner.tscn").instantiate()
+	add_child(turn_banner)
+	turn_banner.setup(self)
 	# Temporal accumulation softens card text during card and camera movement.
 	get_viewport().use_taa = false
 	get_viewport().msaa_3d = Viewport.MSAA_4X
@@ -1086,7 +1090,10 @@ func best_disruption_target(cards: Array, tax: bool) -> Node:
 func _set_phase(p: Phase, text: String = "") -> void:
 	var previous := phase
 	phase = p
-	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking:
+	# The TURN N banner replaces the side banner at round start.
+	var round_banner: bool = is_instance_valid(turn_banner) and turn_banner.is_playing()
+	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking \
+			and not round_banner:
 		if p in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] and previous not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: presentation.banner("YOUR TURN", "Round %d" % turn, UI.RESPONSE)
 		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("JANITOR'S TURN", "Watch the opposing formation")
 		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
@@ -1169,6 +1176,9 @@ func continue_round() -> void:
 	for definition in deck + enemy_deck + enemy_hand + enemy_evolution_deck: expire_tax(definition)
 	for card in get_tree().get_nodes_in_group("cards"): expire_tax(card.card_data)
 	if _turn_label: _turn_label.text = "Turn %d" % turn
+	# Big TURN N banner at the start of each round.
+	if is_instance_valid(turn_banner) and run_director and run_director.battle_active:
+		turn_banner.play(turn)
 	# Response energy refills to the cap (cap grows by 1 each round)
 	preparedness = energy_cap
 	# Disaster tension refills to the cap (cap grows by 1 each round, starts at 3)
