@@ -364,7 +364,7 @@ func _process(_delta: float) -> void:
 	game.get_node("HUD/Root/EndTurnButton").disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or not game.board_input.action.is_empty() or _dragging()
 	plans_button.visible = battle_active and not modal.visible
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
-	plans_button.text = "Contingency %d/2" % game.plans.tokens
+	plans_button.text = "%d/2" % game.plans.tokens
 	dashboard.visible = battle_active and not modal.visible
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
@@ -378,7 +378,7 @@ func _process(_delta: float) -> void:
 	prep.get_parent().get_node("Title").text = "%d / %d" % [game.preparedness, game.energy_cap]
 	threat.get_parent().get_node("Title").text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
-	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = "Draw · %d left" % game.deck.size()
+	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = str(game.deck.size())
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
 	map_button.disabled = saved_content != null or screen in DECISIONS or not game.board_input.action.is_empty()
 	menu_button.disabled = map_button.disabled
