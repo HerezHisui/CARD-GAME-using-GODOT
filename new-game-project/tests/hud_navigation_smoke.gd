@@ -120,13 +120,17 @@ func run() -> void:
 	var hover_button: Button = director.menu_button
 	hover_button.disabled = false
 	hover_button.mouse_entered.emit()
-	var fill := hover_button.get_theme_stylebox("normal") as StyleBoxFlat
-	check(fill.bg_color != director.UI.ACTION, "hover color does not swap instantly")
+	var fill := hover_button.get_theme_stylebox("normal")
+	# Art frames tint modulate_color; flat frames fade bg_color.
+	var key := "modulate_color" if fill is StyleBoxTexture else "bg_color"
+	var hover_color: Color = Color(1.2, 1.2, 1.2) if fill is StyleBoxTexture else director.UI.ACTION
+	var rest_color: Color = Color.WHITE if fill is StyleBoxTexture else director.UI.BACKGROUND
+	check(fill.get(key) != hover_color, "hover color does not swap instantly")
 	await create_timer(0.20).timeout
-	check(fill.bg_color.is_equal_approx(director.UI.ACTION), "hover reaches red")
+	check(fill.get(key).is_equal_approx(hover_color), "hover reaches red")
 	hover_button.mouse_exited.emit()
 	await create_timer(0.20).timeout
-	check(fill.bg_color.is_equal_approx(director.UI.BACKGROUND), "exit returns to black")
+	check(fill.get(key).is_equal_approx(rest_color), "exit returns to black")
 	battle()
 	game.plans.tokens = 2
 	var energy: int = game.preparedness

@@ -375,7 +375,7 @@ func _process(_delta: float) -> void:
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
 	threat.value = game.tension
-	prep.get_parent().get_node("Title").text = "ENERGY  %d / %d" % [game.preparedness, game.energy_cap]
+	prep.get_parent().get_node("Title").text = "%d / %d" % [game.preparedness, game.energy_cap]
 	threat.get_parent().get_node("Title").text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = "Draw · %d left" % game.deck.size()
