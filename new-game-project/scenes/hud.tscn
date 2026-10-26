@@ -5,6 +5,9 @@
 [ext_resource type="Texture2D" path="res://assets/ui/end_turn_gear.png" id="3_gear"]
 [ext_resource type="Texture2D" path="res://assets/ui/energy_dial.png" id="4_dial"]
 [ext_resource type="Texture2D" path="res://assets/ui/button.png" id="5_button"]
+[ext_resource type="Texture2D" path="res://assets/ui/draw_icon.png" id="6_draw"]
+[ext_resource type="Texture2D" path="res://assets/ui/graveyard_icon.png" id="7_grave"]
+[ext_resource type="Texture2D" path="res://assets/ui/contingency_icon.png" id="8_plans"]
 
 [sub_resource type="StyleBoxTexture" id="Gear_normal"]
 texture = ExtResource("3_gear")
@@ -140,9 +143,23 @@ disabled = true
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 40.0
 text = "Draw"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="DrawIcon" type="TextureRect" parent="Root/DeckDrawButton"]
+layout_mode = 0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 12.0
+offset_top = -14.0
+offset_right = 40.0
+offset_bottom = 14.0
+mouse_filter = 2
+texture = ExtResource("6_draw")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="TurnPlaque" type="PanelContainer" parent="Root" unique_id=781379965]
 visible = false
@@ -391,12 +408,14 @@ custom_minimum_size = Vector2(180, 40)
 layout_mode = 2
 tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
 mouse_default_cursor_shape = 2
+theme_override_constants/icon_max_width = 28
 theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
 theme_override_styles/pressed = SubResource("Plate_normal")
 theme_override_styles/normal = SubResource("Plate_normal")
 text = "Contingency 0/2"
+icon = ExtResource("8_plans")
 
 [node name="GraveyardButton" type="Button" parent="Root"]
 custom_minimum_size = Vector2(180, 40)
@@ -412,9 +431,11 @@ offset_right = -16.0
 offset_bottom = -218.0
 tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
 mouse_default_cursor_shape = 2
+theme_override_constants/icon_max_width = 28
 theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
 theme_override_styles/pressed = SubResource("Plate_normal")
 theme_override_styles/normal = SubResource("Plate_normal")
 text = "Graveyard"
+icon = ExtResource("7_grave")
