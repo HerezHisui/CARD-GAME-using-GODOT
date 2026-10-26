@@ -336,13 +336,14 @@ func _build_face() -> void:
 		var effect_lbl := _face_label(UI.font(), 11, text_col)
 		effect_lbl.name = "EffectText"
 		effect_lbl.text = preload("res://scripts/battle_rules.gd").utility_text(card_data)
-		effect_lbl.position = Vector2(18, 272)
-		effect_lbl.size = Vector2(FACE_W - 36, 76)
 		effect_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		# Long text stops at 5 lines with "..."; the inspect view shows all of it.
 		effect_lbl.max_lines_visible = 5
 		effect_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		effect_lbl.clip_text = true
+		# Size after wrap/clip, or the label grows to one-line width.
+		effect_lbl.position = Vector2(18, 272)
+		effect_lbl.size = Vector2(FACE_W - 36, 76)
 		effect_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		effect_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		UI.outline(effect_lbl)
