@@ -337,6 +337,9 @@ func _build_ui() -> void:
 	graveyard_button = scene_hud.get_node("GraveyardButton")
 	graveyard_button.pressed.connect(show_graveyard)
 	for hud_button in [plans_button, graveyard_button]: game.presentation.button_feedback(hud_button)
+	# Energy pips are drawn here; the "x / y" text stays in the gauge.
+	var pips: Control = scene_hud.get_node("EnergyPips")
+	pips.draw.connect(_draw_energy_pips.bind(pips))
 	board_prompt = root.get_node("BoardPrompt")
 	board_prompt_label = board_prompt.get_node("%PromptLabel")
 	var cancel_button: Button = board_prompt.get_node("%CancelButton")
@@ -352,6 +355,23 @@ func _make_gauge(box_name: String, title: String, color: Color, variation: Strin
 	var bar: ProgressBar = box.get_node("%Bar")
 	bar.theme_type_variation = variation
 	return bar
+
+## One square pip per energy point. Full = crimson with a gold rim, spent = dark and empty.
+func _draw_energy_pips(pips: Control) -> void:
+	var full := StyleBoxFlat.new()
+	full.bg_color = Color("b3261e")
+	full.border_color = Color("e0a93b")
+	full.set_border_width_all(2)
+	var spent := StyleBoxFlat.new()
+	spent.bg_color = Color("1a1415")
+	spent.border_color = Color("3a3032")
+	spent.set_border_width_all(2)
+	for i in game.energy_cap:
+		var box := full if i < game.preparedness else spent
+		# 5 pips per row; extra rows stack upward so the first row stays put.
+		@warning_ignore("integer_division")
+		var row: int = i / 5
+		pips.draw_style_box(box, Rect2((i % 5) * 34, 2 - row * 30, 26, 26))
 
 func _process(_delta: float) -> void:
 	if inspect_hold_pending and not game.board_input.action.is_empty(): cancel_inspect_hold()
@@ -379,7 +399,17 @@ func _process(_delta: float) -> void:
 	threat.get_parent().get_node("Title").text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = str(game.deck.size())
+	game.get_node("HUD/Root/EnergyPips").queue_redraw()
+	game.get_node("HUD/TopBar/SuppliesLabel").text = "Supplies %d" % coins
+	graveyard_button.text = str(game.player_graveyard.size())
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
+	# One shared top bar (HP, Supplies) for battle and the map, event, shop and rest screens.
+	var top_bar: Control = game.get_node("HUD/TopBar")
+	if battle_active: top_bar.visible = not modal.visible
+	else: top_bar.visible = run_active and root.get_child(0).visible and screen != "reward"
+	# Outside battle nothing else updates the HP bar, so keep it current here.
+	if top_bar.visible and not battle_active:
+		game._set_health(game._player_hp_ui, game.player_hp, game.hero_max_hp(), false)
 	map_button.disabled = saved_content != null or screen in DECISIONS or not game.board_input.action.is_empty()
 	menu_button.disabled = map_button.disabled
 	idle_hint.visible = false
@@ -497,6 +527,8 @@ func _panel_layout(kind: String) -> void:
 	modal.offset_right = 0 if full_screen else -45
 	# Battle popups start just under the header buttons, which end at y 58.
 	modal.offset_top = (0 if title_screen or not battle_active or kind in ["reward", "inspect"] else 78) if full_screen else 66
+	# Run screens outside battle start under the shared top bar (header buttons end at y 58).
+	if run_active and not battle_active and not title_screen and kind != "reward": modal.offset_top = 58
 	if kind == "shop": modal.offset_top = 78
 	modal.offset_bottom = 0 if full_screen else -28
 	var panel_style := style(Color(UI.BACKGROUND, 0.90) if kind in ["reward", "inspect"] else (UI.BACKGROUND if full_screen else UI.PANEL), UI.GOLD)
@@ -510,13 +542,6 @@ func _panel_layout(kind: String) -> void:
 		# The title art runs edge to edge.
 		if kind == "title": panel_style.set_content_margin_all(0)
 	modal.add_theme_stylebox_override("panel", panel_style)
-	if kind == "graveyard":
-		var viewport_size := get_viewport().get_visible_rect().size
-		var panel_size := Vector2(minf(700, viewport_size.x - 48), minf(500, viewport_size.y - 150))
-		modal.offset_left = (viewport_size.x - panel_size.x) / 2
-		modal.offset_right = -modal.offset_left
-		modal.offset_top = (viewport_size.y - panel_size.y) / 2
-		modal.offset_bottom = -modal.offset_top
 
 func reset_panel(title: String, subtitle: String, kind: String) -> void:
 	var catalog_inspection := root.get_node_or_null("CatalogInspection")
@@ -593,7 +618,7 @@ func new_run() -> void:
 	reward_stock.clear()
 	run_active = true
 	persistence.discard()
-	game.get_node("HUD/Root/PlayerHealth/Caption").text = CHARACTERS[selected_character].name
+	game.get_node("HUD/TopBar/PlayerHealth/Caption").text = CHARACTERS[selected_character].name
 	coins = 35
 	floor_number = 1
 	game.player_hp = game.hero_max_hp()
@@ -1182,7 +1207,7 @@ func show_graveyard() -> void:
 
 func refresh_graveyard() -> void:
 	reset_panel("Graveyard", "", "graveyard")
-	# The layout lives in ui_graveyard.tscn; the entry buttons are made here.
+	# The layout lives in ui_graveyard.tscn; the card tiles are made here, like the Deck view.
 	unpack_screen(GraveyardScene)
 	var tabs: Control = content.get_node("Tabs")
 	hook_button(tabs.get_node("CloseButton"), close_modal)
@@ -1196,12 +1221,18 @@ func refresh_graveyard() -> void:
 	var list: Control = content.get_node("Scroll/List")
 	var cards: Array = game.player_graveyard
 	viewed_cards.assign(cards)
-	var details: RichTextLabel = content.get_node("Details")
 	if not cards.is_empty(): list.get_node("EmptyNote").free()
+	var grid := GridContainer.new()
+	list.add_child(grid)
+	fit_card_grid(grid, content.get_node("Scroll"))
 	for index in sorted_indices(cards, deck_sort, deck_descending):
 		var entry: Dictionary = cards[index]
-		var row := button("%s · %s · round %d" % [entry.name, entry.get("graveyard_reason", "Destroyed"), int(entry.get("graveyard_round", 1))], func(): details.text = "%s · Cost %d · Attack %d · Health %d\n%s" % [entry.name, int(entry.get("cost", 0)), int(entry.get("attack", 0)), int(entry.get("health", 1)), card_rules(entry)], list)
-		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_card_tile(entry, grid)
+		# Small status caption under the card face.
+		var reason := str(entry.get("graveyard_reason", "Destroyed"))
+		var caption := label("%s · round %d" % [reason, int(entry.get("graveyard_round", 1))], 14, UI.MUTED)
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		grid.get_child(grid.get_child_count() - 1).get_node("Box").add_child(caption)
 	if cards.is_empty():
 		list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 

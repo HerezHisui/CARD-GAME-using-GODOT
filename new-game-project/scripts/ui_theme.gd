@@ -269,8 +269,30 @@ static func add_shell_styles(theme: Theme) -> void:
 static func apply_hud(root: Control) -> void:
 	root.theme = get_theme()
 	root.get_node("EndTurnButton").theme_type_variation = "PrimaryButton"
+	# The top bar (player HP, Supplies) sits beside Root so it also shows outside battle.
+	var top_bar: Control = root.get_parent().get_node("TopBar")
+	top_bar.theme = get_theme()
 	for side in ["PlayerHealth", "EnemyHealth"]:
-		var health := root.get_node(side)
-		health.get_node("Bar").add_theme_stylebox_override("fill", bar(GOLD if side == "PlayerHealth" else CRIMSON))
-		health.get_node("LagBar").add_theme_stylebox_override("fill", bar(AMBER))
-		health.get_node("Value").add_theme_color_override("font_color", INSET if side == "PlayerHealth" else TEXT)
+		var health := top_bar.get_node(side) if side == "PlayerHealth" else root.get_node(side)
+		# Flat crimson HP fill, square, dark near-black rim.
+		var hp_fill := bar(Color("b3261e"))
+		hp_fill.set_corner_radius_all(0)
+		hp_fill.set_border_width_all(2)
+		hp_fill.border_color = Color("0e0b0b")
+		health.get_node("Bar").add_theme_stylebox_override("fill", hp_fill)
+		var lag_fill := bar(AMBER)
+		lag_fill.set_corner_radius_all(0)
+		lag_fill.border_color = Color("0e0b0b")
+		health.get_node("LagBar").add_theme_stylebox_override("fill", lag_fill)
+		# Dark empty track behind both bars, thin gold rim.
+		var track := panel(Color("1a1415"), Color("e0a93b"), 0)
+		track.set_corner_radius_all(0)
+		track.set_border_width_all(1)
+		health.get_node("LagBar").add_theme_stylebox_override("background", track)
+		health.get_node("Bar").add_theme_stylebox_override("background", track)
+		# Cream text with a 1px dark outline.
+		for label_name in ["Value", "Caption"]:
+			var label: Label = health.get_node(label_name)
+			label.add_theme_color_override("font_color", Color("efe6d0"))
+			label.add_theme_color_override("font_outline_color", Color("0e0b0b"))
+			label.add_theme_constant_override("outline_size", 2)

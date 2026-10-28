@@ -1,65 +1,111 @@
 [gd_scene format=3 uid="uid://e5m3q1dd7fhh"]
 
 [ext_resource type="Script" path="res://scripts/hud_theme.gd" id="1_theme"]
-[ext_resource type="StyleBox" path="res://data/ui_stat_plate_style.tres" id="2_plate"]
-[ext_resource type="Texture2D" path="res://assets/ui/end_turn_gear.png" id="3_gear"]
 [ext_resource type="Texture2D" path="res://assets/ui/energy_dial.png" id="4_dial"]
-[ext_resource type="Texture2D" path="res://assets/ui/button.png" id="5_button"]
 [ext_resource type="Texture2D" path="res://assets/ui/draw_icon.png" id="6_draw"]
 [ext_resource type="Texture2D" path="res://assets/ui/graveyard_icon.png" id="7_grave"]
 [ext_resource type="Texture2D" path="res://assets/ui/contingency_icon.png" id="8_plans"]
 
-[sub_resource type="StyleBoxTexture" id="Gear_normal"]
-texture = ExtResource("3_gear")
+[sub_resource type="StyleBoxFlat" id="Rust_panel"]
+bg_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
 
-[sub_resource type="StyleBoxTexture" id="Gear_hover"]
-texture = ExtResource("3_gear")
-modulate_color = Color(1.25, 1.25, 1.25, 1)
+[sub_resource type="StyleBoxFlat" id="TopBar_panel"]
+bg_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
+border_width_bottom = 2
+border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
 
-[sub_resource type="StyleBoxTexture" id="Gear_pressed"]
-texture = ExtResource("3_gear")
-modulate_color = Color(0.85, 0.85, 0.85, 1)
+[sub_resource type="StyleBoxEmpty" id="Plate_empty"]
 
-[sub_resource type="StyleBoxTexture" id="Gear_disabled"]
-texture = ExtResource("3_gear")
-modulate_color = Color(0.45, 0.45, 0.45, 0.8)
+[sub_resource type="SystemFont" id="EndTurn_font"]
+font_names = PackedStringArray("Segoe UI", "Arial")
+font_weight = 700
+
+[sub_resource type="StyleBoxFlat" id="EndTurn_normal"]
+bg_color = Color(0.7019608, 0.14901961, 0.11764706, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
+
+[sub_resource type="StyleBoxFlat" id="EndTurn_hover"]
+bg_color = Color(1, 0.47843137, 0.101960786, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
+
+[sub_resource type="StyleBoxFlat" id="EndTurn_pressed"]
+bg_color = Color(1, 0.47843137, 0.101960786, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
+
+[sub_resource type="StyleBoxFlat" id="EndTurn_disabled"]
+bg_color = Color(0.101960786, 0.078431375, 0.08235294, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.22745098, 0.1882353, 0.19607843, 1)
 
 [sub_resource type="StyleBoxEmpty" id="Focus_empty"]
 
-[sub_resource type="StyleBoxTexture" id="Plate_normal"]
+[sub_resource type="StyleBoxFlat" id="Plate_normal"]
 content_margin_left = 12.0
 content_margin_top = 4.0
 content_margin_right = 12.0
 content_margin_bottom = 4.0
-texture = ExtResource("5_button")
-texture_margin_left = 20.0
-texture_margin_top = 12.0
-texture_margin_right = 20.0
-texture_margin_bottom = 12.0
+bg_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
 
-[sub_resource type="StyleBoxTexture" id="Plate_hover"]
+[sub_resource type="StyleBoxFlat" id="Plate_hover"]
 content_margin_left = 12.0
 content_margin_top = 4.0
 content_margin_right = 12.0
 content_margin_bottom = 4.0
-texture = ExtResource("5_button")
-texture_margin_left = 20.0
-texture_margin_top = 12.0
-texture_margin_right = 20.0
-texture_margin_bottom = 12.0
-modulate_color = Color(1.2, 1.2, 1.2, 1)
+bg_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.47843137, 0.101960786, 1)
 
-[sub_resource type="StyleBoxTexture" id="Plate_disabled"]
+[sub_resource type="StyleBoxFlat" id="Plate_pressed"]
 content_margin_left = 12.0
 content_margin_top = 4.0
 content_margin_right = 12.0
 content_margin_bottom = 4.0
-texture = ExtResource("5_button")
-texture_margin_left = 20.0
-texture_margin_top = 12.0
-texture_margin_right = 20.0
-texture_margin_bottom = 12.0
-modulate_color = Color(0.5, 0.5, 0.5, 1)
+bg_color = Color(0.43137255, 0.21568628, 0.06666667, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.47843137, 0.101960786, 1)
+
+[sub_resource type="StyleBoxFlat" id="Plate_disabled"]
+content_margin_left = 12.0
+content_margin_top = 4.0
+content_margin_right = 12.0
+content_margin_bottom = 4.0
+bg_color = Color(0.05490196, 0.043137256, 0.043137256, 0.5)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8784314, 0.6627451, 0.23137255, 0.5)
 
 [sub_resource type="Gradient" id="Gradient_toqtt"]
 colors = PackedColorArray(0, 0, 0, 0.75, 0, 0, 0, 0)
@@ -77,6 +123,16 @@ fill_from = Vector2(0, 1)
 fill_to = Vector2(0, 0)
 
 [node name="HUD" type="CanvasLayer" unique_id=1857250272]
+
+[node name="TopBar" type="Panel" parent="."]
+editor_description = "Black top bar behind the header buttons, with player HP and Supplies. Sits beside Root (not in it) so it also shows on map, event, shop and rest screens."
+layout_mode = 3
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 52.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("TopBar_panel")
 
 [node name="Root" type="Control" parent="." unique_id=1482672106]
 script = ExtResource("1_theme")
@@ -100,6 +156,7 @@ theme_type_variation = &"DashboardPanel"
 modulate = Color(1, 1, 1, 0)
 
 [node name="Vignette_0" type="TextureRect" parent="Root" unique_id=2116371047]
+visible = false
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -109,6 +166,7 @@ mouse_filter = 2
 texture = SubResource("GradientTexture2D_ahhtf")
 
 [node name="Vignette_1" type="TextureRect" parent="Root" unique_id=2050167896]
+visible = false
 layout_mode = 0
 anchor_top = 1.0
 anchor_right = 1.0
@@ -124,39 +182,43 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -126.0
-offset_top = -304.0
+offset_left = -116.0
+offset_top = -235.0
 offset_right = -16.0
-offset_bottom = -264.0
+offset_bottom = -179.0
 grow_horizontal = 0
 grow_vertical = 0
+custom_minimum_size = Vector2(100, 56)
 tooltip_text = "Draw your card for this turn."
 focus_mode = 0
 theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
-theme_override_styles/pressed = SubResource("Plate_normal")
+theme_override_styles/pressed = SubResource("Plate_pressed")
 theme_override_styles/normal = SubResource("Plate_normal")
 disabled = true
+metadata/hover_feedback = true
 
 [node name="DeckCountLabel" type="Label" parent="Root/DeckDrawButton" unique_id=1898814538]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 40.0
-offset_right = -12.0
+offset_left = 62.0
+offset_right = -8.0
+theme_override_colors/font_outline_color = Color(0.043137256, 0.043137256, 0.050980393, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 24
 text = "0"
-horizontal_alignment = 2
 vertical_alignment = 1
 
 [node name="DrawIcon" type="TextureRect" parent="Root/DeckDrawButton"]
 layout_mode = 0
 anchor_top = 0.5
 anchor_bottom = 0.5
-offset_left = 12.0
-offset_top = -14.0
-offset_right = 40.0
-offset_bottom = 14.0
+offset_left = 10.0
+offset_top = -22.0
+offset_right = 54.0
+offset_bottom = 22.0
 mouse_filter = 2
 texture = ExtResource("6_draw")
 expand_mode = 1
@@ -225,24 +287,31 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -166.0
-offset_top = -166.0
-offset_right = -16.0
-offset_bottom = -16.0
+offset_left = -244.0
+offset_top = -173.0
+offset_right = -124.0
+offset_bottom = -117.0
 grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.6, 0.6, 0.6, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 6
+theme_override_colors/font_color = Color(0.9372549, 0.9019608, 0.8156863, 1)
+theme_override_colors/font_hover_color = Color(0.9372549, 0.9019608, 0.8156863, 1)
+theme_override_colors/font_pressed_color = Color(0.9372549, 0.9019608, 0.8156863, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.9372549, 0.9019608, 0.8156863, 1)
+theme_override_colors/font_focus_color = Color(0.9372549, 0.9019608, 0.8156863, 1)
+theme_override_colors/font_disabled_color = Color(0.41960785, 0.37254903, 0.37254903, 1)
+theme_override_colors/font_outline_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
+theme_override_constants/outline_size = 3
+theme_override_fonts/font = SubResource("EndTurn_font")
 theme_override_font_sizes/font_size = 22
 theme_override_styles/focus = SubResource("Focus_empty")
-theme_override_styles/disabled = SubResource("Gear_disabled")
-theme_override_styles/hover = SubResource("Gear_hover")
-theme_override_styles/pressed = SubResource("Gear_pressed")
-theme_override_styles/normal = SubResource("Gear_normal")
+theme_override_styles/disabled = SubResource("EndTurn_disabled")
+theme_override_styles/hover = SubResource("EndTurn_hover")
+theme_override_styles/pressed = SubResource("EndTurn_pressed")
+theme_override_styles/normal = SubResource("EndTurn_normal")
 disabled = true
 text = "End turn"
+metadata/hover_feedback = true
 
 [node name="EnemyHealth" type="Control" parent="Root" unique_id=1900000100]
 layout_mode = 1
@@ -250,9 +319,9 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -292.0
-offset_top = 76.0
+offset_top = 64.0
 offset_right = -16.0
-offset_bottom = 144.0
+offset_bottom = 132.0
 grow_horizontal = 0
 mouse_filter = 2
 
@@ -261,7 +330,7 @@ layout_mode = 0
 offset_right = 276.0
 offset_bottom = 68.0
 mouse_filter = 2
-theme_override_styles/panel = ExtResource("2_plate")
+theme_override_styles/panel = SubResource("Rust_panel")
 
 [node name="Caption" type="Label" parent="Root/EnemyHealth" unique_id=1900000101]
 layout_mode = 0
@@ -303,65 +372,79 @@ text = "20 / 20"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PlayerHealth" type="Control" parent="Root" unique_id=1900000200]
+[node name="PlayerHealth" type="Control" parent="TopBar" unique_id=1900000200]
 layout_mode = 1
 anchors_preset = 0
 offset_left = 16.0
-offset_top = 12.0
-offset_right = 292.0
-offset_bottom = 80.0
+offset_top = 6.0
+offset_right = 416.0
+offset_bottom = 46.0
 grow_vertical = 0
 mouse_filter = 2
 
-[node name="Plate" type="Panel" parent="Root/PlayerHealth"]
+[node name="Plate" type="Panel" parent="TopBar/PlayerHealth"]
 layout_mode = 0
-offset_right = 276.0
-offset_bottom = 68.0
+offset_right = 400.0
+offset_bottom = 40.0
 mouse_filter = 2
-theme_override_styles/panel = ExtResource("2_plate")
+theme_override_styles/panel = SubResource("Plate_empty")
 
-[node name="Caption" type="Label" parent="Root/PlayerHealth" unique_id=1900000201]
+[node name="Caption" type="Label" parent="TopBar/PlayerHealth" unique_id=1900000201]
 layout_mode = 0
-offset_left = 32.0
-offset_top = 8.0
-offset_right = 244.0
-offset_bottom = 30.0
+offset_top = 6.0
+offset_right = 170.0
+offset_bottom = 34.0
 text = "STUDENT / RESPONSE"
+vertical_alignment = 1
+text_overrun_behavior = 3
 
-[node name="LagBar" type="ProgressBar" parent="Root/PlayerHealth" unique_id=1900000202]
+[node name="LagBar" type="ProgressBar" parent="TopBar/PlayerHealth" unique_id=1900000202]
 layout_mode = 0
-offset_left = 32.0
-offset_top = 32.0
-offset_right = 244.0
-offset_bottom = 58.0
+offset_left = 180.0
+offset_top = 8.0
+offset_right = 400.0
+offset_bottom = 32.0
 mouse_filter = 2
 max_value = 20.0
 value = 20.0
 show_percentage = false
 
-[node name="Bar" type="ProgressBar" parent="Root/PlayerHealth" unique_id=1900000203]
+[node name="Bar" type="ProgressBar" parent="TopBar/PlayerHealth" unique_id=1900000203]
 layout_mode = 0
-offset_left = 32.0
-offset_top = 32.0
-offset_right = 244.0
-offset_bottom = 58.0
+offset_left = 180.0
+offset_top = 8.0
+offset_right = 400.0
+offset_bottom = 32.0
 mouse_filter = 2
 max_value = 20.0
 value = 20.0
 show_percentage = false
 
-[node name="Value" type="Label" parent="Root/PlayerHealth" unique_id=1900000204]
+[node name="Value" type="Label" parent="TopBar/PlayerHealth" unique_id=1900000204]
 layout_mode = 0
-offset_left = 32.0
-offset_top = 32.0
-offset_right = 244.0
-offset_bottom = 58.0
+offset_left = 180.0
+offset_top = 8.0
+offset_right = 400.0
+offset_bottom = 32.0
 text = "20 / 20"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="SuppliesLabel" type="Label" parent="TopBar"]
+editor_description = "Supplies (the run's money) in the top bar. Text is set in run_director.gd."
+layout_mode = 0
+offset_left = 432.0
+offset_top = 6.0
+offset_right = 592.0
+offset_bottom = 46.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
+text = "Supplies 0"
+vertical_alignment = 1
+
 [node name="EnergyDial" type="TextureRect" parent="Root"]
 editor_description = "Round frame behind the Energy gauge (the gauge itself is in ui_shell.tscn)."
+visible = false
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
@@ -376,6 +459,19 @@ texture = ExtResource("4_dial")
 expand_mode = 1
 stretch_mode = 5
 
+[node name="EnergyPips" type="Control" parent="Root"]
+editor_description = "Energy pips at the left of the hand. Drawn by run_director.gd; the x / y text is in ui_shell.tscn."
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -176.0
+offset_right = 146.0
+offset_bottom = -146.0
+grow_vertical = 0
+mouse_filter = 2
+
 [node name="TensionPlate" type="Panel" parent="Root"]
 editor_description = "Frame behind the Tension gauge (the gauge itself is in ui_shell.tscn)."
 layout_mode = 1
@@ -383,12 +479,12 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -292.0
-offset_top = 152.0
+offset_top = 140.0
 offset_right = -16.0
-offset_bottom = 212.0
+offset_bottom = 200.0
 grow_horizontal = 0
 mouse_filter = 2
-theme_override_styles/panel = ExtResource("2_plate")
+theme_override_styles/panel = SubResource("Rust_panel")
 
 [node name="PlansBox" type="VBoxContainer" parent="Root"]
 layout_mode = 1
@@ -397,47 +493,57 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -126.0
-offset_top = -212.0
+offset_left = -116.0
+offset_top = -173.0
 offset_right = -16.0
-offset_bottom = -172.0
+offset_bottom = -117.0
 grow_horizontal = 0
 grow_vertical = 0
 
 [node name="PlansButton" type="Button" parent="Root/PlansBox"]
-custom_minimum_size = Vector2(110, 40)
+custom_minimum_size = Vector2(100, 56)
 layout_mode = 2
 tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
 mouse_default_cursor_shape = 2
-theme_override_constants/icon_max_width = 28
+theme_override_colors/font_outline_color = Color(0.043137256, 0.043137256, 0.050980393, 1)
+theme_override_constants/outline_size = 4
+theme_override_constants/h_separation = 8
+theme_override_constants/icon_max_width = 44
+theme_override_font_sizes/font_size = 24
 theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
-theme_override_styles/pressed = SubResource("Plate_normal")
+theme_override_styles/pressed = SubResource("Plate_pressed")
 theme_override_styles/normal = SubResource("Plate_normal")
 text = "0/2"
 icon = ExtResource("8_plans")
-alignment = 2
+alignment = 1
+metadata/hover_feedback = true
 
 [node name="GraveyardButton" type="Button" parent="Root"]
-custom_minimum_size = Vector2(110, 40)
+custom_minimum_size = Vector2(100, 56)
 layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
+anchors_preset = 2
 anchor_top = 1.0
-anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -126.0
-offset_top = -258.0
-offset_right = -16.0
-offset_bottom = -218.0
+offset_left = 16.0
+offset_top = -104.0
+offset_right = 116.0
+offset_bottom = -48.0
+grow_vertical = 0
 tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
 mouse_default_cursor_shape = 2
-theme_override_constants/icon_max_width = 28
+theme_override_colors/font_outline_color = Color(0.043137256, 0.043137256, 0.050980393, 1)
+theme_override_constants/outline_size = 4
+theme_override_constants/h_separation = 8
+theme_override_constants/icon_max_width = 44
+theme_override_font_sizes/font_size = 24
 theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
-theme_override_styles/pressed = SubResource("Plate_normal")
+theme_override_styles/pressed = SubResource("Plate_pressed")
 theme_override_styles/normal = SubResource("Plate_normal")
+text = "0"
 icon = ExtResource("7_grave")
-icon_alignment = 1
+alignment = 1
+metadata/hover_feedback = true

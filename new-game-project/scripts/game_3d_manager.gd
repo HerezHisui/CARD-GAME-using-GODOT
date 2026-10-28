@@ -91,7 +91,7 @@ const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "di
 @onready var _view_forward_btn: Button = $HUD/Root/ViewForwardButton
 @onready var _view_back_btn: Button = $HUD/Root/ViewBackButton
 
-@onready var _player_hp_ui: Control = $HUD/Root/PlayerHealth
+@onready var _player_hp_ui: Control = $HUD/TopBar/PlayerHealth
 @onready var _enemy_hp_ui: Control = $HUD/Root/EnemyHealth
 
 var hand_container: Node3D
@@ -379,7 +379,7 @@ func _refresh_bars() -> void:
 	_set_health(_enemy_hp_ui, enemy_hp, enemy_max_hp, false)
 	update_deck_label()
 
-## Updates a health widget (HUD/Root/PlayerHealth or EnemyHealth).
+## Updates a health widget (HUD/TopBar/PlayerHealth or HUD/Root/EnemyHealth).
 ## The main bar drops instantly-ish, the pale "lag" bar trails behind it.
 func _set_health(ui: Control, hp: int, max_hp: int, animate: bool) -> void:
 	if not ui: return

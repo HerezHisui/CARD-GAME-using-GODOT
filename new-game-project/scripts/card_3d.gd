@@ -329,25 +329,20 @@ func _build_face() -> void:
 		UI.outline(_keyword_label)
 		frame.add_child(_keyword_label)
 	else:
-		# Spell cards: one icon row under the banner, effect text where ATK/HP would be.
+		# Spell cards: one icon row under the banner, a big effect icon where ATK/HP would be.
+		# The effect text is only in the inspect view now.
 		_status_row.columns = 10
 		_status_row.position = Vector2(38, 252)
 		_status_row.size = Vector2(187, 16)
-		var effect_lbl := _face_label(UI.font(), 11, text_col)
-		effect_lbl.name = "EffectText"
-		effect_lbl.text = preload("res://scripts/battle_rules.gd").utility_text(card_data)
-		effect_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		# Long text stops at 5 lines with "..."; the inspect view shows all of it.
-		effect_lbl.max_lines_visible = 5
-		effect_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		effect_lbl.clip_text = true
-		# Size after wrap/clip, or the label grows to one-line width.
-		effect_lbl.position = Vector2(18, 272)
-		effect_lbl.size = Vector2(FACE_W - 36, 76)
-		effect_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		effect_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		UI.outline(effect_lbl)
-		frame.add_child(effect_lbl)
+		var effect_icon := TextureRect.new()
+		effect_icon.name = "EffectIcon"
+		effect_icon.texture = UI.icon(str(card_data.get("effect", "")))
+		effect_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		effect_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		# Centered in the free area between the banner (ends at y 248) and the bottom edge.
+		effect_icon.position = Vector2((FACE_W - 56) / 2.0, (248 + FACE_H - 56) / 2.0)
+		effect_icon.size = Vector2(56, 56)
+		frame.add_child(effect_icon)
 	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
@@ -404,7 +399,8 @@ func _refresh_face() -> void:
 		for passive in ["piercing", "sluggish"]:
 			if has_modifier(passive) and passive not in modifiers: _add_effect_icon(passive)
 		var effect: String = card_data.get("effect", "")
-		if not effect.is_empty(): _add_effect_icon(effect)
+		# Spell cards already show their effect as the big icon, so skip the small copy.
+		if not effect.is_empty() and not card_data.get("utility", false): _add_effect_icon(effect)
 		for status in card_data.get("on_hit", {}): _add_effect_icon(str(status))
 		for key in ["leech", "on_play_draw", "thorns", "status_bonus", "utility_power", "refund_energy"]:
 			if int(card_data.get(key, 0)) > 0: _add_effect_icon(key)
