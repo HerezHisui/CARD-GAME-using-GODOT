@@ -131,7 +131,7 @@ var _atk_label: Label
 var _cost_label: Label
 var _status_row: GridContainer
 var _cost_caption: Label
-var _keyword_label: Label
+var _keyword_icon: TextureRect
 var face_signature := 0
 const FACE_CHECK_INTERVAL := 0.1
 var face_check_elapsed := 0.0
@@ -305,7 +305,7 @@ func _build_face() -> void:
 
 	_atk_label = null
 	_hp_label = null
-	_keyword_label = null
+	_keyword_icon = null
 	if not card_data.get("utility", false):
 		var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
 		_atk_label = atk.get_child(0)
@@ -320,14 +320,14 @@ func _build_face() -> void:
 		atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		frame.add_child(atk_cap)
 		# First keyword, in the gap between the ATK and HP badges.
-		_keyword_label = _face_label(title_font, 14, text_col)
-		_keyword_label.name = "Keyword"
-		_keyword_label.position = Vector2(76, 314)
-		_keyword_label.size = Vector2(FACE_W - 152, 22)
-		_keyword_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_keyword_label.clip_text = true
-		UI.outline(_keyword_label)
-		frame.add_child(_keyword_label)
+		# Symbol only (28px); the full text stays in the inspect panel.
+		_keyword_icon = TextureRect.new()
+		_keyword_icon.name = "Keyword"
+		_keyword_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_keyword_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_keyword_icon.position = Vector2((FACE_W - 28) / 2.0, 312)
+		_keyword_icon.size = Vector2(28, 28)
+		frame.add_child(_keyword_icon)
 	else:
 		# Spell cards: one icon row under the banner, a big effect icon where ATK/HP would be.
 		# The effect text is only in the inspect view now.
@@ -387,8 +387,10 @@ func _refresh_face() -> void:
 	if _atk_label:
 		_atk_label.text = str(effective_attack())
 	# Only the first keyword fits; the rest stay in the icon row and inspect box.
-	if _keyword_label:
-		_keyword_label.text = _face_keyword().to_upper()
+	if _keyword_icon:
+		var keyword := _face_keyword()
+		_keyword_icon.visible = not keyword.is_empty()
+		if _keyword_icon.visible: _keyword_icon.texture = UI.icon(keyword)
 	if _status_row:
 		for child in _status_row.get_children():
 			_status_row.remove_child(child)

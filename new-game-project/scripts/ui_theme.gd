@@ -290,6 +290,12 @@ static func apply_hud(root: Control) -> void:
 		track.set_border_width_all(1)
 		health.get_node("LagBar").add_theme_stylebox_override("background", track)
 		health.get_node("Bar").add_theme_stylebox_override("background", track)
+		# Player bar: 2px gold rim around the whole bar; fills draw inside the rim.
+		if side == "PlayerHealth":
+			track.set_border_width_all(2)
+			hp_fill.set_border_width_all(0)
+			hp_fill.set_expand_margin_all(-2)
+			lag_fill.set_expand_margin_all(-2)
 		# Cream text with a 1px dark outline.
 		for label_name in ["Value", "Caption"]:
 			var label: Label = health.get_node(label_name)

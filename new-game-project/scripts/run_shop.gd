@@ -25,9 +25,7 @@ static func show_shop(director: Node) -> void:
 			director.shop_stock.append(remainder[0])
 			director.shop_stock.append(remainder[1])
 		director.shop_purchased.clear()
-	director.reset_panel("THE SUPPLY ROOM",
-		"Buy as many stocked items as you can afford. Card prices scale with power. First aid restores up to 5 HP for 15 supplies. Stock stays fixed.",
-		"shop")
+	director.reset_panel("THE SUPPLY ROOM", "", "shop")
 	director.unpack_screen(ShopScene)
 	var row: Control = director.content.get_node("Stock")
 	for card in director.shop_stock:

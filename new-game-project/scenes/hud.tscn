@@ -339,6 +339,8 @@ offset_top = 8.0
 offset_right = 244.0
 offset_bottom = 30.0
 text = "JANITOR"
+clip_text = true
+text_overrun_behavior = 3
 
 [node name="LagBar" type="ProgressBar" parent="Root/EnemyHealth" unique_id=1900000102]
 layout_mode = 0
@@ -371,6 +373,8 @@ offset_bottom = 58.0
 text = "20 / 20"
 horizontal_alignment = 1
 vertical_alignment = 1
+clip_text = true
+text_overrun_behavior = 3
 
 [node name="PlayerHealth" type="Control" parent="TopBar" unique_id=1900000200]
 layout_mode = 1

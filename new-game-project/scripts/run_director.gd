@@ -405,7 +405,8 @@ func _process(_delta: float) -> void:
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
 	# One shared top bar (HP, Supplies) for battle and the map, event, shop and rest screens.
 	var top_bar: Control = game.get_node("HUD/TopBar")
-	if battle_active: top_bar.visible = not modal.visible
+	# In battle the bar stays up even while a popup is open.
+	if battle_active: top_bar.visible = true
 	else: top_bar.visible = run_active and root.get_child(0).visible and screen != "reward"
 	# Outside battle nothing else updates the HP bar, so keep it current here.
 	if top_bar.visible and not battle_active:
@@ -515,6 +516,8 @@ func _panel_layout(kind: String) -> void:
 		modal.offset_right = -modal.offset_left
 		modal.offset_top = (viewport_size.y - panel_size.y) / 2
 		modal.offset_bottom = -modal.offset_top
+		# In battle the top bar stays visible, so the popup starts under it.
+		if battle_active: modal.offset_top = maxf(modal.offset_top, 66)
 		modal.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
 		game.visible = battle_active
 		return
@@ -526,7 +529,7 @@ func _panel_layout(kind: String) -> void:
 	modal.offset_left = 0 if full_screen else 45
 	modal.offset_right = 0 if full_screen else -45
 	# Battle popups start just under the header buttons, which end at y 58.
-	modal.offset_top = (0 if title_screen or not battle_active or kind in ["reward", "inspect"] else 78) if full_screen else 66
+	modal.offset_top = (0 if title_screen or not battle_active or kind == "reward" else 78) if full_screen else 66
 	# Run screens outside battle start under the shared top bar (header buttons end at y 58).
 	if run_active and not battle_active and not title_screen and kind != "reward": modal.offset_top = 58
 	if kind == "shop": modal.offset_top = 78
