@@ -132,6 +132,12 @@ var _cost_label: Label
 var _status_row: GridContainer
 var _cost_caption: Label
 var _keyword_icon: TextureRect
+# Painted frame overlay per element; null means the old StyleBoxFlat frame.
+const FRAME_DIR := "res://assets/ui/card_frames/frame_%s_%s.png"
+var _frame_art: TextureRect
+var _frame_idle: Texture2D
+var _frame_selected: Texture2D
+var _frame_is_selected := false
 var face_signature := 0
 const FACE_CHECK_INTERVAL := 0.1
 var face_check_elapsed := 0.0
@@ -228,10 +234,32 @@ func _build_face() -> void:
 	if not face_font: face_font = UI.font(true)
 	var title_font := face_font
 
+	# Painted frame for this element, if both files exist.
+	_frame_idle = null
+	_frame_selected = null
+	_frame_is_selected = false
+	var idle_path := FRAME_DIR % [elem.to_lower(), "idle"]
+	var selected_path := FRAME_DIR % [elem.to_lower(), "selected"]
+	# Spells use the frame without ATK/HP circles, if both files exist.
+	if card_data.get("utility", false):
+		var utility_idle := FRAME_DIR % [elem.to_lower(), "utility_idle"]
+		var utility_selected := FRAME_DIR % [elem.to_lower(), "utility_selected"]
+		if ResourceLoader.exists(utility_idle) and ResourceLoader.exists(utility_selected):
+			idle_path = utility_idle
+			selected_path = utility_selected
+	if ResourceLoader.exists(idle_path) and ResourceLoader.exists(selected_path):
+		_frame_idle = load(idle_path)
+		_frame_selected = load(selected_path)
+	var framed := _frame_idle != null
+
 	# Frame
 	var frame := Panel.new()
 	frame.size = Vector2(FACE_W, FACE_H)
-	frame.add_theme_stylebox_override("panel", UI.card_frame(is_disaster))
+	if framed:
+		# The painted frame draws the border and fill.
+		frame.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	else:
+		frame.add_theme_stylebox_override("panel", UI.card_frame(is_disaster))
 	_vp.add_child(frame)
 	UI.decorate(frame)
 
@@ -257,10 +285,26 @@ func _build_face() -> void:
 	art_bg.position = Vector2(18, 72)
 	art_bg.size = Vector2(FACE_W - 36, 144)
 	frame.add_child(art_bg)
+	_frame_art = null
+	if framed:
+		# Overlay above the art; its art window is transparent.
+		_frame_art = TextureRect.new()
+		_frame_art.name = "FrameArt"
+		_frame_art.texture = _frame_idle
+		_frame_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_frame_art.stretch_mode = TextureRect.STRETCH_SCALE
+		_frame_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_frame_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		_frame_art.size = Vector2(FACE_W, FACE_H)
+		frame.add_child(_frame_art)
+		# Name and trim were added earlier, so lift them above the frame art.
+		frame.move_child(name_lbl, -1)
+		frame.move_child(frame.get_node("IndustrialTrim"), -1)
 	var affinity_line := ColorRect.new()
 	affinity_line.color = accent
 	affinity_line.position = Vector2(18, 63)
 	affinity_line.size = Vector2(FACE_W - 36, 3)
+	affinity_line.visible = not framed
 	frame.add_child(affinity_line)
 	_status_row = GridContainer.new()
 	# Icons sit in the gap between the ATK and HP badges, above the keyword.
@@ -289,17 +333,26 @@ func _build_face() -> void:
 	elem_lbl.size = Vector2(FACE_W - 36, 26)
 	elem_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	elem_lbl.add_theme_stylebox_override("normal", UI.affinity_band(elem))
+	# The painted frame has the type banner baked in.
+	elem_lbl.visible = not framed
 	frame.add_child(elem_lbl)
 
 	# Sacrifice costs use the same crimson action color as the interface.
 	var cost_col := UI.RAISED if card_data.get("cost_type", "energy") == "energy" else UI.CRIMSON
 	var cost_badge := _badge(str(card_data.cost), cost_col, Vector2(6, 6), title_font)
 	_cost_label = cost_badge.get_child(0)
+	if framed:
+		_fit_badge(cost_badge, Vector2(40, 38), Vector2(54, 48))
+		# Bright crimson still reads on the black painted circle.
+		if card_data.get("cost_type", "energy") != "energy":
+			_cost_label.add_theme_color_override("font_color", Color("ff5a4f"))
 	frame.add_child(cost_badge)
 	_cost_caption = _face_label(title_font, 10, UI.TEXT)
 	_cost_caption.text = ""
 	_cost_caption.position = Vector2(0, 41)
-	_cost_caption.size = Vector2(60, 14)
+	_cost_caption.size = Vector2(cost_badge.size.x, 14)
+	# Under the painted circle, ending above the art window (y 72).
+	if framed: _cost_caption.position.y = 49 - cost_badge.position.y
 	_cost_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_badge.add_child(_cost_caption)
 
@@ -309,15 +362,19 @@ func _build_face() -> void:
 	if not card_data.get("utility", false):
 		var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
 		_atk_label = atk.get_child(0)
+		if framed: _fit_badge(atk, Vector2(42, 313), Vector2(56, 54))
 		frame.add_child(atk)
 		var hp := _badge(str(card_data.health), UI.RAISED, Vector2(FACE_W - 76, FACE_H - 80), title_font)
 		_hp_label = hp.get_child(0)
+		if framed: _fit_badge(hp, Vector2(221, 313), Vector2(56, 54))
 		frame.add_child(hp)
 		var atk_cap := _face_label(title_font, 14, text_col)
 		atk_cap.text = "ATK            HP"
 		atk_cap.position = Vector2(0, FACE_H - 24)
 		atk_cap.size = Vector2(FACE_W, 20)
 		atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		# The painted frame has the ATK/HP captions baked in.
+		atk_cap.visible = not framed
 		frame.add_child(atk_cap)
 		# First keyword, in the gap between the ATK and HP badges.
 		# Symbol only (44px); the full text stays in the inspect panel.
@@ -328,6 +385,8 @@ func _build_face() -> void:
 		# Centered on the 60px badges, so it sits between them and above the caption.
 		_keyword_icon.position = Vector2((FACE_W - 44) / 2.0, FACE_H - 80 + (60 - 44) / 2.0)
 		_keyword_icon.size = Vector2(44, 44)
+		# Painted circles are centered at y 313.
+		if framed: _keyword_icon.position.y = 313 - 22
 		frame.add_child(_keyword_icon)
 		# Creature faces show one symbol only, so hide the small icon row.
 		# It is still filled, so the code that reads it keeps working.
@@ -345,6 +404,8 @@ func _build_face() -> void:
 		effect_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		# Centered in the free area between the banner (ends at y 248) and the bottom edge.
 		effect_icon.position = Vector2((FACE_W - 56) / 2.0, (248 + FACE_H - 56) / 2.0)
+		# Painted frame: center between the banner and the inner bottom border (y 345).
+		if framed: effect_icon.position.y = 268
 		effect_icon.size = Vector2(56, 56)
 		frame.add_child(effect_icon)
 	_refresh_face()
@@ -371,10 +432,29 @@ func _badge(txt: String, col: Color, pos: Vector2, font: Font) -> Panel:
 	p.add_child(l)
 	return p
 
+## Painted frame: the circle is baked in, so the badge only keeps its number.
+func _fit_badge(badge: Panel, center: Vector2, size: Vector2) -> void:
+	badge.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	badge.size = size
+	badge.position = center - size / 2.0
+	(badge.get_child(0) as Label).size = size
+
+## Swap to the selected frame while hovered in hand or dragged.
+## Only re-renders the face when the state changes.
+func _update_frame_state() -> void:
+	if _frame_art == null: return
+	var want := is_dragging or (is_hovered and in_hand)
+	if want == _frame_is_selected: return
+	_frame_is_selected = want
+	_frame_art.texture = _frame_selected if want else _frame_idle
+	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
 func _refresh_face() -> void:
 	face_signature = current_face_signature()
 	var trim := _vp.get_child(0).get_node("IndustrialTrim")
 	trim.hazard = not preview_only and _manager().is_sealed(card_data)
+	# On the painted frame the trim only shows the sealed stripes.
+	if _frame_art: trim.visible = trim.hazard
 	trim.queue_redraw()
 	var disaster: bool = card_data.get("type", "response") == "disaster"
 	var sacrifice: bool = disaster and not card_data.get("utility", false) and int(card_data.get("cost", 0)) > 0
@@ -552,6 +632,7 @@ func current_face_signature() -> int:
 
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint(): return
+	_update_frame_state()
 	# Direct damage/status methods refresh immediately. This bounded fallback
 	# catches external buffs/turn changes without hashing every card every frame.
 	face_check_elapsed += delta
