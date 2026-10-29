@@ -70,7 +70,8 @@ static func palette() -> Dictionary:
 static func font(heading: bool = false) -> SystemFont:
 	if body_font == null:
 		body_font = SystemFont.new()
-		body_font.font_names = PackedStringArray(["Segoe UI", "Arial"])
+		# Same family as headings, regular weight.
+		body_font.font_names = PackedStringArray(["Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", "Arial"])
 		heading_font = SystemFont.new()
 		heading_font.font_names = PackedStringArray(["Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", "Arial"])
 		heading_font.font_weight = 700

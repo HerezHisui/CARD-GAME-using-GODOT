@@ -867,7 +867,7 @@ corner_radius_bottom_left = 3
 corner_detail = 1
 
 [sub_resource type="SystemFont" id="SystemFont_6yukc"]
-font_names = PackedStringArray("Segoe UI", "Arial")
+font_names = PackedStringArray("Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", "Arial")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ujy80"]
 content_margin_left = 20.0

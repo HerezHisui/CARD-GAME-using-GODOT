@@ -7,6 +7,8 @@ theme = ExtResource("1_theme")
 theme_override_constants/separation = 4
 
 [node name="Title" type="Label" parent="."]
+clip_text = true
+text_overrun_behavior = 3
 theme_override_font_sizes/font_size = 14
 
 [node name="Bar" type="ProgressBar" parent="."]

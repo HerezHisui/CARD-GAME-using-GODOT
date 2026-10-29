@@ -1,9 +1,9 @@
 [gd_scene format=3]
 
 [ext_resource type="Theme" path="res://data/ui_theme.tres" id="1_theme"]
-[ext_resource type="Texture2D" path="res://assets/ui/deck_icon.png" id="3_deck"]
-[ext_resource type="Texture2D" path="res://assets/ui/map_icon.png" id="4_map"]
-[ext_resource type="Texture2D" path="res://assets/ui/menu_icon.png" id="5_menu"]
+[ext_resource type="Texture2D" path="res://assets/ui/svg/icon-deck.svg" id="3_deck"]
+[ext_resource type="Texture2D" path="res://assets/ui/svg/icon-map.svg" id="4_map"]
+[ext_resource type="Texture2D" path="res://assets/ui/svg/icon-menu.svg" id="5_menu"]
 
 [sub_resource type="StyleBoxFlat" id="Icon_flat"]
 content_margin_left = 0.0

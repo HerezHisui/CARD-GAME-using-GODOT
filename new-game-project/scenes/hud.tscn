@@ -22,7 +22,7 @@ border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
 [sub_resource type="StyleBoxEmpty" id="Plate_empty"]
 
 [sub_resource type="SystemFont" id="EndTurn_font"]
-font_names = PackedStringArray("Segoe UI", "Arial")
+font_names = PackedStringArray("Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", "Arial")
 font_weight = 700
 
 [sub_resource type="StyleBoxFlat" id="EndTurn_normal"]

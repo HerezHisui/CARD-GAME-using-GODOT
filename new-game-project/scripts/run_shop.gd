@@ -25,20 +25,23 @@ static func show_shop(director: Node) -> void:
 			director.shop_stock.append(remainder[0])
 			director.shop_stock.append(remainder[1])
 		director.shop_purchased.clear()
-	director.reset_panel("THE SUPPLY ROOM", "", "shop")
+	# The header shows how many supplies the player has.
+	director.reset_panel("THE SUPPLY ROOM", "Supplies %d" % director.coins, "shop")
 	director.unpack_screen(ShopScene)
 	var row: Control = director.content.get_node("Stock")
 	for card in director.shop_stock:
 		var sold: bool = card.id in director.shop_purchased
 		var price: int = director.shop_price(card)
 		director._card_tile(card, row,
-			Callable(director, "buy").bind(card) if not sold and director.coins >= price else Callable(),
+			Callable(director, "buy").bind(card) if not sold else Callable(),
 			"Buy card · -%d supplies" % price)
 		if sold:
 			row.get_child(row.get_child_count() - 1).get_child(0).add_child(director.label("SOLD OUT", 16, UI.GOLD))
 		elif director.coins < price:
-			row.get_child(row.get_child_count() - 1).get_child(0).add_child(
-				director.label("Need %d supplies" % price, 14, UI.MUTED))
+			# Too expensive: keep the price on a grayed-out, disabled Buy button.
+			var buy_button: Button = row.get_child(row.get_child_count() - 1).get_node("Box/ActionButton")
+			buy_button.disabled = true
+			buy_button.tooltip_text = "Need %d supplies" % price
 	var heal: Button = director.content.get_node("HealButton")
 	heal.text = "First aid · +%d HP · -15 supplies" % director.healing_gain(5)
 	director.hook_button(heal, Callable(director, "buy_heal")).disabled = director.coins < 15 \
