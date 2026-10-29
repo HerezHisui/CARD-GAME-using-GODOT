@@ -400,7 +400,7 @@ func _process(_delta: float) -> void:
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = str(game.deck.size())
 	game.get_node("HUD/Root/EnergyPips").queue_redraw()
-	game.get_node("HUD/TopBar/SuppliesLabel").text = "Supplies %d" % coins
+	game.get_node("HUD/TopBar/SuppliesLabel").text = "%d" % coins
 	graveyard_button.text = str(game.player_graveyard.size())
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
 	# One shared top bar (HP, Supplies) for battle and the map, event, shop and rest screens.

@@ -63,8 +63,8 @@ func expected_styles() -> Array:
 		["PromptPanel", "PanelContainer", "panel", UI.panel(UI.BACKGROUND, UI.RESPONSE)],
 		["EnergyBar", "ProgressBar", "background", UI.panel(UI.INSET, UI.BRONZE, 0)],
 		["EnergyBar", "ProgressBar", "fill", UI.bar(UI.RESPONSE)],
-		["TensionBar", "ProgressBar", "background", UI.panel(UI.INSET, UI.BRONZE, 0)],
-		["TensionBar", "ProgressBar", "fill", UI.bar(UI.DANGER)],
+		["TensionBar", "ProgressBar", "background", UI.tension_track()],
+		["TensionBar", "ProgressBar", "fill", UI.tension_fill()],
 	]
 
 func theme_styles(theme: Theme, source: String) -> void:

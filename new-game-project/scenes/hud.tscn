@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/draw_icon.png" id="6_draw"]
 [ext_resource type="Texture2D" path="res://assets/ui/graveyard_icon.png" id="7_grave"]
 [ext_resource type="Texture2D" path="res://assets/ui/contingency_icon.png" id="8_plans"]
+[ext_resource type="Texture2D" path="res://assets/ui/svg/icon-coin.svg" id="9_coin"]
 
 [sub_resource type="StyleBoxFlat" id="Rust_panel"]
 bg_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
@@ -434,16 +435,28 @@ text = "20 / 20"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="SuppliesIcon" type="TextureRect" parent="TopBar"]
+editor_description = "Coin icon in front of the Supplies number."
+layout_mode = 0
+offset_left = 432.0
+offset_top = 15.0
+offset_right = 454.0
+offset_bottom = 37.0
+mouse_filter = 2
+texture = ExtResource("9_coin")
+expand_mode = 1
+stretch_mode = 5
+
 [node name="SuppliesLabel" type="Label" parent="TopBar"]
 editor_description = "Supplies (the run's money) in the top bar. Text is set in run_director.gd."
 layout_mode = 0
-offset_left = 432.0
+offset_left = 460.0
 offset_top = 6.0
 offset_right = 592.0
 offset_bottom = 46.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
-text = "Supplies 0"
+text = "0"
 vertical_alignment = 1
 
 [node name="EnergyDial" type="TextureRect" parent="Root"]

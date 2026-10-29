@@ -96,6 +96,21 @@ static func bar(color: Color) -> StyleBoxFlat:
 	box.set_corner_radius_all(3)
 	return box
 
+## Tension fill: flat crimson, square, drawn inside the 2px gold rim (like the HP bars).
+static func tension_fill() -> StyleBoxFlat:
+	var box := bar(Color("b3261e"))
+	box.set_corner_radius_all(0)
+	box.set_border_width_all(0)
+	box.set_expand_margin_all(-2)
+	return box
+
+## Tension track: dark, square, 2px gold rim.
+static func tension_track() -> StyleBoxFlat:
+	var box := panel(Color("1a1415"), Color("e0a93b"), 0)
+	box.set_corner_radius_all(0)
+	box.set_border_width_all(2)
+	return box
+
 static func card_frame(disaster: bool) -> StyleBoxFlat:
 	var key := "disaster" if disaster else "response"
 	if not card_styles.has(key):
@@ -260,10 +275,14 @@ static func add_shell_styles(theme: Theme) -> void:
 			["DashboardPanel", panel(INSET, BRONZE)], ["PromptPanel", panel(BACKGROUND, RESPONSE)]]:
 		theme.set_type_variation(spec[0], "PanelContainer")
 		theme.set_stylebox("panel", spec[0], spec[1])
-	for spec in [["EnergyBar", RESPONSE], ["TensionBar", DANGER]]:
+	for spec in [["EnergyBar", RESPONSE]]:
 		theme.set_type_variation(spec[0], "ProgressBar")
 		theme.set_stylebox("background", spec[0], panel(INSET, BRONZE, 0))
 		theme.set_stylebox("fill", spec[0], bar(spec[1]))
+	# Tension matches the HP bars: crimson fill, dark track, gold rim.
+	theme.set_type_variation("TensionBar", "ProgressBar")
+	theme.set_stylebox("background", "TensionBar", tension_track())
+	theme.set_stylebox("fill", "TensionBar", tension_fill())
 	theme.set_type_variation("HeadingLabel", "Label")
 	theme.set_font("font", "HeadingLabel", font(true))
 

@@ -5,6 +5,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
 ## Screen layouts. Edit them in the editor; the card tiles are still made in code.
 const ShopScene = preload("res://scenes/ui/ui_shop.tscn")
+const COIN_ICON = preload("res://assets/ui/svg/icon-coin.svg")
 const RemoveScene = preload("res://scenes/ui/ui_remove_cards.tscn")
 const RemoveConfirmScene = preload("res://scenes/ui/ui_remove_confirm.tscn")
 
@@ -26,7 +27,21 @@ static func show_shop(director: Node) -> void:
 			director.shop_stock.append(remainder[1])
 		director.shop_purchased.clear()
 	# The header shows how many supplies the player has.
-	director.reset_panel("THE SUPPLY ROOM", "Supplies %d" % director.coins, "shop")
+	director.reset_panel("THE SUPPLY ROOM", "", "shop")
+	# Coin icon in front of the number.
+	var coins_row := HBoxContainer.new()
+	coins_row.add_theme_constant_override("separation", 6)
+	var coin := TextureRect.new()
+	coin.texture = COIN_ICON
+	coin.custom_minimum_size = Vector2(22, 22)
+	coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coins_row.add_child(coin)
+	var amount: Label = director.label("%d" % director.coins, 16, UI.MUTED)
+	# No wrap, so compact layout cannot squash the number.
+	amount.autowrap_mode = TextServer.AUTOWRAP_OFF
+	coins_row.add_child(amount)
+	director.content.add_child(coins_row)
 	director.unpack_screen(ShopScene)
 	var row: Control = director.content.get_node("Stock")
 	for card in director.shop_stock:
