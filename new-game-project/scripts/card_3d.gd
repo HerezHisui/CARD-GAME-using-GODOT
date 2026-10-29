@@ -320,14 +320,18 @@ func _build_face() -> void:
 		atk_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		frame.add_child(atk_cap)
 		# First keyword, in the gap between the ATK and HP badges.
-		# Symbol only (28px); the full text stays in the inspect panel.
+		# Symbol only (44px); the full text stays in the inspect panel.
 		_keyword_icon = TextureRect.new()
 		_keyword_icon.name = "Keyword"
 		_keyword_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		_keyword_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		_keyword_icon.position = Vector2((FACE_W - 28) / 2.0, 312)
-		_keyword_icon.size = Vector2(28, 28)
+		# Centered on the 60px badges, so it sits between them and above the caption.
+		_keyword_icon.position = Vector2((FACE_W - 44) / 2.0, FACE_H - 80 + (60 - 44) / 2.0)
+		_keyword_icon.size = Vector2(44, 44)
 		frame.add_child(_keyword_icon)
+		# Creature faces show one symbol only, so hide the small icon row.
+		# It is still filled, so the code that reads it keeps working.
+		_status_row.visible = false
 	else:
 		# Spell cards: one icon row under the banner, a big effect icon where ATK/HP would be.
 		# The effect text is only in the inspect view now.

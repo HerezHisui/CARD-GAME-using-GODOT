@@ -529,10 +529,12 @@ func _panel_layout(kind: String) -> void:
 	modal.offset_left = 0 if full_screen else 45
 	modal.offset_right = 0 if full_screen else -45
 	# Battle popups start just under the header buttons, which end at y 58.
-	modal.offset_top = (0 if title_screen or not battle_active or kind == "reward" else 78) if full_screen else 66
+	# Full-screen panels are their own backdrop, so they start at the top bar's bottom edge (y 52).
+	modal.offset_top = (0 if title_screen or not battle_active or kind == "reward" else 52) if full_screen else 66
 	# Run screens outside battle start under the shared top bar (header buttons end at y 58).
-	if run_active and not battle_active and not title_screen and kind != "reward": modal.offset_top = 58
-	if kind == "shop": modal.offset_top = 78
+	# The top bar ends at y 52, so start there with no gap.
+	if run_active and not battle_active and not title_screen and kind != "reward": modal.offset_top = 52
+	if kind == "shop": modal.offset_top = 52
 	modal.offset_bottom = 0 if full_screen else -28
 	var panel_style := style(Color(UI.BACKGROUND, 0.90) if kind in ["reward", "inspect"] else (UI.BACKGROUND if full_screen else UI.PANEL), UI.GOLD)
 	if full_screen:
@@ -980,7 +982,8 @@ func show_catalog_inspection(card: Dictionary, texture: Texture2D) -> void:
 	if root.has_node("CatalogInspection"): return
 	# The overlay layout lives in ui_catalog_inspection.tscn.
 	var overlay: Control = CatalogInspectionScene.instantiate()
-	if run_active: overlay.offset_top = 66 if battle_active else 78
+	# Start at the top bar's bottom edge so no room shows above the overlay.
+	if run_active: overlay.offset_top = 52
 	root.add_child(overlay)
 	var row: Control = overlay.get_node("Center/Row")
 	add_dossier(row, card, "")

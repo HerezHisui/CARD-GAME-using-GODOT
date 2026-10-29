@@ -292,11 +292,16 @@ static func apply_hud(root: Control) -> void:
 		health.get_node("LagBar").add_theme_stylebox_override("background", track)
 		health.get_node("Bar").add_theme_stylebox_override("background", track)
 		# Player bar: 2px gold rim around the whole bar; fills draw inside the rim.
-		if side == "PlayerHealth":
-			track.set_border_width_all(2)
-			hp_fill.set_border_width_all(0)
-			hp_fill.set_expand_margin_all(-2)
-			lag_fill.set_expand_margin_all(-2)
+		# The enemy bar gets the same rim now.
+		track.set_border_width_all(2)
+		hp_fill.set_border_width_all(0)
+		hp_fill.set_expand_margin_all(-2)
+		lag_fill.set_expand_margin_all(-2)
+		# Min fill: 10px min width minus the 2px inset on each side shows about 6px above 0 HP.
+		# ProgressBar draws no fill at 0.
+		for fill in [hp_fill, lag_fill]:
+			fill.content_margin_left = 5
+			fill.content_margin_right = 5
 		# Cream text with a 1px dark outline.
 		for label_name in ["Value", "Caption"]:
 			var label: Label = health.get_node(label_name)
