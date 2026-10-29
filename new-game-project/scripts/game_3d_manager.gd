@@ -561,8 +561,8 @@ func clamp_drag_position(point: Vector3) -> Vector3:
 const BLINK_HALF := 0.25
 
 ## One looping blink used by every highlight: lit, then dim, forever until killed.
-func blink_tween(owner: Node, target: Object, property: NodePath, lit: Variant, dim: Variant) -> Tween:
-	var tween := owner.create_tween().set_loops()
+func blink_tween(tween_owner: Node, target: Object, property: NodePath, lit: Variant, dim: Variant) -> Tween:
+	var tween := tween_owner.create_tween().set_loops()
 	tween.tween_property(target, property, lit, BLINK_HALF)
 	tween.tween_property(target, property, dim, BLINK_HALF)
 	return tween
@@ -769,10 +769,11 @@ func show_drop_targets(on: bool) -> void:
 		slot.material_override = _drop_target_material if lit else null
 
 func slot_at_screen_position(mouse: Vector2) -> Node3D:
-	var camera := get_viewport().get_camera_3d()
+	var active_camera := get_viewport().get_camera_3d()
 	for slot in _response_slots():
 		var plane := Plane(Vector3.UP, slot.global_position.y)
-		var hit: Variant = plane.intersects_ray(camera.project_ray_origin(mouse), camera.project_ray_normal(mouse))
+		var hit: Variant = plane.intersects_ray(
+			active_camera.project_ray_origin(mouse), active_camera.project_ray_normal(mouse))
 		if hit == null: continue
 		var local: Vector3 = slot.to_local(hit)
 		var bounds: AABB = slot.get_aabb()
@@ -1079,7 +1080,7 @@ func best_disruption_target(cards: Array, tax: bool) -> Node:
 	var best: Node = cards[0]
 	var best_score := -INF
 	for card in cards:
-		var score: float = card.effective_attack() * 2.0 + float(card.card_data.health) * 0.5
+		var score: float = card.effective_attack() * 2.0 + float(card.card_data.get("health", 0)) * 0.5
 		if card.card_data.get("utility", false): score += 4
 		if tax and int(card.card_data.cost) <= preparedness and int(card.card_data.cost) + 1 > preparedness: score += 12
 		if score > best_score:
@@ -1673,11 +1674,13 @@ func condition_met(condition: Dictionary, source: Variant, target: Variant) -> b
 	return BattleEngine.condition_met(condition, BattleQueries.statuses(source), BattleQueries.statuses(target))
 
 func conditional_attack_bonus(attacker: Node, defender: Node) -> int:
-	var target: Variant = null if defender == null else BattleQueries.card(null, defender)
+	var target: Variant = null
+	if defender != null: target = BattleQueries.card(null, defender)
 	return BattleEngine.conditional_attack_bonus(BattleQueries.card(null, attacker), target)
 
 func attack_strikes(attacker: Node, defender: Node) -> int:
-	var target: Variant = null if defender == null else BattleQueries.card(null, defender)
+	var target: Variant = null
+	if defender != null: target = BattleQueries.card(null, defender)
 	return BattleEngine.attack_strikes(BattleQueries.card(null, attacker), target)
 
 func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:

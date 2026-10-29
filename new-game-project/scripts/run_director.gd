@@ -1016,15 +1016,15 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	for status in effects:
 		if int(effects[status]) > 0:
 			tokens.append("%s %d: %s" % [str(status).capitalize(), int(effects[status]), status_rules.get(status, "")])
-	var status_text := ""
-	if not tokens.is_empty(): status_text = "[b]CURRENT STATUSES[/b]\n" + "\n".join(tokens) + "\n"
+	var status_details := ""
+	if not tokens.is_empty(): status_details = "[b]CURRENT STATUSES[/b]\n" + "\n".join(tokens) + "\n"
 	var combat: PackedStringArray = []
 	if is_instance_valid(live_card):
 		if live_card.planned_guard > 0: combat.append("Plan protection: %d" % live_card.planned_guard)
 		if live_card.plan_attack_bonus > 0: combat.append("Plan attack: +%d" % live_card.plan_attack_bonus)
 		if live_card.plan_ignore_taunt: combat.append("Ignore Taunt")
 		if game.buff_value(live_card.card_data.type == "response", "kill_or_die") > 0: combat.append("Blood Pact: defeat a card this turn or die")
-	if not combat.is_empty(): status_text += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
+	if not combat.is_empty(): status_details += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
 	var rules: PackedStringArray = []
 	for line in card_rules(card).split("\n"):
 		if line.is_empty() or line.begins_with("Adjacent matching types:") or line.begins_with("All other matchups:") or line.begins_with("Choose an empty Response slot") or line.begins_with("Piercing:") or line.begins_with("Sluggish:"): continue
@@ -1041,7 +1041,7 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	var effect_text := "No card effects.\n" if rules.is_empty() else "[b]CARD EFFECTS[/b]\n" + "\n".join(rules) + "\n"
 	# Effects, statuses and the hint all go in the same box; there are no tabs.
 	details.text += effect_text
-	if not status_text.is_empty(): details.text += "\n" + status_text
+	if not status_details.is_empty(): details.text += "\n" + status_details
 	if not hint.is_empty(): details.text += "\n" + hint
 	return details
 
@@ -1693,7 +1693,7 @@ func _debug_load_card_stats(targets: Array, picker: OptionButton, fields: Dictio
 		var field: SpinBox = fields[key]
 		var editable: bool = card != null and (key == "cost" or not card.card_data.get("utility", false))
 		field.editable = editable
-		field.set_value_no_signal(int(card.card_data.get(key, 0)) if editable else field.min_value)
+		field.set_value_no_signal(float(int(card.card_data.get(key, 0))) if editable else field.min_value)
 
 func _debug_set_card_stat(value: float, targets: Array, picker: OptionButton, key: String) -> void:
 	var card := _debug_selected_card(targets, picker)

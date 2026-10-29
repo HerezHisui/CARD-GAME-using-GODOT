@@ -125,7 +125,8 @@ func select(button: Button) -> void:
 
 func set_effects(on: bool) -> void:
 	rays.visible = on
-	var particles: Node2D = cpu_dust if cpu_dust else dust
+	var particles: Node2D = dust
+	if cpu_dust: particles = cpu_dust
 	particles.visible = on
 	particles.set("emitting", on)
 	title_glow.visible = on

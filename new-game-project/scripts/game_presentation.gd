@@ -227,7 +227,7 @@ func button_feedback(button: Button) -> void:
 		# Art frames have no bg_color, so tint them instead.
 		if fill[0] is StyleBoxTexture:
 			tween[0].tween_property(fill[0], "modulate_color", _texture_tint(color), 0.14)
-		else:
+		elif fill[0] is StyleBoxFlat:
 			tween[0].tween_property(fill[0], "bg_color", color, 0.14)
 	button.mouse_entered.connect(func():
 		var live_button = reference.get_ref()

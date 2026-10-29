@@ -526,7 +526,7 @@ func _add_effect_icon(kind: String, stacks: int = 0) -> void:
 	# Center the creature icon row in the gap between the ATK and HP badges.
 	if not card_data.get("utility", false):
 		var cols := mini(_status_row.get_child_count(), 5)
-		_status_row.position.x = 76 + (112 - (cols * 16 + (cols - 1) * 3)) / 2
+		_status_row.position.x = 76 + int((112 - (cols * 16 + (cols - 1) * 3)) / 2.0)
 	if stacks > 0:
 		var count := _face_label(UI.font(true), 10, UI.TEXT)
 		count.text = str(stacks)
