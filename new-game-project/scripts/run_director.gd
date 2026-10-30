@@ -199,9 +199,9 @@ func show_characters() -> void:
 	var grid: Control = box.get_node("Grid")
 	for i in CHARACTERS.size():
 		var character: Dictionary = CHARACTERS[i]
-		var pick := choice_tile(character.name, "IDENTITY %02d / %s\n\n%s" % [i + 1, "ACTIVE" if character.available else "AVAILABLE SOON", character.description], show_character_preview.bind(i), grid)
+		var pick := choice_tile(character.name, "IDENTITY %02d / %s\n%s" % [i + 1, "ACTIVE" if character.available else "AVAILABLE SOON", character.description], show_character_preview.bind(i), grid)
 		pick.disabled = not character.available
-		UI.decorate(pick.get_parent().get_parent(), not character.available)
+		preload("res://scripts/room_menu_style.gd").identity(pick.get_parent().get_parent(), character.available)
 	hook_button(box.get_node("BackButton"), show_title)
 
 func character_deck(index: int) -> Array[Dictionary]:
@@ -252,7 +252,6 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 	b.text = text
 	if compact_layout:
 		b.clip_text = true
-		b.tooltip_text = text
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.custom_minimum_size = Vector2(130, 42)
 	if action.is_valid(): b.pressed.connect(action)
@@ -287,7 +286,6 @@ func choice_tile(title: String, description: String, action: Callable, parent: N
 	pick.text = title
 	if compact_layout:
 		pick.clip_text = true
-		pick.tooltip_text = title
 	hook_button(pick, action)
 	panel.get_node("Box/Details").text = description
 	return pick
@@ -311,8 +309,8 @@ func _build_ui() -> void:
 	var scene_hud := game.get_node("HUD/Root")
 	dashboard = scene_hud.get_node("Dashboard")
 	UI.decorate(dashboard)
-	prep = _make_gauge("EnergyGauge", "PREPAREDNESS ENERGY", UI.RESPONSE, "EnergyBar")
-	threat = _make_gauge("TensionGauge", "TENSION", UI.DANGER, "TensionBar")
+	prep = _make_gauge("EnergyGauge", "PREPAREDNESS", UI.TEXT, "TensionBar")
+	threat = _make_gauge("TensionGauge", "TENSION", UI.TEXT, "TensionBar")
 	var modal_frame: Control = root.get_node("ModalFrame")
 	modal_dimmer = modal_frame.get_node("%ModalDimmer")
 	modal = modal_frame.get_node("%Modal")
@@ -392,15 +390,13 @@ func _process(_delta: float) -> void:
 	dashboard.visible = battle_active and not modal.visible
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
-	boss_intent.visible = is_instance_valid(game.final_boss) and battle_active and not modal.visible and game.board_input.action.is_empty()
-	boss_intent.get_parent().visible = boss_intent.visible
-	if boss_intent.visible: boss_intent.text = game.final_boss.intent()
+	_update_boss_intent()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
 	threat.value = game.tension
-	prep.get_parent().get_node("Title").text = "%d / %d" % [game.preparedness, game.energy_cap]
-	threat.get_parent().get_node("Title").text = "TENSION  %d / %d" % [game.tension, game.tension_cap]
+	prep.get_parent().get_node("Value").text = "%d / %d" % [game.preparedness, game.energy_cap]
+	threat.get_parent().get_node("Value").text = "%d / %d" % [game.tension, game.tension_cap]
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = str(game.deck.size())
 	game.get_node("HUD/Root/EnergyPips").queue_redraw()
@@ -502,11 +498,22 @@ func _input(event: InputEvent) -> void:
 			_: return
 		get_viewport().set_input_as_handled()
 
+func _update_boss_intent() -> void:
+	var boss: Node = game.final_boss
+	var valid := is_instance_valid(boss)
+	var message: String = boss.intent() if valid else ""
+	var key := "%d:%d:%s" % [boss.get_instance_id(), game.turn, message] if valid else ""
+	var active: bool = valid and battle_active and not modal.visible and game.board_input.action.is_empty()
+	boss_intent.get_parent().update_intent(key, message, active)
+	var caption: Label = game._enemy_hp_ui.get_node("Caption")
+	caption.mouse_filter = Control.MOUSE_FILTER_STOP if valid else Control.MOUSE_FILTER_IGNORE
+	caption.tooltip_text = "CURRENT BOSS INTENT\n" + message if valid else ""
+
 func _panel_layout(kind: String) -> void:
-	var suspended := kind in ["plans", "menu", "settings", "buff"]
+	var suspended := kind in ["plans", "menu", "settings", "buff", "reward", "contingency_reward", "floor_buff"]
 	modal.set_meta("suspended_menu", suspended)
 	modal.get_node("IndustrialTrim").visible = not suspended
-	compact_layout = kind in ["menu", "settings", "buff", "confirm", "debug_password", "debug", "log", "plans", "choice", "remove_confirm"]
+	compact_layout = suspended or kind in ["confirm", "debug_password", "debug", "log", "choice", "remove_confirm"]
 	modal.custom_minimum_size = Vector2.ZERO
 	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if compact_layout:
@@ -519,7 +526,12 @@ func _panel_layout(kind: String) -> void:
 		# Card pickers are wide so 3-4 cards fit side by side; the lane picker stays narrow.
 		var width := 420.0
 		if kind in ["debug", "plans", "menu", "settings"]: width = 560.0
-		elif kind == "buff": width = 760.0
+		elif kind == "buff":
+			width = 960.0
+			height = 580.0
+		elif kind in ["reward", "contingency_reward", "floor_buff"]:
+			width = 1120.0
+			height = 680.0 if kind == "reward" else 540.0
 		elif kind == "choice" and card_picker: width = CARD_PICKER_WIDTH
 		var panel_size := Vector2(minf(width, viewport_size.x - 32), minf(height, viewport_size.y - 48))
 		modal.offset_left = (viewport_size.x - panel_size.x) / 2
@@ -530,7 +542,7 @@ func _panel_layout(kind: String) -> void:
 		if battle_active: modal.offset_top = maxf(modal.offset_top, 66)
 		modal.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
 		if suspended: MenuSkin.apply_skin(modal, content)
-		game.visible = battle_active
+		game.visible = battle_active or kind == "reward"
 		return
 	if content.get_parent() != modal: content.reparent(modal)
 	modal_scroll.hide()
@@ -558,6 +570,16 @@ func _panel_layout(kind: String) -> void:
 		# The title art runs edge to edge.
 		if kind == "title": panel_style.set_content_margin_all(0)
 	modal.add_theme_stylebox_override("panel", panel_style)
+	if kind in ["event", "shop", "victory", "result"]:
+		var available := get_viewport().get_visible_rect().size
+		var room_size := Vector2(minf(1180 if kind == "shop" else 1040, available.x - 48),
+			minf(740 if kind == "shop" else 560, available.y - 100))
+		# Victory and defeat are a smaller notice in the middle of the screen.
+		if kind in ["victory", "result"]: room_size = Vector2(minf(760, available.x - 48), minf(460, available.y - 100))
+		modal.offset_left = (available.x - room_size.x) / 2
+		modal.offset_right = -modal.offset_left
+		modal.offset_top = maxf(70, (available.y - room_size.y) / 2)
+		modal.offset_bottom = -(available.y - modal.offset_top - room_size.y)
 
 func reset_panel(title: String, subtitle: String, kind: String) -> void:
 	var catalog_inspection := root.get_node_or_null("CatalogInspection")
@@ -571,11 +593,21 @@ func reset_panel(title: String, subtitle: String, kind: String) -> void:
 		content.remove_child(child)
 		child.queue_free()
 	screen = kind
-	if kind in ["plans", "menu", "settings", "buff"]: _skin_menu.call_deferred()
+	if modal.get_meta("suspended_menu", false): _skin_menu.call_deferred()
 	modal.show()
 	if not title.is_empty(): content.add_child(label(title, 24 if compact_layout else 30, UI.GOLD, compact_layout))
 	if not subtitle.is_empty(): content.add_child(label(subtitle, 16, UI.MUTED, true))
 	game.presentation.reveal(content)
+	# The style hooks run next frame; they skip if another screen replaced this one first.
+	content.set_meta("style_kind", kind)
+	if kind in ["confirm", "choice", "remove_confirm", "log"] and not modal.get_meta("suspended_menu", false):
+		preload("res://scripts/room_menu_style.gd").compact.call_deferred(modal, content, kind)
+	if kind in ["deck", "graveyard", "upgrade", "upgrade_preview", "character_preview", "remove", "intel"]:
+		preload("res://scripts/room_menu_style.gd").catalog.call_deferred(modal, content, kind)
+	if kind in ["event", "shop"]:
+		preload("res://scripts/room_menu_style.gd").apply.call_deferred(modal, content, kind)
+	if kind in ["victory", "result"]:
+		preload("res://scripts/room_menu_style.gd").result.call_deferred(modal, content, kind)
 	if compact_layout: _fit_compact_content.call_deferred()
 
 func _fit_compact_content() -> void:
@@ -695,7 +727,7 @@ func show_map() -> void:
 	canvas.current = current
 	canvas.cleared = cleared
 	refresh_map_fog()
-	content.get_node("RouteRow/Dossier/DossierText/FloorLabel").text = "FLOOR / %02d" % floor_number
+	preload("res://scripts/route_style.gd").screen(content, floor_number)
 	animate_map.call_deferred(weakref(map_scroll), maxi(0, 1660 - 100 - (int(rooms[current].row) if current >= 0 else 0) * 145 - 280))
 	canvas.resized.connect(func():
 		for b in canvas.get_children():
@@ -717,6 +749,8 @@ func show_map() -> void:
 		if room.kind == "boss" and floor_number == 3:
 			b.text = "FINAL BOSS"
 			b.tooltip_text = "Final boss: three telegraphed phases. Prepare healing, barriers and AoE."
+		preload("res://scripts/route_style.gd").node(b, str(room.kind), id == current, id in cleared)
+		if room.kind == "boss" and floor_number == 3: b.text = "WARDEN"
 		b.position = canvas.point(room) - b.size / 2
 	var footer: Control = content.get_node("Footer")
 	if battle_active:
@@ -814,7 +848,8 @@ func battle_finished(won: bool) -> void:
 	if not won:
 		run_active = false
 		persistence.discard()
-		reset_panel("TRAPPED AFTER MIDNIGHT", "", "result")
+		reset_panel("TRAPPED AFTER MIDNIGHT", "Run ended on floor %d · %d cards in deck" % [floor_number, collection.size()],
+			"result")
 		unpack_screen(ResultScene)
 		hook_button(content.get_node("ReturnButton"), return_title)
 		return
@@ -843,9 +878,24 @@ func show_contingency_reward(next_screen: String, restore_offers: bool = false) 
 	reset_panel("NEW CONTINGENCY", "Unlock one tactic for this run.", "contingency_reward")
 	# The layout lives in ui_contingency_reward.tscn; the tactic tiles are made here.
 	var box := centered_screen(ContingencyRewardScene)
+	box.custom_minimum_size.x = maxf(300, modal.size.x - 100)
 	var row: Control = box.get_node("Row")
 	for tactic in buff_choices:
-		choice_tile(tactic.name + " · %d Plan%s" % [tactic.cost, "s" if int(tactic.cost) > 1 else ""], tactic.description, select_contingency_reward.bind(tactic.id), row)
+		var title := "%s · %d Plan%s" % [tactic.name, tactic.cost, "s" if int(tactic.cost) > 1 else ""]
+		var pick := choice_tile(title, tactic.description, select_contingency_reward.bind(tactic.id), row)
+		_style_reward_choice(pick, "armored")
+
+func _style_reward_choice(pick: Button, symbol: String) -> void:
+	pick.clip_text = false
+	pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pick.icon = UI.icon(symbol, MenuSkin.INK)
+	pick.expand_icon = true
+	pick.add_theme_constant_override("icon_max_width", 28)
+	pick.add_theme_font_size_override("font_size", 23)
+	pick.custom_minimum_size.y = 84
+	var tile: Control = pick.get_parent().get_parent()
+	tile.custom_minimum_size = Vector2(0, 250)
+	tile.get_node("Box/Details").add_theme_font_size_override("font_size", 22)
 
 func select_contingency_reward(id: String) -> void:
 	if screen != "contingency_reward" or not buff_choices.any(func(tactic): return tactic.id == id): return
@@ -1006,7 +1056,6 @@ func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), a
 	preview.set_process(false)
 	preview.hide()
 	var face := card_image(preview._vp.get_texture(), center, 180)
-	face.tooltip_text = "Hold to inspect " + str(card.name)
 	face.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	face.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -1019,7 +1068,6 @@ func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), a
 	action_button.text = action_text
 	if compact_layout:
 		action_button.clip_text = true
-		action_button.tooltip_text = action_text
 	hook_button(action_button, action)
 
 func begin_catalog_hold(card: Dictionary, face: Control) -> void:
@@ -1211,7 +1259,7 @@ func show_plans() -> void:
 	reset_panel("PREPAREDNESS · CONTINGENCIES", "Save 2 unused energy at End Turn for 1 Plan. Unlock more tactics from elite and boss wins.", "plans")
 	# The layout lives in ui_plans.tscn; the tactic tiles are made here.
 	unpack_screen(PlansScene)
-	content.get_node("Status").text = "PLANS %d / 2 · %d TACTICS UNLOCKED" % [game.plans.tokens, game.plans.unlocked.size()]
+	content.get_node("Status").text = "PLANS %d / 2" % game.plans.tokens
 	var list: Control = content.get_node("Scroll/List")
 	for id in game.plans.unlocked:
 		var tactic: Dictionary = game.plans.definition(id)
@@ -1327,6 +1375,8 @@ func card_rules(card: Dictionary) -> String:
 		return Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
 			+ "Choose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
 	var rules := "Adjacent matching types: +1 attack.\n" + Rules.special_text(card) + "\n"
+	var pillar_details := preload("res://scripts/final_boss.gd").pillar_description(card)
+	if not pillar_details.is_empty(): rules += pillar_details + "\n"
 	if effect == "draw": rules += "On play: draw %d.\n" % int(card.get("draw_count", 1))
 	if effect == "move_ally": rules += "On play: optionally choose another ally, then an empty lane, and move it there. Skipping movement does not undo the summon.\n"
 	if effect == "heal_all": rules += "On play: heal other deployed allies by 2.\n"
@@ -1402,12 +1452,10 @@ func reverse_sort(workshop: bool) -> void:
 			refresh_graveyard()
 			return
 		deck_cards(viewed_cards)
-		# Rebuild the small sort row without changing tabs or the viewed pile.
-		var row := content.get_child(3)
-		content.remove_child(row)
-		row.queue_free()
-		add_sort_controls(false)
-		content.move_child(content.get_child(content.get_child_count() - 1), 3)
+		# Update the small sort row without changing tabs or the viewed pile.
+		# Found by name: the deck heading shifts child indexes.
+		var order := content.get_node_or_null("SortRow/OrderButton") as Button
+		if order: order.text = "Descending ↓" if deck_descending else "Ascending ↑"
 
 func show_upgrade() -> void:
 	reset_panel("THE WORKSHOP", "Each card can upgrade twice.", "upgrade")
@@ -1799,9 +1847,7 @@ func confirm_buttons(yes_text: String, yes: Callable, no_text: String, no: Calla
 	var yes_button: Button = content.get_node("ConfirmButton")
 	var no_button: Button = content.get_node("CancelButton")
 	yes_button.text = yes_text
-	yes_button.tooltip_text = yes_text
 	no_button.text = no_text
-	no_button.tooltip_text = no_text
 	# Same rule as button(): risky actions get the primary style.
 	if yes_text.begins_with("Abandon"): yes_button.theme_type_variation = "PrimaryButton"
 	hook_button(yes_button, yes)
@@ -1861,7 +1907,6 @@ func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> vo
 		button("Hand card %d" % (i + 1), callback.bind(cards[i]), box)
 	var cancel_button: Button = content.get_node("CancelButton")
 	cancel_button.text = "Cancel"
-	cancel_button.tooltip_text = "Cancel"
 	hook_button(cancel_button, cancel)
 
 func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
@@ -1891,17 +1936,35 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 			var index := rng.randi_range(0, pool.size() - 1)
 			buff_choices.append(pool.pop_at(index))
 	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn,
-		"Lasts this battle.", "buff")
+		"Choose one adaptation · lasts this battle", "buff")
 	# The layout lives in ui_buff_choices.tscn; the buff tiles are made here.
 	var box := centered_screen(BuffChoicesScene)
-	box.custom_minimum_size.x = 0
+	box.custom_minimum_size.x = maxf(300, modal.size.x - 100)
+	var heading: Label = box.get_child(0)
+	heading.add_theme_font_size_override("font_size", 32)
 	var row: Control = box.get_node("Row")
+	var symbols := {
+		"strength": "strength", "health": "regenerating", "energy": "refund_energy", "burn": "burn",
+		"poison": "poison", "bleed": "bleed", "draw": "draw", "glass": "strength",
+		"overclock": "refund_energy", "blood_pact": "bleed", "patient": "regenerating",
+		"toxic_ward": "poison", "formation": "rally_all", "spines": "thorns", "precision": "piercing"
+	}
 	for buff in buff_choices:
 		var pick := choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
 		pick.clip_text = false
 		pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		pick.get_parent().get_parent().custom_minimum_size = Vector2(190, 250)
-	box.get_node("Summary").text = "YOUR BUFFS: " + buff_summary(game.player_buffs)
+		pick.icon = UI.icon(symbols.get(buff.id, "strength"), MenuSkin.INK)
+		pick.expand_icon = true
+		pick.add_theme_constant_override("icon_max_width", 28)
+		pick.custom_minimum_size.y = 76
+		pick.add_theme_font_size_override("font_size", 24)
+		var tile: Control = pick.get_parent().get_parent()
+		tile.custom_minimum_size = Vector2(0, 290)
+		var details: Label = tile.get_node("Box/Details")
+		details.add_theme_font_size_override("font_size", 22)
+	box.get_node("Summary").text = "CURRENT ADAPTATIONS\n" + buff_summary(game.player_buffs)
+	box.get_node("Summary").add_theme_font_size_override("font_size", 22)
+	row.get_child(0).get_node("Box/PickButton").grab_focus.call_deferred()
 
 func select_buff(id: String) -> void:
 	if screen != "buff" or not buff_choices.any(func(buff): return buff.id == id): return
@@ -1918,9 +1981,11 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 		"Lasts the whole run.", "floor_buff")
 	# The layout lives in ui_floor_buffs.tscn; the buff tiles are made here.
 	var box := centered_screen(FloorBuffsScene)
-	box.custom_minimum_size.x = 0
+	box.custom_minimum_size.x = maxf(300, modal.size.x - 100)
 	var row: Control = box.get_node("Row")
-	for buff in buff_choices: choice_tile(buff.name, buff.description, select_floor_buff.bind(buff.id), row)
+	for buff in buff_choices:
+		var pick := choice_tile(buff.name, buff.description, select_floor_buff.bind(buff.id), row)
+		_style_reward_choice(pick, "strength")
 	hook_button(box.get_node("ReturnButton"), return_title)
 
 func select_floor_buff(id: String) -> void:

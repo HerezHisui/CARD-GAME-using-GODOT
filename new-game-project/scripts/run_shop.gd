@@ -28,20 +28,6 @@ static func show_shop(director: Node) -> void:
 		director.shop_purchased.clear()
 	# The header shows how many supplies the player has.
 	director.reset_panel("THE SUPPLY ROOM", "", "shop")
-	# Coin icon in front of the number.
-	var coins_row := HBoxContainer.new()
-	coins_row.add_theme_constant_override("separation", 6)
-	var coin := TextureRect.new()
-	coin.texture = COIN_ICON
-	coin.custom_minimum_size = Vector2(22, 22)
-	coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	coins_row.add_child(coin)
-	var amount: Label = director.label("%d" % director.coins, 16, UI.MUTED)
-	# No wrap, so compact layout cannot squash the number.
-	amount.autowrap_mode = TextServer.AUTOWRAP_OFF
-	coins_row.add_child(amount)
-	director.content.add_child(coins_row)
 	director.unpack_screen(ShopScene)
 	var row: Control = director.content.get_node("Stock")
 	for card in director.shop_stock:
@@ -56,7 +42,6 @@ static func show_shop(director: Node) -> void:
 			# Too expensive: keep the price on a grayed-out, disabled Buy button.
 			var buy_button: Button = row.get_child(row.get_child_count() - 1).get_node("Box/ActionButton")
 			buy_button.disabled = true
-			buy_button.tooltip_text = "Need %d supplies" % price
 	var heal: Button = director.content.get_node("HealButton")
 	heal.text = "First aid · +%d HP · -15 supplies" % director.healing_gain(5)
 	director.hook_button(heal, Callable(director, "buy_heal")).disabled = director.coins < 15 \
@@ -112,11 +97,9 @@ static func preview_remove(director: Node, index: int) -> void:
 	var confirm: Button = director.content.get_node("ConfirmButton")
 	confirm.text = "Destroy card · " + ("-30 supplies" if director.remove_origin == "shop"
 		else ("+25 supplies" if director.remove_origin == "event" else "free"))
-	confirm.tooltip_text = confirm.text
 	director.hook_button(confirm, Callable(director, "confirm_remove")).disabled = director.collection.size() <= 5 \
 		or (director.remove_origin == "shop" and director.coins < 30)
 	var back: Button = director.content.get_node("BackButton")
-	back.tooltip_text = back.text
 	director.hook_button(back, Callable(director, "show_remove_cards").bind(director.remove_origin))
 
 static func confirm_remove(director: Node) -> void:
