@@ -15,7 +15,7 @@ const PROFILES := {
 	"flood": ["drop", Color("63d9ff"), 0.95],
 	"typhoon": ["wind", Color("c4a4ff"), 1.35],
 	"earthquake": ["shard", Color("d6ac7b"), 0.65],
-	"evac": ["arrow", Color("b7ed80"), 1.25],
+	"evac": ["wind", Color("d5e9df"), 1.25],
 	"douse": ["drop", Color("88e5ee"), 0.9],
 	"clearance": ["shard", Color("ffc36d"), 1.05],
 	"brace": ["shield", Color("c6d9ed"), 0.45],
@@ -157,6 +157,9 @@ func _make_particles(profile: String) -> GPUParticles3D:
 	ramp.gradient = gradient
 	material.color_ramp = ramp
 	var mesh := particles.draw_pass_1.duplicate() as QuadMesh
+	if profile == "evac":
+		mesh.size = Vector2(0.15, 0.055)
+		material.gravity = Vector3(0, 0.08, 0)
 	var draw := mesh.material.duplicate() as StandardMaterial3D
 	draw.albedo_texture = TEXTURES[settings[0]]
 	mesh.material = draw

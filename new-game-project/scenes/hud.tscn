@@ -22,10 +22,6 @@ border_color = Color(0.8784314, 0.6627451, 0.23137255, 1)
 
 [sub_resource type="StyleBoxEmpty" id="Plate_empty"]
 
-[sub_resource type="SystemFont" id="EndTurn_font"]
-font_names = PackedStringArray("Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", "Arial")
-font_weight = 700
-
 [sub_resource type="StyleBoxFlat" id="EndTurn_normal"]
 bg_color = Color(0.7019608, 0.14901961, 0.11764706, 1)
 border_width_left = 2
@@ -184,15 +180,13 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -116.0
-offset_top = -214.0
+offset_top = -134.0
 offset_right = -16.0
-offset_bottom = -158.0
+offset_bottom = -78.0
 grow_horizontal = 0
 grow_vertical = 0
 custom_minimum_size = Vector2(100, 56)
-tooltip_text = "Draw your card for this turn."
 focus_mode = 0
-theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
 theme_override_styles/pressed = SubResource("Plate_pressed")
@@ -289,9 +283,9 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -244.0
-offset_top = -173.0
+offset_top = -72.0
 offset_right = -124.0
-offset_bottom = -117.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
@@ -303,9 +297,7 @@ theme_override_colors/font_focus_color = Color(0.9372549, 0.9019608, 0.8156863, 
 theme_override_colors/font_disabled_color = Color(0.41960785, 0.37254903, 0.37254903, 1)
 theme_override_colors/font_outline_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
 theme_override_constants/outline_size = 3
-theme_override_fonts/font = SubResource("EndTurn_font")
 theme_override_font_sizes/font_size = 22
-theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("EndTurn_disabled")
 theme_override_styles/hover = SubResource("EndTurn_hover")
 theme_override_styles/pressed = SubResource("EndTurn_pressed")
@@ -319,10 +311,10 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -292.0
+offset_left = -260.0
 offset_top = 64.0
 offset_right = -16.0
-offset_bottom = 132.0
+offset_bottom = 116.0
 grow_horizontal = 0
 mouse_filter = 2
 
@@ -381,9 +373,9 @@ text_overrun_behavior = 3
 layout_mode = 1
 anchors_preset = 0
 offset_left = 16.0
-offset_top = 6.0
-offset_right = 416.0
-offset_bottom = 46.0
+offset_top = 2.0
+offset_right = 316.0
+offset_bottom = 50.0
 grow_vertical = 0
 mouse_filter = 2
 
@@ -438,9 +430,9 @@ vertical_alignment = 1
 [node name="SuppliesIcon" type="TextureRect" parent="TopBar"]
 editor_description = "Coin icon in front of the Supplies number."
 layout_mode = 0
-offset_left = 432.0
+offset_left = 332.0
 offset_top = 15.0
-offset_right = 454.0
+offset_right = 354.0
 offset_bottom = 37.0
 mouse_filter = 2
 texture = ExtResource("9_coin")
@@ -450,7 +442,7 @@ stretch_mode = 5
 [node name="SuppliesLabel" type="Label" parent="TopBar"]
 editor_description = "Supplies (the run's money) in the top bar. Text is set in run_director.gd."
 layout_mode = 0
-offset_left = 460.0
+offset_left = 360.0
 offset_top = 6.0
 offset_right = 592.0
 offset_bottom = 46.0
@@ -478,6 +470,7 @@ stretch_mode = 5
 
 [node name="EnergyPips" type="Control" parent="Root"]
 editor_description = "Energy pips at the left of the hand. Drawn by run_director.gd; the x / y text is in ui_shell.tscn."
+visible = false
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
@@ -489,20 +482,6 @@ offset_bottom = -146.0
 grow_vertical = 0
 mouse_filter = 2
 
-[node name="TensionPlate" type="Panel" parent="Root"]
-editor_description = "Frame behind the Tension gauge (the gauge itself is in ui_shell.tscn)."
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -292.0
-offset_top = 140.0
-offset_right = -16.0
-offset_bottom = 200.0
-grow_horizontal = 0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("Rust_panel")
-
 [node name="PlansBox" type="VBoxContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 3
@@ -511,23 +490,21 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -116.0
-offset_top = -152.0
+offset_top = -72.0
 offset_right = -16.0
-offset_bottom = -96.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
 
 [node name="PlansButton" type="Button" parent="Root/PlansBox"]
 custom_minimum_size = Vector2(100, 56)
 layout_mode = 2
-tooltip_text = "Bank 2 unused energy for one Plan. Arm a contingency before combat."
 mouse_default_cursor_shape = 2
 theme_override_colors/font_outline_color = Color(0.043137256, 0.043137256, 0.050980393, 1)
 theme_override_constants/outline_size = 4
 theme_override_constants/h_separation = 8
 theme_override_constants/icon_max_width = 44
 theme_override_font_sizes/font_size = 24
-theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
 theme_override_styles/pressed = SubResource("Plate_pressed")
@@ -543,19 +520,17 @@ layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = -80.0
-offset_right = 116.0
-offset_bottom = -24.0
+offset_left = 328.0
+offset_top = -72.0
+offset_right = 428.0
+offset_bottom = -16.0
 grow_vertical = 0
-tooltip_text = "Response graveyard. Inspect lost units and eligible recovery targets."
 mouse_default_cursor_shape = 2
 theme_override_colors/font_outline_color = Color(0.043137256, 0.043137256, 0.050980393, 1)
 theme_override_constants/outline_size = 4
 theme_override_constants/h_separation = 8
 theme_override_constants/icon_max_width = 44
 theme_override_font_sizes/font_size = 24
-theme_override_styles/focus = SubResource("Focus_empty")
 theme_override_styles/disabled = SubResource("Plate_disabled")
 theme_override_styles/hover = SubResource("Plate_hover")
 theme_override_styles/pressed = SubResource("Plate_pressed")

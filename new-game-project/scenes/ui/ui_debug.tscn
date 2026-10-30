@@ -123,7 +123,6 @@ size_flags_horizontal = 3
 [node name="ApplyButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Apply values"
 mouse_default_cursor_shape = 2
 text = "Apply values"
 clip_text = true
@@ -196,7 +195,6 @@ max_value = 99.0
 [node name="SetStatusButton" type="Button" parent="StatusRow"]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Set status"
 mouse_default_cursor_shape = 2
 text = "Set status"
 clip_text = true
@@ -204,7 +202,6 @@ clip_text = true
 [node name="CancelButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Cancel"
 mouse_default_cursor_shape = 2
 text = "Cancel"
 clip_text = true

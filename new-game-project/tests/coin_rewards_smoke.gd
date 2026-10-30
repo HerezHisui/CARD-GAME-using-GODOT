@@ -22,12 +22,12 @@ func banner_style_checks() -> void:
 		var strip: ColorRect = banner.get_node("BannerStrip")
 		var material: ShaderMaterial = strip.material
 		check(style.bg_color == Color.TRANSPARENT
-			and material.get_shader_parameter("fill_color") == Color(director.UI.INSET, 0.94),
+			and material.get_shader_parameter("fill_color") == Color(director.UI.INSET, 0.82),
 			"encounter and turn banners use a translucent dark strip")
 		check(material.shader == load("res://scripts/banner_strip.gdshader")
-			and material.get_shader_parameter("line_color") == Color("ffc16b")
-			and material.get_shader_parameter("line_width") == 2.5,
-			"banner uses the soft edge shader with two full width glowing amber lines")
+			and material.get_shader_parameter("line_color") == director.UI.GOLD
+			and material.get_shader_parameter("line_width") == 1.5,
+			"banner uses the soft edge shader with two thin full-width gold rules")
 		check(style.border_width_bottom == 0 and style.border_width_left == 0
 			and style.border_width_right == 0, "banner omits full width borders")
 		check(style.border_width_top == 0 and not banner.has_node("IndustrialTrim"),
@@ -45,7 +45,7 @@ func banner_style_checks() -> void:
 		check(title.get_theme_color("font_color") == director.UI.TEXT
 			and title.get_theme_font_size("font_size") == 48
 			and heading_font.base_font == director.UI.font(true) and heading_font.spacing_glyph == 2,
-			"banner title uses the bold condensed heading font in off-white")
+			"banner title uses Caveat Brush headings in cream")
 		var subtitle: Label = banner.get_child(0).get_child(1)
 		check(subtitle.text == "Prepare your formation"
 			and subtitle.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER

@@ -16,8 +16,8 @@ const SMOOTHING := 5.0
 const SHIMMER_SECONDS := 8.0
 const RAY_ALPHA := 0.5
 ## Extra space between title letters, in pixels.
-const TITLE_SPACING := 18
-const SUBTITLE_SPACING := 6
+const TITLE_SPACING := 10
+const SUBTITLE_SPACING := 5
 ## The title text dims by at most this much in its slow flicker.
 const FLICKER_AMOUNT := 0.07
 ## Gap between a menu item's text and its arrow marker.
@@ -35,6 +35,7 @@ var selected: Button
 ## Only set when the Compatibility renderer is used.
 var cpu_dust: CPUParticles2D
 var marker_y := -1.0
+var game_logo: TextureRect
 
 @onready var backdrop: Control = %Backdrop
 @onready var rays: TextureRect = %Rays
@@ -51,6 +52,7 @@ var marker_y := -1.0
 func _ready() -> void:
 	build_background()
 	style_text()
+	build_logo()
 	for item in menu.get_children():
 		if item is Button: style_menu_button(item)
 	markers.draw.connect(draw_markers)
@@ -80,25 +82,46 @@ func style_text() -> void:
 		label.add_theme_font_override("font", title_face)
 	for label in [subtitle_label, sub_glow_label]:
 		label.add_theme_font_override("font", subtitle_face)
-	# Bone-white MIDNIGHT and dark red DRRills, both with a thin dark outline.
+	# Cream MIDNIGHT and gold DRRills, both with a thin dark outline.
 	title_label.add_theme_color_override("font_color", UI.TEXT)
-	subtitle_label.add_theme_color_override("font_color", UI.ACTION.darkened(0.2))
+	subtitle_label.add_theme_color_override("font_color", UI.GOLD)
 	for label in [title_label, subtitle_label]:
-		label.add_theme_color_override("font_outline_color", Color.BLACK)
-	# The glow copies are red, with a thick outline so the halo is wide.
+		label.add_theme_color_override("font_outline_color", UI.INSET)
+		label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.65))
+		label.add_theme_constant_override("shadow_offset_y", 4)
+	# Bronze glow copies add a soft halo behind the sharp title.
 	for label in [glow_label, sub_glow_label]:
-		label.add_theme_color_override("font_color", UI.ACTION)
-		label.add_theme_color_override("font_outline_color", UI.ACTION)
+		label.add_theme_color_override("font_color", UI.BRONZE)
+		label.add_theme_color_override("font_outline_color", UI.BRONZE)
 	rays.modulate = Color(UI.TEXT, RAY_ALPHA)
 	dust.modulate = Color(UI.TEXT, 0.55)
 	if cpu_dust: cpu_dust.modulate = dust.modulate
 	%SaveLabel.add_theme_color_override("font_color", UI.MUTED)
 	UI.outline(%SaveLabel)
 
+func build_logo() -> void:
+	title_label.hide()
+	subtitle_label.hide()
+	title_glow.hide()
+	game_logo = TextureRect.new()
+	game_logo.name = "GameLogo"
+	game_logo.texture = load("res://assets/branding/midnight-drrills-logo.png")
+	game_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	game_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	game_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_box.add_child(game_logo)
+	game_logo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	game_logo.anchor_left = 0.1
+	game_logo.anchor_right = 0.9
+	# The supplied wide logo needs more height than the previous text heading.
+	title_box.anchor_bottom = 0.5
+	title_box.modulate.a = 0.0
+	create_tween().tween_property(title_box, "modulate:a", 1.0, 0.35)
+
 ## The theme's heading font with extra space between letters.
 func spaced_face(spacing: int) -> FontVariation:
 	var face := FontVariation.new()
-	face.base_font = title_label.get_theme_font("font")
+	face.base_font = UI.font(true)
 	face.spacing_glyph = spacing
 	return face
 
@@ -129,7 +152,7 @@ func set_effects(on: bool) -> void:
 	if cpu_dust: particles = cpu_dust
 	particles.visible = on
 	particles.set("emitting", on)
-	title_glow.visible = on
+	title_glow.visible = false
 	background.material = glow_material if on else null
 	if not on:
 		mouse_offset = Vector2.ZERO
@@ -193,7 +216,7 @@ func update_flicker() -> void:
 	# Three waves at odd speeds, so the flicker does not look like a loop.
 	var wave := sin(time * 0.9) * 0.5 + sin(time * 2.3) * 0.3 + sin(time * 5.1) * 0.2
 	var light := 1.0 - FLICKER_AMOUNT * (wave * 0.5 + 0.5)
-	title_box.modulate = Color(light, light, light, 1.0)
+	title_box.modulate = Color(light, light, light, title_box.modulate.a)
 
 ## Parallax pauses when the window loses focus or a controller is used; the mouse brings it back.
 func _notification(what: int) -> void:

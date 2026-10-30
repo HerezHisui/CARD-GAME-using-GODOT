@@ -7,7 +7,8 @@ const ROOM_YAW := 90.0
 # Centre of the dedicated table in the user's marked rear area.
 const DESK_CENTER := Vector3(.1, .7897859, -3.0)
 const TABLE_SCALE := 0.94
-const TABLE_SIZE := Vector3(5.1 * TABLE_SCALE, .16, 7.2 * TABLE_SCALE)
+const TABLE_WIDTH_SCALE := 1.16
+const TABLE_SIZE := Vector3(5.1 * TABLE_SCALE * TABLE_WIDTH_SCALE, .16, 7.2 * TABLE_SCALE)
 var room_frame: Node3D
 
 func _ready() -> void:
@@ -23,7 +24,7 @@ func _ready() -> void:
 	room_frame.add_child(source)
 	var table: Node3D = source.find_child("GameTable", true, false)
 	if table:
-		table.global_transform = Transform3D(Basis.from_scale(Vector3(TABLE_SCALE, 1, TABLE_SCALE)), Vector3.ZERO) * table.global_transform
+		table.global_transform = Transform3D(Basis.from_scale(Vector3(TABLE_SCALE * TABLE_WIDTH_SCALE, 1, TABLE_SCALE)), Vector3.ZERO) * table.global_transform
 	# Imported desk/chair instances share materials. Adapt each unique material
 	# once instead of allocating a copy for every mesh surface.
 	var material_cache: Dictionary = {}

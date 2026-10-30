@@ -231,7 +231,7 @@ func _build_face() -> void:
 	var accent: Color = UI.affinity_color(elem)
 	var is_disaster: bool = card_data.get("type", "") == "disaster"
 
-	if not face_font: face_font = UI.font(true)
+	if not face_font: face_font = UI.card_font(true)
 	var title_font := face_font
 
 	# Painted frame for this element, if both files exist.
@@ -531,7 +531,7 @@ func _add_effect_icon(kind: String, stacks: int = 0, detail: String = "") -> voi
 		badge.tooltip_text += "\n" + descriptions[kind]
 	_status_row.add_child(badge)
 	if stacks > 0:
-		var count := _face_label(UI.font(true), 10, UI.TEXT)
+		var count := _face_label(UI.card_font(true), 10, UI.TEXT)
 		count.name = "Count"
 		count.text = str(stacks)
 		count.clip_text = true
@@ -687,7 +687,7 @@ func place_on_slot(slot: Node3D) -> void:
 	set_layer(0)
 	_refresh_face()
 	if _tween: _tween.kill()
-	var land := slot.global_position + Vector3(0, 0.02, 0)
+	var land := slot.global_position + Vector3(0, 0.008, 0)
 	var mid := global_position.lerp(land, 0.5) + Vector3(0, 0.5, 0)
 	_tween = create_tween()
 	_tween.set_parallel(true)
@@ -698,14 +698,15 @@ func place_on_slot(slot: Node3D) -> void:
 	_tween.chain().tween_property(self, "scale", Vector3.ONE * _manager().BOARD_SCALE, 0.14).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
 ## Disaster cards: flip in face-down from above the slot and slam down.
-func enter_from_above(slot: Node3D) -> void:
+func enter_from_above(slot: Node3D, release_origin := Vector3.INF) -> void:
 	in_hand = false
 	current_slot = slot
 	if not preview_only and is_instance_valid(_manager().vfx): _manager().vfx.sync_status(self, false)
 	_set_overlay(false)
 	set_layer(0)
-	var land := slot.global_position + Vector3(0, 0.02, 0)
+	var land := slot.global_position + Vector3(0, 0.008, 0)
 	global_position = land + Vector3(0, 1.8, -0.6)
+	if release_origin.is_finite(): global_position = release_origin
 	rotation = Vector3(0, 0, PI)          # face down
 	if _tween: _tween.kill()
 	_tween = create_tween().set_parallel(true)
@@ -981,7 +982,7 @@ func cleanse() -> void:
 static func _card_back() -> Texture2D:
 	if back_texture: return back_texture
 	var img := Image.create(132, 180, false, Image.FORMAT_RGB8)
-	img.fill(UI.INSET)
+	img.fill(Color.BLACK)
 	var gold := UI.GOLD
 	for x in range(6, 126):
 		img.set_pixel(x, 6, gold)
@@ -989,18 +990,5 @@ static func _card_back() -> Texture2D:
 	for y in range(6, 174):
 		img.set_pixel(6, y, gold)
 		img.set_pixel(125, y, gold)
-	for y in range(180):
-		for x in range(132):
-			var distance := Vector2(x - 66, y - 90).length()
-			if absf(distance - 31) < 1.2 or absf(distance - 26) < 0.7:
-				img.set_pixel(x, y, gold)
-	# Corner marks: flame, wave, fault, and spiral; no front illustration.
-	for y in range(-9, 10):
-		for x in range(-9, 10):
-			if abs(x) < floori((9 - y) / 3.0) and y > -8: img.set_pixel(22 + x, 24 + y, UI.AFFINITIES.fire)
-			if absf(y - sin(x * 0.5) * 3) < 1.5 or absf(y - sin(x * 0.5) * 3 - 5) < 1: img.set_pixel(109 + x, 24 + y, UI.AFFINITIES.flood)
-			if abs(x - (3 if y < 0 else -3)) <= 1: img.set_pixel(22 + x, 155 + y, UI.AFFINITIES.earthquake)
-			var radius := Vector2(x, y).length()
-			if absf(radius - 7) < 1 or radius < 2: img.set_pixel(109 + x, 155 + y, UI.AFFINITIES.typhoon)
 	back_texture = ImageTexture.create_from_image(img)
 	return back_texture

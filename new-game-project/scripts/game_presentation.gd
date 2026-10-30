@@ -176,52 +176,18 @@ func remind_to_draw(active: bool) -> void:
 		draw_reminder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		draw_reminder.add_theme_stylebox_override("panel", UI.panel(UI.ACTION, UI.GOLD, 0))
 		button.add_child(draw_reminder)
-		button.move_child(draw_reminder, 0)
+		# Overlay the icon too: its source art has an opaque dark background.
 	draw_reminder.show()
 	draw_reminder.modulate.a = 0.0
 	draw_reminder_tween = draw_reminder.create_tween().set_loops()
-	draw_reminder_tween.tween_property(draw_reminder, "modulate:a", 0.85, 0.45)
+	draw_reminder_tween.tween_property(draw_reminder, "modulate:a", 0.35, 0.45)
 	draw_reminder_tween.tween_property(draw_reminder, "modulate:a", 0.0, 0.45)
 
 func button_feedback(button: Button) -> void:
 	if button.has_meta("hover_feedback"): return
 	button.set_meta("hover_feedback", true)
-	var tween: Array = [null]
-	var fill: Array = [null]
-	var reference: WeakRef = weakref(button)
-	var animate := func(scale_value: float, color: Color):
-		var live_button = reference.get_ref()
-		if not is_instance_valid(live_button) or live_button.is_queued_for_deletion(): return
-		if tween[0]: tween[0].kill()
-		if fill[0] == null:
-			fill[0] = live_button.get_theme_stylebox("normal").duplicate()
-			for state in ["normal", "hover", "pressed", "hover_pressed"]:
-				live_button.add_theme_stylebox_override(state, fill[0])
-		live_button.pivot_offset = live_button.size / 2
-		tween[0] = live_button.create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		tween[0].tween_property(live_button, "scale", Vector2.ONE * scale_value, 0.10)
-		# Art frames have no bg_color, so tint them instead.
-		if fill[0] is StyleBoxTexture:
-			tween[0].tween_property(fill[0], "modulate_color", _texture_tint(color), 0.14)
-		elif fill[0] is StyleBoxFlat:
-			tween[0].tween_property(fill[0], "bg_color", color, 0.14)
-	button.mouse_entered.connect(func():
-		var live_button = reference.get_ref()
-		if is_instance_valid(live_button) and not live_button.disabled: animate.call(1.0, UI.ACTION)
-	)
-	button.mouse_exited.connect(func(): animate.call(1.0, UI.BACKGROUND))
-	button.button_down.connect(func(): animate.call(1.0, UI.CRIMSON))
-	button.button_up.connect(func():
-		var live_button = reference.get_ref()
-		if is_instance_valid(live_button):
-			animate.call(1.0, UI.ACTION if live_button.is_hovered() else UI.BACKGROUND)
-	)
-
-## Hover brightens an art frame, press darkens it, rest is plain white.
-func _texture_tint(color: Color) -> Color:
-	if color == UI.ACTION: return Color(1.2, 1.2, 1.2)
-	if color == UI.CRIMSON: return Color(0.8, 0.8, 0.8)
-	return Color.WHITE
+	# Native theme states preserve custom skins, toggle state and controller focus.
+	# Do not override or tween style resources here: menus can reskin after setup.
 
 func card_feedback(face: Control) -> void:
 	var tween: Array = [null]
@@ -315,9 +281,9 @@ func add_banner_strip(panel: PanelContainer) -> ShaderMaterial:
 	strip.show_behind_parent = true
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://scripts/banner_strip.gdshader")
-	material.set_shader_parameter("fill_color", Color(UI.INSET, 0.94))
-	material.set_shader_parameter("line_color", Color("ffc16b"))
-	material.set_shader_parameter("line_width", 2.5)
+	material.set_shader_parameter("fill_color", Color(UI.INSET, 0.82))
+	material.set_shader_parameter("line_color", UI.GOLD)
+	material.set_shader_parameter("line_width", 1.5)
 	material.set_shader_parameter("reveal", 0.0)
 	strip.material = material
 	panel.add_child(strip)

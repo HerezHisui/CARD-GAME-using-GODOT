@@ -15,7 +15,7 @@ layout_mode = 2
 theme_type_variation = &"HeadingLabel"
 theme_override_colors/font_color = Color(0.8784314, 0.7254902, 0.3882353, 1)
 theme_override_font_sizes/font_size = 23
-text = "PLANS 0 / 2 · 0 TACTICS UNLOCKED"
+text = "PLANS 0 / 2"
 autowrap_mode = 3
 
 [node name="Scroll" type="ScrollContainer" parent="."]
@@ -37,7 +37,6 @@ autowrap_mode = 3
 [node name="ReturnButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Return to battle"
 mouse_default_cursor_shape = 2
 text = "Return to battle"
 clip_text = true

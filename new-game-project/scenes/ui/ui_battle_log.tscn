@@ -20,7 +20,6 @@ scroll_following = true
 [node name="CloseButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Close"
 mouse_default_cursor_shape = 2
 text = "Close"
 clip_text = true

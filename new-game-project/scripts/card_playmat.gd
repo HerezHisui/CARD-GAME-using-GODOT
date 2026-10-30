@@ -1,23 +1,14 @@
 extends Node3D
-## Reusable framed school slate; collision and lane ownership stay with Slots.
-const WIDTH := 4.34
-const DEPTH := 2.5
+## Imported game board; collision and lane ownership stay with Slots.
+const WIDTH := 5.3
+const DEPTH := 3.2
+# Measured from the GLB recess boundaries, rather than the outer frame or screenshots.
+const SLOT_COLUMNS := [-0.3011, -0.0993, 0.1000, 0.3020]
+const SLOT_ROWS := [-0.2230, 0.2230]
+const RECESS_HEIGHT := 1.0133
+const SLOT_HEIGHT := 1.016
 const BOARD = preload("res://scenes/school_drill_board.tscn")
 func _ready() -> void:
 	name = "Playmat"
 	add_child(BOARD.instantiate())
 	for slot in get_parent().get_node("Slots").get_children(): slot.visible = false
-	var brass := StandardMaterial3D.new()
-	brass.albedo_color = Color("77603c")
-	brass.metallic = 0.7
-	brass.roughness = 0.56
-	var cap := BoxMesh.new()
-	cap.size = Vector3(0.22, 0.006, 0.045)
-	cap.material = brass
-	for x in [-1, 1]:
-		for z in [-1, 1]:
-			var corner := MeshInstance3D.new()
-			corner.name = "BrassCorner"
-			corner.mesh = cap
-			corner.position = Vector3(x * 2.12, 1.022, z * 1.27)
-			add_child(corner)

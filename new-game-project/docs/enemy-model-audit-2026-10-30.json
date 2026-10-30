@@ -1,0 +1,56 @@
+{
+  "source": "C:\\Users\\0stef\\Downloads\\meshy-model-2026-10-30T06-17-31-635Z.glb",
+  "bytes": 136324,
+  "sha256": "5431d8e3b41dce2ee7b0c7ab42c71fe0f26296ee720b1f92e47a26859ee2b6f5",
+  "asset": {
+    "version": "2.0",
+    "generator": "THREE.GLTFExporter r170"
+  },
+  "counts": {
+    "nodes": 27,
+    "meshes": 0,
+    "skins": 0,
+    "animations": 1,
+    "materials": 0,
+    "images": 0,
+    "textures": 0
+  },
+  "nodes": [
+    "char1",
+    "head_end",
+    "headfront",
+    "Head",
+    "neck",
+    "LeftHand",
+    "LeftForeArm",
+    "LeftArm",
+    "LeftShoulder",
+    "RightHand",
+    "RightForeArm",
+    "RightArm",
+    "RightShoulder",
+    "Spine",
+    "Spine01",
+    "Spine02",
+    "LeftToeBase",
+    "LeftFoot",
+    "LeftLeg",
+    "LeftUpLeg",
+    "RightToeBase",
+    "RightFoot",
+    "RightLeg",
+    "RightUpLeg",
+    "Hips",
+    "Armature",
+    "Scene"
+  ],
+  "animations": [
+    {
+      "name": "rigify_clip",
+      "channels": 48,
+      "duration_seconds": 4
+    }
+  ],
+  "external_buffers": [],
+  "finding": "Animation-only GLB: no mesh primitives, skin weights, materials, textures, or finger joints. Geometry scale, topology, hands, and cloth cannot be assessed."
+}

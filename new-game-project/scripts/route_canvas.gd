@@ -11,9 +11,15 @@ func point(room: Dictionary) -> Vector2:
 
 func _draw() -> void:
 	if rooms.is_empty(): return
-	draw_rect(Rect2(Vector2.ZERO, size), UI.INSET)
-	for y in range(0, int(size.y), 32):
-		draw_line(Vector2(0, y), Vector2(size.x, y), Color(UI.BRONZE, 0.035), 1)
+	draw_rect(Rect2(Vector2.ZERO, size), Color("14110d"))
+	# Quiet contour bands suggest terrain without competing with the route graph.
+	for band in range(18):
+		var contour := PackedVector2Array()
+		for step in range(33):
+			var x := float(step) * size.x / 32
+			var y := band * 100.0 + sin(x * .012 + band * .7) * 28 + sin(x * .025 + band) * 12
+			contour.append(Vector2(x, y))
+		draw_polyline(contour, Color(.64, .36, .12, .13), 1.0, true)
 	for room in rooms:
 		if int(room.lane) == 0:
 			var p := point(room)
@@ -23,9 +29,18 @@ func _draw() -> void:
 			var visited: bool = room.id in cleared and (next_id in cleared or next_id == current)
 			var start := point(room)
 			var finish := point(next)
-			draw_line(start, finish, UI.RAISED, 7, true)
-			draw_line(start, finish, UI.GOLD if visited else UI.BRONZE.darkened(0.35), 2, true)
-			draw_circle(start.lerp(finish, 0.5), 3, UI.GOLD if visited else UI.BRONZE)
+			var available: bool = int(room.id) == current and current in cleared
+			var color := Color("6b4825")
+			if visited: color = Color("bd9654")
+			if available: color = Color("ffae42")
+			draw_line(start, finish, Color(.65, .34, .08, .12), 12, true)
+			draw_line(start, finish, color, 4 if available else 2, true)
+			var middle := start.lerp(finish, .5)
+			var direction := (finish - start).normalized()
+			var side := direction.orthogonal()
+			# Arrows communicate bottom-to-top travel, including diagonal branches.
+			draw_polyline(PackedVector2Array([middle - direction * 7 + side * 5,
+				middle, middle - direction * 7 - side * 5]), color, 2, true)
 	if current >= 0:
 		var p := point(rooms[current])
 		draw_string(UI.font(true), p + Vector2(-62, -48), "CURRENT ROOM", HORIZONTAL_ALIGNMENT_CENTER, 124, 13, UI.GOLD)

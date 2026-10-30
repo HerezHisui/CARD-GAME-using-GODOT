@@ -1,0 +1,33 @@
+{
+  "source_sha256": "f6b455e40f8f2aef4ad59f82704fdc4a675b32cf941fac7b761331cfd64d862a",
+  "vertices": 26959,
+  "triangles": 30899,
+  "bones": 75,
+  "mixed_weight_vertices": 23713,
+  "finger_regions": {
+    "Thumb1_L": 908,
+    "Index1_L": 441,
+    "Middle1_L": 360,
+    "Ring1_L": 377,
+    "Little1_L": 373,
+    "Thumb2_L": 6,
+    "Index2_L": 25,
+    "Middle2_L": 62,
+    "Ring2_L": 52,
+    "Little2_L": 23,
+    "Thumb1_R": 463,
+    "Ring1_R": 374,
+    "Middle1_R": 399,
+    "Little1_R": 697,
+    "Index1_R": 205,
+    "Thumb2_R": 72,
+    "Index2_R": 8,
+    "Little2_R": 34
+  },
+  "geometry_repairs": "None; original topology and UVs retained.",
+  "animations": [
+    "idle",
+    "card_play",
+    "warden_pattern"
+  ]
+}

@@ -45,7 +45,6 @@ autowrap_mode = 3
 [node name="ResumeButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Resume"
 mouse_default_cursor_shape = 2
 text = "Resume"
 clip_text = true
@@ -53,7 +52,6 @@ clip_text = true
 [node name="DebugButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Debug values"
 mouse_default_cursor_shape = 2
 text = "Debug values"
 clip_text = true
@@ -61,7 +59,6 @@ clip_text = true
 [node name="TitleButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Return to starting screen…"
 mouse_default_cursor_shape = 2
 text = "Return to starting screen…"
 clip_text = true
@@ -69,7 +66,6 @@ clip_text = true
 [node name="QuitButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)
 layout_mode = 2
-tooltip_text = "Quit game"
 mouse_default_cursor_shape = 2
 text = "Quit game"
 clip_text = true

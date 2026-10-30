@@ -4,18 +4,18 @@ shader_type canvas_item;
 // The threshold keeps the dark hallway dark; only the bright spots glow.
 // The picture also gets a light blur, except a soft oval around the silhouette.
 
-uniform float strength = 1.0;
+uniform float strength = 0.3;
 uniform float threshold = 0.16;
 // How much the glow swells and fades, and how fast (radians per second).
 uniform float pulse_amount = 0.25;
 uniform float pulse_speed = 1.1;
 // Blur reach in texture pixels.
-uniform float blur_pixels = 1.6;
+uniform float blur_pixels = 5.0;
 // Oval (center and radius in UV) where the silhouette stays sharper.
 uniform vec2 sharp_center = vec2(0.5, 0.54);
-uniform vec2 sharp_radius = vec2(0.07, 0.24);
+uniform vec2 sharp_radius = vec2(0.22, 0.38);
 // 1.0 means fully sharp in the middle of the oval.
-uniform float sharp_amount = 0.6;
+uniform float sharp_amount = 1.0;
 
 vec3 bright(vec3 color) {
 	return max(color - vec3(threshold), vec3(0.0));

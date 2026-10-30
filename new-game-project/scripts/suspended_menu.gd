@@ -26,18 +26,21 @@ static func apply_skin(modal: Control, content: Control) -> void:
 
 static func style_children(parent: Node) -> void:
 	for child in parent.get_children():
+		# Card preview viewports own their typography and colors.
+		if child is Node3D or child is SubViewport: continue
 		if child is Label or child is Button or child is RichTextLabel:
 			child.add_theme_color_override("font_color", INK)
 			child.add_theme_color_override("default_color", INK)
 			child.add_theme_constant_override("outline_size", 0)
 		if child is Button:
-			for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 				var fill := CREAM.lightened(0.15) if state == "normal" else CREAM
 				if state == "hover": fill = Color("ffe5ac")
+				if state in ["pressed", "hover_pressed"]: fill = Color("d0b37e")
 				if state == "disabled": fill = Color("c1b39a")
 				if state == "focus": fill = Color.TRANSPARENT
 				child.add_theme_stylebox_override(state, box(fill, INK if state != "focus" else BRONZE))
-			for state in ["font_hover_color", "font_pressed_color", "font_focus_color"]:
+			for state in ["font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
 				child.add_theme_color_override(state, INK)
 			child.add_theme_color_override("font_disabled_color", Color("6c6458"))
 		if child is PanelContainer:
@@ -65,7 +68,7 @@ func _draw() -> void:
 	# Suspended straps stay behind the title/header and never intercept input.
 	for fraction in [0.17, 0.83]:
 		var x: float = bounds.position.x + bounds.size.x * fraction
-		var start := minf(64.0, bounds.position.y - 12)
+		var start := 0.0
 		draw_line(Vector2(x, start), Vector2(x, bounds.position.y + 5), METAL, 12)
 		draw_line(Vector2(x - 2, start), Vector2(x - 2, bounds.position.y + 5), BRONZE, 2)
 		for y in range(int(start + 12), int(bounds.position.y + 4), 24):

@@ -1,22 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=2 format=3]
 
-[ext_resource type="Shader" path="res://assets/board/drill_slate.gdshader" id="1"]
-[sub_resource type="StandardMaterial3D" id="Wood"]
-albedo_color = Color(0.14, 0.095, 0.06, 1)
-roughness = 0.86
-[sub_resource type="BoxMesh" id="Frame"]
-size = Vector3(4.49, 0.024, 2.62)
-material = SubResource("Wood")
-[sub_resource type="PlaneMesh" id="Slate"]
-size = Vector2(4.34, 2.5)
-[sub_resource type="ShaderMaterial" id="Chalk"]
-shader = ExtResource("1")
+[ext_resource type="PackedScene" path="res://assets/board/meshy_game_board.glb" id="1_board"]
 
 [node name="SchoolDrillBoard" type="Node3D"]
-[node name="WoodFrame" type="MeshInstance3D" parent="."]
-position = Vector3(0, 1.005, 0)
-mesh = SubResource("Frame")
-[node name="WornSlate" type="MeshInstance3D" parent="."]
-position = Vector3(0, 1.018, 0)
-mesh = SubResource("Slate")
-material_override = SubResource("Chalk")
+
+[node name="ImportedBoard" parent="." instance=ExtResource("1_board")]
+position = Vector3(0.00114, 1.020574, -0.001924)
+rotation = Vector3(-1.5707963, 0, 0)
+scale = Vector3(2.78552, 3.03673, 0.244)

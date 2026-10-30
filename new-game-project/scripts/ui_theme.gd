@@ -67,7 +67,10 @@ static func palette() -> Dictionary:
 		"response": RESPONSE, "danger": DANGER
 	}
 
-static func font(heading: bool = false) -> SystemFont:
+static func font(_heading: bool = false) -> Font:
+	return preload("res://assets/fonts/CaveatBrush-Regular.ttf")
+
+static func card_font(heading: bool = false) -> SystemFont:
 	if body_font == null:
 		body_font = SystemFont.new()
 		# Same family as headings, regular weight.
@@ -96,9 +99,9 @@ static func bar(color: Color) -> StyleBoxFlat:
 	box.set_corner_radius_all(3)
 	return box
 
-## Tension fill: flat crimson, square, drawn inside the 2px gold rim (like the HP bars).
+## Muted bronze fill stays inside the gold rim.
 static func tension_fill() -> StyleBoxFlat:
-	var box := bar(Color("b3261e"))
+	var box := bar(BRONZE.darkened(0.28))
 	box.set_corner_radius_all(0)
 	box.set_border_width_all(0)
 	box.set_expand_margin_all(-2)
@@ -106,7 +109,7 @@ static func tension_fill() -> StyleBoxFlat:
 
 ## Tension track: dark, square, 2px gold rim.
 static func tension_track() -> StyleBoxFlat:
-	var box := panel(Color("1a1415"), Color("e0a93b"), 0)
+	var box := panel(INSET, BRONZE.darkened(0.2), 0)
 	box.set_corner_radius_all(0)
 	box.set_border_width_all(2)
 	return box
@@ -267,7 +270,7 @@ static func add_shell_styles(theme: Theme) -> void:
 		theme.set_type_variation(spec[0], "ProgressBar")
 		theme.set_stylebox("background", spec[0], panel(INSET, BRONZE, 0))
 		theme.set_stylebox("fill", spec[0], bar(spec[1]))
-	# Tension matches the HP bars: crimson fill, dark track, gold rim.
+	# Tension shares the HP palette and rim.
 	theme.set_type_variation("TensionBar", "ProgressBar")
 	theme.set_stylebox("background", "TensionBar", tension_track())
 	theme.set_stylebox("fill", "TensionBar", tension_fill())
@@ -282,18 +285,18 @@ static func apply_hud(root: Control) -> void:
 	top_bar.theme = get_theme()
 	for side in ["PlayerHealth", "EnemyHealth"]:
 		var health := top_bar.get_node(side) if side == "PlayerHealth" else root.get_node(side)
-		# Flat crimson HP fill, square, dark near-black rim.
-		var hp_fill := bar(Color("b3261e"))
+		# Muted bronze fills retain the existing delayed damage bar.
+		var hp_fill := bar(BRONZE.darkened(0.28))
 		hp_fill.set_corner_radius_all(0)
 		hp_fill.set_border_width_all(2)
 		hp_fill.border_color = Color("0e0b0b")
 		health.get_node("Bar").add_theme_stylebox_override("fill", hp_fill)
-		var lag_fill := bar(AMBER)
+		var lag_fill := bar(GOLD.darkened(0.1))
 		lag_fill.set_corner_radius_all(0)
 		lag_fill.border_color = Color("0e0b0b")
 		health.get_node("LagBar").add_theme_stylebox_override("fill", lag_fill)
 		# Dark empty track behind both bars, thin gold rim.
-		var track := panel(Color("1a1415"), Color("e0a93b"), 0)
+		var track := panel(INSET, BRONZE.darkened(0.2), 0)
 		track.set_corner_radius_all(0)
 		track.set_border_width_all(1)
 		health.get_node("LagBar").add_theme_stylebox_override("background", track)
@@ -309,9 +312,50 @@ static func apply_hud(root: Control) -> void:
 		for fill in [hp_fill, lag_fill]:
 			fill.content_margin_left = 5
 			fill.content_margin_right = 5
-		# Cream text with a 1px dark outline.
-		for label_name in ["Value", "Caption"]:
-			var label: Label = health.get_node(label_name)
-			label.add_theme_color_override("font_color", Color("efe6d0"))
-			label.add_theme_color_override("font_outline_color", Color("0e0b0b"))
-			label.add_theme_constant_override("outline_size", 2)
+		style_health_panel(health)
+
+## Both hero widgets keep the same node paths and live health animation controls.
+static func style_health_panel(health: Control) -> void:
+	var plate: Panel = health.get_node("Plate")
+	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plate.offset_left = 0
+	plate.offset_top = 0
+	plate.offset_right = 0
+	plate.offset_bottom = 0
+	var frame := panel(PANEL, BRONZE.darkened(0.2), 0)
+	frame.set_border_width_all(1)
+	frame.set_corner_radius_all(3)
+	plate.add_theme_stylebox_override("panel", frame)
+	var caption: Label = health.get_node("Caption")
+	caption.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	caption.offset_left = 8
+	caption.offset_right = -28
+	caption.offset_top = 0
+	caption.offset_bottom = 24
+	caption.add_theme_font_size_override("font_size", 18)
+	for node_name in ["Bar", "LagBar", "Value"]:
+		var control: Control = health.get_node(node_name)
+		control.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		control.offset_left = 8
+		control.offset_right = -8
+		control.offset_top = 25
+		control.offset_bottom = -5
+	var value: Label = health.get_node("Value")
+	value.add_theme_font_size_override("font_size", 18)
+	for label in [caption, value]:
+		label.add_theme_color_override("font_color", TEXT)
+		label.add_theme_constant_override("outline_size", 0)
+	var mark := Label.new()
+	mark.name = "HealthMark"
+	mark.text = "+"
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	mark.offset_left = -28
+	mark.offset_right = -6
+	mark.offset_top = 0
+	mark.offset_bottom = 24
+	mark.add_theme_font_size_override("font_size", 22)
+	mark.add_theme_color_override("font_color", GOLD)
+	if not health.has_node("HealthMark"): health.add_child(mark)
+	else: mark.free()

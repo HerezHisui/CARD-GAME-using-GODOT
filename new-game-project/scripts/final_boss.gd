@@ -51,6 +51,19 @@ func accept_damage(amount: int) -> int:
 func pillars() -> Array:
 	return game._threat_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null and card.is_alive() and card.card_data.get("boss_role", "") == "pillar")
 
+func has_pillar(id: String) -> bool:
+	return pillars().any(func(card): return card.card_data.get("id", "") == id)
+
+static func pillar_description(data: Dictionary) -> String:
+	if data.get("boss_role", "") != "pillar": return ""
+	var timing := "Once at round preparation, starting the round after spawning. Stops when this pillar leaves play. "
+	match str(data.get("id", "")):
+		"pillar0":
+			return timing + "Add 1 additional Static Echo to your hand. If full, lose 1 HP instead."
+		"pillar3":
+			return timing + "Heal a living Shield Guardian by 1 HP, up to its maximum. Never revives it."
+	return ""
+
 func guardian() -> Node:
 	for slot in game._threat_slots():
 		var card = game._get_card_in_slot(slot)
@@ -82,16 +95,23 @@ func prepare_round() -> void:
 	if last_prepared_round == game.turn: return
 	last_prepared_round = game.turn
 	if stage == 2 and pillars_spawned:
-		var echo := {"id":"static_echo", "name":"Static Echo", "type":"response", "element":"douse",
-			"cost":0, "utility":true, "effect":"draw", "draw_count":1, "curse":true}
-		if game.get_hand_cards().size() < game.HAND_SIZE_MAX: game.add_card_to_hand(echo)
-		else: game._damage_side(true, 1, true)
+		add_static_echo()
+		if has_pillar("pillar0"): add_static_echo()
+		var guard := guardian()
+		if has_pillar("pillar3") and guard != null and guard.card_data.health < guard.max_health:
+			guard.heal(1)
 	if stage == 3:
 		var targets: Array = game.get_hand_cards().filter(func(card): return not game.is_sealed(card.card_data))
 		if not targets.is_empty():
 			var target = targets[targets.size() - 1]
 			target.card_data.locked_until = game.turn + 2
 			target._refresh_face()
+
+func add_static_echo() -> void:
+	var echo := {"id":"static_echo", "name":"Static Echo", "type":"response", "element":"douse",
+		"cost":0, "utility":true, "effect":"draw", "draw_count":1, "curse":true}
+	if game.get_hand_cards().size() < game.HAND_SIZE_MAX: game.add_card_to_hand(echo)
+	else: game._damage_side(true, 1, true)
 
 func settle_curses() -> void:
 	for card in game.get_hand_cards():
@@ -124,6 +144,7 @@ func hit_lane(index: int, damage: int, bleed: int = 0, reduced_healing: bool = f
 func resolve_intent() -> void:
 	if last_resolved_round == game.turn: return
 	last_resolved_round = game.turn
+	if is_instance_valid(game.opponent_hand): game.opponent_hand.character.warden_pattern()
 	game.log_event("Warden pattern: " + intent())
 	settle_curses()
 	if game._check_game_over(): return
@@ -137,6 +158,8 @@ func resolve_intent() -> void:
 			spawn("Shield Guardian", "taunt", 1, 0, 4, "brace")
 			pillars_spawned = true
 			pulse_resolved = true
+			# Support begins next round, even if preparation is requested again after the pulse.
+			last_prepared_round = game.turn
 		return
 	if stage == 3:
 		if game.turn == changed_round: return # Give a full response turn before the new pattern.

@@ -46,12 +46,12 @@ func start_game() -> void:
 func gauges() -> void:
 	var prep_box: Node = director.prep.get_parent()
 	var threat_box: Node = director.threat.get_parent()
-	check(prep_box.scene_file_path == GAUGE_SCENE, "energy gauge comes from ui_gauge.tscn")
-	check(threat_box.scene_file_path == GAUGE_SCENE, "tension gauge comes from ui_gauge.tscn")
-	check(prep_box.get_child_count() == 2 and threat_box.get_child_count() == 2, "gauge child counts")
-	check(director.prep.theme_type_variation == &"EnergyBar", "energy bar style")
+	check(prep_box.scene_file_path == "res://scenes/ui/ui_tension.tscn", "preparedness uses compact panel")
+	check(threat_box.scene_file_path == "res://scenes/ui/ui_tension.tscn", "tension uses its two-row panel")
+	check(prep_box.has_node("Value") and threat_box.has_node("Value"), "gauge labels and values")
+	check(director.prep.theme_type_variation == &"TensionBar", "energy bar style")
 	check(director.threat.theme_type_variation == &"TensionBar", "tension bar style")
-	check(director.prep.custom_minimum_size == Vector2(195, 20) and not director.prep.show_percentage,
+	check(director.prep.size.y == 8 and not director.prep.show_percentage,
 		"gauge bar size and no percentage")
 
 ## Expected look of each named style, built the same way the old code built it.
@@ -75,7 +75,7 @@ func theme_styles(theme: Theme, source: String) -> void:
 		if theme.has_stylebox(spec[2], spec[0]): same_style(theme.get_stylebox(spec[2], spec[0]), spec[3], label)
 	check(theme.get_type_variation_base("HeadingLabel") == &"Label", source + " HeadingLabel variation base")
 	var font: Font = theme.get_font("font", "HeadingLabel") if theme.has_font("font", "HeadingLabel") else null
-	check(font is SystemFont and font.font_names == UI.font(true).font_names and font.font_weight == 700,
+	check(font == UI.font(true),
 		source + " HeadingLabel uses the heading font")
 
 func same_style(actual: StyleBox, expected: StyleBoxFlat, label: String) -> void:
@@ -124,7 +124,7 @@ func board_prompt() -> void:
 func boss_intent() -> void:
 	var panel: Control = director.boss_intent.get_parent()
 	check(panel.scene_file_path == INTENT_SCENE, "boss intent panel comes from ui_boss_intent.tscn")
-	check(panel.mouse_filter == Control.MOUSE_FILTER_IGNORE, "boss intent panel ignores the mouse")
+	check(panel.mouse_filter == Control.MOUSE_FILTER_STOP, "boss intent panel consumes dismissal clicks")
 	check(director.boss_intent.mouse_filter == Control.MOUSE_FILTER_IGNORE, "boss intent label ignores the mouse")
 
 func dashboard() -> void:

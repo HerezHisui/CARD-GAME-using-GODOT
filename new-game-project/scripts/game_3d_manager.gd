@@ -83,7 +83,7 @@ var player_hp := PLAYER_MAX_HP
 var enemy_hp := ENEMY_MAX_HP
 
 # ---- Camera views (pivot position, pivot rotation in degrees, camera distance)
-const DESK_VIEW := {"pos": Vector3(0, 0.3, -0.4), "rot": Vector3(-38, 0, 0), "dist": 5.3, "fov":60.0}
+const DESK_VIEW := {"pos": Vector3(0, 1.0, -0.4), "rot": Vector3(-30, 0, 0), "dist": 5.3, "fov":60.0}
 const WIDE_VIEW := {"pos": Vector3(-0.8, 2.4, -1.0), "rot": Vector3(-12, -12, 0), "dist":10.0, "fov":68.0}
 const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "dist": 3.8, "fov":56.0}
 
@@ -175,6 +175,7 @@ func _ready() -> void:
 
 func clear_battle(preserve_result: bool = false) -> void:
 	encounter_serial += 1
+	if is_instance_valid(opponent_hand): opponent_hand.cancel_action()
 	if is_instance_valid(vfx): vfx.clear()
 	if is_instance_valid(boss_fog): boss_fog.set_active(false)
 	if is_instance_valid(presentation): presentation.cancel_coin()
@@ -268,7 +269,6 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	load_deck_from_json("res://data/disaster_expansion.json", threats)
 	var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
 	_enemy_hp_ui.get_node("Caption").text = "JANITOR"
-	_enemy_hp_ui.get_node("Caption").add_theme_font_size_override("font_size", 14)
 	for definition in threats:
 		if kind == "elite" and definition.element != favored: continue
 		var c: Dictionary = definition.duplicate(true)
@@ -350,13 +350,20 @@ func _build_environment() -> void:
 	add_child(school)
 
 # =================================================================== BOARD
-## The framed slate aligns with the existing slot colliders.
+## Cards, hit areas and drop highlights share the imported board's painted slot centers.
 func _build_board() -> void:
-	for slot in $Slots.get_children():
-		slot.position.x *= BOARD_SCALE
-		slot.position.z *= BOARD_SCALE
+	var playmat := preload("res://scripts/card_playmat.gd")
+	for slot: MeshInstance3D in $Slots.get_children():
+		var column := int(str(slot.name).right(1)) - 1
+		var row := 0 if str(slot.name).begins_with("Threat") else 1
+		slot.position = Vector3(playmat.SLOT_COLUMNS[column] * playmat.WIDTH,
+			playmat.SLOT_HEIGHT, playmat.SLOT_ROWS[row] * playmat.DEPTH)
+		# A flat overlay sits just above the recess floor; a box adds a raised top face.
+		var highlight := PlaneMesh.new()
+		highlight.size = Vector2(1.1, 1.5)
+		slot.mesh = highlight
 		slot.scale = Vector3(BOARD_SCALE, 1, BOARD_SCALE)
-	add_child(preload("res://scripts/card_playmat.gd").new())
+	add_child(playmat.new())
 
 # =================================================================== LIGHTING
 func _build_lighting() -> void:
@@ -1168,6 +1175,7 @@ func best_disruption_target(cards: Array, tax: bool) -> Node:
 func _set_phase(p: Phase, text: String = "") -> void:
 	var previous := phase
 	phase = p
+	if p == Phase.GAME_OVER and is_instance_valid(opponent_hand): opponent_hand.cancel_action()
 	# The TURN N banner replaces the side banner at round start.
 	var round_banner: bool = is_instance_valid(turn_banner) and turn_banner.is_playing()
 	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking \
@@ -1387,6 +1395,15 @@ func _pick_smart_threat_slot(empty_slots: Array, card_data: Dictionary) -> Node3
 	return best_slot if best_slot else empty_slots.pick_random()
 
 # ------------------------------------------------------------------- enemy
+func _present_enemy_card(definition: Dictionary, target := Vector3.ZERO) -> bool:
+	var serial := encounter_serial
+	if is_instance_valid(opponent_hand): opponent_hand.play_card(definition, target)
+	# Headless logic fixtures do not wait for rendered animation playback.
+	if DisplayServer.get_name() != "headless": await _wait(opponent_hand.character.RELEASE_SECONDS)
+	if serial != encounter_serial or phase == Phase.GAME_OVER: return false
+	if is_instance_valid(opponent_hand): opponent_hand.release_card()
+	return true
+
 func _enemy_turn() -> void:
 	if is_instance_valid(final_boss):
 		_set_phase(Phase.ENEMY, "The Warden prepares its announced pattern")
@@ -1414,6 +1431,7 @@ func _enemy_turn() -> void:
 		if not spells.is_empty():
 			var spell: Dictionary = spells.pick_random()
 			enemy_hand.erase(spell)
+			if not await _present_enemy_card(spell): return
 			enemy_utility(spell)
 			tension -= int(spell.get("tension_cost", 1))
 			_set_phase(Phase.ENEMY, "The Janitor casts %s" % spell.name)
@@ -1463,12 +1481,13 @@ func _enemy_turn() -> void:
 				await sac_card.sacrifice_dissolve()
 
 			await _wait(0.3)
+			if not await _present_enemy_card(evo_card_data, target_slot.global_position): return
 
 			var evo_card = Card3DScene.instantiate()
 			add_child(evo_card)
 			evo_card.add_to_group("cards")
 			evo_card.setup(evo_card_data)
-			await evo_card.enter_from_above(target_slot)
+			await evo_card.enter_from_above(target_slot, opponent_hand.release_position())
 			_on_enemy_card_played(evo_card)
 			major_evolution_entry(evo_card, sac_count)
 			evo_card.spawn_popup("EVOLVED!", UI.AMBER)
@@ -1493,6 +1512,7 @@ func _enemy_turn() -> void:
 			update_deck_label()
 
 			var target_slot: Node3D = _pick_smart_threat_slot(empty_slots, card_data_to_play)
+			if not await _present_enemy_card(card_data_to_play, target_slot.global_position): return
 			_set_phase(Phase.ENEMY, "Disaster unleashes %s!" % card_data_to_play.get("name", "Threat"))
 
 			var card = Card3DScene.instantiate()
@@ -1505,7 +1525,7 @@ func _enemy_turn() -> void:
 				var mods = ["armored", "rampaging", "fierce", "regenerating"]
 				card.add_modifier(mods.pick_random())
 
-			await card.enter_from_above(target_slot)
+			await card.enter_from_above(target_slot, opponent_hand.release_position())
 			_on_enemy_card_played(card)
 			shake_camera(0.06, 0.15)
 

@@ -7,6 +7,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/ui_boss_intent.tscn" id="5_intent"]
 [ext_resource type="PackedScene" path="res://scenes/ui/ui_board_prompt.tscn" id="6_prompt"]
 
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_tension.tscn" id="8_tension"]
+
 [node name="Shell" type="Control"]
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,37 +21,28 @@ theme = ExtResource("1_theme")
 [node name="Header" parent="." instance=ExtResource("2_header")]
 layout_mode = 1
 
-[node name="EnergyGauge" parent="." instance=ExtResource("3_gauge")]
+[node name="EnergyGauge" parent="." instance=ExtResource("8_tension")]
 layout_mode = 1
-anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = -144.0
-offset_right = 146.0
-offset_bottom = -112.0
-grow_vertical = 0
-alignment = 1
+offset_top = -60.0
+offset_right = 316.0
+offset_bottom = -16.0
 
-[node name="Title" parent="EnergyGauge" index="0"]
-theme_type_variation = &"HeadingLabel"
-theme_override_colors/font_outline_color = Color(0.05490196, 0.043137256, 0.043137256, 1)
-theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 20
-horizontal_alignment = 1
+[node name="Title" parent="EnergyGauge" index="2"]
+offset_right = 214.0
+text = "PREPAREDNESS"
 
-[node name="Bar" parent="EnergyGauge" index="1"]
-visible = false
-
-[node name="TensionGauge" parent="." instance=ExtResource("3_gauge")]
+[node name="TensionGauge" parent="." instance=ExtResource("8_tension")]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -264.0
-offset_top = 146.0
-offset_right = -44.0
-offset_bottom = 194.0
+offset_left = -260.0
+offset_top = 122.0
+offset_right = -16.0
+offset_bottom = 166.0
 
 [node name="ModalFrame" parent="." instance=ExtResource("4_frame")]
 layout_mode = 1
