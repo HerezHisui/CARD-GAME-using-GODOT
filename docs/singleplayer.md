@@ -16,7 +16,7 @@ Each side has four lanes and a hero health pool. A unit attacks the opposing lan
 
 A coin call decides the first side, which switches each round. Both sides play before one combat phase; the first side attacks first. Upkeep and resources resolve at round start. Plans last one combat. The final boss announces a separate pattern after Steve's attacks.
 
-Response starts with three hand cards, an eight-card hand limit and 3 energy capacity. The cap normally grows by 1 after combat to 7 before buffs. The normal draw is free: pick any card from the picker. Extra draws obey the hand limit.
+Response starts with three hand cards, an eight-card hand limit and 3 energy capacity. The cap normally grows by 1 after combat to 7 before buffs. The normal draw is free and random. Only Search and Rescue picks a card. Extra draws obey the hand limit.
 
 Disasters pay Tension for base units and spells. Evolution cards are drawn from a separate pile into the shared enemy hand. Playing an evolution sacrifices deployed allies; it does not charge another Tension payment. Sacrifices remove attacks and blockers, so a larger unit must justify the lost formation.
 
@@ -53,9 +53,9 @@ Utilities have no unit ATK or HP. Supply Cache, Emergency Exit, encounter signat
 
 Board effects use direct card or lane selection. Pile and hand choices use a picker. Starting a choice must not spend its card or resources. Confirming a valid choice pays once; cancelling leaves it available. A summon that offers optional relocation stays deployed when movement is skipped.
 
-Seals and taxes target held cards, including held evolutions, rather than undealt piles. Seals expire at the indicated round. Taxes last through the current and next round and cap at 2 extra cost. Target-based status bonuses require a blocker and count the named status stacks.
+Response seals target deployed Disasters and block evolution and sacrifice for one affected round. The restriction applies this round if Response plays first, or next round if Response plays second. Attacks remain allowed. Enemy seals and taxes target held cards, including held evolutions, rather than undealt piles. Taxes last through the current and next round and cap at 2 extra cost. Target-based status bonuses require a blocker and count the named status stacks.
 
-Only Response has a graveyard. Recovery Detail returns an eligible destroyed unit once per battle, preserving upgrades and clearing temporary effects. Relief Crew gains up to 2 Barrier from destroyed allies still in that graveyard.
+Only Response has a graveyard. It opens in battle only. Recovery Detail returns an eligible destroyed unit once per battle, preserving upgrades and clearing temporary effects. Relief Crew gains up to 2 Barrier from destroyed allies still in that graveyard.
 
 ## Plans and adaptations
 
@@ -71,7 +71,7 @@ Steve starts at 20 HP with 35 supplies. Each eleven-stage floor branches toward 
 
 Normal victories give 20 supplies, elite victories 35 and ordinary boss victories 60. Card rewards keep three fixed offers through inspection and Continue. Claiming selects one exact copy; skipping is allowed. The final encounter on floor three is the Midnight Warden, whose shielded pillar phase and announced lane attacks replace ordinary enemy deck play.
 
-Shops offer fixed stock and repeatable healing. Infirmaries offer healing, an upgrade or removal. These services compete for supplies and route choices. Card removal stops at a five-card collection.
+Shops offer fixed stock and repeatable healing. Shop removal costs 30 supplies. Infirmaries offer healing, an upgrade or free removal. These services compete for supplies and route choices. Card removal stops at a five-card collection.
 
 Each copy can upgrade twice. Sorting and previews do not change the collection. Confirmation must preserve the selected duplicate's identity.
 
@@ -89,7 +89,7 @@ Battle snapshots are a separate development tool, not the current save format or
 
 Battle adaptations and permanent floor rewards are player-only. Old saves keep any enemy buffs already stored. Normal wins intentionally heal up to 3 HP. Elite and boss wins do not grant that healing. Advancing through `next_floor` separately heals up to 5 HP. Both paths stop at maximum HP and remain part of the balance.
 
-Drops use the visible friendly slot under the cursor. The normal draw picker is free. Playing that card still costs its listed energy. Attacks cannot target allies, and shared effect text uses the actual upgraded amounts.
+Drops use the visible friendly slot under the cursor. The normal draw is free and random. Playing that card still costs its listed energy. Attacks cannot target allies, and shared effect text uses the actual upgraded amounts.
 
 The twelve-card starter has eleven 1-cost cards and one 2-cost Evacuation Route. It keeps cheap units weak so the early game has playable blockers without free strong units.
 
@@ -103,7 +103,7 @@ An Armored blocker stops the Piercing hero hit, even if the blocker dies. It tak
 
 Ordinary 1-Tension units and 1-sacrifice evolutions have at most 2 printed attack including starting Strength, and 2 HP. They skip flat encounter stat scaling. Scripted boss hazards instead show a BOSS badge without a summon cost.
 
-Card faces use effect icons; inspection holds the full rules. Player battle buffs are labelled Adaptations and permanent rewards Augmentations. The status strip counts the whole collection, not the draw pile. Utilities also count toward their affinity, so those counts overlap. The log screen and banking checkbox are removed; internal event history and the saved automatic banking setting remain.
+Card faces use effect icons; inspection holds the full rules. All 65 cards have art in painted frames with idle and selected states. Spell frames leave out ATK and HP. Player battle buffs are labelled Adaptations and permanent rewards Augmentations. The status strip counts the whole collection, not the draw pile. Utilities also count toward their affinity, so those counts overlap. The log screen and banking checkbox are removed; internal event history and the saved automatic banking setting remain.
 
 The replacement Disaster encounter icon is still pending. Its reference image or local path has not been supplied. Keep the existing icon's dimensions and anchor when the reference arrives.
 
@@ -113,6 +113,6 @@ Balance needs repeated playtests across routes, encounter tiers and buff combina
 
 Evac rescue, Douse control, Clearance threat removal and Brace defense are design directions, not enforced card-pool restrictions. Changing access to Burn, Poison or Piercing needs a separate balance decision.
 
-Final title art, card illustrations and player/Janitor models are unfinished. Card art windows stay blank and character positions use empty markers. Keep the supplied classroom's [asset notes](../new-game-project/assets/supplied_classroom/README.md) with its resources.
+Player and Janitor models are unfinished, and character positions use empty markers. The title screen is a parallax scene. Keep the supplied classroom's [asset notes](../new-game-project/assets/supplied_classroom/README.md) with its resources.
 
 Extra characters and multiplayer need separate work. The encounter icon needs its reference before replacement. The singleplayer game does not implement multiplayer balance, reconnects or hidden-information security.
