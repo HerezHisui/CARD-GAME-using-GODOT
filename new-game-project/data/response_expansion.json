@@ -286,7 +286,7 @@
     "name": "Alarm Sweep",
     "type": "response",
     "element": "clearance",
-    "cost": 2,
+    "cost": 4,
     "utility": true,
     "effect": "blast"
   },

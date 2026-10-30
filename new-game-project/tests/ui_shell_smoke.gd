@@ -154,13 +154,13 @@ func modal_frame() -> void:
 	director.show_menu()
 	await process_frame
 	check(director.content.get_parent() == director.modal_scroll, "compact menu scrolls its content")
-	check(absf(modal.get_global_rect().size.x - 420) < 2, "menu modal is 420 wide")
+	check(absf(modal.get_global_rect().size.x - 560) < 2, "redesigned menu modal is 560 wide")
 	root.size = Vector2i(1280, 800)
 	await process_frame
 	await process_frame
 	var centre := modal.get_global_rect().get_center()
 	check(centre.distance_to(root.get_visible_rect().size / 2) < 2, "menu modal stays centred after a resize")
-	check(absf(modal.get_global_rect().size.x - 420) < 2, "menu modal keeps its width after a resize")
+	check(absf(modal.get_global_rect().size.x - 560) < 2, "menu modal keeps its width after a resize")
 	root.size = Vector2i(1440, 900)
 	director.close_modal()
 	director.screen = "debug_password"

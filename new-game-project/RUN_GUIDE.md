@@ -11,7 +11,7 @@ Pick a connected room on the map. Follow connected rooms toward the boss. Comple
 ## Controls
 
 - Drag a hand card onto an empty Response slot. The slot under the cursor is the drop target. Right-click cancels a drag.
-- Use Draw during the draw phase to draw one unlocked card for free. If your hand then has no card costing 1 or less, the drawn card is exchanged for a random unlocked cost-1 card from the draw pile, if available. Playing a card still pays its listed cost. Search and Rescue keeps its targeted deck search.
+- Use Draw during the draw phase to draw one random unsealed card for free. Playing a card still pays its listed cost. Only Search and Rescue lets you pick the card.
 - Space or End turn submits your turn. Finish or cancel board targeting first.
 - W moves from Room to Table to Overhead. S moves back. Room view hides your hand. Camera changes are blocked during combat, dragging and board targeting.
 - D opens the deck browser. Sorting changes the display, not the collection or draw order.
@@ -30,7 +30,7 @@ Response starts with 3 energy capacity and three hand cards. The hand limit is e
 
 Draw, play units or utilities, then end the turn. Both sides finish playing before the single combat phase. The first side attacks first. A unit attacks the opposite lane; an empty lane lets it hit the opposing hero. A side that exhausts its usable cards loses.
 
-The Janitor uses Tension for base cards and spells. Evolutions use deployed allies as sacrifices instead of paying an extra Tension cost. Evolutions must be in its shared hand before use. Sealing or raising the cost of a held evolution affects whether it can be played.
+The Janitor uses Tension for base cards and spells. Evolutions use deployed allies as sacrifices instead of paying an extra Tension cost. Evolutions must be in its shared hand before use. A sealed deployed Disaster cannot evolve or be used as sacrifice material during its affected round. Taxes can raise a held evolution's sacrifice cost.
 
 ## Combat and effects
 
@@ -50,7 +50,7 @@ Ending a turn automatically banks 2 unused energy into 1 Plan token, at most onc
 
 Brace protects one ally from up to 2 damage on its next attack hit. Coordinated Response gives the selected ally and its nearest ally on each side 1 temporary attack. Empty lanes and different types do not prevent coordination. Elite and boss rewards can unlock other tactics, including healing, extraction and temporary hero protection.
 
-Cast utilities by dropping them on an empty Response lane, then choosing a target if needed. Utilities have no unit ATK or HP. Cancelling a target choice keeps the card and energy. Rally and healing use board clicks; relocation uses board dragging. Seals and taxes affect held cards, not undealt piles. Tax lasts for the current and next round and caps at 2 extra cost.
+Cast utilities by dropping them on an empty Response lane, then choosing a target if needed. Utilities have no unit ATK or HP. Cancelling a target choice keeps the card and energy. Rally and healing use board clicks; relocation uses board dragging. Response seals target deployed Disaster cards. The restriction lasts this round when Response plays first, or next round when Response plays second. Sealed units can still attack. Enemy seals and all taxes continue to target held cards. Tax lasts for the current and next round and caps at 2 extra cost.
 
 Recovery Detail costs 2 energy and returns one eligible destroyed Response unit to hand. It keeps permanent upgrades and clears temporary effects. Each unit can be recovered once per battle. Relief Crew costs 3 and gains up to 2 Barrier from destroyed allies still in the graveyard. Only Response has a graveyard.
 
@@ -58,7 +58,7 @@ Recovery Detail costs 2 energy and returns one eligible destroyed Response unit 
 
 Normal wins give 20 supplies and heal up to 3 HP. Elite wins give 35 supplies; ordinary boss wins give 60. Elite and boss wins do not grant normal-win healing. Advancing a floor separately heals up to 5 HP. Healing stops at the hero's maximum.
 
-Shops keep fixed stock and allow several purchases before leaving. Each offered copy can be bought once. First aid costs 15 supplies and heals up to 5 HP. Shop card removal costs 30 supplies. Infirmaries offer healing, an upgrade or free removal; their healing restores up to 7 HP. Removal cannot reduce the collection below five cards.
+Shops keep fixed stock and allow several purchases before leaving. Each offered copy can be bought once. First aid costs 15 supplies and heals up to 5 HP. Shop card removal costs 30 supplies. Supplies show a coin icon. Infirmaries offer healing, an upgrade or free removal; their healing restores up to 7 HP. Removal cannot reduce the collection below five cards.
 
 Each copy can upgrade twice. Previewing is free; confirmation changes only that copy. Basic units gain stats first and new draw, Burn, Poison or Armor at tier two. Existing abilities may improve at tier one. Utilities can become cheaper or improve their effect.
 
@@ -76,5 +76,9 @@ Press F3 during a player turn, or choose Menu > Debug values, and enter exactly 
 Choose a live hand or board card to edit its cost, base ATK, current HP or statuses. Utilities only expose cost.
 Card edits apply at once. HP stays at least 1; raising it can also raise the card's healing limit.
 These edits affect that battle copy, not the collection, and are included in normal checkpoints.
+
+The unlocked debug panel also offers a floor-boss picker. Enter boss starts that floor's encounter immediately with the current collection and restored player HP. Floor three initializes the Midnight Warden.
+
+Game Settings controls attack/status effects and boss fog. Preferences are saved locally. Boss fog covers the distant arena and map edges while keeping card information and route controls readable. Alarm Sweep costs 4 energy.
 
 For base costs and stats, see the [card data](data/).

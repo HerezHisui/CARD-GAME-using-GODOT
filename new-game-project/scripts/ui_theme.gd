@@ -138,40 +138,28 @@ static func affinity_band(element: String) -> StyleBoxFlat:
 		card_styles[key] = style
 	return card_styles[key]
 
+const SYMBOL_ALIASES := {
+	"brace": "armored", "extract": "move", "move_ally": "move", "seal": "sealed",
+	"sluggish": "resting", "rally": "strength", "on_play_draw": "draw"
+}
+
+## Imported white pixel masks keep arbitrary theme colors, including disabled states.
 static func icon(kind: String, color: Color = GOLD) -> Texture2D:
-	var key := kind + color.to_html()
+	var symbol: String = SYMBOL_ALIASES.get(kind, kind)
+	var path := "res://assets/symbols/%s.svg" % symbol
+	if not ResourceLoader.exists(path): path = "res://assets/symbols/fallback.svg"
+	var key := path + color.to_html()
 	if icons.has(key): return icons[key]
-	var mark := ""
-	if kind == "on": mark = '<path d="M5 8l5 5 9-10"/>'
-	if kind == "off": mark = '<path d="M6 6l12 12M18 6L6 18"/>'
-	elif kind == "empty": mark = ""
-	elif kind == "arrow": mark = '<path d="M7 9l5 6 5-6"/>'
-	elif kind == "up": mark = '<path d="M7 15l5-6 5 6"/>'
-	elif kind == "updown": mark = '<path d="M7 8l5-4 5 4M7 16l5 4 5-4"/>'
-	elif kind == "radio": mark = '<circle cx="12" cy="12" r="4"/>'
-	elif kind == "radio_empty": mark = '<circle cx="12" cy="12" r="7"/>'
-	elif kind == "strength": mark = '<path d="M6 15l6-8 6 8M12 7v13"/>'
-	elif kind == "bleed": mark = '<path d="M12 4C8 10 6 12 6 15a6 6 0 0012 0c0-3-2-5-6-11z"/>'
-	elif kind == "burn": mark = '<path d="M12 3l1 7 4-4 2 9c0 8-14 8-14 0l4-7 1 5z"/>'
-	elif kind == "poison": mark = '<circle cx="12" cy="10" r="6"/><path d="M9 17l6 4m0-4l-6 4M9 9h1m4 0h1"/>'
-	elif kind == "barrier": mark = '<path d="M5 6l7-3 7 3v8l-7 7-7-7z"/>'
-	elif kind == "healing_reduced": mark = '<path d="M12 6v12M6 12h12M4 20L20 4"/>'
-	elif kind in ["armored", "grave_guard", "brace"]: mark = '<path d="M6 5h12v9l-6 6-6-6zM9 9h6"/>'
-	elif kind in ["piercing", "flank", "rampaging"]: mark = '<path d="M5 19L19 5M12 5h7v7M6 12l6 6"/>'
-	elif kind in ["draw", "on_play_draw", "tutor", "recover"]:
-		mark = '<path d="M5 8h10v12H5zM9 4h10v12M8 14h4m-2-2v4"/>'
-	elif kind in ["cleanse", "herb", "tablet", "heal_all", "leech", "regenerating"]:
-		mark = '<path d="M10 5h4v5h5v4h-5v5h-4v-5H5v-4h5z"/>'
-	elif kind in ["move", "move_ally", "extract"]: mark = '<path d="M4 12h16M8 8l-4 4 4 4m8-8l4 4-4 4"/>'
-	elif kind in ["sealed", "seal"]: mark = '<rect x="6" y="10" width="12" height="10"/><path d="M8 10V7a4 4 0 018 0v3"/>'
-	elif kind in ["sluggish", "resting", "delay"]: mark = '<path d="M8 6v12M16 6v12"/>'
-	elif kind in ["rally", "rally_all", "fierce"]: mark = '<path d="M5 14l7-9 7 9M12 5v15M7 19h10"/>'
-	elif kind in ["blast", "thorns", "fragile"]: mark = '<path d="M12 4l2 5 6-1-4 5 3 6-7-3-6 3 2-6-4-5 6 1z"/>'
-	elif kind in ["tax", "refund_energy"]: mark = '<path d="M14 4L7 13h5l-2 7 8-11h-5z"/>'
-	elif kind == "scout": mark = '<path d="M4 12q8-12 16 0-8 12-16 0z"/><circle cx="12" cy="12" r="3"/>'
-	if mark.is_empty() and kind != "empty": mark = '<path d="M12 5l7 7-7 7-7-7zM12 9v4m0 2v1"/>'
-	var image := Image.new()
-	image.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><g fill="none" stroke="#%s" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="3"/>%s</g></svg>' % [color.to_html(false), mark])
+	var source := load(path) as Texture2D
+	if color == Color.WHITE:
+		icons[key] = source
+		return source
+	var image := source.get_image()
+	image.convert(Image.FORMAT_RGBA8)
+	for y in image.get_height():
+		for x in image.get_width():
+			var pixel := image.get_pixel(x, y)
+			image.set_pixel(x, y, pixel * color)
 	var texture := ImageTexture.create_from_image(image)
 	icons[key] = texture
 	return texture

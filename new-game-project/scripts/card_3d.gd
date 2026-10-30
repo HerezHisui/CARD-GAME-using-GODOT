@@ -131,7 +131,7 @@ var _atk_label: Label
 var _cost_label: Label
 var _status_row: GridContainer
 var _cost_caption: Label
-var _keyword_icon: TextureRect
+var _seal_label: Label
 # Painted frame overlay per element; null means the old StyleBoxFlat frame.
 const FRAME_DIR := "res://assets/ui/card_frames/frame_%s_%s.png"
 var _frame_art: TextureRect
@@ -307,13 +307,17 @@ func _build_face() -> void:
 	affinity_line.visible = not framed
 	frame.add_child(affinity_line)
 	_status_row = GridContainer.new()
-	# Icons sit in the gap between the ATK and HP badges, above the keyword.
-	_status_row.columns = 5
-	_status_row.position = Vector2(86, 280)
-	_status_row.size = Vector2(92, 34)
-	_status_row.add_theme_constant_override("h_separation", 3)
+	_status_row.name = "Symbols"
+	_status_row.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_status_row.add_theme_constant_override("h_separation", 2)
 	_status_row.add_theme_constant_override("v_separation", 2)
 	frame.add_child(_status_row)
+	_seal_label = _face_label(title_font, 14, UI.AMBER)
+	_seal_label.name = "SealTiming"
+	_seal_label.position = Vector2(58, 251)
+	_seal_label.size = Vector2(148, 18)
+	_seal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	frame.add_child(_seal_label)
 	var art_path: String = ART.get(art_key(str(card_data.get("name", ""))), "")
 	# No art or missing file: keep the plain art window.
 	if art_path != "" and ResourceLoader.exists(art_path):
@@ -358,7 +362,6 @@ func _build_face() -> void:
 
 	_atk_label = null
 	_hp_label = null
-	_keyword_icon = null
 	if not card_data.get("utility", false):
 		var atk := _badge(str(card_data.attack), UI.RAISED, Vector2(16, FACE_H - 80), title_font)
 		_atk_label = atk.get_child(0)
@@ -376,38 +379,6 @@ func _build_face() -> void:
 		# The painted frame has the ATK/HP captions baked in.
 		atk_cap.visible = not framed
 		frame.add_child(atk_cap)
-		# First keyword, in the gap between the ATK and HP badges.
-		# Symbol only (44px); the full text stays in the inspect panel.
-		_keyword_icon = TextureRect.new()
-		_keyword_icon.name = "Keyword"
-		_keyword_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		_keyword_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		# Centered on the 60px badges, so it sits between them and above the caption.
-		_keyword_icon.position = Vector2((FACE_W - 44) / 2.0, FACE_H - 80 + (60 - 44) / 2.0)
-		_keyword_icon.size = Vector2(44, 44)
-		# Painted circles are centered at y 313.
-		if framed: _keyword_icon.position.y = 313 - 22
-		frame.add_child(_keyword_icon)
-		# Creature faces show one symbol only, so hide the small icon row.
-		# It is still filled, so the code that reads it keeps working.
-		_status_row.visible = false
-	else:
-		# Spell cards: one icon row under the banner, a big effect icon where ATK/HP would be.
-		# The effect text is only in the inspect view now.
-		_status_row.columns = 10
-		_status_row.position = Vector2(38, 252)
-		_status_row.size = Vector2(187, 16)
-		var effect_icon := TextureRect.new()
-		effect_icon.name = "EffectIcon"
-		effect_icon.texture = UI.icon(str(card_data.get("effect", "")))
-		effect_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		effect_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		# Centered in the free area between the banner (ends at y 248) and the bottom edge.
-		effect_icon.position = Vector2((FACE_W - 56) / 2.0, (248 + FACE_H - 56) / 2.0)
-		# Painted frame: center between the banner and the inner bottom border (y 345).
-		if framed: effect_icon.position.y = 268
-		effect_icon.size = Vector2(56, 56)
-		frame.add_child(effect_icon)
 	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
@@ -452,7 +423,7 @@ func _update_frame_state() -> void:
 func _refresh_face() -> void:
 	face_signature = current_face_signature()
 	var trim := _vp.get_child(0).get_node("IndustrialTrim")
-	trim.hazard = not preview_only and _manager().is_sealed(card_data)
+	trim.hazard = not preview_only and (_manager().is_sealed(card_data) or _manager().field_seal_active(card_data))
 	# On the painted frame the trim only shows the sealed stripes.
 	if _frame_art: trim.visible = trim.hazard
 	trim.queue_redraw()
@@ -470,69 +441,106 @@ func _refresh_face() -> void:
 		_hp_label.add_theme_color_override("font_color", UI.DANGER if card_data.health < max_health else UI.TEXT)
 	if _atk_label:
 		_atk_label.text = str(effective_attack())
-	# Only the first keyword fits; the rest stay in the icon row and inspect box.
-	if _keyword_icon:
-		var keyword := _face_keyword()
-		_keyword_icon.visible = not keyword.is_empty()
-		if _keyword_icon.visible: _keyword_icon.texture = UI.icon(keyword)
+	if _seal_label:
+		var seal_text: String = "" if preview_only else _manager().field_seal_text(card_data)
+		_seal_label.visible = not seal_text.is_empty()
+		_seal_label.tooltip_text = seal_text
+		var pending := int(card_data.get("seal_round", -1))
+		_seal_label.text = ("SEALED · R%d" if not preview_only and pending == _manager().turn \
+			else "NEXT · R%d") % pending
 	if _status_row:
 		for child in _status_row.get_children():
 			_status_row.remove_child(child)
 			child.queue_free()
 		for status in statuses:
-			if int(statuses[status]) > 0: _add_effect_icon(str(status), int(statuses[status]))
+			if int(statuses[status]) > 0:
+				_add_effect_icon(str(status), int(statuses[status]), "Active status")
 		for modifier in modifiers: _add_effect_icon(str(modifier))
 		for passive in ["piercing", "sluggish"]:
 			if has_modifier(passive) and passive not in modifiers: _add_effect_icon(passive)
 		var effect: String = card_data.get("effect", "")
-		# Spell cards already show their effect as the big icon, so skip the small copy.
-		if not effect.is_empty() and not card_data.get("utility", false): _add_effect_icon(effect)
-		for status in card_data.get("on_hit", {}): _add_effect_icon(str(status))
+		if not effect.is_empty(): _add_effect_icon(effect, 0, "Card effect")
+		for status in card_data.get("on_hit", {}):
+			_add_effect_icon(str(status), int(card_data.on_hit[status]), "On hit")
 		for key in ["leech", "on_play_draw", "thorns", "status_bonus", "utility_power", "refund_energy"]:
-			if int(card_data.get(key, 0)) > 0: _add_effect_icon(key)
+			if int(card_data.get(key, 0)) > 0: _add_effect_icon(key, int(card_data[key]))
 		if card_data.has("condition"): _add_effect_icon("condition")
-		if planned_guard > 0: _add_effect_icon("barrier")
-		if plan_attack_bonus > 0: _add_effect_icon("strength")
+		if card_data.get("boss_role", "") == "taunt": _add_effect_icon("taunt")
+		var sacrificed: String = card_data.get("on_sacrifice", "")
+		if not sacrificed.is_empty(): _add_effect_icon(sacrificed, 0, "On sacrifice")
+		if planned_guard > 0: _add_effect_icon("barrier", planned_guard, "Plan protection")
+		if plan_attack_bonus > 0: _add_effect_icon("strength", plan_attack_bonus, "Plan attack")
 		if plan_ignore_taunt or card_data.get("ignore_taunt", false): _add_effect_icon("piercing")
 		if card_data.get("curse", false): _add_effect_icon("bleed")
 		if not preview_only and _manager().is_sealed(card_data): _add_effect_icon("sealed")
+		if not preview_only and not _manager().field_seal_text(card_data).is_empty():
+			_add_effect_icon("sealed", 0, _manager().field_seal_text(card_data))
 		if has_modifier("sluggish") and not can_attack(_manager().turn): _add_effect_icon("resting")
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
-## The one keyword on the face: printed first, then buff-granted Piercing/Sluggish, then boss Taunt.
-func _face_keyword() -> String:
-	if not modifiers.is_empty(): return modifiers[0]
-	for passive in ["piercing", "sluggish"]:
-		if has_modifier(passive): return passive
-	if card_data.get("boss_role", "") == "taunt": return "taunt"
-	return ""
+## Every effect remains represented; the grid shrinks to its reserved card-face area.
+func _symbol_bounds() -> Rect2:
+	if card_data.get("utility", false): return Rect2(34, 274, 196, 62)
+	return Rect2(76, 274, 112, 62)
 
-func _add_effect_icon(kind: String, stacks: int = 0) -> void:
-	if _status_row.get_child_count() >= 9:
-		var overflow := _status_row.get_node_or_null("More")
-		if overflow:
-			var count := overflow.get_child(0) as Label
-			count.text = str(int(count.text) + 1)
-			return
-		kind = "more"
-		stacks = 1
+func _layout_effect_icons() -> void:
+	var count := _status_row.get_child_count()
+	if count == 0: return
+	var bounds := _symbol_bounds()
+	var columns := mini(count, ceili(sqrt(count * bounds.size.x / bounds.size.y)))
+	var rows := ceili(float(count) / columns)
+	var cell := Vector2(
+		floorf((bounds.size.x - 2 * (columns - 1)) / columns),
+		floorf((bounds.size.y - 2 * (rows - 1)) / rows))
+	cell = cell.min(Vector2(32, 32))
+	_status_row.columns = columns
+	_status_row.size = Vector2.ZERO
+	var extent := cell * Vector2(columns, rows) + Vector2(columns - 1, rows - 1) * 2
+	_status_row.position = bounds.position + (bounds.size - extent) / 2
+	for badge: TextureRect in _status_row.get_children():
+		badge.custom_minimum_size = cell
+		badge.size = cell
+		var label := badge.get_node_or_null("Count") as Label
+		if label:
+			label.position = Vector2.ZERO
+			var font_size := mini(10, floori(cell.x / maxf(label.text.length() * 0.65, 1)))
+			font_size = mini(font_size, floori(cell.y * 0.6))
+			label.add_theme_font_size_override("font_size", maxi(4, font_size))
+			label.size = cell
+
+func _add_effect_icon(kind: String, stacks: int = 0, detail: String = "") -> void:
 	var badge := TextureRect.new()
 	badge.name = kind.capitalize().replace(" ", "")
 	badge.texture = UI.icon(kind)
-	badge.custom_minimum_size = Vector2(16, 16)
 	badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	badge.tooltip_text = (detail + ": " if not detail.is_empty() else "") + kind.capitalize()
+	if stacks > 0: badge.tooltip_text += " %d" % stacks
+	var rules := preload("res://scripts/battle_rules.gd")
+	if detail == "Card effect" and card_data.get("utility", false):
+		badge.tooltip_text += "\n" + rules.utility_text(card_data)
+	elif kind in modifiers:
+		badge.tooltip_text += "\n" + rules.modifier_text(card_data, kind)
+	elif kind in ["condition", "status_bonus", "utility_power", "taunt"]:
+		var descriptions := {
+			"condition": "Conditional attack: inspect this card for its status threshold and reward.",
+			"status_bonus": "Bonus attack against targets with at least 3 combined Burn, Poison and Bleed.",
+			"utility_power": "Additional power for this card's utility effect.",
+			"taunt": "Guardian: intercepts attacks intended for other Disaster cards."
+		}
+		badge.tooltip_text += "\n" + descriptions[kind]
 	_status_row.add_child(badge)
-	# Center the creature icon row in the gap between the ATK and HP badges.
-	if not card_data.get("utility", false):
-		var cols := mini(_status_row.get_child_count(), 5)
-		_status_row.position.x = 76 + int((112 - (cols * 16 + (cols - 1) * 3)) / 2.0)
 	if stacks > 0:
 		var count := _face_label(UI.font(true), 10, UI.TEXT)
+		count.name = "Count"
 		count.text = str(stacks)
-		count.position = Vector2(10, 8)
-		UI.outline(count)
+		count.clip_text = true
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		UI.outline(count, 1)
 		badge.add_child(count)
+	_layout_effect_icons()
 
 ## Overlay mode: draw on top of the 3D world (hand / dragging).
 func _set_overlay(on: bool) -> void:
@@ -674,6 +682,7 @@ func _drop_card() -> void:
 func place_on_slot(slot: Node3D) -> void:
 	in_hand = false
 	current_slot = slot
+	if not preview_only and is_instance_valid(_manager().vfx): _manager().vfx.sync_status(self, false)
 	_set_overlay(false)
 	set_layer(0)
 	_refresh_face()
@@ -692,6 +701,7 @@ func place_on_slot(slot: Node3D) -> void:
 func enter_from_above(slot: Node3D) -> void:
 	in_hand = false
 	current_slot = slot
+	if not preview_only and is_instance_valid(_manager().vfx): _manager().vfx.sync_status(self, false)
 	_set_overlay(false)
 	set_layer(0)
 	var land := slot.global_position + Vector3(0, 0.02, 0)
@@ -768,6 +778,8 @@ func heal(amt: int) -> void:
 	spawn_popup("+%d HP" % amt, UI.RESPONSE)
 
 func sacrifice_dissolve() -> void:
+	if not _manager().can_sacrifice(self): return
+	_manager().vfx.clear_card(self)
 	_manager().sacrifice_reward(self)
 	_manager().record_graveyard(self, "Sacrificed")
 	current_slot = null
@@ -784,6 +796,7 @@ func sacrifice_dissolve() -> void:
 	queue_free()
 
 func discard_to_pile() -> void:
+	_manager().vfx.clear_card(self)
 	in_hand = false
 	input_ray_pickable = false
 	collision_layer = 0
@@ -932,6 +945,7 @@ func add_status(status: String, amount: int) -> void:
 	if not is_alive() or amount <= 0: return
 	statuses[status] = mini(3, int(statuses.get(status, 0)) + amount) if status == "barrier" else int(statuses.get(status, 0)) + amount
 	_refresh_face()
+	_manager().vfx.sync_status(self)
 	spawn_popup("%s +%d" % [status.to_upper(), amount], UI.DANGER if status != "strength" else UI.RESPONSE)
 
 func status_upkeep() -> void:
@@ -939,25 +953,30 @@ func status_upkeep() -> void:
 	for status in ["burn", "poison"]:
 		var stacks := int(statuses.get(status, 0))
 		if stacks > 0 and is_alive():
+			_manager().vfx.status_tick(self, status)
 			statuses[status] = floori(stacks / 2.0) if status == "burn" else stacks - 1
 			take_damage(stacks, 1.0, true)
 	var regen: int = int(_manager().buffs_for(card_data).get("regen", 0)) + (1 if has_modifier("regenerating") else 0)
 	if is_alive() and regen > 0: heal(regen)
 	if int(statuses.get("healing_reduced", 0)) > 0: statuses.healing_reduced = int(statuses.healing_reduced) - 1
 	_refresh_face()
+	_manager().vfx.sync_status(self, false)
 
 func after_attack(round_number: int) -> void:
 	last_attack_turn = round_number
 	var stacks := int(statuses.get("bleed", 0))
 	if stacks > 0 and is_alive():
+		_manager().vfx.status_tick(self, "bleed")
 		statuses.bleed = stacks - 1
 		take_damage(stacks, 1.0, true)
 	_refresh_face()
+	_manager().vfx.sync_status(self, false)
 
 func cleanse() -> void:
 	for status in ["burn", "poison", "bleed", "healing_reduced"]: statuses.erase(status)
 	heal(3)
 	_refresh_face()
+	_manager().vfx.sync_status(self, false)
 
 static func _card_back() -> Texture2D:
 	if back_texture: return back_texture

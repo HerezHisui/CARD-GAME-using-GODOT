@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## Owns the persistent run. Battle copies never mutate the collection.
 const UI = preload("res://scripts/ui_theme.gd")
+const MenuSkin = preload("res://scripts/suspended_menu.gd")
 const RouteCanvas = preload("res://scripts/route_canvas.gd")
 const CardFace = preload("res://scripts/card_3d.gd")
 const Rules = preload("res://scripts/battle_rules.gd")
@@ -322,7 +323,9 @@ func _build_ui() -> void:
 	modal.move_child(modal.get_node("IndustrialTrim"), 0)
 	modal.gui_input.connect(_modal_input)
 	get_viewport().size_changed.connect(func():
-		if modal.visible: _panel_layout(screen)
+		if modal.visible:
+			_panel_layout(screen)
+			_skin_menu()
 	)
 	# Same font, size and color that label() gives.
 	idle_hint = root.get_node("IdleHint")
@@ -334,6 +337,7 @@ func _build_ui() -> void:
 	boss_intent = intent_panel.get_node("%IntentLabel")
 	plans_button = scene_hud.get_node("PlansBox/PlansButton")
 	plans_button.pressed.connect(show_plans)
+	preload("res://scripts/hud_hub_art.gd").apply(scene_hud)
 	graveyard_button = scene_hud.get_node("GraveyardButton")
 	graveyard_button.pressed.connect(show_graveyard)
 	for hud_button in [plans_button, graveyard_button]: game.presentation.button_feedback(hud_button)
@@ -384,7 +388,7 @@ func _process(_delta: float) -> void:
 	game.get_node("HUD/Root/EndTurnButton").disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or not game.board_input.action.is_empty() or _dragging()
 	plans_button.visible = battle_active and not modal.visible
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
-	plans_button.text = "%d/2" % game.plans.tokens
+	plans_button.get_node("CountLabel").text = "%d/2" % game.plans.tokens
 	dashboard.visible = battle_active and not modal.visible
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
@@ -401,7 +405,7 @@ func _process(_delta: float) -> void:
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = str(game.deck.size())
 	game.get_node("HUD/Root/EnergyPips").queue_redraw()
 	game.get_node("HUD/TopBar/SuppliesLabel").text = "%d" % coins
-	graveyard_button.text = str(game.player_graveyard.size())
+	graveyard_button.get_node("CountLabel").text = str(game.player_graveyard.size())
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
 	# One shared top bar (HP, Supplies) for battle and the map, event, shop and rest screens.
 	var top_bar: Control = game.get_node("HUD/TopBar")
@@ -499,7 +503,10 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _panel_layout(kind: String) -> void:
-	compact_layout = kind in ["menu", "confirm", "debug_password", "debug", "log", "plans", "choice", "remove_confirm"]
+	var suspended := kind in ["plans", "menu", "settings", "buff"]
+	modal.set_meta("suspended_menu", suspended)
+	modal.get_node("IndustrialTrim").visible = not suspended
+	compact_layout = kind in ["menu", "settings", "buff", "confirm", "debug_password", "debug", "log", "plans", "choice", "remove_confirm"]
 	modal.custom_minimum_size = Vector2.ZERO
 	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if compact_layout:
@@ -510,7 +517,10 @@ func _panel_layout(kind: String) -> void:
 		var viewport_size := get_viewport().get_visible_rect().size
 		var height := 360.0 if kind == "debug_password" else (420.0 if kind == "confirm" else 680.0)
 		# Card pickers are wide so 3-4 cards fit side by side; the lane picker stays narrow.
-		var width := 560.0 if kind == "debug" else (CARD_PICKER_WIDTH if kind == "choice" and card_picker else 420.0)
+		var width := 420.0
+		if kind in ["debug", "plans", "menu", "settings"]: width = 560.0
+		elif kind == "buff": width = 760.0
+		elif kind == "choice" and card_picker: width = CARD_PICKER_WIDTH
 		var panel_size := Vector2(minf(width, viewport_size.x - 32), minf(height, viewport_size.y - 48))
 		modal.offset_left = (viewport_size.x - panel_size.x) / 2
 		modal.offset_right = -modal.offset_left
@@ -519,6 +529,7 @@ func _panel_layout(kind: String) -> void:
 		# In battle the top bar stays visible, so the popup starts under it.
 		if battle_active: modal.offset_top = maxf(modal.offset_top, 66)
 		modal.add_theme_stylebox_override("panel", style(UI.PANEL, UI.GOLD))
+		if suspended: MenuSkin.apply_skin(modal, content)
 		game.visible = battle_active
 		return
 	if content.get_parent() != modal: content.reparent(modal)
@@ -560,6 +571,7 @@ func reset_panel(title: String, subtitle: String, kind: String) -> void:
 		content.remove_child(child)
 		child.queue_free()
 	screen = kind
+	if kind in ["plans", "menu", "settings", "buff"]: _skin_menu.call_deferred()
 	modal.show()
 	if not title.is_empty(): content.add_child(label(title, 24 if compact_layout else 30, UI.GOLD, compact_layout))
 	if not subtitle.is_empty(): content.add_child(label(subtitle, 16, UI.MUTED, true))
@@ -572,6 +584,30 @@ func _fit_compact_content() -> void:
 		if child is ScrollContainer:
 			child.custom_minimum_size.y = 180
 			child.follow_focus = true
+
+func _skin_menu() -> void:
+	if not modal.get_meta("suspended_menu", false): return
+	MenuSkin.apply_skin(modal, content)
+	if root.has_node("SuspendedFrame"): return
+	var frame := MenuSkin.new()
+	frame.name = "SuspendedFrame"
+	frame.panel = modal
+	root.add_child(frame)
+
+func show_settings() -> void:
+	reset_panel("GAME SETTINGS", "Presentation preferences apply immediately.", "settings")
+	for setting in [["effects_enabled", "Attack and status effects"], ["boss_fog_enabled", "Boss fog"]]:
+		var toggle := CheckButton.new()
+		toggle.name = str(setting[0])
+		toggle.text = str(setting[1])
+		toggle.button_pressed = game.get(setting[0])
+		toggle.toggled.connect(func(enabled: bool): game.set_visual_setting(setting[0], enabled))
+		content.add_child(toggle)
+	button("Return to game menu", show_menu_from_settings, content)
+
+func show_menu_from_settings() -> void:
+	screen = ""
+	show_menu()
 
 func close_modal() -> void:
 	if saved_content:
@@ -658,10 +694,12 @@ func show_map() -> void:
 	canvas.rooms = rooms
 	canvas.current = current
 	canvas.cleared = cleared
+	refresh_map_fog()
 	content.get_node("RouteRow/Dossier/DossierText/FloorLabel").text = "FLOOR / %02d" % floor_number
 	animate_map.call_deferred(weakref(map_scroll), maxi(0, 1660 - 100 - (int(rooms[current].row) if current >= 0 else 0) * 145 - 280))
 	canvas.resized.connect(func():
 		for b in canvas.get_children():
+			if not b.has_meta("room"): continue
 			b.position = canvas.point(rooms[int(b.get_meta("room"))]) - b.size / 2
 	)
 	for room in rooms:
@@ -696,6 +734,21 @@ func animate_map(reference: WeakRef, destination: int) -> void:
 	scroll.scroll_vertical = destination + 110
 	var tween: Tween = scroll.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tween.tween_property(scroll, "scroll_vertical", destination, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+func refresh_map_fog() -> void:
+	var canvas := content.get_node_or_null("RouteRow/MapScroll/Canvas")
+	if canvas == null: return
+	var fog := canvas.get_node_or_null("BossFog")
+	var in_boss_region: bool = current >= 0 and current < rooms.size() and rooms[current].kind == "boss" \
+		and current not in cleared
+	if in_boss_region and game.boss_fog_enabled:
+		if fog == null:
+			fog = preload("res://scripts/map_boss_fog.gd").new()
+			fog.name = "BossFog"
+			canvas.add_child(fog)
+	elif fog != null:
+		canvas.remove_child(fog)
+		fog.queue_free()
 
 func toggle_map() -> void:
 	if _dragging() or saved_content or screen in DECISIONS: return
@@ -753,6 +806,8 @@ func battle_finished(won: bool) -> void:
 	if not battle_active: return
 	get_tree().paused = false
 	battle_active = false
+	game.vfx.clear()
+	game.boss_fog.set_active(false)
 	intel_revealed = false
 	game.player_buffs.clear()
 	game.enemy_buffs.clear()
@@ -1020,6 +1075,7 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	if not tokens.is_empty(): status_details = "[b]CURRENT STATUSES[/b]\n" + "\n".join(tokens) + "\n"
 	var combat: PackedStringArray = []
 	if is_instance_valid(live_card):
+		if not game.field_seal_text(card).is_empty(): combat.append(game.field_seal_text(card))
 		if live_card.planned_guard > 0: combat.append("Plan protection: %d" % live_card.planned_guard)
 		if live_card.plan_attack_bonus > 0: combat.append("Plan attack: +%d" % live_card.plan_attack_bonus)
 		if live_card.plan_ignore_taunt: combat.append("Ignore Taunt")
@@ -1578,6 +1634,8 @@ func show_menu() -> void:
 	content.get_node("RulesScroll/Rules/Adaptations").text = "Adaptations: " + buff_summary(game.player_buffs)
 	content.get_node("RulesScroll/Rules/Augmentations").text = "Augmentations: " + buff_summary(game.player_run_buffs)
 	hook_button(content.get_node("ResumeButton"), close_modal)
+	var settings := button("Game Settings", show_settings, content)
+	content.move_child(settings, content.get_node("TitleButton").get_index())
 	if battle_active: hook_button(content.get_node("DebugButton"), show_debug)
 	else: content.get_node("DebugButton").free()
 	hook_button(content.get_node("TitleButton"), confirm_title)
@@ -1650,7 +1708,36 @@ func _open_debug(password: String) -> void:
 		persistence.checkpoint()
 	)
 	_debug_card_controls()
+	var boss_row := HBoxContainer.new()
+	boss_row.name = "BossSelection"
+	content.add_child(boss_row)
+	var bosses := OptionButton.new()
+	bosses.name = "BossPicker"
+	for title in ["Floor 1 · Janitor", "Floor 2 · Janitor", "Floor 3 · Midnight Warden"]:
+		bosses.add_item(title)
+	bosses.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	boss_row.add_child(bosses)
+	button("Enter boss", func(): debug_enter_boss(bosses.selected + 1), boss_row)
 	hook_button(content.get_node("CancelButton"), close_modal)
+
+func debug_enter_boss(boss_floor: int) -> bool:
+	if screen != "debug" or boss_floor not in [1, 2, 3]: return false
+	# Reuse the run collection and normal encounter initializer; never bypass the coin or Warden setup.
+	if collection.is_empty(): new_run()
+	floor_number = boss_floor
+	generate_map()
+	current = int(rooms.back().id)
+	encounter = "boss"
+	intel_revealed = false
+	battle_active = true
+	run_active = true
+	game.player_hp = game.hero_max_hp()
+	action_cancel = Callable()
+	modal.hide()
+	screen = ""
+	get_tree().paused = false
+	game.start_encounter(collection, encounter, floor_number, rng.randi_range(0, 3))
+	return true
 
 func _debug_card_controls() -> void:
 	var status_row: Control = content.get_node("StatusRow")
@@ -1680,6 +1767,7 @@ func _debug_card_controls() -> void:
 		if amount.value == 0: card.statuses.erase(key)
 		else: card.statuses[key] = int(amount.value)
 		card._refresh_face()
+		game.vfx.sync_status(card)
 		game.log_event("Debug status: %s · %s %d" % [card.card_data.name, key, int(amount.value)])
 		persistence.checkpoint()
 	).disabled = targets.is_empty()
@@ -1806,9 +1894,13 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 		"Lasts this battle.", "buff")
 	# The layout lives in ui_buff_choices.tscn; the buff tiles are made here.
 	var box := centered_screen(BuffChoicesScene)
+	box.custom_minimum_size.x = 0
 	var row: Control = box.get_node("Row")
 	for buff in buff_choices:
-		choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
+		var pick := choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
+		pick.clip_text = false
+		pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		pick.get_parent().get_parent().custom_minimum_size = Vector2(190, 250)
 	box.get_node("Summary").text = "YOUR BUFFS: " + buff_summary(game.player_buffs)
 
 func select_buff(id: String) -> void:
@@ -1826,6 +1918,7 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 		"Lasts the whole run.", "floor_buff")
 	# The layout lives in ui_floor_buffs.tscn; the buff tiles are made here.
 	var box := centered_screen(FloorBuffsScene)
+	box.custom_minimum_size.x = 0
 	var row: Control = box.get_node("Row")
 	for buff in buff_choices: choice_tile(buff.name, buff.description, select_floor_buff.bind(buff.id), row)
 	hook_button(box.get_node("ReturnButton"), return_title)

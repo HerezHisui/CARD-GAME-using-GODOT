@@ -110,6 +110,7 @@ func resume() -> bool:
 	director.run_active = true
 	director.rng.state = int(snapshot.rng)
 	apply_fields(game, snapshot.game, GAME_FIELDS)
+	game.boss_fog.set_active(director.battle_active and game.encounter_kind == "boss")
 	game.player_hp = clampi(game.player_hp, 0, game.hero_max_hp())
 	apply_fields(game.plans, snapshot.plans, ["tokens", "auto_save", "saved_round", "committed_round", "unlocked"])
 	for entry in snapshot.cards:

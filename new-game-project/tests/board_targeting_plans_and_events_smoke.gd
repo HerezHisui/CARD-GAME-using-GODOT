@@ -214,10 +214,12 @@ func run() -> void:
 	seal_data.effect = "seal"
 	var seal = card(seal_data)
 	game.enemy_deck.append(data("Untargetable future", "disaster"))
+	var field_target = card(data("Field disaster", "disaster"), 0)
+	game.player_first = true
 	game.try_utility(seal, game._response_slots()[3])
-	await capture("masked_hand_seal")
-	game.complete_utility_choice(game.enemy_hand[1])
-	check(game.is_sealed(game.enemy_hand[1]) and not game.enemy_deck[0].has("locked_until"), "seal locks held evolution, never draw pile")
+	await capture("field_seal")
+	game.complete_utility_choice(field_target)
+	check(game.field_seal_active(field_target.card_data) and not game.enemy_hand[1].has("locked_until"), "Response seal targets field, never hidden hand")
 	var human_hand = card(data("Human hand"))
 	var human_board = card(data("Human board"), 0)
 	game.deck.append(data("Human future"))
@@ -262,5 +264,5 @@ func run() -> void:
 	if failures > 0:
 		quit(1)
 		return
-	print("PASS: physical board relocation/cancel, board spell/Plan targeting, six unlockable tactics/effects/progression, shared masked enemy hand/hand-only seals/no stall, five new event trades/stability, starting-screen flow")
+	print("PASS: physical board relocation/cancel, board spell/Plan targeting, six unlockable tactics/effects/progression, shared masked enemy hand/field seals/no stall, five new event trades/stability, starting-screen flow")
 	quit(0)

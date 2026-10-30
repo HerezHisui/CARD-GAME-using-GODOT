@@ -131,11 +131,13 @@ func run() -> void:
 	var seal = make_card(definition("seal"))
 	game.enemy_deck.append({"name":"Test hazard", "type":"disaster", "element":"fire", "cost":0, "attack":1, "health":3})
 	game.enemy_draw_cards(1)
+	var field_target = make_card({"id":"seal_target", "name":"Field threat", "type":"disaster", "element":"fire", "cost":0, "attack":1, "health":3}, game._threat_slots()[2])
+	game.player_first = true
 	game.try_utility(seal, game._response_slots()[3])
-	game.complete_utility_choice(game.enemy_hand[0])
-	check(game.is_sealed(game.enemy_hand[0]), "only held card is sealed")
-	game.turn = 3
-	check(not game.is_sealed(game.enemy_hand[0]), "seal expires after two rounds")
+	game.complete_utility_choice(field_target)
+	check(game.field_seal_active(field_target.card_data), "deployed disaster sealed")
+	game.turn += 1
+	check(not game.field_seal_active(field_target.card_data), "field seal expires next round")
 	var sealed_ally = make_card(definition("runner"))
 	sealed_ally.card_data.locked_until = game.turn + 2
 	check(not game.try_play_card(sealed_ally), "sealed Response cannot be played")

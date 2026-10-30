@@ -1,5 +1,6 @@
 extends CanvasLayer
 const UI = preload("res://scripts/ui_theme.gd")
+const COIN_SCENE = preload("res://assets/coin/midnight_coin.glb")
 ## Short, event-driven UI tweens. No polling, gameplay timers or game-state ownership.
 signal coin_chosen(side: int)
 var game: Node
@@ -10,7 +11,6 @@ var coin_pivot: Node3D
 var choice_buttons: Array[Button] = []
 var coin_busy := false
 var coin_epoch := 0
-var coin_textures: Array[Texture2D] = []
 var banner_node: Control
 var banner_tween: Tween
 var draw_reminder: Panel
@@ -25,12 +25,6 @@ func setup(owner_game: Node) -> void:
 	get_tree().node_added.connect(func(node: Node):
 		if node is Button and game.is_ancestor_of(node): button_feedback(node)
 	)
-	for side in ["H", "T"]:
-		var letter := "M87 78h20v40h42V78h20v100h-20v-40h-42v40H87z" if side == "H" else "M84 78h88v20h-34v80h-20V98H84z"
-		var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><defs><radialGradient id="g"><stop stop-color="#%s"/><stop offset=".75" stop-color="#%s"/><stop offset="1" stop-color="#%s"/></radialGradient></defs><circle cx="128" cy="128" r="121" fill="url(#g)" stroke="#%s" stroke-width="5"/><circle cx="128" cy="128" r="103" fill="none" stroke="#%s" stroke-width="3"/><circle cx="128" cy="128" r="94" fill="none" stroke="#%s" stroke-width="2"/><path d="%s" fill="#%s"/></svg>' % [UI.GOLD.to_html(false), UI.BRONZE.to_html(false), UI.BRONZE.darkened(0.55).to_html(false), UI.TEXT.to_html(false), UI.BRONZE.darkened(0.5).to_html(false), UI.GOLD.to_html(false), letter, UI.INSET.to_html(false)]
-		var image := Image.new()
-		image.load_svg_from_string(svg)
-		coin_textures.append(ImageTexture.create_from_image(image))
 
 func choose_coin(result: int, previous_pick: int = -1) -> int:
 	coin_epoch += 1
@@ -117,46 +111,28 @@ func make_coin_view() -> SubViewportContainer:
 	var view := SubViewport.new()
 	view.own_world_3d = true
 	view.transparent_bg = true
+	view.msaa_3d = Viewport.MSAA_4X
 	view_box.add_child(view)
 	var camera := Camera3D.new()
 	camera.position = Vector3(0, 0, 3.6)
 	view.add_child(camera)
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-30, 20, 0)
+	light.light_energy = 1.5
 	view.add_child(light)
+	var environment := WorldEnvironment.new()
+	environment.environment = Environment.new()
+	environment.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.environment.ambient_light_color = Color("ffe2b1")
+	environment.environment.ambient_light_energy = 0.65
+	view.add_child(environment)
 	coin_pivot = make_coin()
 	view.add_child(coin_pivot)
 	return view_box
 
-## A short cylinder with the Heads art on the front and the Tails art on the back.
+## Centered octagonal solid with beveled borders and raised sun/moon geometry.
 func make_coin() -> Node3D:
-	var pivot := Node3D.new()
-	var body := MeshInstance3D.new()
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = 1.0
-	cylinder.bottom_radius = 1.0
-	cylinder.height = 0.12
-	var edge := StandardMaterial3D.new()
-	edge.albedo_color = UI.BRONZE
-	edge.metallic = 0.6
-	cylinder.material = edge
-	body.mesh = cylinder
-	body.rotation.x = PI / 2 # Turn the flat sides toward the camera.
-	pivot.add_child(body)
-	for side in 2:
-		var face := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(2, 2)
-		var art := StandardMaterial3D.new()
-		art.albedo_texture = coin_textures[side]
-		art.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-		quad.material = art
-		face.mesh = quad
-		# Heads faces the camera; Tails sits on the back, flipped so it reads upright after the toss.
-		face.position.z = 0.065 if side == 0 else -0.065
-		face.rotation.x = 0.0 if side == 0 else PI
-		pivot.add_child(face)
-	return pivot
+	return COIN_SCENE.instantiate() as Node3D
 
 func cancel_coin() -> void:
 	coin_epoch += 1

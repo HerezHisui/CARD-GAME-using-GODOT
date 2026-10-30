@@ -70,8 +70,8 @@ const EFFECTS := {
 	"draw":"Draw %d cards, up to the hand limit.",
 	"move":"Drag a deployed ally onto an empty Response slot.",
 	"tutor":"Choose an unlocked card from your draw pile and put it into your hand.",
-	"seal":"Choose an opposing hand card. Seal it for %d rounds, including this one. It cannot be played. "
-		+ "Draw piles and deployed units cannot be sealed.",
+	"seal":"Choose a deployed Disaster. It cannot evolve or be sacrificed for one round. "
+		+ "Active this round if Response plays first; next round if Response plays second. Attacks are allowed.",
 	"scout":"Reveal the Janitor's hand for the rest of this encounter. Inspect it again through the deck viewer.",
 	"tax":"Choose an opposing hand card. Raise its energy, sacrifice, or base tension cost by %d, capped at +2. "
 		+ "Expires after this round and the next.",
@@ -84,6 +84,10 @@ const EFFECT_LABELS := {"delay":"Discard deadweight", "blast":"Area damage", "ba
 
 static func utility_text(card: Dictionary) -> String:
 	var effect := str(card.get("effect", ""))
+	if effect == "seal":
+		if card.get("type", "response") == "disaster":
+			return "Seal one Response hand card for two rounds, including this one. It cannot be played."
+		return EFFECTS.seal
 	var power := int(card.get("utility_power", 0))
 	var amounts := {
 		"blast":2 + power, "barrier":2 + power, "herb":1 + power, "tablet":2 + power,

@@ -146,7 +146,7 @@ func _utility_targets(state: RefCounted, game: Node) -> Array:
 	match game.pending_effect:
 		"tutor": choices = game.deck.filter(func(card): return not game.is_sealed(card))
 		"recover": choices = game.recoverable_units()
-		"seal": choices = game.enemy_hand.filter(func(card): return not game.is_sealed(card))
+		"seal": return game.seal_targets().map(func(card): return _reference_id(state, card))
 		"tax": choices = game.enemy_hand
 		"rally", "cleanse": choices = game.board_input.action.get("cards", [])
 	return _pile(state, choices)

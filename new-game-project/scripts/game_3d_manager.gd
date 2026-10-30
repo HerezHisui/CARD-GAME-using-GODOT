@@ -28,6 +28,10 @@ var _drop_target_material: StandardMaterial3D
 var _slots_lit := false
 var turn := 1
 var presentation: Node
+var vfx: Node3D
+var boss_fog: Node
+var effects_enabled := true
+var boss_fog_enabled := true
 var turn_banner: CanvasLayer
 var coin_result := -1
 var coin_pick := -1
@@ -101,6 +105,11 @@ var hand_tuck_tween: Tween
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 
 func _ready() -> void:
+	var preferences := ConfigFile.new()
+	if preferences.load(visual_settings_path()) == OK:
+		effects_enabled = bool(preferences.get_value("visuals", "effects_enabled", true))
+		boss_fog_enabled = bool(preferences.get_value("visuals", "boss_fog_enabled", true))
+	preload("res://scripts/title_screen.gd").effects_enabled = effects_enabled
 	presentation = preload("res://scripts/game_presentation.gd").new()
 	add_child(presentation)
 	presentation.setup(self)
@@ -133,6 +142,12 @@ func _ready() -> void:
 	add_child(opponent_hand)
 	opponent_hand.setup(self)
 	_build_lighting()
+	boss_fog = preload("res://scripts/boss_fog.gd").new()
+	add_child(boss_fog)
+	boss_fog.setup(self)
+	vfx = preload("res://scripts/battle_vfx.gd").new()
+	add_child(vfx)
+	vfx.setup(self)
 	$HUD/Root/DeckDrawButton.pressed.connect(_on_draw_button_pressed)
 	_end_turn_btn.pressed.connect(_on_end_turn_pressed)
 	# W and S view buttons, same steps as the W and S keys.
@@ -160,6 +175,8 @@ func _ready() -> void:
 
 func clear_battle(preserve_result: bool = false) -> void:
 	encounter_serial += 1
+	if is_instance_valid(vfx): vfx.clear()
+	if is_instance_valid(boss_fog): boss_fog.set_active(false)
 	if is_instance_valid(presentation): presentation.cancel_coin()
 	if is_instance_valid(board_input): board_input.clear()
 	if is_instance_valid(plans): plans.reset()
@@ -194,6 +211,31 @@ func log_event(message: String) -> void:
 	battle_log.append("Round %d | %s" % [turn, message])
 	if battle_log.size() > 300: battle_log.pop_front()
 
+func set_visual_setting(key: String, enabled: bool) -> void:
+	if key not in ["effects_enabled", "boss_fog_enabled"]: return
+	set(key, enabled)
+	if key == "effects_enabled": preload("res://scripts/title_screen.gd").effects_enabled = enabled
+	if is_instance_valid(boss_fog): boss_fog.refresh()
+	if is_instance_valid(vfx):
+		if not effects_enabled: vfx.clear()
+		else:
+			for card in get_tree().get_nodes_in_group("cards"): vfx.sync_status(card, false)
+	if is_instance_valid(run_director): run_director.refresh_map_fog()
+	var preferences := ConfigFile.new()
+	preferences.load(visual_settings_path())
+	preferences.set_value("visuals", key, enabled)
+	preferences.save(visual_settings_path())
+
+func visual_settings_path() -> String:
+	# Match run-save isolation so smoke tests cannot change the player's presentation preferences.
+	for argument in OS.get_cmdline_args():
+		if argument.contains("tests/"):
+			return "user://test_visual_settings_%d.cfg" % hash(OS.get_cmdline_args())
+	return "user://visual_settings.cfg"
+
+func is_battle_active() -> bool:
+	return is_instance_valid(run_director) and run_director.battle_active
+
 func overclock_stacks(response_side: bool) -> int:
 	return BattleEngine.overclock_stacks(BattleQueries.context(self), response_side)
 
@@ -209,6 +251,7 @@ func incoming_damage(response_side: bool, amount: int) -> int:
 func start_encounter(collection: Array[Dictionary], kind: String, floor_level: int, specialty: int) -> void:
 	clear_battle()
 	encounter_kind = kind
+	boss_fog.set_active(kind == "boss")
 	run_director.intel_revealed = false
 	turn = 1
 	log_event("Encounter begins: %s, floor %d." % [kind.capitalize(), floor_level])
@@ -639,6 +682,32 @@ func add_card_to_hand(definition: Dictionary) -> void:
 func is_sealed(definition: Dictionary) -> bool:
 	return BattleEngine.is_sealed(definition, turn)
 
+func field_seal_active(definition: Dictionary) -> bool:
+	return int(definition.get("seal_round", -1)) == turn
+
+func field_seal_text(definition: Dictionary) -> String:
+	var affected_round := int(definition.get("seal_round", -1))
+	if affected_round < turn: return ""
+	var timing := "Active this round" if affected_round == turn else "Pending for round %d" % affected_round
+	return "Sealed: %s. Cannot evolve or be sacrificed. Attacks are allowed." % timing
+
+func seal_targets() -> Array:
+	return _threat_slots().map(func(slot): return _get_card_in_slot(slot)).filter(func(card):
+		return is_instance_valid(card) and card.is_alive() and int(card.card_data.get("seal_round", -1)) < turn
+	)
+
+func seal_field_card(card: Node) -> void:
+	if card not in seal_targets(): return
+	# player_first is the actual alternating round order, independent of animation timing.
+	card.card_data.seal_round = turn if player_first else turn + 1
+	card._refresh_face()
+	card.spawn_popup("SEALED" if player_first else "SEAL NEXT ROUND", UI.AMBER)
+	log_event("%s: %s" % [card.card_data.name, field_seal_text(card.card_data)])
+
+func can_sacrifice(card: Node) -> bool:
+	return is_instance_valid(card) and card.is_alive() and is_instance_valid(card.current_slot) \
+		and not field_seal_active(card.card_data)
+
 func buffs_for(definition: Dictionary) -> Dictionary:
 	return BattleEngine.buffs_for(BattleQueries.context(self), definition)
 
@@ -840,7 +909,9 @@ func recovered_definition(entry: Dictionary) -> Dictionary:
 				result = definition.duplicate(true)
 				break
 	if result.has("tax_original"): result[str(result.get("tax_key", "cost"))] = int(result.tax_original)
-	for key in ["statuses", "locked_until", "tax_original", "tax_key", "tax_until", "graveyard_id", "graveyard_reason", "graveyard_round", "recovery"]: result.erase(key)
+	for key in ["statuses", "seal_round", "locked_until", "tax_original", "tax_key", "tax_until",
+			"graveyard_id", "graveyard_reason", "graveyard_round", "recovery"]:
+		result.erase(key)
 	result.recovered = true
 	return result
 
@@ -956,7 +1027,7 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		match effect:
 			"tutor": choices = deck.filter(func(c): return not is_sealed(c))
 			"recover": choices = recoverable_units()
-			"seal": choices = enemy_hand.filter(func(c): return not is_sealed(c))
+			"seal": choices = seal_targets()
 			"tax": choices = enemy_hand
 			"rally", "cleanse": choices = _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if choices.is_empty(): return false
@@ -964,9 +1035,12 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		pending_effect = effect
 		if card.get_parent() != hand_container: card.reparent(hand_container, true)
 		arrange_hand_centered()
-		if effect in ["rally", "cleanse"]:
+		if effect == "seal":
+			board_input.pick("Choose a Disaster on the field. Seal " + ("this round." if player_first else "next round."),
+				choices, complete_utility_choice, cancel_utility_choice)
+		elif effect in ["rally", "cleanse"]:
 			board_input.pick("Click a friendly deployed card for " + str(card.card_data.name) + ".", choices, complete_utility_choice, cancel_utility_choice)
-		elif effect in ["seal", "tax"]: run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
+		elif effect == "tax": run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
 		else: run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
 		return true
 	if effect in ["blast", "barrier", "herb", "tablet"]: set_board_view(true)
@@ -1009,7 +1083,10 @@ func complete_utility_choice(target: Variant) -> void:
 	if pending_effect == "recover" and (not recoverable_units().has(target) or get_hand_cards().size() > HAND_SIZE_MAX):
 		cancel_utility_choice()
 		return
-	if pending_effect in ["seal", "tax"] and target not in enemy_hand:
+	if pending_effect == "seal" and target not in seal_targets():
+		cancel_utility_choice()
+		return
+	if pending_effect == "tax" and target not in enemy_hand:
 		cancel_utility_choice()
 		return
 	var power := int(pending_utility.card_data.get("utility_power", 0))
@@ -1017,7 +1094,7 @@ func complete_utility_choice(target: Variant) -> void:
 		"tutor":
 			deck.erase(target)
 		"recover": player_graveyard.erase(target)
-		"seal": target.locked_until = turn + 2 + power
+		"seal": seal_field_card(target)
 		"tax":
 			for i in range(1 + power): increase_cost(target)
 		"rally": target.add_status("strength", 2 + power)
@@ -1175,7 +1252,9 @@ func _begin_round() -> void:
 
 func continue_round() -> void:
 	for definition in deck + enemy_deck + enemy_hand + enemy_evolution_deck: expire_tax(definition)
-	for card in get_tree().get_nodes_in_group("cards"): expire_tax(card.card_data)
+	for card in get_tree().get_nodes_in_group("cards"):
+		expire_tax(card.card_data)
+		if int(card.card_data.get("seal_round", turn)) < turn: card.card_data.erase("seal_round")
 	if _turn_label: _turn_label.text = "Turn %d" % turn
 	# Big TURN N banner at the start of each round.
 	if is_instance_valid(turn_banner) and run_director and run_director.battle_active:
@@ -1347,7 +1426,7 @@ func _enemy_turn() -> void:
 		var active_threats: Array = []
 		for s in _threat_slots():
 			var c = _get_card_in_slot(s)
-			if c and c.is_alive():
+			if c and can_sacrifice(c):
 				active_threats.append(c)
 
 		var empty_slots: Array = _threat_slots().filter(func(s): return _get_card_in_slot(s) == null)
@@ -1375,6 +1454,7 @@ func _enemy_turn() -> void:
 			active_threats.sort_custom(func(a, b): return a.card_data.health < b.card_data.health)
 			var to_sacrifice: Array = plan.sacrifices if not plan.is_empty() else active_threats.slice(0, sac_count)
 			var target_slot: Node3D = plan.slot if not plan.is_empty() else to_sacrifice[0].current_slot
+			if to_sacrifice.any(func(card): return not can_sacrifice(card)): break
 
 			_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [to_sacrifice.size(), evo_card_data.get("name", "Apex Threat")])
 			shake_camera(0.08, 0.2)
@@ -1550,6 +1630,7 @@ func best_evolution_plan(active: Array, candidates: Array) -> Dictionary:
 			for i in active.size():
 				if mask & (1 << i): sacrifices.append(active[i])
 			if sacrifices.size() != cost: continue
+			if sacrifices.any(func(card): return not can_sacrifice(card)): continue
 			for target in sacrifices:
 				var after: Dictionary = before.duplicate(true)
 				for sacrificed in sacrifices: after.erase(sacrificed.current_slot)
@@ -1661,6 +1742,7 @@ func _side_attacks(response_side: bool) -> void:
 			target_pos = mine[i].global_position + Vector3(0, 0, -2.4 if response_side else 2.4)
 
 		# Dramatic wind-up and lunge strike
+		vfx.attack_start(atk, target_pos)
 		await atk.attack_lunge(target_pos)
 
 		resolve_attack(atk, def, response_side)
@@ -1701,6 +1783,9 @@ func resolve_attack(atk: Node, defender: Node, response_side: bool) -> void:
 func resolve_single_strike(atk: Node, defender: Node, response_side: bool) -> void:
 	if defender != null and defender.card_data.type == atk.card_data.type: return
 	var blocked: bool = defender != null and defender.is_alive()
+	var impact_position: Vector3 = atk.global_position + Vector3(0, 0, -0.8 if response_side else 0.8)
+	if blocked: impact_position = defender.global_position
+	vfx.impact(str(atk.card_data.get("element", "")), impact_position)
 	var piercing: bool = atk.has_modifier("piercing")
 	var armored_block: bool = blocked and defender.has_modifier("armored")
 	log_event("%s attacks %s." % [atk.card_data.name, defender.card_data.name if blocked else ("Disaster health" if response_side else "Response health")])
