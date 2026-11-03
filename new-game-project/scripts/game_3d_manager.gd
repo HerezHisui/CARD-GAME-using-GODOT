@@ -23,6 +23,7 @@ var enemy_hand: Array[Dictionary] = []
 var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").new(self)
 # Set by versus_match.gd at match start. True means a person plays the Disaster turn.
 var disaster_is_human := false
+var disaster_waiting := false  # true only while a human Disaster turn waits for End
 var hand: Array = []
 var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
@@ -181,6 +182,8 @@ func _ready() -> void:
 
 func clear_battle(preserve_result: bool = false) -> void:
 	encounter_serial += 1
+	# Free a human Disaster turn that is waiting for End.
+	disaster_actions.turn_ended.emit()
 	if is_instance_valid(opponent_hand): opponent_hand.cancel_action()
 	if is_instance_valid(vfx): vfx.clear()
 	if is_instance_valid(boss_fog): boss_fog.set_active(false)
@@ -1224,6 +1227,8 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	var previous := phase
 	phase = p
 	if p == Phase.GAME_OVER and is_instance_valid(opponent_hand): opponent_hand.cancel_action()
+	# Free a human Disaster turn that is waiting for End.
+	if p == Phase.GAME_OVER: disaster_actions.turn_ended.emit()
 	# The TURN N banner replaces the side banner at round start.
 	var round_banner: bool = is_instance_valid(turn_banner) and turn_banner.is_playing()
 	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking \
@@ -1472,8 +1477,13 @@ func _enemy_turn() -> void:
 
 	# A human Disaster plays through disaster_actions and ends the turn with end_turn().
 	if encounter_kind == "versus" and disaster_is_human:
+		var serial := encounter_serial
 		disaster_actions.begin_turn()
+		disaster_waiting = true
 		await disaster_actions.turn_ended
+		disaster_waiting = false
+		# The battle ended or was cleared while waiting: skip the closing lines.
+		if serial != encounter_serial or phase == Phase.GAME_OVER: return
 	elif not await _disaster_ai_actions(): return
 
 	_set_phase(Phase.ENEMY, "Disaster concludes its turn.")

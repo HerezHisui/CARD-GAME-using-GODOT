@@ -36,6 +36,7 @@ const IntelScene = preload("res://scenes/ui/ui_intel.tscn")
 const ConfirmScene = preload("res://scenes/ui/ui_confirm.tscn")
 const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
 const ChooseSlotScene = preload("res://scenes/ui/ui_choose_slot.tscn")
+const DisasterPanelScene = preload("res://scenes/ui/ui_disaster_panel.tscn")
 const BuffChoicesScene = preload("res://scenes/ui/ui_buff_choices.tscn")
 const FloorBuffsScene = preload("res://scenes/ui/ui_floor_buffs.tscn")
 ## Pieces that many screens reuse.
@@ -113,6 +114,8 @@ var remove_origin := ""
 var remove_index := -1
 var board_prompt: PanelContainer
 var board_prompt_label: Label
+var disaster_panel: PanelContainer
+var disaster_hand_key := []  # what the Disaster hand list shows now
 var unlock_after := "cards"
 var event_key := ""
 var event_type := "locked"
@@ -357,6 +360,47 @@ func _build_ui() -> void:
 	var cancel_button: Button = board_prompt.get_node("%CancelButton")
 	cancel_button.pressed.connect(func(): game.board_input.cancel())
 	game.presentation.button_feedback(cancel_button)
+	# Disaster panel for a human Versus Disaster turn. Below the modal, so a popup covers it.
+	disaster_panel = DisasterPanelScene.instantiate()
+	root.add_child(disaster_panel)
+	root.move_child(disaster_panel, modal_frame.get_index())
+	var end_button: Button = disaster_panel.get_node("%EndButton")
+	end_button.pressed.connect(func(): game.disaster_actions.end_turn())
+	game.presentation.button_feedback(end_button)
+
+## Shows the Disaster panel only on a human Disaster turn. Labels and the hand list change only when needed.
+func _refresh_disaster_panel() -> void:
+	var show_panel: bool = battle_active and not modal.visible and game.encounter_kind == "versus" \
+		and game.disaster_is_human and game.phase == game.Phase.ENEMY
+	disaster_panel.visible = show_panel
+	if not show_panel: return
+	var actions = game.disaster_actions
+	_set_label_text(disaster_panel.get_node("%Tension"), "Tension: %d / %d" % [game.tension, game.tension_cap])
+	_set_label_text(disaster_panel.get_node("%Evolutions"), "Evolutions: %d" % game.enemy_evolution_deck.size())
+	_set_label_text(disaster_panel.get_node("%Actions"), "Actions left: %d" % actions.actions_left())
+	var end_button: Button = disaster_panel.get_node("%EndButton")
+	var can_end: bool = game.disaster_waiting and not actions.busy
+	if end_button.disabled == can_end: end_button.disabled = not can_end
+	var key := []
+	for card in game.enemy_hand: key.append("%s %d" % [card.get("name", "?"), _disaster_card_cost(card)])
+	if key == disaster_hand_key: return
+	disaster_hand_key = key
+	var list: Control = disaster_panel.get_node("%HandList")
+	for old in list.get_children():
+		list.remove_child(old)
+		old.queue_free()
+	for line in key:
+		var row := Label.new()
+		row.text = line
+		list.add_child(row)
+
+func _set_label_text(label: Label, text: String) -> void:
+	if label.text != text: label.text = text
+
+## Tension cost for spells and bases, evolutions show their sacrifice count.
+func _disaster_card_cost(card: Dictionary) -> int:
+	if int(card.get("cost", 0)) > 0 and not card.get("utility", false): return int(card.get("cost", 0))
+	return int(card.get("tension_cost", 1))
 
 ## A gauge from ui_gauge.tscn on root; returns its bar. Gauges have a title and a bar only.
 func _make_gauge(box_name: String, title: String, color: Color, variation: String) -> ProgressBar:
@@ -401,6 +445,7 @@ func _process(_delta: float) -> void:
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	_update_boss_intent()
+	_refresh_disaster_panel()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap

@@ -102,6 +102,7 @@ func check_versus_match() -> void:
 	await check_disaster_actions(game, director)
 	await check_ai_uses_actions(game, director)
 	await check_disaster_turn_switch(game, director)
+	await check_disaster_panel(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -237,6 +238,56 @@ func check_disaster_turn_switch(game: Node, director: Node) -> void:
 	expect(done[0], "Human Disaster turn: finishes after end_turn")
 	game.disaster_is_human = false
 	await check_ai_uses_actions(game, director)
+
+# A human Disaster turn with 3 tension, 2 evolutions and one card in hand, waiting for End.
+func start_human_turn(game: Node, director: Node, done: Array) -> void:
+	start_disaster_turn(game, director, 3)
+	game.turn = 3
+	game.enemy_deck.clear()
+	game.enemy_evolution_deck.assign([test_base("t_evo_a"), test_base("t_evo_b")])
+	game.enemy_hand.assign([test_base("t_panel")])
+	game.disaster_is_human = true
+	done[0] = false
+	run_enemy_turn(game, done)
+
+# The Disaster panel only shows on a human Disaster turn. A battle that ends frees a waiting turn.
+func check_disaster_panel(game: Node, director: Node) -> void:
+	var panel: Control = director.disaster_panel
+	# The earlier match results screen may still be open.
+	director.modal.visible = false
+	start_disaster_turn(game, director, 3)
+	await process_frame
+	expect(panel != null and not panel.visible, "Disaster panel: hidden when the Disaster is the AI")
+	# End with nobody waiting does nothing bad.
+	game.enemy_hand.assign([test_base("t_idle")])
+	expect(not game.disaster_waiting, "Disaster panel: nobody waits before a human turn")
+	expect(game.disaster_actions.end_turn().ok and game.enemy_hand.size() == 1 and game.tension == 3,
+		"Disaster panel: end_turn with nobody waiting changes nothing")
+	var done := [false]
+	start_human_turn(game, director, done)
+	await create_timer(0.2, false).timeout
+	await process_frame
+	expect(panel.visible and panel.get_node("%EndButton").disabled, "Disaster panel: End is off before the turn waits")
+	await create_timer(0.6, false).timeout
+	await process_frame
+	expect(panel.visible and not done[0], "Disaster panel: shown on a human Disaster turn")
+	expect(panel.get_node("%Tension").text == "Tension: 3 / %d" % game.tension_cap, "Disaster panel: tension")
+	expect(panel.get_node("%Evolutions").text == "Evolutions: 2", "Disaster panel: evolution count")
+	expect(panel.get_node("%Actions").text == "Actions left: 3", "Disaster panel: actions left")
+	expect(panel.get_node("%HandList").get_child_count() == 1, "Disaster panel: one card in the hand list")
+	expect(not panel.get_node("%EndButton").disabled, "Disaster panel: End is on while the turn waits")
+	game.clear_battle()
+	await create_timer(0.1, false).timeout
+	expect(done[0] and game.phase == game.Phase.SETUP, "Disaster panel: clear_battle frees the waiting turn")
+	start_human_turn(game, director, done)
+	await create_timer(0.8, false).timeout
+	expect(not done[0], "Disaster panel: second turn waits")
+	game._set_phase(game.Phase.GAME_OVER)
+	await create_timer(0.1, false).timeout
+	expect(done[0] and game.phase == game.Phase.GAME_OVER, "Disaster panel: a finished battle frees the waiting turn")
+	await process_frame
+	expect(not panel.visible, "Disaster panel: hidden when the battle is over")
+	game.disaster_is_human = false
 
 func check_prep_failures(prep: Dictionary) -> void:
 	var short: Dictionary = prep.duplicate(true)
