@@ -27,7 +27,12 @@ func capture(name: String) -> void:
 	if director.modal.visible:
 		if director.compact_layout:
 			var rect: Rect2 = director.modal.get_global_rect()
-			var width: float = 560.0 if director.screen == "debug" else (director.CARD_PICKER_WIDTH if director.screen == "choice" and director.card_picker else 420.0)
+			# Widths match run_director.gd: narrow 420, wide 560, buff 960, reward 1120.
+			var width: float = 420.0
+			if director.screen in ["debug", "plans", "menu", "settings"]: width = 560.0
+			elif director.screen == "buff": width = 960.0
+			elif director.screen in ["reward", "contingency_reward", "floor_buff"]: width = 1120.0
+			elif director.screen == "choice" and director.card_picker: width = director.CARD_PICKER_WIDTH
 			check(absf(rect.size.x - width) < 2, name + " compact width is %d" % width)
 			check(director.content.get_global_rect().end.x <= director.modal_scroll.get_global_rect().end.x + 1, name + " compact content fits without horizontal clipping")
 			check(rect.get_center().distance_to(root.get_visible_rect().size / 2) < 2, name + " compact panel is centered")
@@ -344,7 +349,11 @@ func polish_checks() -> void:
 	battle()
 	game._apply_view(game.DESK_VIEW)
 	await create_timer(0.3).timeout
-	check(director.prep.get_parent().get_child_count() == 2, "HUD energy gauge has no Deck or Hand readout")
+	# The deck count now lives on DeckDrawButton/DeckCountLabel, not in the gauge.
+	var gauge_text := ""
+	for label in director.prep.get_parent().find_children("*", "Label", true, false):
+		gauge_text += label.text
+	check(not gauge_text.contains("Deck") and not gauge_text.contains("Hand"), "HUD energy gauge has no Deck or Hand readout")
 	director.show_deck()
 	await capture("deck_navigation")
 	var buttons: Array = director.content.find_children("*", "Button", true, false)
