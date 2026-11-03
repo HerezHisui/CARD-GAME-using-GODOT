@@ -1141,24 +1141,38 @@ func expire_tax(definition: Dictionary) -> void:
 		for key in ["tax_original", "tax_key", "tax_until"]: definition.erase(key)
 
 func enemy_utility(definition: Dictionary) -> void:
-	record_enemy_spell(definition)
+	apply_enemy_utility(definition, enemy_spell_target(definition))
+
+## AI pick for a seal or tax target in the Response hand. Null when there is none.
+func enemy_spell_target(definition: Dictionary) -> Node:
 	var effect: String = definition.get("effect", "")
 	if effect == "seal":
 		var choices := get_hand_cards().filter(func(c): return not is_sealed(c.card_data))
 		if not choices.is_empty():
 			var target = choices.pick_random()
 			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, false)
-			target.card_data.locked_until = turn + 2
-			target._refresh_face()
-			target.spawn_popup("SEALED · 2 ROUNDS", UI.DANGER)
+			return target
 	elif effect == "tax":
 		var choices := get_hand_cards()
 		if not choices.is_empty():
 			var target = choices.pick_random()
 			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, true)
-			increase_cost(target.card_data)
-			target.refresh_cost()
-			target.spawn_popup("COST +1", UI.DANGER)
+			return target
+	return null
+
+## Seal or tax the given Response hand card. No choices in here.
+func apply_enemy_utility(definition: Dictionary, target: Node) -> void:
+	record_enemy_spell(definition)
+	if target == null: return
+	var effect: String = definition.get("effect", "")
+	if effect == "seal":
+		target.card_data.locked_until = turn + 2
+		target._refresh_face()
+		target.spawn_popup("SEALED · 2 ROUNDS", UI.DANGER)
+	elif effect == "tax":
+		increase_cost(target.card_data)
+		target.refresh_cost()
+		target.spawn_popup("COST +1", UI.DANGER)
 
 func best_disruption_target(cards: Array, tax: bool) -> Node:
 	var best: Node = cards[0]
@@ -1431,11 +1445,8 @@ func _enemy_turn() -> void:
 		if not spells.is_empty():
 			var spell: Dictionary = spells.pick_random()
 			enemy_hand.erase(spell)
-			if not await _present_enemy_card(spell): return
-			enemy_utility(spell)
-			tension -= int(spell.get("tension_cost", 1))
-			_set_phase(Phase.ENEMY, "The Janitor casts %s" % spell.name)
-			_refresh_bars()
+			var spell_target: Node = enemy_spell_target(spell)
+			if not await disaster_cast(spell, spell_target): return
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1474,26 +1485,7 @@ func _enemy_turn() -> void:
 			var target_slot: Node3D = plan.slot if not plan.is_empty() else to_sacrifice[0].current_slot
 			if to_sacrifice.any(func(card): return not can_sacrifice(card)): break
 
-			_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [to_sacrifice.size(), evo_card_data.get("name", "Apex Threat")])
-			shake_camera(0.08, 0.2)
-
-			for sac_card in to_sacrifice:
-				await sac_card.sacrifice_dissolve()
-
-			await _wait(0.3)
-			if not await _present_enemy_card(evo_card_data, target_slot.global_position): return
-
-			var evo_card = Card3DScene.instantiate()
-			add_child(evo_card)
-			evo_card.add_to_group("cards")
-			evo_card.setup(evo_card_data)
-			await evo_card.enter_from_above(target_slot, opponent_hand.release_position())
-			_on_enemy_card_played(evo_card)
-			major_evolution_entry(evo_card, sac_count)
-			evo_card.spawn_popup("EVOLVED!", UI.AMBER)
-			shake_camera(0.12, 0.3)
-
-			_refresh_bars()
+			if not await disaster_evolve(evo_card_data, to_sacrifice, target_slot): return
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1509,34 +1501,77 @@ func _enemy_turn() -> void:
 			else:
 				break
 
-			update_deck_label()
-
 			var target_slot: Node3D = _pick_smart_threat_slot(empty_slots, card_data_to_play)
-			if not await _present_enemy_card(card_data_to_play, target_slot.global_position): return
-			_set_phase(Phase.ENEMY, "Disaster unleashes %s!" % card_data_to_play.get("name", "Threat"))
-
-			var card = Card3DScene.instantiate()
-			add_child(card)
-			card.add_to_group("cards")
-			card.setup(card_data_to_play)
-
-			# Round 4-6 Janitor modifier chance on spawn
-			if encounter_kind != "battle" and turn in [4, 5, 6] and randf() < 0.5:
-				var mods = ["armored", "rampaging", "fierce", "regenerating"]
-				card.add_modifier(mods.pick_random())
-
-			await card.enter_from_above(target_slot, opponent_hand.release_position())
-			_on_enemy_card_played(card)
-			shake_camera(0.06, 0.15)
-
-			tension = maxi(0, tension - int(card_data_to_play.get("tension_cost", 1)))
-			_refresh_bars()
+			if not await disaster_play_base(card_data_to_play, target_slot): return
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
 
 	_set_phase(Phase.ENEMY, "Disaster concludes its turn.")
 	await _wait(0.4)
+
+# Disaster action helpers. They make no choices. The caller picks the card and target,
+# and removes the card from enemy_hand first. Each returns false if the battle ended mid-animation.
+
+## Cast a Disaster spell on a Response hand card (target may be null).
+func disaster_cast(definition: Dictionary, target: Node) -> bool:
+	if not await _present_enemy_card(definition): return false
+	apply_enemy_utility(definition, target)
+	tension -= int(definition.get("tension_cost", 1))
+	_set_phase(Phase.ENEMY, "The Janitor casts %s" % definition.name)
+	_refresh_bars()
+	return true
+
+## Sacrifice the given threats and put the evolution in slot.
+func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) -> bool:
+	var sac_count: int = int(definition.get("cost", 1))
+	var evo_name = definition.get("name", "Apex Threat")
+	_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [sacrifices.size(), evo_name])
+	shake_camera(0.08, 0.2)
+
+	for sac_card in sacrifices:
+		await sac_card.sacrifice_dissolve()
+
+	await _wait(0.3)
+	if not await _present_enemy_card(definition, slot.global_position): return false
+
+	var evo_card = Card3DScene.instantiate()
+	add_child(evo_card)
+	evo_card.add_to_group("cards")
+	evo_card.setup(definition)
+	await evo_card.enter_from_above(slot, opponent_hand.release_position())
+	_on_enemy_card_played(evo_card)
+	major_evolution_entry(evo_card, sac_count)
+	evo_card.spawn_popup("EVOLVED!", UI.AMBER)
+	shake_camera(0.12, 0.3)
+
+	_refresh_bars()
+	return true
+
+## Play a base threat into an empty threat slot.
+func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
+	update_deck_label()
+
+	if not await _present_enemy_card(definition, slot.global_position): return false
+	_set_phase(Phase.ENEMY, "Disaster unleashes %s!" % definition.get("name", "Threat"))
+
+	var card = Card3DScene.instantiate()
+	add_child(card)
+	card.add_to_group("cards")
+	card.setup(definition)
+
+	# Round 4-6 Janitor modifier chance on spawn
+	if encounter_kind != "battle" and turn in [4, 5, 6] and randf() < 0.5:
+		var mods = ["armored", "rampaging", "fierce", "regenerating"]
+		card.add_modifier(mods.pick_random())
+
+	await card.enter_from_above(slot, opponent_hand.release_position())
+	_on_enemy_card_played(card)
+	shake_camera(0.06, 0.15)
+
+	tension = maxi(0, tension - int(definition.get("tension_cost", 1)))
+	_refresh_bars()
+	return true
 
 func enemy_action_limit() -> int:
 	if encounter_kind == "battle" and run_director.floor_number == 1:
