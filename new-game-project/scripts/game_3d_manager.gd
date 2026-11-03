@@ -21,6 +21,8 @@ var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
 # Versus Disaster actions. They check every action in one place.
 var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").new(self)
+# Set by versus_match.gd at match start. True means a person plays the Disaster turn.
+var disaster_is_human := false
 var hand: Array = []
 var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
@@ -1468,6 +1470,17 @@ func _enemy_turn() -> void:
 
 	if turn % 2 == 0: enemy_draw_evolutions(1)
 
+	# A human Disaster plays through disaster_actions and ends the turn with end_turn().
+	if encounter_kind == "versus" and disaster_is_human:
+		disaster_actions.begin_turn()
+		await disaster_actions.turn_ended
+	elif not await _disaster_ai_actions(): return
+
+	_set_phase(Phase.ENEMY, "Disaster concludes its turn.")
+	await _wait(0.4)
+
+## The AI plays its cards. Returns false if an action failed, so the turn stops without the closing lines.
+func _disaster_ai_actions() -> bool:
 	# --- Disaster Action Phase (Can play multiple cards in one turn!) ---
 	var actions_taken := 0
 	var max_actions := enemy_action_limit()
@@ -1480,7 +1493,7 @@ func _enemy_turn() -> void:
 		if not spells.is_empty():
 			var spell: Dictionary = spells.pick_random()
 			var spell_target: Node = enemy_spell_target(spell)
-			if not (await _ai_cast(spell, spell_target)).ok: return
+			if not (await _ai_cast(spell, spell_target)).ok: return false
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1518,7 +1531,7 @@ func _enemy_turn() -> void:
 			var target_slot: Node3D = plan.slot if not plan.is_empty() else to_sacrifice[0].current_slot
 			if to_sacrifice.any(func(card): return not can_sacrifice(card)): break
 
-			if not (await _ai_evolve(evo_card_data, to_sacrifice, target_slot)).ok: return
+			if not (await _ai_evolve(evo_card_data, to_sacrifice, target_slot)).ok: return false
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1534,13 +1547,11 @@ func _enemy_turn() -> void:
 				break
 
 			var target_slot: Node3D = _pick_smart_threat_slot(empty_slots, card_data_to_play)
-			if not (await _ai_play_base(card_data_to_play, target_slot)).ok: return
+			if not (await _ai_play_base(card_data_to_play, target_slot)).ok: return false
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
-
-	_set_phase(Phase.ENEMY, "Disaster concludes its turn.")
-	await _wait(0.4)
+	return true
 
 # Disaster action helpers. They make no choices. The caller picks the card and target,
 # and removes the card from enemy_hand first. Each returns false if the battle ended mid-animation.

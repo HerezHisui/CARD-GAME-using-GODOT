@@ -101,6 +101,7 @@ func check_versus_match() -> void:
 	check_run_state_restored("loss", game, director)
 	await check_disaster_actions(game, director)
 	await check_ai_uses_actions(game, director)
+	await check_disaster_turn_switch(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -211,6 +212,31 @@ func check_ai_uses_actions(game: Node, director: Node) -> void:
 	var placed: Array = game._threat_slots().filter(func(slot): return game._get_card_in_slot(slot) != null)
 	expect(placed.size() == 1 and game.enemy_hand.is_empty(), "Versus AI: played its card once through the actions")
 	expect(game.tension == 0 and game.disaster_actions.actions_used == 1, "Versus AI: tension and action count")
+
+## Runs one Disaster turn and sets done[0] when it ends.
+func run_enemy_turn(game: Node, done: Array) -> void:
+	await game._enemy_turn()
+	done[0] = true
+
+# A human Disaster turn waits for end_turn(). With the flag off the AI turn plays as before.
+func check_disaster_turn_switch(game: Node, director: Node) -> void:
+	start_disaster_turn(game, director, 1)
+	game.turn = 3
+	game.enemy_deck.clear()
+	game.enemy_evolution_deck.clear()
+	game.enemy_hand.assign([test_base("t_human")])
+	game.disaster_is_human = true
+	var done := [false]
+	run_enemy_turn(game, done)
+	# The turn waits 0.5s before it starts listening, so give it longer than that.
+	await create_timer(0.8, false).timeout
+	expect(not done[0], "Human Disaster turn: waits until end_turn")
+	expect(game.enemy_hand.size() == 1 and game.tension == 1, "Human Disaster turn: the AI plays nothing")
+	expect(game.disaster_actions.end_turn().ok, "Human Disaster turn: end_turn is accepted")
+	await create_timer(0.7, false).timeout
+	expect(done[0], "Human Disaster turn: finishes after end_turn")
+	game.disaster_is_human = false
+	await check_ai_uses_actions(game, director)
 
 func check_prep_failures(prep: Dictionary) -> void:
 	var short: Dictionary = prep.duplicate(true)

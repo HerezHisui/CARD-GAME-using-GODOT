@@ -5,6 +5,9 @@ extends Node
 
 const VersusDecks = preload("res://scripts/versus_decks.gd")
 
+# Who plays the Disaster in Versus. Keep false until the Disaster panel exists.
+const DISASTER_IS_HUMAN := false
+
 var director: Node
 var game: Node
 var running := false
@@ -62,6 +65,7 @@ func start() -> void:
 	director.screen = ""
 	var tactics: Array[String] = []
 	tactics.assign(prep.tactics)
+	game.disaster_is_human = DISASTER_IS_HUMAN
 	game.start_versus(prep_deck, disaster_deck, evolutions, tactics)
 
 func restore_run_state() -> void:
