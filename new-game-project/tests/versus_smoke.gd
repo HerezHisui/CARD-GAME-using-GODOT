@@ -99,6 +99,8 @@ func check_versus_match() -> void:
 	check_run_state_restored("win", game, director)
 	play_versus(game, director, false, save_path, save_text)
 	check_run_state_restored("loss", game, director)
+	await check_disaster_actions(game, director)
+	await check_ai_uses_actions(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -110,6 +112,105 @@ func check_run_state_restored(label: String, game: Node, director: Node) -> void
 	expect(game.enemy_run_buffs == {"attack": 2}, "Versus %s: enemy run buffs restored" % label)
 	expect(game.player_hp == 17, "Versus %s: player_hp restored" % label)
 	expect(director.selected_character == 1, "Versus %s: selected_character restored" % label)
+
+func test_base(id: String) -> Dictionary:
+	return {"id": id, "name": "Test " + id, "type": "disaster", "element": "fire",
+		"cost": 0, "attack": 1, "health": 3, "tension_cost": 1}
+
+# An empty Versus board with the Disaster to move. No match flow runs, so nothing else changes the hand.
+func start_disaster_turn(game: Node, director: Node, tension: int) -> void:
+	game.clear_battle()
+	game.encounter_kind = "versus"
+	director.battle_active = true
+	game._set_phase(game.Phase.ENEMY)
+	game.tension = tension
+	game.disaster_actions.begin_turn()
+
+func reason_of(result: Dictionary) -> String:
+	return "ok" if result.ok else str(result.reason)
+
+# Every Disaster action has one place that checks it. Checks the reasons and that a refused action changes nothing.
+func check_disaster_actions(game: Node, director: Node) -> void:
+	start_disaster_turn(game, director, 5)
+	var actions = game.disaster_actions
+	var lane: Node3D = game._threat_slots()[0]
+	var base := test_base("t_base")
+	var evolution := {"id": "t_evo", "name": "Test Evo", "type": "disaster", "element": "fire",
+		"cost": 2, "attack": 3, "health": 4}
+	var sealed := test_base("t_sealed")
+	sealed.locked_until = game.turn + 2
+	var seal_spell := {"id": "t_seal", "name": "Test Seal", "type": "disaster", "element": "fire",
+		"utility": true, "effect": "seal", "tension_cost": 1}
+	game.enemy_hand.assign([base, evolution, sealed, seal_spell])
+	expect(actions.action_limit == 3 and actions.actions_left() == 3, "Disaster actions: limit is 3 with 5 tension")
+	var stray_slot := Node3D.new()
+	var rejected := {
+		"not_in_hand": await actions.play_base(test_base("t_other"), lane),
+		"sealed": await actions.play_base(sealed, lane),
+		"not_base": await actions.play_base(evolution, lane),
+		"bad_slot": await actions.play_base(base, stray_slot),
+		"bad_target": await actions.cast(seal_spell, null),
+		"not_spell": await actions.cast(base, null),
+		"not_evolution": await actions.evolve(base, [], lane),
+		"bad_sacrifice": await actions.evolve(evolution, [], lane),
+	}
+	stray_slot.free()
+	for reason: String in rejected:
+		var got := reason_of(rejected[reason])
+		expect(got == reason, "Disaster actions: %s is refused (got %s)" % [reason, got])
+	expect(game.enemy_hand.size() == 4 and game.tension == 5 and actions.actions_used == 0,
+		"Disaster actions: a refused action changes nothing")
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	expect(reason_of(await actions.play_base(base, lane)) == "not_disaster_turn",
+		"Disaster actions: only on the Disaster turn")
+	expect(reason_of(actions.end_turn()) == "not_disaster_turn", "Disaster actions: end_turn only on the Disaster turn")
+	game._set_phase(game.Phase.ENEMY)
+	game.tension = 0
+	expect(reason_of(await actions.play_base(base, lane)) == "no_tension", "Disaster actions: no tension, no action")
+	game.tension = 5
+	expect(reason_of(await actions.play_base(base, lane)) == "ok", "Disaster actions: base card is played")
+	expect(game._get_card_in_slot(lane) != null and base not in game.enemy_hand,
+		"Disaster actions: card is on the lane")
+	expect(game.tension == 4 and actions.actions_used == 1, "Disaster actions: tension and action count")
+	var second := test_base("t_second")
+	game.enemy_hand.append(second)
+	expect(reason_of(await actions.play_base(second, lane)) == "lane_full", "Disaster actions: a full lane is refused")
+	expect(reason_of(await actions.play_base(second, game._threat_slots()[1])) == "ok", "Disaster actions: second lane")
+	var one_card: Array = [game._get_card_in_slot(lane)]
+	expect(reason_of(await actions.evolve(evolution, one_card, lane)) == "bad_sacrifice",
+		"Disaster actions: cost needs 2")
+	var two_cards: Array = [game._get_card_in_slot(lane), game._get_card_in_slot(game._threat_slots()[1])]
+	expect(reason_of(await actions.evolve(evolution, two_cards, game._threat_slots()[2])) == "bad_slot",
+		"Disaster actions: evolve lane must be a sacrificed lane")
+	expect(reason_of(await actions.evolve(evolution, two_cards, lane)) == "ok", "Disaster actions: evolve works")
+	expect(game._get_card_in_slot(lane).card_data.id == "t_evo", "Disaster actions: evolution is on the lane")
+	expect(actions.actions_used == 3 and actions.actions_left() == 0, "Disaster actions: three actions used")
+	game.enemy_hand.append(base)
+	expect(reason_of(await actions.play_base(base, game._threat_slots()[3])) == "action_limit",
+		"Disaster actions: the 4th action is refused")
+	expect(reason_of(actions.end_turn()) == "ok", "Disaster actions: end_turn works on the Disaster turn")
+	# Seal and tax need a card in the Response hand.
+	start_disaster_turn(game, director, 5)
+	game.enemy_hand.assign([seal_spell])
+	var response_card := {"id": "t_resp", "name": "Test Resp", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 1}
+	game.add_card_to_hand(response_card)
+	var target: Node = game.get_hand_cards()[0]
+	expect(reason_of(await actions.cast(seal_spell, null)) == "bad_target", "Disaster actions: seal needs a target")
+	expect(reason_of(await actions.cast(seal_spell, target)) == "ok", "Disaster actions: seal works")
+	expect(game.is_sealed(target.card_data) and game.tension == 4, "Disaster actions: target sealed, tension paid")
+
+# In Versus the AI turn goes through the same actions and ends the same way as a singleplayer turn.
+func check_ai_uses_actions(game: Node, director: Node) -> void:
+	start_disaster_turn(game, director, 1)
+	game.turn = 3
+	game.enemy_deck.clear()
+	game.enemy_evolution_deck.clear()
+	game.enemy_hand.assign([test_base("t_ai")])
+	await game._enemy_turn()
+	var placed: Array = game._threat_slots().filter(func(slot): return game._get_card_in_slot(slot) != null)
+	expect(placed.size() == 1 and game.enemy_hand.is_empty(), "Versus AI: played its card once through the actions")
+	expect(game.tension == 0 and game.disaster_actions.actions_used == 1, "Versus AI: tension and action count")
 
 func check_prep_failures(prep: Dictionary) -> void:
 	var short: Dictionary = prep.duplicate(true)

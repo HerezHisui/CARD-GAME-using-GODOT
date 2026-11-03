@@ -19,6 +19,8 @@ var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
+# Versus Disaster actions. They check every action in one place.
+var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").new(self)
 var hand: Array = []
 var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
@@ -1470,15 +1472,15 @@ func _enemy_turn() -> void:
 	var actions_taken := 0
 	var max_actions := enemy_action_limit()
 	var played_something := true
+	if encounter_kind == "versus": disaster_actions.begin_turn()
 
 	while played_something and actions_taken < max_actions and tension > 0:
 		played_something = false
 		var spells := enemy_hand.filter(func(d): return d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension and (d.get("effect", "") != "seal" or get_hand_cards().any(func(c): return not is_sealed(c.card_data))) and (d.get("effect", "") != "tax" or not get_hand_cards().is_empty()))
 		if not spells.is_empty():
 			var spell: Dictionary = spells.pick_random()
-			enemy_hand.erase(spell)
 			var spell_target: Node = enemy_spell_target(spell)
-			if not await disaster_cast(spell, spell_target): return
+			if not (await _ai_cast(spell, spell_target)).ok: return
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1508,7 +1510,6 @@ func _enemy_turn() -> void:
 
 		if should_evolve and not active_threats.is_empty():
 			var evo_card_data: Dictionary = plan.card if not plan.is_empty() else evo_candidates.pick_random()
-			enemy_hand.erase(evo_card_data)
 			var sac_count: int = int(evo_card_data.get("cost", 1))
 
 			# Sacrifice lowest health threats first
@@ -1517,7 +1518,7 @@ func _enemy_turn() -> void:
 			var target_slot: Node3D = plan.slot if not plan.is_empty() else to_sacrifice[0].current_slot
 			if to_sacrifice.any(func(card): return not can_sacrifice(card)): break
 
-			if not await disaster_evolve(evo_card_data, to_sacrifice, target_slot): return
+			if not (await _ai_evolve(evo_card_data, to_sacrifice, target_slot)).ok: return
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1529,12 +1530,11 @@ func _enemy_turn() -> void:
 			var base_in_hand := enemy_hand.filter(func(d): return int(d.get("cost", 0)) == 0 and not d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension)
 			if not base_in_hand.is_empty():
 				card_data_to_play = choose_base_threat(base_in_hand, empty_slots)
-				enemy_hand.erase(card_data_to_play)
 			else:
 				break
 
 			var target_slot: Node3D = _pick_smart_threat_slot(empty_slots, card_data_to_play)
-			if not await disaster_play_base(card_data_to_play, target_slot): return
+			if not (await _ai_play_base(card_data_to_play, target_slot)).ok: return
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1604,6 +1604,28 @@ func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
 	tension = maxi(0, tension - int(definition.get("tension_cost", 1)))
 	_refresh_bars()
 	return true
+
+# The AI calls these. Versus goes through disaster_actions.gd, which checks the action and takes
+# the card out of enemy_hand. Singleplayer erases the card and calls the helper as before.
+func _ai_cast(definition: Dictionary, target: Node) -> Dictionary:
+	if encounter_kind == "versus": return _checked(await disaster_actions.cast(definition, target))
+	enemy_hand.erase(definition)
+	return {"ok": await disaster_cast(definition, target), "reason": ""}
+
+func _ai_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) -> Dictionary:
+	if encounter_kind == "versus": return _checked(await disaster_actions.evolve(definition, sacrifices, slot))
+	enemy_hand.erase(definition)
+	return {"ok": await disaster_evolve(definition, sacrifices, slot), "reason": ""}
+
+func _ai_play_base(definition: Dictionary, slot: Node3D) -> Dictionary:
+	if encounter_kind == "versus": return _checked(await disaster_actions.play_base(definition, slot))
+	enemy_hand.erase(definition)
+	return {"ok": await disaster_play_base(definition, slot), "reason": ""}
+
+## Warn when the AI picked an action the checks refused. The AI should never do that.
+func _checked(result: Dictionary) -> Dictionary:
+	if not result.ok and result.reason != "battle_over": push_warning("Disaster action refused: " + result.reason)
+	return result
 
 func enemy_action_limit() -> int:
 	# Versus: fixed limit, no floor or buff scaling.
