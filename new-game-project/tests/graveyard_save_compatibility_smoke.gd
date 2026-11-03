@@ -57,7 +57,10 @@ func run() -> void:
 	director.show_graveyard()
 	check(director.viewed_cards.size() == 1, "graveyard shows only Response entries")
 	check(not director.content.find_children("*", "Button", true, false).any(func(button): return "Janitor" in button.text), "no enemy graveyard tab")
-	check(director.threat.get_parent().get_child_count() == 2, "tension retains its label and bar without hidden pile counts")
+	var gauge: Node = director.threat.get_parent()
+	for part in ["Plate", "Symbol", "Title", "Value", "Bar"]:
+		check(gauge.has_node(part), "tension gauge keeps " + part)
+	check(gauge.get_child_count() == 5, "tension gauge has no hidden pile counts")
 	director.close_modal()
 	check(director.persistence.checkpoint(), "current checkpoint saves")
 	var snapshot = director.persistence.read_save()

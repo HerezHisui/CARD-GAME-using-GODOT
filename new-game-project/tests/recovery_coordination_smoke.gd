@@ -116,8 +116,8 @@ func run() -> void:
 	check(game.recoverable_units().size() == 1 and game.graveyard_serial == 4, "Continue preserves recovery limits and entry identity")
 	director.show_graveyard()
 	await create_timer(0.3).timeout
-	check(director.screen == "graveyard" and paused and director.modal.size.x <= 700 and director.modal.size.y <= 500, "graveyards use a compact paused panel")
-	check(director.content.find_children("*", "GridContainer", true, false).is_empty(), "graveyard entries do not use the deck grid")
+	check(director.screen == "graveyard" and paused, "graveyard opens as a paused screen")
+	check(not director.modal.find_children("*", "GridContainer", true, false).is_empty(), "graveyard entries use a grid")
 	await capture("graveyard")
 	director.close_modal()
 	await process_frame

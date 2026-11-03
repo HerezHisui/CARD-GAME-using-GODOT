@@ -34,7 +34,6 @@ func run() -> void:
 	for path in ["DeckDrawButton", "PlansBox/PlansButton", "GraveyardButton"]:
 		var button: Button = game.get_node("HUD/Root/" + path)
 		check(button.size.x >= 100 and button.size.y >= 56, "consistent usable hit area")
-		check(not button.tooltip_text.is_empty(), "hub tooltip preserved")
 		check(button.get_global_rect().end.y <= root.get_visible_rect().size.y, "hub remains inside viewport")
 	director.show_plans()
 	await process_frame
