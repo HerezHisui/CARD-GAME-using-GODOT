@@ -185,6 +185,14 @@ mouse_default_cursor_shape = 2
 theme_override_font_sizes/font_size = 22
 text = "Start Game"
 
+[node name="VersusButton" type="Button" parent="Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 22
+text = "Versus"
+
 [node name="OptionsButton" type="Button" parent="Menu"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)

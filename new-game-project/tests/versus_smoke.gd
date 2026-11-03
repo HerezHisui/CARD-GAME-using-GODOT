@@ -1,4 +1,5 @@
 # Covers: Versus deck rules (versus_decks.gd): presets, deck size, copies, evolutions, tactics, unknown ids.
+# Also covers the Versus match (versus_match.gd): encounter kind, run_active, saves untouched, state restored.
 extends SceneTree
 
 const Decks = preload("res://scripts/versus_decks.gd")
@@ -30,6 +31,7 @@ func run() -> void:
 	check_pools()
 	check_prep_failures(prep)
 	check_disaster_failures(disaster)
+	await check_versus_match()
 	if failures > 0:
 		push_error("versus_smoke: %d of %d checks failed" % [failures, checks])
 		quit(1)
@@ -45,6 +47,69 @@ func check_pools() -> void:
 	expect(disaster_pool.base.has("ember") and disaster_pool.base.has("cinder_cloud"), "Disaster base cards")
 	expect(disaster_pool.evolutions.has("wildfire") and disaster_pool.evolutions.has("worldbreaker"), "Evolutions")
 	expect(disaster_pool.spells.has("blocked_exit") and disaster_pool.spells.has("red_tape"), "Disaster spells")
+
+# A small fake singleplayer save: version 1 and a collection of 5 cards (the minimum read_save accepts).
+func fake_save_text() -> String:
+	var collection: Array = []
+	for i in 5: collection.append({"id": "quick_dash", "name": "Quick Dash"})
+	var data := {"version": 1, "director": {"collection": collection, "floor_number": 2}}
+	return JSON.stringify(data)
+
+# Starts a Versus match and checks the start state, then ends it and checks the save and the run state.
+func play_versus(game: Node, director: Node, prep_wins: bool, save_path: String, save_text: String) -> void:
+	var label := "win" if prep_wins else "loss"
+	game.clear_battle()
+	director.start_versus_match()
+	expect(game.encounter_kind == "versus", "Versus %s: encounter_kind is versus" % label)
+	expect(director.encounter == "versus", "Versus %s: director encounter is versus" % label)
+	expect(not director.run_active, "Versus %s: run_active is false" % label)
+	expect(director.battle_active, "Versus %s: battle is active" % label)
+	expect(game.deck.size() == 24 and game.enemy_deck.size() == 24, "Versus %s: decks are not trimmed" % label)
+	expect(game.enemy_evolution_deck.size() == 6, "Versus %s: 6 evolutions" % label)
+	expect(game.plans.unlocked == ["brace", "coordinate", "medicine"], "Versus %s: preset tactics" % label)
+	expect(game.player_run_buffs.is_empty() and game.enemy_run_buffs.is_empty(), "Versus %s: no run buffs" % label)
+	game.tension = 5
+	expect(game.enemy_action_limit() == 3, "Versus %s: fixed Disaster action limit" % label)
+	director.battle_finished(prep_wins)
+	expect(FileAccess.file_exists(save_path), "Versus %s: fake save still exists" % label)
+	expect(FileAccess.get_file_as_string(save_path) == save_text, "Versus %s: fake save is unchanged" % label)
+	expect(not director.run_active, "Versus %s: run_active is false after the match" % label)
+	expect(director.versus_match.winner == ("preparedness" if prep_wins else "disaster"), "Versus %s: winner" % label)
+
+func check_versus_match() -> void:
+	var game: Node = load("res://scenes/game_3d.tscn").instantiate()
+	root.add_child(game)
+	current_scene = game
+	game.presentation.automated_choice = 0
+	await process_frame
+	var director: Node = game.run_director
+	expect(not director.persistence.enabled, "Test save path is the disposable one")
+	var save_path: String = director.persistence.save_path()
+	var save_text := fake_save_text()
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	file.store_string(save_text)
+	file.close()
+	# Singleplayer state that the match must put back.
+	game.plans.unlocked.assign(["brace", "coordinate", "supply"])
+	game.player_run_buffs = {"energy": 1}
+	game.enemy_run_buffs = {"attack": 2}
+	game.player_hp = 17
+	director.selected_character = 1
+	play_versus(game, director, true, save_path, save_text)
+	check_run_state_restored("win", game, director)
+	play_versus(game, director, false, save_path, save_text)
+	check_run_state_restored("loss", game, director)
+	game.clear_battle()
+	DirAccess.remove_absolute(save_path)
+	game.queue_free()
+	await process_frame
+
+func check_run_state_restored(label: String, game: Node, director: Node) -> void:
+	expect(game.plans.unlocked == ["brace", "coordinate", "supply"], "Versus %s: unlocked restored" % label)
+	expect(game.player_run_buffs == {"energy": 1}, "Versus %s: player run buffs restored" % label)
+	expect(game.enemy_run_buffs == {"attack": 2}, "Versus %s: enemy run buffs restored" % label)
+	expect(game.player_hp == 17, "Versus %s: player_hp restored" % label)
+	expect(director.selected_character == 1, "Versus %s: selected_character restored" % label)
 
 func check_prep_failures(prep: Dictionary) -> void:
 	var short: Dictionary = prep.duplicate(true)

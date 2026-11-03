@@ -49,6 +49,8 @@ var enemy_buffs: Dictionary = {}
 var player_run_buffs: Dictionary = {}
 var enemy_run_buffs: Dictionary = {}
 var encounter_kind := "battle"
+## Disaster actions per turn in Versus (capped by tension).
+const VERSUS_ACTION_LIMIT := 3
 var final_boss: Node
 var player_barrier := 0
 var plans: Node
@@ -307,6 +309,34 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		add_child(final_boss)
 		final_boss.setup(self)
 		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN"
+	_start_match()
+
+## Versus start: given decks, no floor scaling, no boss or elite extras, no deck trimming.
+func start_versus(prep_deck: Array[Dictionary], disaster_deck: Array[Dictionary],
+		evolutions: Array[Dictionary], tactics: Array[String]) -> void:
+	clear_battle()
+	encounter_kind = "versus"
+	boss_fog.set_active(false)
+	run_director.intel_revealed = false
+	turn = 1
+	log_event("Versus match begins.")
+	plans.unlocked.assign(tactics)
+	energy_cap = ENERGY_START
+	preparedness = energy_cap
+	plans.tokens = 0
+	tension_cap = TENSION_START
+	tension = tension_cap
+	enemy_max_hp = 20
+	enemy_hp = enemy_max_hp
+	_enemy_hp_ui.get_node("Caption").text = "DISASTER"
+	for definition in prep_deck: deck.append(definition.duplicate(true))
+	for definition in disaster_deck: enemy_deck.append(definition.duplicate(true))
+	for definition in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
+	deck.shuffle()
+	enemy_deck.shuffle()
+	enemy_evolution_deck.shuffle()
+	_refresh_bars()
+	set_board_view(false)
 	_start_match()
 
 func fill_elite_reserve(reserve: Array[Dictionary], limit: int) -> void:
@@ -1265,7 +1295,9 @@ func _begin_round() -> void:
 		_set_phase(Phase.GAME_OVER, "The Janitor has no threats left")
 		run_director.battle_finished(true)
 		return
-	if turn % preload("res://scripts/battle_rules.gd").BUFF_INTERVAL == 0 and adapted_round != turn:
+	# Versus has no adaptation buff screen.
+	var buff_interval: int = preload("res://scripts/battle_rules.gd").BUFF_INTERVAL
+	if encounter_kind != "versus" and turn % buff_interval == 0 and adapted_round != turn:
 		adapted_round = turn
 		_set_phase(Phase.SETUP, "Choose your adaptation")
 		run_director.show_buff_choices()
@@ -1561,7 +1593,7 @@ func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
 	card.setup(definition)
 
 	# Round 4-6 Janitor modifier chance on spawn
-	if encounter_kind != "battle" and turn in [4, 5, 6] and randf() < 0.5:
+	if encounter_kind not in ["battle", "versus"] and turn in [4, 5, 6] and randf() < 0.5:
 		var mods = ["armored", "rampaging", "fierce", "regenerating"]
 		card.add_modifier(mods.pick_random())
 
@@ -1574,6 +1606,8 @@ func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
 	return true
 
 func enemy_action_limit() -> int:
+	# Versus: fixed limit, no floor or buff scaling.
+	if encounter_kind == "versus": return mini(tension, VERSUS_ACTION_LIMIT)
 	if encounter_kind == "battle" and run_director.floor_number == 1:
 		return mini(tension, 1 if turn <= 3 else 2)
 	var base_actions := 2 if encounter_kind == "battle" else 3

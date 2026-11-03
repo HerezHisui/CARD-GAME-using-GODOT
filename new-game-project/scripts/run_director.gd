@@ -63,6 +63,7 @@ var acquisition_serial := 0
 var reward_stock: Array[Dictionary] = []
 var run_active := false
 var persistence: Node
+var versus_match: Node
 var catalog: Array[Dictionary] = []
 var rooms: Array = []
 var cleared: Array = []
@@ -176,6 +177,15 @@ func show_title() -> void:
 		start_button.pressed.connect(show_characters)
 		start_button.grab_focus()
 	title_screen.get_node("%QuitButton").pressed.connect(quit_game)
+	title_screen.get_node("%VersusButton").pressed.connect(start_versus_match)
+
+## Starts a Versus match. The match node is made once and never touches the save file.
+func start_versus_match() -> void:
+	if not is_instance_valid(versus_match):
+		versus_match = preload("res://scripts/versus_match.gd").new()
+		add_child(versus_match)
+		versus_match.setup(self)
+	versus_match.start()
 
 func continue_saved_run() -> void:
 	if not persistence.resume(): show_title()
@@ -845,6 +855,10 @@ func battle_finished(won: bool) -> void:
 	intel_revealed = false
 	game.player_buffs.clear()
 	game.enemy_buffs.clear()
+	# Versus ends here: no coins, rewards, save changes or run logic.
+	if encounter == "versus":
+		versus_match.finish(won)
+		return
 	if not won:
 		run_active = false
 		persistence.discard()
