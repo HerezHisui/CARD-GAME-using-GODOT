@@ -1964,7 +1964,12 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 		details.add_theme_font_size_override("font_size", 22)
 	box.get_node("Summary").text = "CURRENT ADAPTATIONS\n" + buff_summary(game.player_buffs)
 	box.get_node("Summary").add_theme_font_size_override("font_size", 22)
-	row.get_child(0).get_node("Box/PickButton").grab_focus.call_deferred()
+	# Skip the focus if the screen changed before this deferred call ran.
+	var first_pick: Button = row.get_child(0).get_node("Box/PickButton")
+	var focus_first := func(button) -> void:
+		if is_instance_valid(button) and button.is_inside_tree():
+			button.grab_focus()
+	focus_first.call_deferred(first_pick)
 
 func select_buff(id: String) -> void:
 	if screen != "buff" or not buff_choices.any(func(buff): return buff.id == id): return

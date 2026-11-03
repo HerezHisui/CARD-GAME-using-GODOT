@@ -4,11 +4,12 @@ const UI = preload("res://scripts/ui_theme.gd")
 const Route = preload("res://scripts/route_style.gd")
 
 ## False when the screen changed before this deferred style call ran.
-static func current(content: Control, kind: String) -> bool:
+static func current(content, kind: String) -> bool:
 	return is_instance_valid(content) and content.get_meta("style_kind", "") == kind
 
-static func apply(modal: Control, content: Control, kind: String) -> void:
-	if not current(content, kind): return
+static func apply(modal: Control, content_node, kind: String) -> void:
+	if not current(content_node, kind): return
+	var content: Control = content_node
 	if content.has_node("Center/Box"):
 		content = content.get_node("Center/Box")
 		content.custom_minimum_size.x = minf(840, modal.size.x - 80)
@@ -70,8 +71,10 @@ static func style_actions(parent: Node) -> void:
 				child.custom_minimum_size.x = 200
 		style_actions(child)
 
-static func catalog(modal: Control, content: Control, kind: String) -> void:
-	if not current(content, kind) or content.has_node("CatalogHeading"): return
+static func catalog(modal: Control, content_node, kind: String) -> void:
+	if not current(content_node, kind): return
+	var content: Control = content_node
+	if content.has_node("CatalogHeading"): return
 	var titles := {"deck":"YOUR DECK", "graveyard":"RESPONSE GRAVEYARD",
 		"upgrade":"THE WORKSHOP", "character_preview":"STARTER DECK", "remove":"CARD REMOVAL",
 		"intel":"HAZARD FORECAST"}
@@ -129,8 +132,9 @@ static func readable_notes(content: Control) -> void:
 	note.add_theme_color_override("font_color", Color("b9ab92"))
 
 ## Confirmations, pickers and the battle log: the same bronze plate as the rooms, smaller.
-static func compact(modal: Control, content: Control, kind: String) -> void:
-	if not current(content, kind): return
+static func compact(modal: Control, content_node, kind: String) -> void:
+	if not current(content_node, kind): return
+	var content: Control = content_node
 	var panel := Route.plate(Color("191714"), Color("a47937"))
 	panel.set_content_margin_all(22)
 	modal.add_theme_stylebox_override("panel", panel)
@@ -148,8 +152,10 @@ static func focus_button(content: Control, last: bool = false) -> void:
 	(buttons.back() if last else buttons.front()).grab_focus()
 
 ## Victory and defeat: a centered cream noticeboard with an ink icon, title and stats.
-static func result(modal: Control, content: Control, kind: String) -> void:
-	if not current(content, kind) or content.has_node("ResultIcon"): return
+static func result(modal: Control, content_node, kind: String) -> void:
+	if not current(content_node, kind): return
+	var content: Control = content_node
+	if content.has_node("ResultIcon"): return
 	var heading := content.get_child(0) as Label
 	if heading == null: return
 	var ink := Color("2b241f")
