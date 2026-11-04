@@ -669,8 +669,8 @@ func _drop_card() -> void:
 			reparent(_manager().hand_parent(), true)
 			_manager().arrange_hand_centered()
 			return
-		place_on_slot(slot)
-		_manager().on_card_played(self)
+		# Same place and pay step a remote Preparedness player uses (preparedness_actions.gd).
+		_manager().preparedness_actions.place_unit(self, slot)
 	else:
 		# Return to hand
 		in_hand = true

@@ -30,6 +30,14 @@ var disaster_seat_on := false  # true while the camera shows the Disaster seat
 # LAN only: the Disaster is played on another computer. Set with disaster_is_human.
 # No seat, no Disaster panel and no privacy cover on this screen then.
 var lan_remote_disaster := false
+# Versus Preparedness actions (LAN Part D2). The local drag and a remote player both end here.
+var preparedness_actions: RefCounted = preload("res://scripts/preparedness_actions.gd").new(self)
+# Who plays each side on this computer: "local" or "remote". Hot-seat keeps both "local".
+# Change them only with set_seats, so the lan_remote_* flags stay in step.
+var seat_prep := "local"
+var seat_disaster := "local"
+# LAN only: the Preparedness side is played on another computer. Set by set_seats.
+var lan_remote_prep := false
 var disaster_seat: Node
 var hand: Array = []
 var player_graveyard: Array[Dictionary] = []
@@ -999,7 +1007,16 @@ func arrange_hand_centered() -> void:
 ##   -> combat (first side attacks first, then the other side) -> next round,
 ##   and the side that goes first swaps every round.
 func can_player_act() -> bool:
+	# LAN: a remote Preparedness player acts through preparedness_actions, never through this screen.
+	if seat_prep != "local": return false
 	return phase == Phase.PLAYER_PLAY and board_input.action.is_empty() and (not run_director or not run_director.modal.visible)
+
+## Sets who plays each side: "local" or "remote". Hot-seat and singleplayer keep both "local".
+func set_seats(prep: String, disaster: String) -> void:
+	seat_prep = prep
+	seat_disaster = disaster
+	lan_remote_prep = prep == "remote"
+	lan_remote_disaster = disaster == "remote"
 
 func try_play_card(card: Node) -> bool:
 	return can_player_act() and not is_sealed(card.card_data) and preparedness >= int(card.card_data.get("cost", 0))
@@ -1461,6 +1478,12 @@ func _on_end_turn_pressed() -> void:
 	if disaster_seat_on:
 		disaster_actions.end_turn()
 		return
+	# LAN: a remote Preparedness player ends the turn by message, not with this button or Space.
+	if seat_prep != "local": return
+	await end_prep_turn()
+
+## Ends the Preparedness turn and plays the rest of the round. Button, Space and preparedness_actions call it.
+func end_prep_turn() -> void:
 	if not board_input.action.is_empty(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW and phase != Phase.PLAYER_PLAY:

@@ -399,7 +399,7 @@ func _privacy_holder() -> String:
 ## Raises the cover when the laptop changes hands in a human Versus match. Runs before the panel refresh.
 func _refresh_privacy_screen() -> void:
 	var in_match: bool = battle_active and game.encounter_kind == "versus" and game.disaster_is_human \
-		and game.phase != game.Phase.GAME_OVER and not game.lan_remote_disaster
+		and game.phase != game.Phase.GAME_OVER and not game.lan_remote_disaster and not game.lan_remote_prep
 	# A new battle, a finished battle or a game over starts clean, so the cover never outlives its match.
 	if not in_match or privacy_serial != game.encounter_serial:
 		privacy_serial = game.encounter_serial
@@ -1598,6 +1598,8 @@ func tactic_available(id: String) -> bool:
 	return not allies.is_empty()
 
 func begin_tactic(id: String) -> void:
+	# LAN: a remote Preparedness player arms tactics by message, not from this screen.
+	if game.seat_prep != "local": return
 	if not tactic_available(id): return
 	close_modal()
 	if id == "coordinate":
@@ -1612,11 +1614,12 @@ func begin_tactic(id: String) -> void:
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
 		game.board_input.pick("Click a deployed ally for " + str(game.plans.definition(id).name) + ".", allies, arm_target_tactic.bind(id), Callable())
 
-func arm_target_tactic(card: Node, id: String) -> void: game.plans.arm(id, [card])
+# Both arm through preparedness_actions, the same step a remote Preparedness player uses.
+func arm_target_tactic(card: Node, id: String) -> void: game.preparedness_actions.arm_tactic(id, card)
 func select_brace() -> void: begin_tactic("brace")
 func arm_brace(card: Node) -> void:
 	game.board_input.clear()
-	game.plans.arm("brace", [card])
+	game.preparedness_actions.arm_tactic("brace", card)
 func select_coordination() -> void: begin_tactic("coordinate")
 func select_extraction_ally(card: Node) -> void:
 	game.board_input.destination(card, arm_extraction.bind(card))
