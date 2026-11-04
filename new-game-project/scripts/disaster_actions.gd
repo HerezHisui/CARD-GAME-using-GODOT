@@ -122,12 +122,23 @@ func legal_targets(definition: Dictionary) -> Array:
 	if not needs_target(definition): return []
 	return game.get_hand_cards().filter(func(card): return _cast_problem(definition, card).is_empty())
 
-## True when the panel may offer this card: a base with a free lane, or a spell that can be cast.
+## Threat cards that evolve() would accept as sacrifices (same check as _sacrifice_problem). One per lane.
+func legal_sacrifices(definition: Dictionary) -> Array:
+	if definition.get("utility", false) or int(definition.get("cost", 0)) < 1: return []
+	var cards: Array = []
+	for slot in game._threat_slots():
+		var card = game._get_card_in_slot(slot)
+		if card != null and game.can_sacrifice(card): cards.append(card)
+	return cards
+
+## True when the panel may offer this card: a base with a free lane, a spell that can be cast,
+## or an evolution with enough cards to sacrifice.
 func can_use(definition: Dictionary) -> bool:
 	if not card_problem(definition).is_empty(): return false
 	if definition.get("utility", false):
 		return not legal_targets(definition).is_empty() if needs_target(definition) else true
-	if int(definition.get("cost", 0)) != 0: return false
+	var cost := int(definition.get("cost", 0))
+	if cost > 0: return legal_sacrifices(definition).size() >= cost
 	return not legal_lanes(definition).is_empty()
 
 ## Stop the Disaster turn. The turn code waits for turn_ended when a human plays.

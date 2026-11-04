@@ -101,10 +101,12 @@ func check_versus_match() -> void:
 	check_run_state_restored("loss", game, director)
 	await check_disaster_actions(game, director)
 	await check_disaster_choices(game, director)
+	await check_evolution_choices(game, director)
 	await check_ai_uses_actions(game, director)
 	await check_disaster_turn_switch(game, director)
 	await check_disaster_panel(game, director)
 	await check_disaster_picking(game, director)
+	await check_disaster_evolve_picking(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -265,6 +267,34 @@ func check_disaster_choices(game: Node, director: Node) -> void:
 	actions.actions_used = 0
 	game.tension = 0
 	expect(actions.card_problem(base) == "no_tension", "Disaster choices: no tension dims")
+	game.clear_battle()
+
+# The helper that lists sacrifices must agree with evolve, and can_use must follow it.
+func check_evolution_choices(game: Node, director: Node) -> void:
+	start_disaster_turn(game, director, 5)
+	var actions = game.disaster_actions
+	var lanes: Array = game._threat_slots()
+	var evolution := {"id": "t_evo3", "name": "Test Evo", "type": "disaster", "element": "fire",
+		"cost": 2, "attack": 3, "health": 4}
+	var base := test_base("t_evo_base")
+	game.enemy_hand.assign([evolution, base, test_base("t_evo_a"), test_base("t_evo_b")])
+	expect(actions.legal_sacrifices(evolution).is_empty() and not actions.can_use(evolution),
+		"Disaster evolution: no cards on the board, no sacrifices")
+	expect(actions.legal_sacrifices(base).is_empty(), "Disaster evolution: a base has no sacrifices")
+	expect(reason_of(await actions.play_base(game.enemy_hand[2], lanes[0])) == "ok", "Disaster evolution: first card")
+	var one: Array = actions.legal_sacrifices(evolution)
+	expect(one == [game._get_card_in_slot(lanes[0])], "Disaster evolution: one card, one sacrifice")
+	expect(not actions.can_use(evolution), "Disaster evolution: one card is too few for cost 2")
+	expect(reason_of(await actions.play_base(game.enemy_hand[2], lanes[2])) == "ok", "Disaster evolution: second card")
+	var two: Array = actions.legal_sacrifices(evolution)
+	expect(two.size() == 2 and actions.can_use(evolution), "Disaster evolution: enough cards, usable")
+	for card in two:
+		expect(actions._sacrifice_problem([card], card.current_slot).is_empty(),
+			"Disaster evolution: offered cards are accepted by evolve")
+	var spell := test_spell("t_evo_spell", "seal")
+	expect(actions.legal_sacrifices(spell).is_empty(), "Disaster evolution: a spell has no sacrifices")
+	game.tension = 0
+	expect(not actions.can_use(evolution), "Disaster evolution: no tension, not usable")
 	game.clear_battle()
 
 # In Versus the AI turn goes through the same actions and ends the same way as a singleplayer turn.
@@ -430,6 +460,119 @@ func check_disaster_picking(game: Node, director: Node) -> void:
 	game.disaster_actions.end_turn()
 	await create_timer(0.7, false).timeout
 	await check_disaster_target_pick(game, director)
+	game.disaster_is_human = false
+
+# A human turn with base cards already on the first lanes and only the evolution in hand.
+func evolve_turn(game: Node, director: Node, evolution: Dictionary, lane_count: int) -> void:
+	await wait_human_turn(game, director, [test_base("t_sac_0"), test_base("t_sac_1")])
+	var actions = game.disaster_actions
+	for i in lane_count:
+		await actions.play_base(game.enemy_hand[0], game._threat_slots()[i])
+	actions.actions_used = 0
+	game.tension = 5
+	game.enemy_hand.assign([evolution])
+	await process_frame
+	await process_frame
+
+func press_lane(director: Node, number: int) -> void:
+	director.disaster_panel.get_node("%PickBox").get_node("Lane%d" % number).pressed.emit()
+	await process_frame
+	await process_frame
+
+# Evolving from the panel: pick the sacrifices, then the lane, through the real buttons.
+func check_disaster_evolve_picking(game: Node, director: Node) -> void:
+	var panel: Control = director.disaster_panel
+	var box: Control = panel.get_node("%PickBox")
+	var lanes: Array = game._threat_slots()
+	var evolution := {"id": "t_evo4", "name": "Test Evo", "type": "disaster", "element": "fire",
+		"cost": 2, "attack": 3, "health": 4}
+	# Too few cards: the row is dimmed.
+	await evolve_turn(game, director, evolution, 1)
+	expect(hand_rows(director)[0].disabled, "Disaster evolve: row is off with too few sacrifices")
+	game.disaster_actions.end_turn()
+	await create_timer(0.7, false).timeout
+	# Cancel at step 1.
+	await evolve_turn(game, director, evolution, 2)
+	expect(not hand_rows(director)[0].disabled, "Disaster evolve: row is on with enough sacrifices")
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.get("kind", "") == "sacrifice" and box.visible, "Disaster evolve: sacrifice pick starts")
+	expect(not panel.get_node("%HandList").visible, "Disaster evolve: hand is hidden while picking")
+	expect(not box.get_node("Lane1").disabled and not box.get_node("Lane2").disabled
+		and box.get_node("Lane3").disabled and box.get_node("Lane4").disabled, "Disaster evolve: only card lanes on")
+	expect(box.get_node("Lane1").text == "Test t_sac_0" and box.get_node("Lane3").text == "Lane 3",
+		"Disaster evolve: sacrifice buttons show the card name")
+	expect(box.get_node("Prompt").text == "Sacrifice 1 of 2", "Disaster evolve: prompt counts the sacrifices")
+	box.get_node("CancelPick").pressed.emit()
+	await process_frame
+	expect(director.disaster_pick.is_empty() and not box.visible, "Disaster evolve: Cancel at step 1 leaves the pick")
+	expect(game._get_card_in_slot(lanes[0]) != null and game._get_card_in_slot(lanes[1]) != null
+		and game.enemy_hand.size() == 1 and game.disaster_actions.actions_used == 0,
+		"Disaster evolve: Cancel at step 1 spends nothing")
+	# Cancel at step 2.
+	await process_frame
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	await press_lane(director, 1)
+	expect(box.get_node("Lane1").disabled and not box.get_node("Lane2").disabled
+		and box.get_node("Prompt").text == "Sacrifice 2 of 2", "Disaster evolve: a chosen lane is off")
+	await press_lane(director, 1)
+	expect(director.disaster_pick.chosen.size() == 1, "Disaster evolve: a chosen lane cannot be chosen again")
+	await press_lane(director, 3)
+	expect(director.disaster_pick.chosen.size() == 1, "Disaster evolve: a lane with no card cannot be chosen")
+	await press_lane(director, 2)
+	expect(director.disaster_pick.get("kind", "") == "evo_lane", "Disaster evolve: second sacrifice asks for the lane")
+	expect(not box.get_node("Lane1").disabled and not box.get_node("Lane2").disabled
+		and box.get_node("Lane3").disabled and box.get_node("Lane1").text == "Lane 1",
+		"Disaster evolve: only the sacrificed lanes are offered")
+	expect(box.get_node("Prompt").text == "Lane for Test Evo:", "Disaster evolve: lane prompt")
+	box.get_node("CancelPick").pressed.emit()
+	await process_frame
+	expect(director.disaster_pick.is_empty() and game._get_card_in_slot(lanes[0]) != null
+		and game._get_card_in_slot(lanes[1]) != null and game.enemy_hand.size() == 1
+		and game.disaster_actions.actions_used == 0, "Disaster evolve: Cancel at step 2 spends nothing")
+	# Esc leaves the pick too.
+	await process_frame
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	director._input(esc)
+	await process_frame
+	expect(director.disaster_pick.is_empty(), "Disaster evolve: Esc leaves the sacrifice pick")
+	# Full flow: lane 1, lane 2, then the evolution goes to lane 2.
+	await process_frame
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	await press_lane(director, 1)
+	await press_lane(director, 2)
+	await press_lane(director, 2)
+	await create_timer(2.5, false).timeout
+	var landed = game._get_card_in_slot(lanes[1])
+	expect(landed != null and landed.card_data.id == "t_evo4", "Disaster evolve: the evolution is on lane 2")
+	expect(game._get_card_in_slot(lanes[0]) == null, "Disaster evolve: the other sacrificed card is gone")
+	expect(game.enemy_hand.is_empty() and game.disaster_actions.actions_used == 1 and director.disaster_pick.is_empty(),
+		"Disaster evolve: card spent, one action counted")
+	game.disaster_actions.end_turn()
+	await create_timer(0.7, false).timeout
+	# Cost 1: one sacrifice press, no second step.
+	var small := evolution.duplicate()
+	small.id = "t_evo5"
+	small.cost = 1
+	await evolve_turn(game, director, small, 2)
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	await process_frame
+	expect(box.get_node("Prompt").text == "Sacrifice 1 of 1", "Disaster evolve: cost 1 asks for one sacrifice")
+	await press_lane(director, 2)
+	await create_timer(2.5, false).timeout
+	landed = game._get_card_in_slot(lanes[1])
+	expect(landed != null and landed.card_data.id == "t_evo5" and game._get_card_in_slot(lanes[0]) != null,
+		"Disaster evolve: cost 1 evolves in the pressed lane")
+	game.disaster_actions.end_turn()
+	await create_timer(0.7, false).timeout
 	game.disaster_is_human = false
 
 # A seal spell asks for a Response hand card in the choose_card popup. Cancel and a finished turn close it.

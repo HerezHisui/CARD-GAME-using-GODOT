@@ -382,6 +382,7 @@ func _build_ui() -> void:
 const DISASTER_REASONS := {
 	"lane_full": "That lane is full.",
 	"bad_slot": "That is not a threat lane.",
+	"bad_sacrifice": "Pick different threat cards to sacrifice.",
 	"bad_target": "That target is not allowed.",
 	"no_tension": "Not enough Tension.",
 	"action_limit": "No actions left.",
@@ -419,9 +420,8 @@ func _refresh_disaster_panel() -> void:
 		old.queue_free()
 	for card in game.enemy_hand: _add_disaster_row(list, card)
 
-## "evo" rows are dimmed buttons with no action (2b-5). "off" rows are dimmed: not usable, busy, or a pick is open.
+## "off" rows are dimmed: not usable, busy, or a pick is open.
 func _disaster_row_state(card: Dictionary) -> String:
-	if not card.get("utility", false) and int(card.get("cost", 0)) > 0: return "evo"
 	var actions = game.disaster_actions
 	if not game.disaster_waiting or actions.busy or not disaster_pick.is_empty(): return "off"
 	return "on" if actions.can_use(card) else "off"
@@ -437,22 +437,39 @@ func _add_disaster_row(list: Control, card: Dictionary) -> void:
 	if state == "on": row.pressed.connect(_disaster_row_clicked.bind(card))
 	list.add_child(row)
 
-## Lane buttons show only while a Base card waits for a lane. Only free lanes can be pressed.
+## Pick kinds that use the lane buttons: a Base lane, evolution sacrifices, the evolution lane.
+const DISASTER_LANE_KINDS := ["lane", "sacrifice", "evo_lane"]
+
+## Lane buttons show only while a pick waits for a lane. Only lanes that are allowed can be pressed.
 func _refresh_disaster_lanes(actions: RefCounted) -> void:
 	var box: Control = disaster_panel.get_node("%PickBox")
-	var lane_mode: bool = disaster_pick.get("kind", "") == "lane"
+	var kind: String = disaster_pick.get("kind", "")
+	var lane_mode: bool = kind in DISASTER_LANE_KINDS
 	if box.visible != lane_mode: box.visible = lane_mode
 	# The lane buttons take the hand's place, so the panel stays inside the screen at 1280x800.
 	for hand_part in [disaster_panel.get_node("Box/HandTitle"), disaster_panel.get_node("%HandList")]:
 		if hand_part.visible == lane_mode: hand_part.visible = not lane_mode
 	if not lane_mode: return
-	_set_label_text(box.get_node("Prompt"), "Lane for %s:" % disaster_pick.card.get("name", "?"))
-	var open: Array = actions.legal_lanes(disaster_pick.card)
+	var card: Dictionary = disaster_pick.card
+	var open: Array = actions.legal_lanes(card)
+	var names := {}  # lane -> name of the card that can be sacrificed there
+	var prompt := "Lane for %s:" % card.get("name", "?")
+	if kind == "sacrifice":
+		prompt = "Sacrifice %d of %d" % [disaster_pick.chosen.size() + 1, int(card.get("cost", 0))]
+		open = []
+		for threat in actions.legal_sacrifices(card):
+			if threat.current_slot in disaster_pick.chosen: continue
+			open.append(threat.current_slot)
+			names[threat.current_slot] = threat.card_data.get("name", "?")
+	elif kind == "evo_lane":
+		open = disaster_pick.chosen
+	_set_label_text(box.get_node("Prompt"), prompt)
 	var slots: Array = game._threat_slots()
 	for i in slots.size():
 		var lane_button: Button = box.get_node("Lane%d" % (i + 1))
 		var off: bool = actions.busy or slots[i] not in open
 		if lane_button.disabled != off: lane_button.disabled = off
+		_set_button_text(lane_button, names.get(slots[i], "Lane %d" % (i + 1)))
 
 ## A pick is stale when the turn, the battle or the screen it belongs to is gone.
 func _disaster_pick_stale(show_panel: bool) -> bool:
@@ -477,7 +494,9 @@ func _disaster_row_clicked(card: Dictionary) -> void:
 	if not disaster_pick.is_empty() or actions.busy: return
 	var serial: int = game.encounter_serial
 	_set_label_text(disaster_panel.get_node("%Reason"), "")
-	if not card.get("utility", false):
+	if not card.get("utility", false) and int(card.get("cost", 0)) > 0:
+		disaster_pick = {"kind": "sacrifice", "card": card, "serial": serial, "chosen": []}
+	elif not card.get("utility", false):
 		disaster_pick = {"kind": "lane", "card": card, "serial": serial}
 	elif actions.needs_target(card):
 		var title := "CHOOSE A TARGET · " + str(card.get("name", "")).to_upper()
@@ -487,11 +506,37 @@ func _disaster_row_clicked(card: Dictionary) -> void:
 		_disaster_report(await actions.cast(card, null), serial)
 
 func _disaster_pick_lane(index: int) -> void:
-	if disaster_pick.get("kind", "") != "lane": return
+	var kind: String = disaster_pick.get("kind", "")
+	if kind not in DISASTER_LANE_KINDS or game.disaster_actions.busy: return
+	var slot: Node3D = game._threat_slots()[index]
+	if kind == "sacrifice":
+		await _disaster_sacrifice_chosen(slot)
+		return
+	if kind == "evo_lane":
+		if slot in disaster_pick.chosen: await _disaster_evolve(slot)
+		return
 	var card: Dictionary = disaster_pick.card
 	var serial: int = disaster_pick.serial
 	disaster_pick = {}
-	_disaster_report(await game.disaster_actions.play_base(card, game._threat_slots()[index]), serial)
+	_disaster_report(await game.disaster_actions.play_base(card, slot), serial)
+
+## Step 1 of an evolution: remember the lane. Then ask for the evolution lane, or evolve at once for cost 1.
+func _disaster_sacrifice_chosen(slot: Node3D) -> void:
+	var cards: Array = game.disaster_actions.legal_sacrifices(disaster_pick.card)
+	var offered: Array = cards.map(func(c): return c.current_slot)
+	if slot not in offered or slot in disaster_pick.chosen: return
+	disaster_pick.chosen.append(slot)
+	if disaster_pick.chosen.size() < int(disaster_pick.card.get("cost", 0)): return
+	if disaster_pick.chosen.size() == 1: await _disaster_evolve(slot)
+	else: disaster_pick.kind = "evo_lane"
+
+## Step 2: the pick is cleared first, so a second press does nothing. Then evolve() does the work.
+func _disaster_evolve(slot: Node3D) -> void:
+	var card: Dictionary = disaster_pick.card
+	var serial: int = disaster_pick.serial
+	var sacrifices: Array = disaster_pick.chosen.map(func(lane): return game._get_card_in_slot(lane))
+	disaster_pick = {}
+	_disaster_report(await game.disaster_actions.evolve(card, sacrifices, slot), serial)
 
 # choose_card binds the chosen card in front of the arguments bound here, so target comes first.
 func _disaster_target_chosen(target, card: Dictionary, serial: int) -> void:
@@ -509,6 +554,9 @@ func _disaster_report(result: Dictionary, serial: int) -> void:
 
 func _set_label_text(label: Label, text: String) -> void:
 	if label.text != text: label.text = text
+
+func _set_button_text(button: Button, text: String) -> void:
+	if button.text != text: button.text = text
 
 ## Tension cost for spells and bases, evolutions show their sacrifice count.
 func _disaster_card_cost(card: Dictionary) -> int:
@@ -639,7 +687,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	# Esc leaves the lane choice of the Disaster panel before it can open the menu.
-	if not modal.visible and disaster_pick.get("kind", "") == "lane" \
+	if not modal.visible and disaster_pick.get("kind", "") in DISASTER_LANE_KINDS \
 			and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		_cancel_disaster_pick()
 		get_viewport().set_input_as_handled()
