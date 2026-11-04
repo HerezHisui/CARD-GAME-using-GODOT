@@ -2,7 +2,8 @@ extends Node
 ## Pass-and-play seat for a human Disaster in Versus. While the Disaster waits for input, the camera sits on
 ## the far side of the table and the Disaster hand is shown as real cards.
 ## Every action still goes through disaster_actions.gd. This file only reads the mouse.
-## Base threats and spells work here. Evolutions still need the old panel.
+## Base threats, spells and evolutions work here. An evolution is dropped on a threat lane, which is also the first
+## sacrifice. Cost 2 or 3 then asks for the other sacrifices by click.
 
 const UI = preload("res://scripts/ui_theme.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
@@ -11,7 +12,6 @@ const Card3DScene = preload("res://scenes/card_3d.tscn")
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
 const DRAG_START_PIXELS := 8.0
 const HOLD_MOVE_PIXELS := 12.0
-const NOT_YET := "Evolutions are not in the seat view yet."
 # The hand sits lower than the Response hand, so it leaves the threat lanes in view.
 const SEAT_HAND_DROP := 0.26
 
@@ -27,6 +27,7 @@ var dragging := false
 var selected: Node3D  # a card picked by a click, waits for a lane
 var playing_card: Node3D  # the card whose action is running
 var playing := false
+var evo := {}  # an evolution waiting for sacrifices: card, definition, slot, chosen, serial. Empty = none
 var mouse := Vector2.ZERO
 var lane_material: StandardMaterial3D
 
@@ -47,7 +48,8 @@ func _process(delta: float) -> void:
 	if not active: return
 	_sync_hand()
 	_turn_board_cards(true)
-	if game.run_director.modal.visible and held != null: _cancel()
+	if game.run_director.modal.visible and (held != null or not evo.is_empty()): _cancel()
+	if not evo.is_empty() and _evo_stale(): _cancel()
 	_check_hold()
 	if dragging and is_instance_valid(held): _follow_mouse(held, delta)
 	else: _update_hover()
@@ -88,6 +90,7 @@ func _clear_all() -> void:
 	held = null
 	selected = null
 	playing_card = null
+	evo = {}
 	dragging = false
 	_update_lanes()
 
@@ -128,6 +131,7 @@ func _remove_card(card: Node3D) -> void:
 		dragging = false
 	if card == selected: selected = null
 	if card == playing_card: playing_card = null
+	if not evo.is_empty() and card == evo.card: evo = {}
 	card.queue_free()
 
 ## Tight, overlapping, upright fan along the bottom of the screen, like the Response hand.
@@ -209,6 +213,9 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		mouse = event.position
 		_on_release(event.position)
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and not evo.is_empty():
+		_cancel()
+		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _can_use() or not event is InputEventMouseButton or not event.pressed: return
@@ -225,6 +232,10 @@ func _drop_slot(card: Node3D, point: Vector2) -> Node3D:
 
 ## Returns true when the press was used.
 func _on_press(point: Vector2) -> bool:
+	# While sacrifices are picked, a click on a threat lane is the only thing that counts.
+	if not evo.is_empty():
+		_pick_sacrifice(point)
+		return true
 	var card := _card_at(point)
 	var slot: Node3D = null
 	if is_instance_valid(selected): slot = _drop_slot(selected, point)
@@ -263,8 +274,11 @@ func _on_release(point: Vector2) -> void:
 	if slot != null and _can_use(): _try_play(card, slot)
 	else: _arrange()
 
-## Right click or a popup: put everything back in the hand.
+## Right click, Esc or a popup: put everything back in the hand. An evolution that waits is given back.
 func _cancel() -> void:
+	if not evo.is_empty():
+		if is_instance_valid(evo.card): evo.card.visible = true
+		evo = {}
 	held = null
 	dragging = false
 	selected = null
@@ -282,7 +296,7 @@ func _check_hold() -> void:
 
 func _update_hover() -> void:
 	var picked: Node3D = null
-	if _can_use(): picked = _card_at(mouse)
+	if _can_use() and evo.is_empty(): picked = _card_at(mouse)
 	if picked == hovered: return
 	hovered = picked
 	_arrange()
@@ -298,8 +312,8 @@ func _follow_mouse(card: Node3D, delta: float) -> void:
 func _try_play(card: Node3D, slot: Node3D) -> void:
 	var definition: Dictionary = card.get_meta("seat_def")
 	selected = null
-	if int(definition.get("cost", 0)) > 0 and not definition.get("utility", false):
-		_refuse(card, NOT_YET)
+	if _is_evolution(definition):
+		_try_evolve(card, definition, slot)
 		return
 	if definition.get("utility", false):
 		_try_spell(card, definition)
@@ -309,6 +323,71 @@ func _try_play(card: Node3D, slot: Node3D) -> void:
 	card.visible = false
 	var serial: int = game.encounter_serial
 	var result: Dictionary = await game.disaster_actions.play_base(definition, slot)
+	playing = false
+	playing_card = null
+	if serial != game.encounter_serial or result.ok or not is_instance_valid(card): return
+	card.visible = true
+	_refuse(card, game.run_director.DISASTER_REASONS.get(result.reason, "Action refused."))
+
+func _is_evolution(definition: Dictionary) -> bool:
+	return int(definition.get("cost", 0)) > 0 and not definition.get("utility", false)
+
+## The evolution lands on the dropped lane, and the card there is the first sacrifice.
+func _try_evolve(card: Node3D, definition: Dictionary, slot: Node3D) -> void:
+	var actions: RefCounted = game.disaster_actions
+	var reasons: Dictionary = game.run_director.DISASTER_REASONS
+	var problem: String = actions.card_problem(definition)
+	if problem.is_empty() and not actions.can_use(definition): problem = "bad_sacrifice"
+	var first: Node = game._get_card_in_slot(slot)
+	if problem.is_empty() and first not in actions.legal_sacrifices(definition): problem = "bad_sacrifice"
+	if not problem.is_empty():
+		_refuse(card, reasons.get(problem, "Action refused."))
+		return
+	if int(definition.get("cost", 0)) == 1:
+		_evolve(card, definition, [first], slot)
+		return
+	# Cost 2 or 3: the card waits out of the hand while the other sacrifices are clicked.
+	evo = {"card": card, "definition": definition, "slot": slot, "chosen": [first],
+		"serial": game.encounter_serial}
+	card.visible = false
+	_arrange()
+	_say_pick()
+
+func _say_pick() -> void:
+	var left: int = int(evo.definition.get("cost", 0)) - evo.chosen.size()
+	evo.card.spawn_popup("Pick %d more card%s to sacrifice" % [left, "" if left == 1 else "s"], UI.AMBER)
+
+## A click while sacrifices are picked. A lane with a legal card that is not chosen yet adds it.
+func _pick_sacrifice(point: Vector2) -> void:
+	var lane := _lane_at(point)
+	if lane == null: return
+	var target: Node = game._get_card_in_slot(lane)
+	if target == null or target in evo.chosen: return
+	if target not in game.disaster_actions.legal_sacrifices(evo.definition): return
+	evo.chosen.append(target)
+	if evo.chosen.size() < int(evo.definition.get("cost", 0)):
+		_say_pick()
+		return
+	var card: Node3D = evo.card
+	var definition: Dictionary = evo.definition
+	var chosen: Array = evo.chosen
+	var slot: Node3D = evo.slot
+	evo = {}
+	_evolve(card, definition, chosen, slot)
+
+## The pick is stale when the turn changed or a chosen card is gone or may not be sacrificed any more.
+func _evo_stale() -> bool:
+	if evo.serial != game.encounter_serial or not is_instance_valid(evo.card): return true
+	for target in evo.chosen:
+		if not game.can_sacrifice(target): return true
+	return false
+
+func _evolve(card: Node3D, definition: Dictionary, sacrifices: Array, slot: Node3D) -> void:
+	playing = true
+	playing_card = card
+	card.visible = false
+	var serial: int = game.encounter_serial
+	var result: Dictionary = await game.disaster_actions.evolve(definition, sacrifices, slot)
 	playing = false
 	playing_card = null
 	if serial != game.encounter_serial or result.ok or not is_instance_valid(card): return
@@ -357,17 +436,29 @@ func _refuse(card: Node3D, text: String) -> void:
 	_arrange()
 	if not text.is_empty() and is_instance_valid(card): card.spawn_popup(text, UI.AMBER)
 
-## Open threat lanes glow while a Base card is dragged or picked.
+## Open threat lanes glow while a Base card is dragged or picked. For an evolution, the lanes of the cards
+## that may be sacrificed glow instead.
 func _update_lanes() -> void:
 	var card := held if dragging else selected
 	var open: Array = []
-	if active and is_instance_valid(card):
-		open = game.disaster_actions.legal_lanes(card.get_meta("seat_def"))
+	if active and not evo.is_empty():
+		open = _sacrifice_lanes(evo.definition, evo.chosen)
+	elif active and is_instance_valid(card):
+		var definition: Dictionary = card.get_meta("seat_def")
+		if _is_evolution(definition): open = _sacrifice_lanes(definition, [])
+		else: open = game.disaster_actions.legal_lanes(definition)
 	for slot: Node3D in game._threat_slots():
 		var lit := slot in open
 		if slot.visible == lit: continue
 		slot.visible = lit
 		slot.material_override = _lane_look() if lit else null
+
+## Lanes holding a card that may be sacrificed and is not chosen yet.
+func _sacrifice_lanes(definition: Dictionary, chosen: Array) -> Array:
+	var lanes: Array = []
+	for target in game.disaster_actions.legal_sacrifices(definition):
+		if target not in chosen: lanes.append(target.current_slot)
+	return lanes
 
 func _lane_look() -> StandardMaterial3D:
 	if lane_material == null:

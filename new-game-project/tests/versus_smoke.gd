@@ -883,9 +883,129 @@ func check_disaster_seat_spells(game: Node, director: Node) -> void:
 	expect(not director.modal.visible, "Disaster seat: the popup closes after the cast")
 	game.disaster_actions.end_turn()
 	await create_timer(1.0, false).timeout
+	await check_disaster_seat_evolve(game, director)
 	game.disaster_seat_view = false
 	game.disaster_is_human = false
 	game.clear_battle()
+
+func test_evo(id: String, cost: int) -> Dictionary:
+	return {"id": id, "name": "Test " + id, "type": "disaster", "element": "fire",
+		"cost": cost, "attack": 3, "health": 4}
+
+func seat_right_click(point: Vector2) -> void:
+	var button := InputEventMouseButton.new()
+	button.button_index = MOUSE_BUTTON_RIGHT
+	button.pressed = true
+	button.position = point
+	button.global_position = point
+	root.push_input(button, true)
+	await process_frame
+
+# Waits until the action counter reaches a number, at most 8 seconds.
+func wait_for_actions(game: Node, count: int) -> void:
+	var waited := 0.0
+	while game.disaster_actions.actions_used < count and waited < 8.0:
+		await create_timer(0.1, false).timeout
+		waited += 0.1
+	await create_timer(0.4, false).timeout
+
+# A seat turn with Base cards already on the first lanes and one evolution left in the hand.
+func seat_evo_turn(game: Node, director: Node, base_count: int, evolution: Dictionary) -> void:
+	var hand: Array = []
+	for i in base_count: hand.append(test_base("t_evb%d" % i))
+	hand.append(evolution)
+	await seat_turn(game, director, hand)
+	for i in base_count:
+		await game.disaster_actions.play_base(game.enemy_hand[0], game._threat_slots()[i])
+	await create_timer(0.8, false).timeout
+	game.tension = 5
+	game.disaster_actions.action_limit = 5
+
+# Drag the first seat card onto a lane and let go.
+func seat_drag_to_lane(game: Node, lane: int) -> void:
+	var card_point := seat_card_point(game, 0)
+	var lane_point := seat_lane_point(game, lane)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "up")
+	await process_frame
+
+# Evolutions in the seat: cost 1 at once, cost 2 asks for another card, cancel and refusals change nothing.
+func check_disaster_seat_evolve(game: Node, director: Node) -> void:
+	var seat: Node = game.disaster_seat
+	var lanes: Array = game._threat_slots()
+	# Cost 1: dropped on a lane with a Base card, the Base card is the sacrifice.
+	await seat_evo_turn(game, director, 1, test_evo("t_evo1", 1))
+	var old_card: Node = game._get_card_in_slot(lanes[0])
+	var used_before: int = game.disaster_actions.actions_used
+	await seat_drag_to_lane(game, 0)
+	await wait_for_actions(game, used_before + 1)
+	var landed: Node = game._get_card_in_slot(lanes[0])
+	expect(landed != null and landed.card_data.get("id", "") == "t_evo1" and not is_instance_valid(old_card),
+		"Disaster seat evolve: cost 1 replaces the card on the dropped lane")
+	expect(game.disaster_actions.actions_used == used_before + 1 and game.enemy_hand.is_empty() and seat.evo.is_empty(),
+		"Disaster seat evolve: cost 1 counts one action and needs no pick")
+	expect(landed != null and absf(absf(landed.rotation.y) - PI) < 0.05,
+		"Disaster seat evolve: the evolved card is turned upright")
+	game.disaster_actions.end_turn()
+	await create_timer(1.0, false).timeout
+	# Cost 2: the drop starts the pick, a click on the second card finishes it.
+	await seat_evo_turn(game, director, 2, test_evo("t_evo2", 2))
+	var first: Node = game._get_card_in_slot(lanes[1])
+	var second: Node = game._get_card_in_slot(lanes[0])
+	used_before = game.disaster_actions.actions_used
+	await seat_drag_to_lane(game, 1)
+	await process_frame
+	expect(not seat.evo.is_empty() and game.enemy_hand.size() == 1 and used_before == game.disaster_actions.actions_used,
+		"Disaster seat evolve: cost 2 waits for a second card")
+	expect(lanes[0].visible and not lanes[1].visible, "Disaster seat evolve: only the other card's lane glows")
+	expect("Pick 1 more card to sacrifice" in seat_popups(game), "Disaster seat evolve: the pick shows its prompt")
+	var lane_point := seat_lane_point(game, 0)
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "down")
+	await seat_mouse(lane_point, "up")
+	await wait_for_actions(game, used_before + 1)
+	landed = game._get_card_in_slot(lanes[1])
+	expect(landed != null and landed.card_data.get("id", "") == "t_evo2" and game._get_card_in_slot(lanes[0]) == null
+		and not is_instance_valid(first) and not is_instance_valid(second),
+		"Disaster seat evolve: cost 2 lands on the dropped lane and both sacrifices are gone")
+	expect(seat.evo.is_empty() and game.disaster_actions.actions_used == used_before + 1,
+		"Disaster seat evolve: the pick ends and one action is counted")
+	game.disaster_actions.end_turn()
+	await create_timer(1.0, false).timeout
+	# Cancel with a right click: nothing changes, the card is back in the hand.
+	await seat_evo_turn(game, director, 2, test_evo("t_evo2c", 2))
+	used_before = game.disaster_actions.actions_used
+	await seat_drag_to_lane(game, 1)
+	expect(not seat.evo.is_empty(), "Disaster seat evolve: the pick is on before the cancel")
+	await seat_right_click(seat_lane_point(game, 3))
+	await process_frame
+	expect(seat.evo.is_empty() and seat.cards.size() == 1 and seat.cards[0].visible and game.enemy_hand.size() == 1,
+		"Disaster seat evolve: a right click gives the card back")
+	expect(game._get_card_in_slot(lanes[0]) != null and game._get_card_in_slot(lanes[1]) != null
+		and game.disaster_actions.actions_used == used_before and not lanes[0].visible,
+		"Disaster seat evolve: a cancel changes nothing and clears the glow")
+	# A pick is cleared by End turn, glow too.
+	await seat_drag_to_lane(game, 1)
+	expect(not seat.evo.is_empty(), "Disaster seat evolve: the pick is on before End turn")
+	await privacy_click(game._end_turn_btn.get_global_rect().get_center())
+	await create_timer(1.0, false).timeout
+	var any_lit := false
+	for lane: Node3D in lanes:
+		if lane.visible: any_lit = true
+	expect(seat.evo.is_empty() and not any_lit, "Disaster seat evolve: End turn clears the pick and the glow")
+	# Too few threat cards: refused with the panel's text, no pick.
+	await seat_evo_turn(game, director, 1, test_evo("t_evo2r", 2))
+	used_before = game.disaster_actions.actions_used
+	await seat_drag_to_lane(game, 0)
+	expect(seat.evo.is_empty() and game.enemy_hand.size() == 1 and seat.cards[0].visible
+		and "Pick different threat cards to sacrifice." in seat_popups(game)
+		and game.disaster_actions.actions_used == used_before,
+		"Disaster seat evolve: too few threat cards is refused without a pick")
+	game.disaster_actions.end_turn()
+	await create_timer(1.0, false).timeout
 
 # The Response hand is tucked away while a human Disaster waits, and comes back on every way out.
 func check_disaster_hand_tuck(game: Node, director: Node) -> void:
