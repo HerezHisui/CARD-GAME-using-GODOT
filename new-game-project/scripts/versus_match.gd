@@ -1,12 +1,12 @@
 extends Node
 ## One Versus match started from the title screen. Child of run_director, not an autoload.
 ## It never touches the save file. It keeps the singleplayer run state and puts it back when the match ends.
-## For now the Disaster side is still driven by the existing AI.
+## The Disaster side is a human (see DISASTER_IS_HUMAN), or the existing AI when that is false.
 
 const VersusDecks = preload("res://scripts/versus_decks.gd")
 
-# Who plays the Disaster in Versus. Keep false until the Disaster panel exists.
-const DISASTER_IS_HUMAN := false
+# Who plays the Disaster in Versus. true = a human uses the Disaster panel, false = the existing AI.
+const DISASTER_IS_HUMAN := true
 
 var director: Node
 var game: Node

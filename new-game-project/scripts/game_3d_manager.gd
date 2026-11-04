@@ -682,6 +682,11 @@ func _process(_delta: float) -> void:
 			set_hand_tucked(true)
 		return
 
+	# A human Disaster must not see the Response hand. When the turn ends the normal rules below untuck it.
+	if disaster_waiting and encounter_kind == "versus" and disaster_is_human:
+		if not is_hand_tucked: set_hand_tucked(true)
+		return
+
 	if view_mode == View.WIDE:
 		if not is_hand_tucked: set_hand_tucked(true)
 		return

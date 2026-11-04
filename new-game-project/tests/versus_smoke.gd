@@ -107,6 +107,7 @@ func check_versus_match() -> void:
 	await check_disaster_panel(game, director)
 	await check_disaster_picking(game, director)
 	await check_disaster_evolve_picking(game, director)
+	await check_disaster_hand_tuck(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -127,6 +128,8 @@ func test_base(id: String) -> Dictionary:
 func start_disaster_turn(game: Node, director: Node, tension: int) -> void:
 	game.clear_battle()
 	game.encounter_kind = "versus"
+	# A real match sets this from DISASTER_IS_HUMAN. These fixtures choose the Disaster themselves.
+	game.disaster_is_human = false
 	director.battle_active = true
 	game._set_phase(game.Phase.ENEMY)
 	game.tension = tension
@@ -461,6 +464,45 @@ func check_disaster_picking(game: Node, director: Node) -> void:
 	await create_timer(0.7, false).timeout
 	await check_disaster_target_pick(game, director)
 	game.disaster_is_human = false
+
+# The Response hand is tucked away while a human Disaster waits, and comes back on every way out.
+func check_disaster_hand_tuck(game: Node, director: Node) -> void:
+	director.modal.visible = false
+	game.in_board_view = false
+	await wait_human_turn(game, director, [test_base("t_tuck")])
+	await create_timer(0.2, false).timeout
+	expect(game.disaster_waiting and game.is_hand_tucked, "Disaster tuck: hand is tucked while the Disaster waits")
+	game.disaster_actions.end_turn()
+	await create_timer(1.0, false).timeout
+	expect(not game.disaster_waiting and not game.is_hand_tucked, "Disaster tuck: hand is back after end_turn")
+	# The battle is cleared mid-turn.
+	await wait_human_turn(game, director, [test_base("t_tuck2")])
+	await create_timer(0.2, false).timeout
+	expect(game.is_hand_tucked, "Disaster tuck: tucked again on the next human turn")
+	game.clear_battle()
+	await create_timer(0.3, false).timeout
+	expect(not game.is_hand_tucked, "Disaster tuck: hand is back after clear_battle")
+	# The battle ends (game over) mid-turn.
+	await wait_human_turn(game, director, [test_base("t_tuck3")])
+	await create_timer(0.2, false).timeout
+	expect(game.is_hand_tucked, "Disaster tuck: tucked before game over")
+	game._set_phase(game.Phase.GAME_OVER)
+	await create_timer(0.3, false).timeout
+	expect(not game.is_hand_tucked, "Disaster tuck: hand is back after game over")
+	# An AI Disaster and singleplayer never tuck for this reason, even if a wait flag were set.
+	game.clear_battle()
+	start_disaster_turn(game, director, 3)
+	game.disaster_is_human = false
+	game.disaster_waiting = true
+	await create_timer(0.2, false).timeout
+	expect(not game.is_hand_tucked, "Disaster tuck: an AI Disaster does not tuck")
+	game.disaster_is_human = true
+	game.encounter_kind = "battle"
+	await create_timer(0.2, false).timeout
+	expect(not game.is_hand_tucked, "Disaster tuck: singleplayer does not tuck")
+	game.disaster_waiting = false
+	game.disaster_is_human = false
+	game.clear_battle()
 
 # A human turn with base cards already on the first lanes and only the evolution in hand.
 func evolve_turn(game: Node, director: Node, evolution: Dictionary, lane_count: int) -> void:
