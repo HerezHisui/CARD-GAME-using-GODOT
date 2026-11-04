@@ -160,3 +160,19 @@ func finish(prep_won: bool) -> void:
 	var subtitle := "The school is safe." if prep_won else "The school was lost."
 	director.reset_panel(title, subtitle, "result")
 	director.button("Back to title", director.return_title, director.content)
+
+## LAN only (lan_title.gd): the other player left. Ends the match with no winner.
+func abort(title: String, subtitle: String) -> void:
+	if not running: return
+	running = false
+	clear_prematch()
+	game.reveal_versus_hand()
+	winner = ""
+	game._set_phase(game.Phase.GAME_OVER, subtitle)
+	director.get_tree().paused = false
+	director.battle_active = false
+	restore_run_state()
+	director.run_active = false
+	director.encounter = "battle"
+	director.reset_panel(title, subtitle, "result")
+	director.button("Back to title", director.return_title, director.content)

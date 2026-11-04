@@ -67,6 +67,7 @@ var reward_stock: Array[Dictionary] = []
 var run_active := false
 var persistence: Node
 var versus_match: Node
+var lan_title: Node  # LAN Part E: Host / Join on the title. Only made when VersusMatch.LAN_ENABLED is true.
 var catalog: Array[Dictionary] = []
 var rooms: Array = []
 var cleared: Array = []
@@ -188,6 +189,32 @@ func show_title() -> void:
 		start_button.grab_focus()
 	title_screen.get_node("%QuitButton").pressed.connect(quit_game)
 	title_screen.get_node("%VersusButton").pressed.connect(start_versus_match)
+	if preload("res://scripts/versus_match.gd").LAN_ENABLED: add_lan_buttons(title_screen)
+
+## LAN Part E: Host LAN and Join LAN under Versus, with the same look as the other menu items.
+func add_lan_buttons(title_screen: Control) -> void:
+	if not is_instance_valid(lan_title):
+		lan_title = preload("res://scripts/lan_title.gd").new()
+		lan_title.name = "LanTitle"
+		add_child(lan_title)
+		lan_title.setup(self)
+	var versus_button: Button = title_screen.get_node("%VersusButton")
+	var host_button := _lan_menu_button(title_screen, versus_button, "HostLanButton", "Host LAN")
+	host_button.pressed.connect(lan_title.show_host)
+	var join_button := _lan_menu_button(title_screen, host_button, "JoinLanButton", "Join LAN")
+	join_button.pressed.connect(lan_title.show_join)
+
+## One title menu item, copied from the Versus button's size and font, placed under after.
+func _lan_menu_button(title_screen: Control, after: Button, button_name: String, text: String) -> Button:
+	var b := Button.new()
+	b.name = button_name
+	b.text = text
+	b.custom_minimum_size = after.custom_minimum_size
+	b.mouse_default_cursor_shape = after.mouse_default_cursor_shape
+	b.add_theme_font_size_override("font_size", after.get_theme_font_size("font_size"))
+	after.add_sibling(b)
+	title_screen.style_menu_button(b)
+	return b
 
 ## Starts a Versus match. The match node is made once and never touches the save file.
 func start_versus_match() -> void:
@@ -1160,6 +1187,8 @@ func battle_finished(won: bool) -> void:
 	# Versus ends here: no coins, rewards, save changes or run logic.
 	if encounter == "versus":
 		versus_match.finish(won)
+		# LAN Part E: tell the Disaster client who won.
+		if is_instance_valid(lan_title): lan_title.match_finished(versus_match.winner)
 		return
 	if not won:
 		run_active = false

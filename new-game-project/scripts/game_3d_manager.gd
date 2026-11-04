@@ -1323,6 +1323,14 @@ func resume_coin() -> void:
 	# Versus with the pre-match flip: the toss winner picks a side before round 1.
 	var versus_flip: bool = preload("res://scripts/versus_match.gd").PREMATCH_COIN_FLIP
 	versus_flip = versus_flip and encounter_kind == "versus" and is_instance_valid(run_director.versus_match)
+	# LAN Part E: sides are fixed (host = Preparedness), so there is no coin yet. Preparedness goes first.
+	if encounter_kind == "versus" and seat_disaster != "local":
+		player_first = true
+		log_event("LAN: no coin flip. Preparedness takes the first turn.")
+		run_director.screen = ""
+		_set_phase(Phase.SETUP, "Preparedness takes the first turn")
+		_begin_round()
+		return
 	# The hand is dealt already. Keep it hidden through the coin fade and the side choice.
 	if versus_flip: hide_versus_hand()
 	var pick: int = await presentation.choose_coin(coin_result, coin_pick)

@@ -9,6 +9,8 @@ const LanView = preload("res://scripts/lan_view.gd")
 
 # UDP port the host listens on. Open it in the Windows firewall for private networks.
 const PORT := 24680
+# Part E: raise this when the messages change. Host and client must send the same build string.
+const PROTOCOL := 1
 
 signal peer_joined(id: int)
 signal peer_left(id: int)
@@ -16,6 +18,10 @@ signal joined_host
 signal join_failed
 signal host_lost
 signal pong_received(number: int)
+# Client: the host refused the join. reason is "version" for a different build.
+signal join_refused(reason: String)
+# Client: the host says the match ended. winner is "preparedness" or "disaster".
+signal match_over(winner: String)
 # Client: a new board view or an event (for example "reject") came from the host.
 signal view_received(view: Dictionary)
 signal event_received(kind: String, data: Dictionary)
@@ -31,6 +37,12 @@ var panel: Control  # client only: lan_client_panel.gd, set by attach_panel
 var last_view: Dictionary = {}  # client only: the newest view from the host
 var picked_hand := -1  # client only: the hand card picked on the panel
 var picked_lanes: Array = []  # client only: sacrifice lanes picked so far for an evolution
+var build := build_string()  # sent with the join; a test may change it to check the refusal
+
+
+# Protocol number plus the Godot version, for example "1|4.7.2-stable (official)".
+static func build_string() -> String:
+	return "%d|%s" % [PROTOCOL, Engine.get_version_info().string]
 
 
 func _ready() -> void:
@@ -172,7 +184,45 @@ func push_view(view: Dictionary) -> void:
 func push_event(kind: String, data: Dictionary) -> void:
 	if kind == "reject" and is_instance_valid(panel):
 		panel.show_reject(str(data.get("reason", "")))
+	if kind == "refused":
+		join_refused.emit(str(data.get("reason", "")))
+	if kind == "match_over":
+		match_over.emit(str(data.get("winner", "")))
 	event_received.emit(kind, data)
+
+
+# --- Part E: version check and match end ---
+
+# Client: tell the host which build this is. The host only counts the client as joined if it matches.
+@rpc("any_peer", "reliable")
+func hello(client_build) -> void:
+	if not is_host:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender == 0 or disaster_peer != 0:
+		return
+	if str(client_build) != build:
+		push_event.rpc_id(sender, "refused", {"reason": "version"})
+		_drop_later(sender)
+		return
+	# The first client with the same build plays the Disaster.
+	disaster_peer = sender
+	peer_joined.emit(sender)
+
+
+# Host: tell the Disaster client who won.
+func send_match_over(winner: String) -> void:
+	if not is_host or peer == null or disaster_peer == 0:
+		return
+	push_event.rpc_id(disaster_peer, "match_over", {"winner": winner})
+
+
+# Host: give the refusal a few frames to arrive, then drop the client.
+func _drop_later(id: int) -> void:
+	for i in 10:
+		await get_tree().process_frame
+	if peer != null and is_host and id in multiplayer.get_peers():
+		peer.disconnect_peer(id)
 
 
 # Client: turn panel clicks into action messages.
@@ -251,11 +301,8 @@ func _disconnect_signals() -> void:
 
 func _on_peer_connected(id: int) -> void:
 	# The client also sees the host (id 1) connect; only the host reports joiners.
-	if is_host:
-		# The first client to join plays the Disaster.
-		if disaster_peer == 0:
-			disaster_peer = id
-		peer_joined.emit(id)
+	# Part E: the joiner counts only after its hello with the same build (see hello).
+	pass
 
 
 func _on_peer_disconnected(id: int) -> void:
@@ -266,6 +313,7 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
+	hello.rpc_id(1, build)
 	joined_host.emit()
 
 

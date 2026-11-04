@@ -6,11 +6,14 @@ extends Control
 signal hand_pressed(index: int)
 signal lane_pressed(lane: int)
 signal end_turn_pressed
+# Part E: the Back to title button after the match ended.
+signal back_pressed
 
 const LANE_COUNT := 4
 
 var view: Dictionary = {}
 var selected := -1
+var over_text := ""  # Part E: set when the match ended, so a late view keeps it
 
 var header: Label
 var response_row: HBoxContainer
@@ -19,6 +22,7 @@ var hand_row: HBoxContainer
 var info: Label
 var reject_label: Label
 var end_button: Button
+var back_button: Button
 
 
 func _ready() -> void:
@@ -36,8 +40,15 @@ func _ready() -> void:
 	end_button.text = "End Turn"
 	end_button.pressed.connect(func() -> void: end_turn_pressed.emit())
 	box.add_child(end_button)
+	back_button = Button.new()
+	back_button.text = "Back to title"
+	back_button.visible = false
+	back_button.pressed.connect(func() -> void: back_pressed.emit())
+	box.add_child(back_button)
 	if not view.is_empty():
 		_redraw()
+	else:
+		header.text = "Connected. Waiting for the host to start..."
 
 
 func _add_label(parent: Node) -> Label:
@@ -66,6 +77,16 @@ func show_reject(reason: String) -> void:
 		reject_label.text = "Refused: " + reason
 
 
+# Part E: the host says who won. No more turns, only Back to title.
+func show_match_over(winner: String) -> void:
+	if not is_node_ready():
+		return
+	over_text = "Match over: %s wins" % winner.capitalize()
+	header.text = over_text
+	end_button.disabled = true
+	back_button.visible = true
+
+
 func _redraw() -> void:
 	var sides: Dictionary = view.sides
 	header.text = "Round %d | %s | Preparedness HP %d | Disaster HP %d | Tension %d/%d" % [
@@ -80,6 +101,9 @@ func _redraw() -> void:
 	_fill_lanes(disaster_row, "disaster", _allowed_lanes())
 	_fill_hand()
 	end_button.disabled = not view.is_disaster_turn
+	if over_text != "":
+		header.text = over_text
+		end_button.disabled = true
 
 
 # Lanes the picked card may use: free lanes for a base, sacrifice lanes for an evolution.
