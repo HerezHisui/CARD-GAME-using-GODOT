@@ -419,7 +419,7 @@ func _refresh_disaster_panel() -> void:
 		old.queue_free()
 	for card in game.enemy_hand: _add_disaster_row(list, card)
 
-## "evo" rows stay labels (2b-5). "off" rows are dimmed: not usable, busy, or a pick is open.
+## "evo" rows are dimmed buttons with no action (2b-5). "off" rows are dimmed: not usable, busy, or a pick is open.
 func _disaster_row_state(card: Dictionary) -> String:
 	if not card.get("utility", false) and int(card.get("cost", 0)) > 0: return "evo"
 	var actions = game.disaster_actions
@@ -429,17 +429,12 @@ func _disaster_row_state(card: Dictionary) -> String:
 func _add_disaster_row(list: Control, card: Dictionary) -> void:
 	var text := "%s %d" % [card.get("name", "?"), _disaster_card_cost(card)]
 	var state := _disaster_row_state(card)
-	if state == "evo":
-		var label := Label.new()
-		label.text = text
-		list.add_child(label)
-		return
 	var row := Button.new()
 	row.text = text
 	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	row.disabled = state == "off"
-	row.pressed.connect(_disaster_row_clicked.bind(card))
+	row.disabled = state != "on"
+	if state == "on": row.pressed.connect(_disaster_row_clicked.bind(card))
 	list.add_child(row)
 
 ## Lane buttons show only while a Base card waits for a lane. Only free lanes can be pressed.
@@ -447,6 +442,9 @@ func _refresh_disaster_lanes(actions: RefCounted) -> void:
 	var box: Control = disaster_panel.get_node("%PickBox")
 	var lane_mode: bool = disaster_pick.get("kind", "") == "lane"
 	if box.visible != lane_mode: box.visible = lane_mode
+	# The lane buttons take the hand's place, so the panel stays inside the screen at 1280x800.
+	for hand_part in [disaster_panel.get_node("Box/HandTitle"), disaster_panel.get_node("%HandList")]:
+		if hand_part.visible == lane_mode: hand_part.visible = not lane_mode
 	if not lane_mode: return
 	_set_label_text(box.get_node("Prompt"), "Lane for %s:" % disaster_pick.card.get("name", "?"))
 	var open: Array = actions.legal_lanes(disaster_pick.card)
