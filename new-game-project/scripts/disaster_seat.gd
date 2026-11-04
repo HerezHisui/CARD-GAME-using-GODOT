@@ -2,7 +2,7 @@ extends Node
 ## Pass-and-play seat for a human Disaster in Versus. While the Disaster waits for input, the camera sits on
 ## the far side of the table and the Disaster hand is shown as real cards.
 ## Every action still goes through disaster_actions.gd. This file only reads the mouse.
-## Part A: Base threats and End turn. Spells and evolutions still need the old panel.
+## Base threats and spells work here. Evolutions still need the old panel.
 
 const UI = preload("res://scripts/ui_theme.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
@@ -11,7 +11,9 @@ const Card3DScene = preload("res://scenes/card_3d.tscn")
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
 const DRAG_START_PIXELS := 8.0
 const HOLD_MOVE_PIXELS := 12.0
-const NOT_YET := "Spells and evolutions are not in the seat view yet."
+const NOT_YET := "Evolutions are not in the seat view yet."
+# The hand sits lower than the Response hand, so it leaves the threat lanes in view.
+const SEAT_HAND_DROP := 0.26
 
 var game: Node
 var active := false
@@ -44,6 +46,7 @@ func _process(delta: float) -> void:
 	if want != active: _set_active(want)
 	if not active: return
 	_sync_hand()
+	_turn_board_cards(true)
 	if game.run_director.modal.visible and held != null: _cancel()
 	_check_hold()
 	if dragging and is_instance_valid(held): _follow_mouse(held, delta)
@@ -63,8 +66,20 @@ func _set_active(on: bool) -> void:
 		game._view_back_btn.disabled = true
 		return
 	_clear_all()
+	_turn_board_cards(false)
 	game._apply_view(game.view_settings(game.view_mode))
 	game._update_view_buttons()
+
+## Board cards read upside down from the far seat. While the seat is on, every card that has landed on a lane is
+## turned half a circle, and turned back when the seat closes. A card still moving is left alone.
+func _turn_board_cards(turned: bool) -> void:
+	for card: Node in get_tree().get_nodes_in_group("cards"):
+		if not is_instance_valid(card) or card.in_hand or card.current_slot == null: continue
+		var rest: Vector3 = card.current_slot.global_position + Vector3(0, 0.008, 0)
+		if card.global_position.distance_to(rest) > 0.02: continue
+		var half_turn := absf(absf(card.rotation.y) - PI) < 0.05
+		if turned and not half_turn and absf(card.rotation.y) < 0.05: card.rotation.y = PI
+		elif not turned and half_turn: card.rotation.y = 0.0
 
 func _clear_all() -> void:
 	for card in cards: card.queue_free()
@@ -121,7 +136,8 @@ func _arrange() -> void:
 	var spacing := minf(0.6, 3.4 / maxf(1.0, count))
 	for i in count:
 		var n := i - (count - 1) / 2.0
-		var pos := Vector3(n * spacing, game.HAND_Y - n * n * 0.012, -game.HAND_DIST + i * 0.002)
+		var pos := Vector3(n * spacing, game.HAND_Y - SEAT_HAND_DROP - n * n * 0.012,
+			-game.HAND_DIST + i * 0.002)
 		var card_basis: Basis = Basis(Vector3.BACK, deg_to_rad(-n * 2.5)) * game.UPRIGHT
 		var card := cards[i]
 		card.set_meta("seat_pos", pos)
@@ -156,9 +172,17 @@ func _card_at(point: Vector2) -> Node3D:
 		if card.has_meta("seat_pos") and Geometry2D.is_point_in_polygon(point, _polygon(card, false)): return card
 	return null
 
-## The threat lane under a screen point. Same ray and plane test as the Response lanes use.
+## The threat lane under a screen point.
 func _lane_at(point: Vector2) -> Node3D:
-	for slot: Node3D in game._threat_slots():
+	return _slot_at(point, game._threat_slots())
+
+## Any lane of either side. A spell is dropped on the board.
+func _board_slot_at(point: Vector2) -> Node3D:
+	return _slot_at(point, game._threat_slots() + game._response_slots())
+
+## The first of these slots under a screen point. Same ray and plane test as the Response lanes use.
+func _slot_at(point: Vector2, slots: Array) -> Node3D:
+	for slot: Node3D in slots:
 		var plane := Plane(Vector3.UP, slot.global_position.y)
 		var hit: Variant = plane.intersects_ray(game.camera.project_ray_origin(point),
 			game.camera.project_ray_normal(point))
@@ -194,10 +218,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.button_index == MOUSE_BUTTON_LEFT and _on_press(event.position):
 		get_viewport().set_input_as_handled()
 
+## Where a card is dropped: a Base card on a threat lane, a spell on any lane of the board.
+func _drop_slot(card: Node3D, point: Vector2) -> Node3D:
+	if card.get_meta("seat_def").get("utility", false): return _board_slot_at(point)
+	return _lane_at(point)
+
 ## Returns true when the press was used.
 func _on_press(point: Vector2) -> bool:
 	var card := _card_at(point)
-	var slot := _lane_at(point)
+	var slot: Node3D = null
+	if is_instance_valid(selected): slot = _drop_slot(selected, point)
 	if card == null and slot != null and is_instance_valid(selected):
 		_try_play(selected, slot)
 		return true
@@ -229,7 +259,7 @@ func _on_release(point: Vector2) -> void:
 		_arrange()
 		return
 	dragging = false
-	var slot := _lane_at(point)
+	var slot := _drop_slot(card, point)
 	if slot != null and _can_use(): _try_play(card, slot)
 	else: _arrange()
 
@@ -268,14 +298,54 @@ func _follow_mouse(card: Node3D, delta: float) -> void:
 func _try_play(card: Node3D, slot: Node3D) -> void:
 	var definition: Dictionary = card.get_meta("seat_def")
 	selected = null
-	if definition.get("utility", false) or int(definition.get("cost", 0)) > 0:
+	if int(definition.get("cost", 0)) > 0 and not definition.get("utility", false):
 		_refuse(card, NOT_YET)
+		return
+	if definition.get("utility", false):
+		_try_spell(card, definition)
 		return
 	playing = true
 	playing_card = card
 	card.visible = false
 	var serial: int = game.encounter_serial
 	var result: Dictionary = await game.disaster_actions.play_base(definition, slot)
+	playing = false
+	playing_card = null
+	if serial != game.encounter_serial or result.ok or not is_instance_valid(card): return
+	card.visible = true
+	_refuse(card, game.run_director.DISASTER_REASONS.get(result.reason, "Action refused."))
+
+## A spell with no target is cast at once. A spell with a target asks for one in the same popup the panel uses.
+func _try_spell(card: Node3D, definition: Dictionary) -> void:
+	var actions: RefCounted = game.disaster_actions
+	var director: Node = game.run_director
+	var problem: String = actions.card_problem(definition)
+	var targets: Array = actions.legal_targets(definition)
+	if not actions.needs_target(definition) or not problem.is_empty() or targets.is_empty():
+		# cast() gives the real reason. It changes nothing when it refuses.
+		_cast(card, definition, null)
+		return
+	var serial: int = game.encounter_serial
+	var title := "CHOOSE A TARGET · " + str(definition.get("name", "")).to_upper()
+	director.choose_card(title, targets, _target_chosen.bind(card, definition, serial), director._cancel_disaster_pick)
+	director.disaster_pick = {"kind": "target", "card": definition, "serial": serial}
+	_arrange()
+
+# choose_card binds the chosen card in front of the arguments bound here, so target comes first.
+func _target_chosen(target: Node, card: Node3D, definition: Dictionary, serial: int) -> void:
+	var director: Node = game.run_director
+	director.disaster_pick = {}
+	director.action_cancel = Callable()
+	director.close_modal()
+	if serial != game.encounter_serial or not is_instance_valid(target) or not is_instance_valid(card): return
+	_cast(card, definition, target)
+
+func _cast(card: Node3D, definition: Dictionary, target: Node) -> void:
+	playing = true
+	playing_card = card
+	card.visible = false
+	var serial: int = game.encounter_serial
+	var result: Dictionary = await game.disaster_actions.cast(definition, target)
 	playing = false
 	playing_card = null
 	if serial != game.encounter_serial or result.ok or not is_instance_valid(card): return

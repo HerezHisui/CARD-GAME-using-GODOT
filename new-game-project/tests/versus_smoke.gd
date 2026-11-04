@@ -695,6 +695,9 @@ func check_disaster_seat(game: Node, director: Node) -> void:
 	expect(seat.cards.size() == 1 and seat.cards[0].card_data.get("id", "") == "t_seat",
 		"Disaster seat: the hand is a real card")
 	expect(not game._end_turn_btn.disabled, "Disaster seat: End turn is on")
+	expect(seat.cards[0].get_meta("seat_pos").y <= game.HAND_Y - 0.25, "Disaster seat: the hand sits below the lanes")
+	expect(not director.prep.get_parent().visible and not director.graveyard_button.visible,
+		"Disaster seat: no Preparedness gauge or Graveyard button")
 	var visible_area: Rect2 = root.get_visible_rect()
 	var card_point := seat_card_point(game, 0)
 	var lane_point := seat_lane_point(game, 1)
@@ -713,6 +716,9 @@ func check_disaster_seat(game: Node, director: Node) -> void:
 	expect(game.disaster_actions.actions_used == 1 and seat.cards.is_empty(),
 		"Disaster seat: action counted, hand shown empty")
 	expect(not game._threat_slots()[1].visible, "Disaster seat: lanes stop glowing")
+	var landed: Node3D = game._get_card_in_slot(game._threat_slots()[1])
+	expect(landed != null and absf(absf(landed.rotation.y) - PI) < 0.05,
+		"Disaster seat: the board card is turned upright")
 	# The normal End turn button ends the turn and the camera flips back.
 	var end_point: Vector2 = game._end_turn_btn.get_global_rect().get_center()
 	await privacy_click(end_point)
@@ -721,6 +727,14 @@ func check_disaster_seat(game: Node, director: Node) -> void:
 	expect(not game.disaster_seat_on and game.camera.global_position.z > 3.0, "Disaster seat: the camera flips back")
 	expect(game.opponent_hand.visible and game.view_mode == view_before, "Disaster seat: Janitor and view are back")
 	expect(not game._view_forward_btn.disabled or view_before == game.View.WIDE, "Disaster seat: view buttons are back")
+	await create_timer(0.3, false).timeout
+	var all_back := true
+	for card: Node in get_nodes_in_group("cards"):
+		if not is_instance_valid(card) or card.in_hand or card.current_slot == null: continue
+		if absf(card.rotation.y) >= 0.05: all_back = false
+	expect(all_back, "Disaster seat: board cards turn back when the seat closes")
+	expect(director.prep.get_parent().visible and director.graveyard_button.visible,
+		"Disaster seat: Preparedness gauge and Graveyard button are back")
 	await check_disaster_seat_click(game, director)
 	await check_disaster_seat_refusals(game, director)
 	game.disaster_seat_view = false
@@ -765,7 +779,7 @@ func check_disaster_seat_refusals(game: Node, director: Node) -> void:
 		"Disaster seat: a full lane keeps the card in the hand")
 	expect("That lane is full." in seat_popups(game), "Disaster seat: the refusal shows its reason")
 	expect(game.disaster_actions.actions_used == 1, "Disaster seat: a refused drop costs no action")
-	# A spell is not playable from the seat yet.
+	# A spell that needs a Response target is refused when there is none.
 	game.enemy_hand.assign([test_spell("t_seat_spell", "tax")])
 	await create_timer(0.6, false).timeout
 	card_point = seat_card_point(game, 0)
@@ -776,7 +790,8 @@ func check_disaster_seat_refusals(game: Node, director: Node) -> void:
 	await seat_mouse(lane_point, "move")
 	await seat_mouse(lane_point, "up")
 	await process_frame
-	expect(game.enemy_hand.size() == 1 and seat.NOT_YET in seat_popups(game), "Disaster seat: a spell is refused for now")
+	expect(game.enemy_hand.size() == 1 and "That target is not allowed." in seat_popups(game),
+		"Disaster seat: a spell with no target is refused")
 	# Singleplayer and the AI never use the seat, even with the flag on.
 	game.encounter_kind = "battle"
 	await create_timer(0.3, false).timeout
@@ -784,6 +799,93 @@ func check_disaster_seat_refusals(game: Node, director: Node) -> void:
 	game.encounter_kind = "versus"
 	game.disaster_actions.end_turn()
 	await create_timer(1.0, false).timeout
+	await check_disaster_seat_spells(game, director)
+
+# Drag a spell onto the board, or click it and then a lane. A spell with a target opens the popup first.
+func check_disaster_seat_spells(game: Node, director: Node) -> void:
+	var seat: Node = game.disaster_seat
+	# A spell with no target, by drag onto the board. It costs tension and one action.
+	await seat_turn(game, director, [test_spell("t_seat_plain", "none")])
+	var card_point := seat_card_point(game, 0)
+	var lane_point := seat_lane_point(game, 3)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "move")
+	expect(seat.dragging and not game._threat_slots()[3].visible, "Disaster seat: a spell does not light the lanes")
+	await seat_mouse(lane_point, "up")
+	await create_timer(0.8, false).timeout
+	expect(game.enemy_hand.is_empty() and game.tension == 2 and game.disaster_actions.actions_used == 1,
+		"Disaster seat: a spell dragged onto the board is cast, with tension and the action counted")
+	# A spell with no target, by two clicks.
+	game.enemy_hand.assign([test_spell("t_seat_click", "none")])
+	await create_timer(0.6, false).timeout
+	card_point = seat_card_point(game, 0)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(card_point, "up")
+	expect(seat.selected == seat.cards[0] and game.enemy_hand.size() == 1, "Disaster seat: a click picks the spell")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "down")
+	await seat_mouse(lane_point, "up")
+	await create_timer(0.8, false).timeout
+	expect(game.enemy_hand.is_empty() and game.disaster_actions.actions_used == 2,
+		"Disaster seat: click then click casts the spell")
+	# No tension left: the spell is refused with the panel's text and costs nothing.
+	game.tension = 0
+	game.enemy_hand.assign([test_spell("t_seat_poor", "none")])
+	await create_timer(0.6, false).timeout
+	card_point = seat_card_point(game, 0)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "up")
+	await process_frame
+	expect(game.enemy_hand.size() == 1 and "Not enough Tension." in seat_popups(game)
+		and game.disaster_actions.actions_used == 2, "Disaster seat: a spell without tension is refused")
+	game.tension = 3
+	# A spell with a target: the drop opens the popup, Cancel changes nothing.
+	game.add_card_to_hand({"id": "t_seat_r", "name": "Test SeatR", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 1})
+	game.enemy_hand.assign([test_spell("t_seat_seal", "seal")])
+	await create_timer(0.6, false).timeout
+	var target: Node = game.get_hand_cards()[0]
+	card_point = seat_card_point(game, 0)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "up")
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.get("kind", "") == "target" and director.modal.visible,
+		"Disaster seat: a spell with a target opens the target popup")
+	director.action_cancel.call()
+	await process_frame
+	expect(director.disaster_pick.is_empty() and not director.modal.visible and game.enemy_hand.size() == 1
+		and game.disaster_actions.actions_used == 2, "Disaster seat: Cancel in the popup changes nothing")
+	# Again, and press the real Choose button.
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(card_point, "up")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "down")
+	await seat_mouse(lane_point, "up")
+	await process_frame
+	await process_frame
+	var tiles: Array = director.content.get_node("Cards/Row").get_children()
+	expect(tiles.size() == 1 and director.modal.visible, "Disaster seat: the popup lists the Response hand card")
+	tiles[0].get_node("Box/ActionButton").pressed.emit()
+	await create_timer(0.8, false).timeout
+	expect(game.is_sealed(target.card_data) and game.enemy_hand.is_empty() and game.disaster_actions.actions_used == 3,
+		"Disaster seat: the chosen target is sealed and the action is counted")
+	expect(not director.modal.visible, "Disaster seat: the popup closes after the cast")
+	game.disaster_actions.end_turn()
+	await create_timer(1.0, false).timeout
+	game.disaster_seat_view = false
+	game.disaster_is_human = false
+	game.clear_battle()
 
 # The Response hand is tucked away while a human Disaster waits, and comes back on every way out.
 func check_disaster_hand_tuck(game: Node, director: Node) -> void:

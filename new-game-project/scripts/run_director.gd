@@ -652,7 +652,8 @@ func _process(_delta: float) -> void:
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
 	plans_button.get_node("CountLabel").text = "%d/2" % game.plans.tokens
 	dashboard.visible = battle_active and not modal.visible
-	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
+	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking \
+		and not game.disaster_seat_on
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	_update_boss_intent()
 	_refresh_privacy_screen()
@@ -680,7 +681,8 @@ func _process(_delta: float) -> void:
 	map_button.disabled = saved_content != null or screen in DECISIONS or not game.board_input.action.is_empty()
 	menu_button.disabled = map_button.disabled
 	idle_hint.visible = false
-	prep.get_parent().visible = battle_active and not modal.visible
+	prep.get_parent().visible = battle_active and not modal.visible \
+		and not game.disaster_seat_on
 	threat.get_parent().visible = battle_active and not modal.visible
 
 func status_text() -> String:
