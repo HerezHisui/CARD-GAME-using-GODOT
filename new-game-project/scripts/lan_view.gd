@@ -4,12 +4,18 @@ extends RefCounted
 ## Kept: lanes, both sides' HP and resources, round and phase, the Disaster hand.
 ## Counts only: the Preparedness hand, every draw pile, the evolution deck, the graveyards.
 ## Dropped: RNG states, pending choice, plans, battle log, and every card no kept zone uses.
+## LAN Part D2-b: build(game, "preparedness") is the mirror for a remote Preparedness player.
+## Kept there: lanes, both HPs, energy, Plan tokens, tactics, the Preparedness hand.
+## Counts only: the Disaster hand, every draw pile, the evolution deck, the graveyards.
 
 const BattleSnapshot = preload("res://scripts/battle_snapshot.gd")
 
 
 # The whole view for the client. Plain data, so it fits an RPC.
-static func build(game: Node) -> Dictionary:
+# side is "disaster" (the Part B view, unchanged) or "preparedness".
+static func build(game: Node, side: String = "disaster") -> Dictionary:
+	if side == "preparedness":
+		return build_prep(game)
 	var snapshot: Dictionary = BattleSnapshot.new().capture(game).to_dict()
 	var zones: Dictionary = snapshot.zones
 	var view := {
@@ -32,13 +38,46 @@ static func build(game: Node) -> Dictionary:
 		"cards": {},
 		"hints": hand_hints(game),
 	}
-	_keep_cards(view, snapshot.cards)
+	_keep_cards(view, snapshot.cards, view.disaster_hand)
 	return view
 
 
-# Copy only the cards that sit in a lane or in the Disaster hand.
-static func _keep_cards(view: Dictionary, all_cards: Dictionary) -> void:
-	var ids: Array = view.disaster_hand.duplicate()
+# The view for a remote Preparedness player. Never holds a Disaster hand or deck card.
+static func build_prep(game: Node) -> Dictionary:
+	var snapshot: Dictionary = BattleSnapshot.new().capture(game).to_dict()
+	var zones: Dictionary = snapshot.zones
+	var view := {
+		"side": "preparedness",
+		"round": snapshot.round_number,
+		"is_prep_turn": game.phase == game.Phase.PLAYER_PLAY,
+		"first_side": snapshot.first_side,
+		"coin": snapshot.coin.duplicate(),
+		"sides": snapshot.sides.duplicate(true),
+		"lanes": snapshot.lanes.duplicate(true),
+		"prep_hand": zones.response.hand.duplicate(),
+		"counts": {
+			"disaster_hand": zones.disaster.hand.size(),
+			"disaster_draw": zones.disaster.draw.size(),
+			"disaster_evolution": zones.disaster.evolution.size(),
+			"disaster_graveyard": zones.disaster.graveyard.size(),
+			"response_draw": zones.response.draw.size(),
+			"response_graveyard": zones.response.graveyard.size(),
+		},
+		"energy": game.preparedness,
+		"energy_cap": game.energy_cap,
+		"plan_tokens": game.plans.tokens,
+		"armed": str(game.plans.armed.get("kind", "")),
+		"tactics": tactic_hints(game),
+		"cards": {},
+		"hints": prep_hand_hints(game),
+	}
+	_keep_cards(view, snapshot.cards, view.prep_hand)
+	return view
+
+
+# Copy only the cards that sit in a lane or in the hand this view keeps.
+static func _keep_cards(view: Dictionary, all_cards: Dictionary, hand: Array) -> void:
+	var ids: Array = hand.duplicate()
 	for side in ["response", "disaster"]:
 		for id in view.lanes[side]:
 			if id != "":
@@ -80,3 +119,39 @@ static func _lane_of(game: Node, threat_slots: Array, card: Node) -> int:
 		if game._get_card_in_slot(threat_slots[lane]) == card:
 			return lane
 	return -1
+
+
+# One hint per Preparedness hand card, in hand order. lanes are free Preparedness lane indices.
+static func prep_hand_hints(game: Node) -> Array:
+	var actions: RefCounted = game.preparedness_actions
+	var hints: Array = []
+	for index in game.get_hand_cards().size():
+		var lanes: Array = actions.legal_lanes(index)
+		hints.append({
+			"can_play": not lanes.is_empty(),
+			"problem": actions.hand_problem(index),
+			"lanes": lanes,
+		})
+	return hints
+
+
+# One hint per unlocked tactic. lanes are the Preparedness lanes with an ally to pick.
+static func tactic_hints(game: Node) -> Array:
+	var actions: RefCounted = game.preparedness_actions
+	var ally_lanes: Array = []
+	var slots: Array = game._response_slots()
+	for lane in slots.size():
+		if game._get_card_in_slot(slots[lane]) != null:
+			ally_lanes.append(lane)
+	var hints: Array = []
+	for id in game.plans.unlocked:
+		var tactic: Dictionary = game.plans.definition(id)
+		var available: bool = id not in actions.NOT_SUPPORTED_TACTICS and game.run_director.tactic_available(id)
+		hints.append({
+			"id": id,
+			"name": str(tactic.get("name", id)),
+			"cost": int(tactic.get("cost", 0)),
+			"available": available,
+			"lanes": ally_lanes.duplicate() if available else [],
+		})
+	return hints

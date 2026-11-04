@@ -5,6 +5,9 @@ extends RefCounted
 ## Each action returns {"ok": bool, "reason": String}. The reason is empty when ok.
 ## Not here yet (LAN slice): utility cards and the Extraction tactic. They answer "not_supported".
 
+# Tactics a remote player cannot use yet: they need a second pick or no ally.
+const NOT_SUPPORTED_TACTICS := ["extract", "supply", "shelter"]
+
 var game: Node
 
 func _init(owner_game: Node) -> void:
@@ -47,6 +50,16 @@ func _card_problem(card: Node) -> String:
 	if game.preparedness < int(card.card_data.get("cost", 0)): return "no_energy"
 	return ""
 
+## LAN view hint: why play_card would refuse this hand card now, or "" (lane_full when no lane is free).
+func hand_problem(hand_index: int) -> String:
+	var problem := _common_problem()
+	if not problem.is_empty(): return problem
+	var hand_cards: Array = game.get_hand_cards()
+	if not _is_index(hand_index, hand_cards.size()): return "bad_hand"
+	problem = _card_problem(hand_cards[hand_index])
+	if problem.is_empty() and legal_lanes(hand_index).is_empty(): problem = "lane_full"
+	return problem
+
 ## Empty Preparedness lanes where play_card would accept this hand card.
 func legal_lanes(hand_index: int) -> Array:
 	var lanes: Array = []
@@ -72,7 +85,7 @@ func use_tactic(id, ally_lane) -> Dictionary:
 	var problem := _common_problem()
 	if not problem.is_empty(): return _result(false, problem)
 	if typeof(id) != TYPE_STRING or id not in game.plans.unlocked: return _result(false, "bad_tactic")
-	if id in ["extract", "supply", "shelter"]: return _result(false, "not_supported")
+	if id in NOT_SUPPORTED_TACTICS: return _result(false, "not_supported")
 	if not game.run_director.tactic_available(id): return _result(false, "tactic_unavailable")
 	var slots: Array = game._response_slots()
 	if not _is_index(ally_lane, slots.size()): return _result(false, "bad_lane")
@@ -83,7 +96,13 @@ func use_tactic(id, ally_lane) -> Dictionary:
 
 ## Arms a tactic on one ally. The local picks (run_director) call this too.
 func arm_tactic(id: String, ally: Node) -> bool:
-	return game.plans.arm(id, [ally])
+	# plans.can_arm asks game.can_player_act, which is false for a remote seat (host clicks are blocked).
+	# use_tactic has done the checks, so the seat counts as local just for this one call.
+	var seat: String = game.seat_prep
+	game.seat_prep = "local"
+	var armed: bool = game.plans.arm(id, [ally])
+	game.seat_prep = seat
+	return armed
 
 ## End the Preparedness turn. The round (Disaster turn, combat, next round) then runs on the host.
 func end_turn() -> Dictionary:

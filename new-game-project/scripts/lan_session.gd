@@ -3,6 +3,7 @@ extends Node
 ## Only used when VersusMatch.LAN_ENABLED is true. The host listens, one client joins by IP.
 ## Uses the multiplayer API of its own subtree, so a test can run a host and a client in one process.
 ## Part C: the client sends Disaster actions, the host checks and applies them, then sends a new view.
+## Part D2-c: the client may play Preparedness instead (prep_peer). The sender's seat picks the rules.
 
 const LanActions = preload("res://scripts/lan_actions.gd")
 const LanView = preload("res://scripts/lan_view.gd")
@@ -32,11 +33,14 @@ var is_host := false
 var peer: ENetMultiplayerPeer
 var game: Node  # host only: the running Versus board
 var disaster_peer := 0  # host only: the client id that plays the Disaster, 0 when none
+var prep_peer := 0  # host only: the client id that plays Preparedness, 0 when none
+var was_phase := -1  # host only: game.phase at the last frame, watched for a Preparedness client
 var was_waiting := false  # host only: game.disaster_waiting at the last frame
 var panel: Control  # client only: lan_client_panel.gd, set by attach_panel
 var last_view: Dictionary = {}  # client only: the newest view from the host
 var picked_hand := -1  # client only: the hand card picked on the panel
 var picked_lanes: Array = []  # client only: sacrifice lanes picked so far for an evolution
+var picked_tactic := ""  # client only (Preparedness): the tactic picked on the panel, waiting for an ally lane
 var build := build_string()  # sent with the join; a test may change it to check the refusal
 
 
@@ -51,11 +55,15 @@ func _ready() -> void:
 
 
 # Host: send a new view when the Disaster turn starts or ends.
+# A Preparedness client also gets one when the phase changes (its turn starts, combat, next round).
 func _process(_delta: float) -> void:
 	if not is_host or game == null or not is_instance_valid(game):
 		return
 	if game.disaster_waiting != was_waiting:
 		was_waiting = game.disaster_waiting
+		send_view()
+	if prep_peer != 0 and game.phase != was_phase:
+		was_phase = game.phase
 		send_view()
 
 
@@ -111,6 +119,7 @@ func close() -> void:
 	peer = null
 	is_host = false
 	disaster_peer = 0
+	prep_peer = 0
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 
 
@@ -133,14 +142,36 @@ func pong(number: int) -> void:
 
 # --- Part C: actions and views ---
 
-# Host: send the board the Disaster may see to the Disaster client.
+# Host: send each client the board its side may see.
 func send_view() -> void:
-	if not is_host or disaster_peer == 0 or game == null or not is_instance_valid(game):
+	if not is_host or game == null or not is_instance_valid(game):
 		return
-	push_view.rpc_id(disaster_peer, LanView.build(game))
+	if disaster_peer != 0:
+		push_view.rpc_id(disaster_peer, LanView.build(game))
+	if prep_peer != 0:
+		push_view.rpc_id(prep_peer, LanView.build(game, "preparedness"))
 
 
-# Client: ask the host to do one Disaster action. See lan_actions.gd for the messages.
+# Host: the seat of a network id, "disaster", "preparedness" or "" for nobody.
+# A local call has sender 0, and both peers are 0 before anyone joins: that is nobody.
+func seat_of(sender: int) -> String:
+	if sender == 0:
+		return ""
+	if sender == disaster_peer:
+		return "disaster"
+	if sender == prep_peer:
+		return "preparedness"
+	return ""
+
+
+# Host: the joined client plays this side, "disaster" or "preparedness". The lobby (D2-d) calls it.
+func seat_client(side: String) -> void:
+	var id := disaster_peer if disaster_peer != 0 else prep_peer
+	disaster_peer = id if side == "disaster" else 0
+	prep_peer = id if side == "preparedness" else 0
+
+
+# Client: ask the host to do one action for this client's side. See lan_actions.gd for the messages.
 func request_action(msg) -> void:
 	if peer == null or is_host:
 		return
@@ -154,19 +185,20 @@ func send_action(msg) -> void:
 	if not is_host:
 		return
 	var sender := multiplayer.get_remote_sender_id()
+	var side := seat_of(sender)
 	var result: Dictionary
-	# A local call has sender 0, and disaster_peer is 0 before anyone joins: refuse both.
-	if sender == 0 or sender != disaster_peer:
-		result = {"ok": false, "reason": "not_disaster_peer"}
+	# A local call has sender 0, and both peers are 0 before anyone joins: refuse both.
+	if side == "":
+		result = {"ok": false, "reason": "not_prep_peer" if prep_peer != 0 else "not_disaster_peer"}
 	elif game == null or not is_instance_valid(game):
 		result = {"ok": false, "reason": "no_match"}
 	else:
-		result = await LanActions.apply(game, msg)
+		result = await LanActions.apply(game, msg, side)
 	# The client may have left while the action played.
 	if peer != null and sender in multiplayer.get_peers():
 		if not result.ok:
 			push_event.rpc_id(sender, "reject", {"reason": result.reason})
-		if sender == disaster_peer:
+		if seat_of(sender) != "":
 			send_view()
 	action_done.emit(result)
 
@@ -199,7 +231,7 @@ func hello(client_build) -> void:
 	if not is_host:
 		return
 	var sender := multiplayer.get_remote_sender_id()
-	if sender == 0 or disaster_peer != 0:
+	if sender == 0 or disaster_peer != 0 or prep_peer != 0:
 		return
 	if str(client_build) != build:
 		push_event.rpc_id(sender, "refused", {"reason": "version"})
@@ -210,11 +242,12 @@ func hello(client_build) -> void:
 	peer_joined.emit(sender)
 
 
-# Host: tell the Disaster client who won.
+# Host: tell the client who won, whichever side it plays.
 func send_match_over(winner: String) -> void:
-	if not is_host or peer == null or disaster_peer == 0:
+	var id := disaster_peer if disaster_peer != 0 else prep_peer
+	if not is_host or peer == null or id == 0:
 		return
-	push_event.rpc_id(disaster_peer, "match_over", {"winner": winner})
+	push_event.rpc_id(id, "match_over", {"winner": winner})
 
 
 # Host: give the refusal a few frames to arrive, then drop the client.
@@ -267,6 +300,37 @@ func _on_lane_pressed(lane: int) -> void:
 	_clear_pick()
 
 
+# Client (Preparedness): turn panel clicks into action messages.
+# A unit needs a hand card, then a free lane. A tactic needs the tactic, then the lane of an ally.
+func attach_prep_panel(new_panel: Control) -> void:
+	panel = new_panel
+	panel.hand_pressed.connect(_on_prep_hand_pressed)
+	panel.tactic_pressed.connect(_on_prep_tactic_pressed)
+	panel.lane_pressed.connect(_on_prep_lane_pressed)
+	panel.end_turn_pressed.connect(func() -> void: request_action({"kind": "end"}))
+	if not last_view.is_empty():
+		panel.show_view(last_view)
+
+
+func _on_prep_hand_pressed(index: int) -> void:
+	_clear_pick()
+	if index >= 0 and index < last_view.get("hints", []).size():
+		picked_hand = index
+
+
+func _on_prep_tactic_pressed(id: String) -> void:
+	_clear_pick()
+	picked_tactic = id
+
+
+func _on_prep_lane_pressed(lane: int) -> void:
+	if picked_tactic != "":
+		request_action({"kind": "tactic", "id": picked_tactic, "lane": lane})
+	elif picked_hand >= 0:
+		request_action({"kind": "play", "hand": picked_hand, "lane": lane})
+	_clear_pick()
+
+
 func _hand_definition(index: int) -> Dictionary:
 	var id: String = last_view.disaster_hand[index]
 	return last_view.cards[id].definition
@@ -275,6 +339,7 @@ func _hand_definition(index: int) -> Dictionary:
 func _clear_pick() -> void:
 	picked_hand = -1
 	picked_lanes.clear()
+	picked_tactic = ""
 
 
 func _use_peer() -> void:
@@ -309,6 +374,8 @@ func _on_peer_disconnected(id: int) -> void:
 	if is_host:
 		if id == disaster_peer:
 			disaster_peer = 0
+		if id == prep_peer:
+			prep_peer = 0
 		peer_left.emit(id)
 
 

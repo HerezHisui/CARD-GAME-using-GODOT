@@ -6,12 +6,20 @@ extends RefCounted
 ##   {kind:"cast", hand:i, target:k}  (k is a Preparedness hand index, or -1 for no target)
 ##   {kind:"end"}
 ## Bad indices are refused here. Every game rule is still checked by disaster_actions.gd.
+## LAN Part D2-c: a Preparedness message goes to preparedness_actions.gd, which checks every index:
+##   {kind:"play", hand:i, lane:j}
+##   {kind:"tactic", id:"brace", lane:j}  (j is the Preparedness lane of the ally)
+##   {kind:"utility", hand:i, target:k}  (refused as not_supported for now)
+##   {kind:"end"}
 
 
 # Do one action. Returns {ok, reason}, like disaster_actions. Await it: actions play animations.
-static func apply(game: Node, msg) -> Dictionary:
+# side is the seat of the sender: "disaster" (Part C) or "preparedness".
+static func apply(game: Node, msg, side: String = "disaster") -> Dictionary:
 	if typeof(msg) != TYPE_DICTIONARY or typeof(msg.get("kind")) != TYPE_STRING:
 		return _refuse("bad_message")
+	if side == "preparedness":
+		return _apply_prep(game, msg)
 	var actions: RefCounted = game.disaster_actions
 	match msg.kind:
 		"end":
@@ -22,6 +30,20 @@ static func apply(game: Node, msg) -> Dictionary:
 			return await _apply_evolve(game, msg)
 		"cast":
 			return await _apply_cast(game, msg)
+	return _refuse("bad_message")
+
+
+static func _apply_prep(game: Node, msg: Dictionary) -> Dictionary:
+	var actions: RefCounted = game.preparedness_actions
+	match msg.kind:
+		"end":
+			return actions.end_turn()
+		"play":
+			return actions.play_card(msg.get("hand"), msg.get("lane"))
+		"tactic":
+			return actions.use_tactic(msg.get("id"), msg.get("lane"))
+		"utility":
+			return actions.use_utility(msg.get("hand"), msg.get("target"))
 	return _refuse("bad_message")
 
 
