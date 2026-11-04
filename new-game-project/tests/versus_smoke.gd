@@ -883,10 +883,95 @@ func check_disaster_seat_spells(game: Node, director: Node) -> void:
 	expect(not director.modal.visible, "Disaster seat: the popup closes after the cast")
 	game.disaster_actions.end_turn()
 	await create_timer(1.0, false).timeout
+	await check_disaster_seat_cancels(game, director)
 	await check_disaster_seat_evolve(game, director)
 	game.disaster_seat_view = false
 	game.disaster_is_human = false
 	game.clear_battle()
+
+func seat_escape() -> void:
+	var key := InputEventKey.new()
+	key.keycode = KEY_ESCAPE
+	key.pressed = true
+	root.push_input(key, true)
+	await process_frame
+
+# True when no threat lane glows and the first seat card is back at its place in the hand.
+func seat_at_rest(game: Node) -> bool:
+	var seat: Node = game.disaster_seat
+	for lane in game._threat_slots():
+		if lane.visible: return false
+	var card: Node3D = seat.cards[0]
+	return card.visible and card.position.distance_to(card.get_meta("seat_pos")) < 0.05
+
+# Click-pick a card, then a click on a lane must not play it.
+func seat_click_lane_plays_nothing(game: Node, label: String) -> void:
+	var lane_point := seat_lane_point(game, 1)
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "down")
+	await seat_mouse(lane_point, "up")
+	await create_timer(0.6, false).timeout
+	expect(game.enemy_hand.size() == 1 and game.disaster_actions.actions_used == 0, label)
+
+# Esc, right click, a modal and the popup's Cancel button all put a picked or dragged card back.
+func check_disaster_seat_cancels(game: Node, director: Node) -> void:
+	var seat: Node = game.disaster_seat
+	# Click-pick, then Esc: the card drops back and the menu stays shut.
+	await seat_turn(game, director, [test_base("t_esc_a")])
+	var card_point := seat_card_point(game, 0)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(card_point, "up")
+	expect(seat.selected == seat.cards[0], "Disaster seat cancel: a click picks the card")
+	await seat_escape()
+	await seat_mouse(Vector2(20, 20), "move")
+	await create_timer(0.6, false).timeout
+	expect(seat.selected == null and seat_at_rest(game) and not director.modal.visible,
+		"Disaster seat cancel: Esc drops the picked card and does not open the menu")
+	await seat_click_lane_plays_nothing(game, "Disaster seat cancel: a lane click after Esc plays nothing")
+	await seat_escape()
+	await process_frame
+	expect(director.modal.visible and director.screen == "menu",
+		"Disaster seat cancel: Esc with nothing picked opens the menu")
+	director.close_modal()
+	# Click-pick, then a right click.
+	card_point = seat_card_point(game, 0)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(card_point, "up")
+	expect(seat.selected == seat.cards[0], "Disaster seat cancel: a click picks the card again")
+	await seat_mouse(card_point, "move")
+	await seat_right_click(card_point)
+	await seat_mouse(Vector2(20, 20), "move")
+	await create_timer(0.6, false).timeout
+	expect(seat.selected == null and seat_at_rest(game), "Disaster seat cancel: a right click drops the picked card")
+	await seat_click_lane_plays_nothing(game, "Disaster seat cancel: a lane click after a right click plays nothing")
+	var lane_point := seat_lane_point(game, 1)
+	game.disaster_actions.end_turn()
+	await create_timer(1.0, false).timeout
+	# A spell with a target: the real Cancel button of the popup casts nothing.
+	await seat_turn(game, director, [test_spell("t_esc_seal", "seal")])
+	game.tension = 3
+	game.add_card_to_hand({"id": "t_esc_r", "name": "Test EscR", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 1})
+	await create_timer(0.6, false).timeout
+	card_point = seat_card_point(game, 0)
+	await seat_mouse(card_point, "move")
+	await seat_mouse(card_point, "down")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "move")
+	await seat_mouse(lane_point, "up")
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.get("kind", "") == "target" and director.modal.visible,
+		"Disaster seat cancel: the target popup opens")
+	director.content.get_node("CancelButton").pressed.emit()
+	await create_timer(0.6, false).timeout
+	expect(not director.modal.visible and director.disaster_pick.is_empty() and game.enemy_hand.size() == 1
+		and game.disaster_actions.actions_used == 0 and game.tension == 3 and seat.cards.size() == 1,
+		"Disaster seat cancel: the popup's Cancel button casts nothing and the spell stays in the hand")
+	game.disaster_actions.end_turn()
+	await create_timer(1.0, false).timeout
 
 func test_evo(id: String, cost: int) -> Dictionary:
 	return {"id": id, "name": "Test " + id, "type": "disaster", "element": "fire",

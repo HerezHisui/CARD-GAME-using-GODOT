@@ -755,6 +755,14 @@ func _input(event: InputEvent) -> void:
 		game.board_input.cancel()
 		get_viewport().set_input_as_handled()
 		return
+	# Esc drops a card picked in the Disaster seat before it can open the menu.
+	if not modal.visible and game.disaster_seat_on and event is InputEventKey and event.pressed \
+			and event.keycode == KEY_ESCAPE:
+		var seat: Node = game.disaster_seat
+		if seat.selected != null or seat.held != null or seat.dragging or not seat.evo.is_empty():
+			seat._cancel()
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if screen in ["title", "title_help", "characters", "character_preview"]: return
 		match event.keycode:

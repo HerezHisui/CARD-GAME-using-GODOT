@@ -213,7 +213,9 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		mouse = event.position
 		_on_release(event.position)
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and not evo.is_empty():
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE \
+			and (not evo.is_empty() or selected != null or held != null or dragging):
+		# Esc first drops a picked, held or dragged card or an evolution. Only then does it open the menu.
 		_cancel()
 		get_viewport().set_input_as_handled()
 
