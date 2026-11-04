@@ -440,7 +440,7 @@ const DISASTER_REASONS := {
 ## Shows the Disaster panel only on a human Disaster turn. Labels and the hand list change only when needed.
 func _refresh_disaster_panel() -> void:
 	var show_panel: bool = battle_active and not modal.visible and game.encounter_kind == "versus" \
-		and game.disaster_is_human and game.phase == game.Phase.ENEMY
+		and game.disaster_is_human and game.phase == game.Phase.ENEMY and not game.disaster_seat_view
 	disaster_panel.visible = show_panel
 	if _disaster_pick_stale(show_panel): _cancel_disaster_pick()
 	if not show_panel:
@@ -642,8 +642,12 @@ func _process(_delta: float) -> void:
 	game.visible = battle_active or screen == "reward"
 	board_prompt.visible = battle_active and not modal.visible and not game.board_input.action.is_empty()
 	if board_prompt.visible: board_prompt_label.text = str(game.board_input.action.get("title", "Choose a board target"))
-	game.opponent_hand.visible = battle_active and not modal.visible
-	game.get_node("HUD/Root/EndTurnButton").disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or not game.board_input.action.is_empty() or _dragging()
+	game.opponent_hand.visible = battle_active and not modal.visible and not game.disaster_seat_on
+	var end_off: bool = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] \
+		or not game.board_input.action.is_empty() or _dragging()
+	# On the Disaster seat the End turn button is on, except while an action runs.
+	if game.disaster_seat_on: end_off = game.disaster_actions.busy
+	game.get_node("HUD/Root/EndTurnButton").disabled = end_off
 	plans_button.visible = battle_active and not modal.visible
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
 	plans_button.get_node("CountLabel").text = "%d/2" % game.plans.tokens

@@ -7,6 +7,8 @@ const VersusDecks = preload("res://scripts/versus_decks.gd")
 
 # Who plays the Disaster in Versus. true = a human uses the Disaster panel, false = the existing AI.
 const DISASTER_IS_HUMAN := true
+# true = the human Disaster plays from the far seat with real cards. false = the Disaster panel.
+const DISASTER_SEAT_VIEW := true
 
 var director: Node
 var game: Node
@@ -66,6 +68,7 @@ func start() -> void:
 	var tactics: Array[String] = []
 	tactics.assign(prep.tactics)
 	game.disaster_is_human = DISASTER_IS_HUMAN
+	game.disaster_seat_view = DISASTER_SEAT_VIEW
 	game.start_versus(prep_deck, disaster_deck, evolutions, tactics)
 
 func restore_run_state() -> void:

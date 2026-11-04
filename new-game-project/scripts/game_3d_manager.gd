@@ -24,6 +24,10 @@ var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").
 # Set by versus_match.gd at match start. True means a person plays the Disaster turn.
 var disaster_is_human := false
 var disaster_waiting := false  # true only while a human Disaster turn waits for End
+# Set by versus_match.gd. True means the human Disaster plays from the far seat, not from the panel.
+var disaster_seat_view := false
+var disaster_seat_on := false  # true while the camera shows the Disaster seat
+var disaster_seat: Node
 var hand: Array = []
 var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
@@ -148,6 +152,9 @@ func _ready() -> void:
 	opponent_hand = preload("res://scripts/enemy_hand_display.gd").new()
 	add_child(opponent_hand)
 	opponent_hand.setup(self)
+	disaster_seat = preload("res://scripts/disaster_seat.gd").new()
+	add_child(disaster_seat)
+	disaster_seat.setup(self)
 	_build_lighting()
 	boss_fog = preload("res://scripts/boss_fog.gd").new()
 	add_child(boss_fog)
@@ -580,6 +587,8 @@ func step_view(direction: int) -> void:
 	set_view(clampi(int(view_mode) + direction, View.WIDE, View.BOARD))
 
 func set_view(mode: int) -> void:
+	# The Disaster seat owns the camera until its turn ends.
+	if disaster_seat_on: return
 	view_mode = clampi(mode, View.WIDE, View.BOARD) as View
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
@@ -1397,6 +1406,10 @@ func complete_draw_choice(definition: Dictionary) -> void:
 	_refresh_bars()
 
 func _on_end_turn_pressed() -> void:
+	# On the Disaster seat this button ends the Disaster turn.
+	if disaster_seat_on:
+		disaster_actions.end_turn()
+		return
 	if not board_input.action.is_empty(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW and phase != Phase.PLAYER_PLAY:
