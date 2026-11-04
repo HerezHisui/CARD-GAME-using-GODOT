@@ -27,6 +27,9 @@ var disaster_waiting := false  # true only while a human Disaster turn waits for
 # Set by versus_match.gd. True means the human Disaster plays from the far seat, not from the panel.
 var disaster_seat_view := false
 var disaster_seat_on := false  # true while the camera shows the Disaster seat
+# LAN only: the Disaster is played on another computer. Set with disaster_is_human.
+# No seat, no Disaster panel and no privacy cover on this screen then.
+var lan_remote_disaster := false
 var disaster_seat: Node
 var hand: Array = []
 var player_graveyard: Array[Dictionary] = []
@@ -58,8 +61,6 @@ var enemy_buffs: Dictionary = {}
 var player_run_buffs: Dictionary = {}
 var enemy_run_buffs: Dictionary = {}
 var encounter_kind := "battle"
-## Disaster actions per turn in Versus (capped by tension).
-const VERSUS_ACTION_LIMIT := 3
 var final_boss: Node
 var player_barrier := 0
 var plans: Node
@@ -1326,7 +1327,8 @@ func _resume_versus_coin(serial: int) -> void:
 	# The side screen stays "coin" for the director, so its hotkeys and buttons stay off.
 	presentation.show_side_choice(toss_winner, versus_node)
 	# Player 2 takes the laptop before the side screen shows.
-	if toss_winner == 2 and disaster_is_human: run_director.show_privacy_cover("PLAYER 2, you won the toss")
+	if toss_winner == 2 and disaster_is_human and not lan_remote_disaster:
+		run_director.show_privacy_cover("PLAYER 2, you won the toss")
 	var side: String = await versus_node.wait_for_side(coin_pick, coin_result)
 	if serial != encounter_serial: return
 	presentation.close_side_choice()
@@ -1334,7 +1336,8 @@ func _resume_versus_coin(serial: int) -> void:
 		reveal_versus_hand()
 		return
 	# With no human Disaster there is no cover to close, so show the hand now.
-	if not disaster_is_human: reveal_versus_hand()
+	# Over LAN there is no cover either.
+	if not disaster_is_human or lan_remote_disaster: reveal_versus_hand()
 	player_first = versus_node.prep_goes_first(side)
 	var call_text := "Heads" if coin_pick == 0 else "Tails"
 	var result_text := "Heads" if coin_result == 0 else "Tails"
@@ -1715,8 +1718,8 @@ func _checked(result: Dictionary) -> Dictionary:
 	return result
 
 func enemy_action_limit() -> int:
-	# Versus: fixed limit, no floor or buff scaling.
-	if encounter_kind == "versus": return mini(tension, VERSUS_ACTION_LIMIT)
+	# Versus: no fixed cap. The Disaster acts as long as it has tension. No floor or buff scaling.
+	if encounter_kind == "versus": return tension
 	if encounter_kind == "battle" and run_director.floor_number == 1:
 		return mini(tension, 1 if turn <= 3 else 2)
 	var base_actions := 2 if encounter_kind == "battle" else 3

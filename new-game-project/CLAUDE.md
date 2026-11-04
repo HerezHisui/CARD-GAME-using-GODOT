@@ -6,6 +6,7 @@ These rules apply to every task. A prompt file can add to them, but it cannot re
 ## Hard rules
 - Never run `git commit`, `git push`, `git add` or `git stash`. Simple commits after Cowork reviews the diff.
 - Work on branch `multiplayer-hotseat`. Do not switch branches.
+- Work on branch `lan-prototype` is allowed for LAN stages (gated by `LAN_ENABLED` in `scripts/versus_match.gd`).
 - Do not `cd`. You start in the project folder (`new-game-project`).
 - Keep CRLF in files that use CRLF. Keep lines at most 120 characters.
 - Do not edit existing tests to make them pass. Add tests, or stop and report.

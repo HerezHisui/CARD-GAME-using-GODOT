@@ -71,7 +71,9 @@ func play_versus(game: Node, director: Node, prep_wins: bool, save_path: String,
 	expect(game.plans.unlocked == ["brace", "coordinate", "medicine"], "Versus %s: preset tactics" % label)
 	expect(game.player_run_buffs.is_empty() and game.enemy_run_buffs.is_empty(), "Versus %s: no run buffs" % label)
 	game.tension = 5
-	expect(game.enemy_action_limit() == 3, "Versus %s: fixed Disaster action limit" % label)
+	expect(game.enemy_action_limit() == 5, "Versus %s: Disaster action limit is the tension" % label)
+	game.tension = 8
+	expect(game.enemy_action_limit() == 8, "Versus %s: action limit grows with tension" % label)
 	director.battle_finished(prep_wins)
 	expect(FileAccess.file_exists(save_path), "Versus %s: fake save still exists" % label)
 	expect(FileAccess.get_file_as_string(save_path) == save_text, "Versus %s: fake save is unchanged" % label)
@@ -160,7 +162,7 @@ func check_disaster_actions(game: Node, director: Node) -> void:
 	var seal_spell := {"id": "t_seal", "name": "Test Seal", "type": "disaster", "element": "fire",
 		"utility": true, "effect": "seal", "tension_cost": 1}
 	game.enemy_hand.assign([base, evolution, sealed, seal_spell])
-	expect(actions.action_limit == 3 and actions.actions_left() == 3, "Disaster actions: limit is 3 with 5 tension")
+	expect(actions.action_limit == 5 and actions.actions_left() == 5, "Disaster actions: limit is 5 with 5 tension")
 	var stray_slot := Node3D.new()
 	var rejected := {
 		"not_in_hand": await actions.play_base(test_base("t_other"), lane),
@@ -202,10 +204,18 @@ func check_disaster_actions(game: Node, director: Node) -> void:
 		"Disaster actions: evolve lane must be a sacrificed lane")
 	expect(reason_of(await actions.evolve(evolution, two_cards, lane)) == "ok", "Disaster actions: evolve works")
 	expect(game._get_card_in_slot(lane).card_data.id == "t_evo", "Disaster actions: evolution is on the lane")
-	expect(actions.actions_used == 3 and actions.actions_left() == 0, "Disaster actions: three actions used")
-	game.enemy_hand.append(base)
+	expect(actions.actions_used == 3 and actions.actions_left() == 2, "Disaster actions: three used, two left")
+	# No fixed cap: two more actions fit in the 5 tension the turn started with.
+	var fourth := test_base("t_fourth")
+	var fifth := test_base("t_fifth")
+	game.enemy_hand.append_array([fourth, fifth, base])
+	expect(reason_of(await actions.play_base(fourth, game._threat_slots()[1])) == "ok",
+		"Disaster actions: a 4th action is allowed")
+	expect(reason_of(await actions.play_base(fifth, game._threat_slots()[2])) == "ok",
+		"Disaster actions: a 5th action is allowed")
+	expect(actions.actions_used == 5 and actions.actions_left() == 0, "Disaster actions: five actions used")
 	expect(reason_of(await actions.play_base(base, game._threat_slots()[3])) == "action_limit",
-		"Disaster actions: the 4th action is refused")
+		"Disaster actions: the 6th action is refused")
 	expect(reason_of(actions.end_turn()) == "ok", "Disaster actions: end_turn works on the Disaster turn")
 	# Seal and tax need a card in the Response hand.
 	start_disaster_turn(game, director, 5)

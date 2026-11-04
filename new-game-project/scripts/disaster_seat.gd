@@ -39,6 +39,8 @@ func setup(manager: Node) -> void:
 ## True while a human Disaster waits for input and the seat view is on.
 func _wants_seat() -> bool:
 	if not game.disaster_seat_view or game.encounter_kind != "versus" or not game.disaster_is_human: return false
+	# LAN: the Disaster plays on the other computer.
+	if game.lan_remote_disaster: return false
 	if not is_instance_valid(game.run_director) or not game.run_director.battle_active: return false
 	return game.disaster_waiting and game.phase == game.Phase.ENEMY
 

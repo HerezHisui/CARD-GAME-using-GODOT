@@ -399,7 +399,7 @@ func _privacy_holder() -> String:
 ## Raises the cover when the laptop changes hands in a human Versus match. Runs before the panel refresh.
 func _refresh_privacy_screen() -> void:
 	var in_match: bool = battle_active and game.encounter_kind == "versus" and game.disaster_is_human \
-		and game.phase != game.Phase.GAME_OVER
+		and game.phase != game.Phase.GAME_OVER and not game.lan_remote_disaster
 	# A new battle, a finished battle or a game over starts clean, so the cover never outlives its match.
 	if not in_match or privacy_serial != game.encounter_serial:
 		privacy_serial = game.encounter_serial
@@ -462,6 +462,8 @@ const DISASTER_REASONS := {
 func _refresh_disaster_panel() -> void:
 	var show_panel: bool = battle_active and not modal.visible and game.encounter_kind == "versus" \
 		and game.disaster_is_human and game.phase == game.Phase.ENEMY and not game.disaster_seat_view
+	# LAN: the Disaster plays on the other computer, so the host shows no Disaster panel.
+	show_panel = show_panel and not game.lan_remote_disaster
 	disaster_panel.visible = show_panel
 	if _disaster_pick_stale(show_panel): _cancel_disaster_pick()
 	if not show_panel:

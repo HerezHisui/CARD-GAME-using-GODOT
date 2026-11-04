@@ -11,6 +11,8 @@ const DISASTER_IS_HUMAN := true
 const DISASTER_SEAT_VIEW := true
 # true = Player 1 calls the coin and the toss winner picks a side. false = the old one-call coin.
 const PREMATCH_COIN_FLIP := true
+# true = Host / Join over LAN (prototype, branch lan-prototype). false = no LAN code runs.
+const LAN_ENABLED := false
 
 # Sent when the toss winner picks a side. "" means the wait was cancelled.
 signal side_chosen(side: String)
