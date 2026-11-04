@@ -104,6 +104,7 @@ func check_versus_match() -> void:
 	await check_ai_uses_actions(game, director)
 	await check_disaster_turn_switch(game, director)
 	await check_disaster_panel(game, director)
+	await check_disaster_picking(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -352,6 +353,129 @@ func check_disaster_panel(game: Node, director: Node) -> void:
 	await process_frame
 	expect(not panel.visible, "Disaster panel: hidden when the battle is over")
 	game.disaster_is_human = false
+
+func hand_rows(director: Node) -> Array:
+	return director.disaster_panel.get_node("%HandList").get_children()
+
+# A human Disaster turn waiting for input, with the given hand. Waits longer than the turn's own 0.5 s pause.
+func wait_human_turn(game: Node, director: Node, hand: Array) -> Array:
+	var done := [false]
+	start_human_turn(game, director, done)
+	game.enemy_hand.assign(hand)
+	await create_timer(0.8, false).timeout
+	await process_frame
+	return done
+
+# The panel picks a lane or a target, calls the same actions as the AI, and cancels itself when it goes stale.
+func check_disaster_picking(game: Node, director: Node) -> void:
+	var panel: Control = director.disaster_panel
+	var box: Control = panel.get_node("%PickBox")
+	director.modal.visible = false
+	var base := test_base("t_pick")
+	var done := await wait_human_turn(game, director, [base])
+	var rows := hand_rows(director)
+	expect(rows.size() == 1 and rows[0] is Button and not rows[0].disabled,
+		"Disaster picking: a playable base is a button")
+	rows[0].pressed.emit()
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.get("kind", "") == "lane" and box.visible, "Disaster picking: pick mode starts")
+	expect(hand_rows(director)[0].disabled, "Disaster picking: hand rows are off while picking")
+	var lanes: Array = game._threat_slots()
+	expect(not box.get_node("Lane1").disabled and not box.get_node("Lane4").disabled, "Disaster picking: free lanes on")
+	# Cancel button, then pick again and play into lane 2.
+	box.get_node("CancelPick").pressed.emit()
+	await process_frame
+	expect(director.disaster_pick.is_empty() and not box.visible, "Disaster picking: Cancel leaves pick mode")
+	await process_frame
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	await process_frame
+	box.get_node("Lane2").pressed.emit()
+	await create_timer(1.0, false).timeout
+	expect(game._get_card_in_slot(lanes[1]) != null and game.enemy_hand.is_empty(), "Disaster picking: base card played")
+	expect(game.disaster_actions.actions_used == 1 and director.disaster_pick.is_empty(),
+		"Disaster picking: action counted")
+	# End of turn cancels a pick.
+	game.enemy_hand.assign([test_base("t_pick2")])
+	await process_frame
+	await process_frame
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	expect(director.disaster_pick.get("kind", "") == "lane", "Disaster picking: pick mode starts again")
+	game.disaster_actions.end_turn()
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.is_empty() and not box.visible, "Disaster picking: cancels on end_turn")
+	await create_timer(0.7, false).timeout
+	# clear_battle cancels a pick.
+	done = await wait_human_turn(game, director, [test_base("t_pick3")])
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	expect(director.disaster_pick.get("kind", "") == "lane", "Disaster picking: pick mode for clear_battle")
+	game.clear_battle()
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.is_empty() and not box.visible, "Disaster picking: cancels on clear_battle")
+	# A refused action shows its reason and changes nothing.
+	done = await wait_human_turn(game, director, [test_base("t_pick4")])
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	game.tension = 0
+	director._disaster_pick_lane(0)
+	await process_frame
+	expect(panel.get_node("%Reason").text == "Not enough Tension.", "Disaster picking: a refused action shows its reason")
+	expect(game._get_card_in_slot(lanes[0]) == null and game.enemy_hand.size() == 1 and game.tension == 0,
+		"Disaster picking: a refused action changes nothing")
+	game.disaster_actions.end_turn()
+	await create_timer(0.7, false).timeout
+	await check_disaster_target_pick(game, director)
+	game.disaster_is_human = false
+
+# A seal spell asks for a Response hand card in the choose_card popup. Cancel and a finished turn close it.
+func check_disaster_target_pick(game: Node, director: Node) -> void:
+	var seal_spell := test_spell("t_seal3", "seal")
+	var done := await wait_human_turn(game, director, [seal_spell])
+	expect(hand_rows(director)[0] is Button and hand_rows(director)[0].disabled, "Disaster picking: no target, row is off")
+	game.add_card_to_hand({"id": "t_r3", "name": "Test R3", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 1})
+	await process_frame
+	await process_frame
+	expect(not hand_rows(director)[0].disabled, "Disaster picking: a target turns the spell row on")
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.get("kind", "") == "target" and director.modal.visible,
+		"Disaster picking: target popup opens")
+	director.action_cancel.call()
+	await process_frame
+	expect(director.disaster_pick.is_empty() and not director.modal.visible, "Disaster picking: Cancel closes the popup")
+	await process_frame
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	game.disaster_actions.end_turn()
+	await process_frame
+	await process_frame
+	expect(director.disaster_pick.is_empty() and not director.modal.visible, "Disaster picking: end_turn closes the popup")
+	await create_timer(0.7, false).timeout
+	# Choosing the target casts the spell.
+	done = await wait_human_turn(game, director, [seal_spell])
+	game.add_card_to_hand({"id": "t_r4", "name": "Test R4", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 1})
+	await process_frame
+	await process_frame
+	var target: Node = game.get_hand_cards()[0]
+	hand_rows(director)[0].pressed.emit()
+	await process_frame
+	await process_frame
+	# Press the real Choose button on the popup tile, the same path a player uses.
+	var tiles: Array = director.content.get_node("Cards/Row").get_children()
+	expect(tiles.size() == 1, "Disaster picking: the popup lists the Response hand card")
+	tiles[0].get_node("Box/ActionButton").pressed.emit()
+	await create_timer(0.5, false).timeout
+	expect(game.is_sealed(target.card_data) and game.enemy_hand.is_empty(), "Disaster picking: target is sealed")
+	game.disaster_actions.end_turn()
+	await create_timer(0.7, false).timeout
 
 func check_prep_failures(prep: Dictionary) -> void:
 	var short: Dictionary = prep.duplicate(true)

@@ -116,6 +116,7 @@ var board_prompt: PanelContainer
 var board_prompt_label: Label
 var disaster_panel: PanelContainer
 var disaster_hand_key := []  # what the Disaster hand list shows now
+var disaster_pick := {}  # empty = not picking. Else kind "lane" or "target", the card and encounter_serial
 var unlock_after := "cards"
 var event_key := ""
 var event_type := "locked"
@@ -367,14 +368,40 @@ func _build_ui() -> void:
 	var end_button: Button = disaster_panel.get_node("%EndButton")
 	end_button.pressed.connect(func(): game.disaster_actions.end_turn())
 	game.presentation.button_feedback(end_button)
+	disaster_panel.get_node("%Reason").add_theme_color_override("font_color", UI.GOLD)
+	var pick_box: Control = disaster_panel.get_node("%PickBox")
+	for i in 4:
+		var lane_button: Button = pick_box.get_node("Lane%d" % (i + 1))
+		lane_button.pressed.connect(_disaster_pick_lane.bind(i))
+		game.presentation.button_feedback(lane_button)
+	var cancel_pick: Button = pick_box.get_node("CancelPick")
+	cancel_pick.pressed.connect(_cancel_disaster_pick)
+	game.presentation.button_feedback(cancel_pick)
+
+## Plain words for the reasons disaster_actions can give.
+const DISASTER_REASONS := {
+	"lane_full": "That lane is full.",
+	"bad_slot": "That is not a threat lane.",
+	"bad_target": "That target is not allowed.",
+	"no_tension": "Not enough Tension.",
+	"action_limit": "No actions left.",
+	"sealed": "That card is sealed.",
+	"busy": "Wait for the last action.",
+	"not_in_hand": "That card is not in the hand.",
+	"battle_over": "",
+}
 
 ## Shows the Disaster panel only on a human Disaster turn. Labels and the hand list change only when needed.
 func _refresh_disaster_panel() -> void:
 	var show_panel: bool = battle_active and not modal.visible and game.encounter_kind == "versus" \
 		and game.disaster_is_human and game.phase == game.Phase.ENEMY
 	disaster_panel.visible = show_panel
-	if not show_panel: return
+	if _disaster_pick_stale(show_panel): _cancel_disaster_pick()
+	if not show_panel:
+		_set_label_text(disaster_panel.get_node("%Reason"), "")
+		return
 	var actions = game.disaster_actions
+	_refresh_disaster_lanes(actions)
 	_set_label_text(disaster_panel.get_node("%Tension"), "Tension: %d / %d" % [game.tension, game.tension_cap])
 	_set_label_text(disaster_panel.get_node("%Evolutions"), "Evolutions: %d" % game.enemy_evolution_deck.size())
 	_set_label_text(disaster_panel.get_node("%Actions"), "Actions left: %d" % actions.actions_left())
@@ -382,17 +409,105 @@ func _refresh_disaster_panel() -> void:
 	var can_end: bool = game.disaster_waiting and not actions.busy
 	if end_button.disabled == can_end: end_button.disabled = not can_end
 	var key := []
-	for card in game.enemy_hand: key.append("%s %d" % [card.get("name", "?"), _disaster_card_cost(card)])
+	for card in game.enemy_hand:
+		key.append("%s %d %s" % [card.get("name", "?"), _disaster_card_cost(card), _disaster_row_state(card)])
 	if key == disaster_hand_key: return
 	disaster_hand_key = key
 	var list: Control = disaster_panel.get_node("%HandList")
 	for old in list.get_children():
 		list.remove_child(old)
 		old.queue_free()
-	for line in key:
-		var row := Label.new()
-		row.text = line
-		list.add_child(row)
+	for card in game.enemy_hand: _add_disaster_row(list, card)
+
+## "evo" rows stay labels (2b-5). "off" rows are dimmed: not usable, busy, or a pick is open.
+func _disaster_row_state(card: Dictionary) -> String:
+	if not card.get("utility", false) and int(card.get("cost", 0)) > 0: return "evo"
+	var actions = game.disaster_actions
+	if not game.disaster_waiting or actions.busy or not disaster_pick.is_empty(): return "off"
+	return "on" if actions.can_use(card) else "off"
+
+func _add_disaster_row(list: Control, card: Dictionary) -> void:
+	var text := "%s %d" % [card.get("name", "?"), _disaster_card_cost(card)]
+	var state := _disaster_row_state(card)
+	if state == "evo":
+		var label := Label.new()
+		label.text = text
+		list.add_child(label)
+		return
+	var row := Button.new()
+	row.text = text
+	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	row.disabled = state == "off"
+	row.pressed.connect(_disaster_row_clicked.bind(card))
+	list.add_child(row)
+
+## Lane buttons show only while a Base card waits for a lane. Only free lanes can be pressed.
+func _refresh_disaster_lanes(actions: RefCounted) -> void:
+	var box: Control = disaster_panel.get_node("%PickBox")
+	var lane_mode: bool = disaster_pick.get("kind", "") == "lane"
+	if box.visible != lane_mode: box.visible = lane_mode
+	if not lane_mode: return
+	_set_label_text(box.get_node("Prompt"), "Lane for %s:" % disaster_pick.card.get("name", "?"))
+	var open: Array = actions.legal_lanes(disaster_pick.card)
+	var slots: Array = game._threat_slots()
+	for i in slots.size():
+		var lane_button: Button = box.get_node("Lane%d" % (i + 1))
+		var off: bool = actions.busy or slots[i] not in open
+		if lane_button.disabled != off: lane_button.disabled = off
+
+## A pick is stale when the turn, the battle or the screen it belongs to is gone.
+func _disaster_pick_stale(show_panel: bool) -> bool:
+	if disaster_pick.is_empty(): return false
+	if disaster_pick.serial != game.encounter_serial or game.disaster_actions.busy: return true
+	if not battle_active or game.phase != game.Phase.ENEMY or not game.disaster_waiting: return true
+	# A target pick lives in the choose_card popup, so a visible popup is expected.
+	if disaster_pick.kind == "target": return not (modal.visible and screen == "choice")
+	return not show_panel
+
+func _cancel_disaster_pick() -> void:
+	var was: Dictionary = disaster_pick
+	disaster_pick = {}
+	disaster_panel.get_node("%PickBox").visible = false
+	# Close our target popup, never some other screen.
+	if was.get("kind", "") == "target" and battle_active and modal.visible and screen == "choice":
+		action_cancel = Callable()
+		close_modal()
+
+func _disaster_row_clicked(card: Dictionary) -> void:
+	var actions = game.disaster_actions
+	if not disaster_pick.is_empty() or actions.busy: return
+	var serial: int = game.encounter_serial
+	_set_label_text(disaster_panel.get_node("%Reason"), "")
+	if not card.get("utility", false):
+		disaster_pick = {"kind": "lane", "card": card, "serial": serial}
+	elif actions.needs_target(card):
+		var title := "CHOOSE A TARGET · " + str(card.get("name", "")).to_upper()
+		choose_card(title, actions.legal_targets(card), _disaster_target_chosen.bind(card, serial), _cancel_disaster_pick)
+		disaster_pick = {"kind": "target", "card": card, "serial": serial}
+	else:
+		_disaster_report(await actions.cast(card, null), serial)
+
+func _disaster_pick_lane(index: int) -> void:
+	if disaster_pick.get("kind", "") != "lane": return
+	var card: Dictionary = disaster_pick.card
+	var serial: int = disaster_pick.serial
+	disaster_pick = {}
+	_disaster_report(await game.disaster_actions.play_base(card, game._threat_slots()[index]), serial)
+
+# choose_card binds the chosen card in front of the arguments bound here, so target comes first.
+func _disaster_target_chosen(target, card: Dictionary, serial: int) -> void:
+	disaster_pick = {}
+	action_cancel = Callable()
+	close_modal()
+	if serial != game.encounter_serial: return
+	if not is_instance_valid(target): return
+	_disaster_report(await game.disaster_actions.cast(card, target), serial)
+
+## A refused action shows its reason in the panel. The board is untouched.
+func _disaster_report(result: Dictionary, serial: int) -> void:
+	if serial != game.encounter_serial or result.ok: return
+	_set_label_text(disaster_panel.get_node("%Reason"), DISASTER_REASONS.get(result.reason, "Action refused."))
 
 func _set_label_text(label: Label, text: String) -> void:
 	if label.text != text: label.text = text
@@ -525,6 +640,12 @@ func _input(event: InputEvent) -> void:
 		if screen != "inspect":
 			get_viewport().set_input_as_handled()
 			return
+	# Esc leaves the lane choice of the Disaster panel before it can open the menu.
+	if not modal.visible and disaster_pick.get("kind", "") == "lane" \
+			and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_cancel_disaster_pick()
+		get_viewport().set_input_as_handled()
+		return
 	if not modal.visible and not game.board_input.action.is_empty() and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		game.board_input.cancel()
 		get_viewport().set_input_as_handled()
