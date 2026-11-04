@@ -1302,10 +1302,30 @@ func resume_coin() -> void:
 	var pick: int = await presentation.choose_coin(coin_result, coin_pick)
 	if pick < 0 or serial != encounter_serial: return
 	coin_pick = pick
+	# Versus with the pre-match flip: the toss winner picks a side before round 1.
+	var versus_flip: bool = preload("res://scripts/versus_match.gd").PREMATCH_COIN_FLIP
+	if encounter_kind == "versus" and versus_flip and is_instance_valid(run_director.versus_match):
+		_resume_versus_coin(serial)
+		return
 	player_first = coin_pick == coin_result
 	log_event("Coin: called %s, landed %s. %s takes the first turn." % ["Heads" if coin_pick == 0 else "Tails", "Heads" if coin_result == 0 else "Tails", "Response" if player_first else "The Janitor"])
 	run_director.screen = ""
 	_set_phase(Phase.SETUP, "You take the first turn" if player_first else "The Janitor takes the first turn")
+	_begin_round()
+
+## Versus only: wait for the toss winner's side. The picked side takes the first turn.
+func _resume_versus_coin(serial: int) -> void:
+	var versus_node: Node = run_director.versus_match
+	var side: String = await versus_node.wait_for_side(coin_pick, coin_result)
+	if side == "" or serial != encounter_serial: return
+	player_first = versus_node.prep_goes_first(side)
+	var call_text := "Heads" if coin_pick == 0 else "Tails"
+	var result_text := "Heads" if coin_result == 0 else "Tails"
+	var first_text := "Preparedness" if player_first else "The Disaster"
+	log_event("Coin: Player 1 called %s, landed %s. Player %d picks %s." % [call_text, result_text,
+		versus_node.coin_winner, side.capitalize()])
+	run_director.screen = ""
+	_set_phase(Phase.SETUP, "%s takes the first turn" % first_text)
 	_begin_round()
 
 func _begin_round() -> void:

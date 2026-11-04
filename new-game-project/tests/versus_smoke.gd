@@ -3,6 +3,7 @@
 extends SceneTree
 
 const Decks = preload("res://scripts/versus_decks.gd")
+const VersusMatch = preload("res://scripts/versus_match.gd")
 
 var failures := 0
 var checks := 0
@@ -31,6 +32,7 @@ func run() -> void:
 	check_pools()
 	check_prep_failures(prep)
 	check_disaster_failures(disaster)
+	check_prematch_logic()
 	await check_versus_match()
 	if failures > 0:
 		push_error("versus_smoke: %d of %d checks failed" % [failures, checks])
@@ -111,6 +113,7 @@ func check_versus_match() -> void:
 	await check_privacy_logic(game, director)
 	await check_privacy_screen_ui(game, director)
 	await check_disaster_seat(game, director)
+	await check_prematch_flow(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -1336,3 +1339,107 @@ func check_disaster_failures(disaster: Dictionary) -> void:
 	var unknown_evolution: Dictionary = disaster.duplicate(true)
 	unknown_evolution.evolutions[0] = "not_a_card"
 	rejects(Decks.SIDE_DISASTER, unknown_evolution, "Disaster with unknown evolution id fails")
+
+# Pre-match coin flip: winner from call and result, sides for the winner, who goes first.
+func check_prematch_logic() -> void:
+	expect(VersusMatch.resolve_winner(0, 0) == 1, "Prematch: call Heads, lands Heads, Player 1 wins")
+	expect(VersusMatch.resolve_winner(0, 1) == 2, "Prematch: call Heads, lands Tails, Player 2 wins")
+	expect(VersusMatch.resolve_winner(1, 1) == 1, "Prematch: call Tails, lands Tails, Player 1 wins")
+	expect(VersusMatch.resolve_winner(1, 0) == 2, "Prematch: call Tails, lands Heads, Player 2 wins")
+	var prep := Decks.SIDE_PREP
+	var disaster := Decks.SIDE_DISASTER
+	expect(VersusMatch.assign_sides(1, prep) == {1: prep, 2: disaster}, "Prematch: Player 1 wins, picks Preparedness")
+	expect(VersusMatch.assign_sides(1, disaster) == {1: disaster, 2: prep}, "Prematch: Player 1 wins, picks Disaster")
+	expect(VersusMatch.assign_sides(2, prep) == {1: disaster, 2: prep}, "Prematch: Player 2 wins, picks Preparedness")
+	expect(VersusMatch.assign_sides(2, disaster) == {1: prep, 2: disaster}, "Prematch: Player 2 wins, picks Disaster")
+	expect(VersusMatch.prep_goes_first(prep), "Prematch: Preparedness picked goes first")
+	expect(not VersusMatch.prep_goes_first(disaster), "Prematch: Disaster picked goes first")
+
+func coin_logs(game: Node) -> int:
+	var count := 0
+	for line: String in game.battle_log:
+		if line.contains("Coin:"): count += 1
+	return count
+
+# Waits in frames (the tree may be paused) until the side wait starts, at most 8 seconds.
+func wait_side_ready(versus_node: Node) -> bool:
+	var start := Time.get_ticks_msec()
+	while not versus_node.prematch_active and Time.get_ticks_msec() - start < 8000:
+		await process_frame
+	return versus_node.prematch_active
+
+# Waits in frames until the coin line is logged, at most 8 seconds.
+func wait_coin_log(game: Node) -> void:
+	var start := Time.get_ticks_msec()
+	while coin_logs(game) == 0 and Time.get_ticks_msec() - start < 8000:
+		await process_frame
+
+func sides_match(versus_node: Node, winner_side: String) -> bool:
+	var sides: Dictionary = VersusMatch.assign_sides(versus_node.coin_winner, winner_side)
+	return versus_node.player1_side == sides[1] and versus_node.player2_side == sides[2]
+
+# The real match start: one flip, then the side wait, then one round start.
+func check_prematch_flow(game: Node, director: Node) -> void:
+	var versus_node: Node = director.versus_match
+	game.presentation.automated_choice = 0
+	versus_node.automated_side = ""
+	game.clear_battle()
+	director.start_versus_match()
+	var epoch: int = game.presentation.coin_epoch
+	expect(await wait_side_ready(versus_node), "Prematch flow: waits for the side after the toss")
+	expect(game.presentation.coin_epoch == epoch + 1, "Prematch flow: one flip")
+	var winner: int = VersusMatch.resolve_winner(0, game.coin_result)
+	expect(versus_node.coin_call == 0 and versus_node.coin_winner == winner, "Prematch flow: winner from the call")
+	expect(coin_logs(game) == 0, "Prematch flow: no round before the side choice")
+	versus_node.choose_side(Decks.SIDE_PREP)
+	expect(game.player_first and coin_logs(game) == 1, "Prematch flow: Preparedness picked goes first, one round")
+	expect(sides_match(versus_node, Decks.SIDE_PREP), "Prematch flow: sides assigned for Preparedness")
+	versus_node.choose_side(Decks.SIDE_DISASTER)
+	await process_frame
+	expect(game.player_first and coin_logs(game) == 1 and sides_match(versus_node, Decks.SIDE_PREP),
+		"Prematch flow: a repeated choice is ignored")
+	expect(game.presentation.coin_epoch == epoch + 1, "Prematch flow: still one flip after the choice")
+	director.battle_finished(true)
+	expect(not versus_node.prematch_active and versus_node.coin_winner == 0 and versus_node.player1_side == "",
+		"Prematch flow: finish clears the coin state")
+	versus_node.choose_side(Decks.SIDE_DISASTER)
+	await process_frame
+	expect(coin_logs(game) == 1 and game.player_first, "Prematch flow: a late choice is ignored")
+	# The automated hook picks Disaster: the Disaster goes first.
+	game.clear_battle()
+	versus_node.automated_side = Decks.SIDE_DISASTER
+	director.start_versus_match()
+	await wait_coin_log(game)
+	versus_node.automated_side = ""
+	expect(not game.player_first and coin_logs(game) == 1, "Prematch flow: Disaster picked goes first")
+	expect(sides_match(versus_node, Decks.SIDE_DISASTER), "Prematch flow: sides assigned for Disaster")
+	game.clear_battle()
+	director.battle_finished(false)
+	await check_prematch_restart(game, director)
+
+# A restart while the side wait is open leaves no old continuation behind.
+func check_prematch_restart(game: Node, director: Node) -> void:
+	var versus_node: Node = director.versus_match
+	game.clear_battle()
+	director.start_versus_match()
+	expect(await wait_side_ready(versus_node), "Prematch restart: waiting for the side")
+	game.clear_battle()
+	versus_node.choose_side(Decks.SIDE_PREP)
+	await process_frame
+	expect(coin_logs(game) == 0, "Prematch restart: a choice after clear_battle starts no round")
+	director.battle_finished(true)
+	# Finish while waiting, then a new match: only the new wait starts a round.
+	game.clear_battle()
+	director.start_versus_match()
+	expect(await wait_side_ready(versus_node), "Prematch restart: waiting again")
+	director.battle_finished(true)
+	expect(not versus_node.prematch_active, "Prematch restart: finish ends the wait")
+	game.clear_battle()
+	director.start_versus_match()
+	expect(await wait_side_ready(versus_node), "Prematch restart: the new match waits")
+	versus_node.choose_side(Decks.SIDE_PREP)
+	await process_frame
+	await process_frame
+	expect(coin_logs(game) == 1 and game.player_first, "Prematch restart: one choice starts one round")
+	game.clear_battle()
+	director.battle_finished(true)

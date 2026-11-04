@@ -9,6 +9,11 @@ const VersusDecks = preload("res://scripts/versus_decks.gd")
 const DISASTER_IS_HUMAN := true
 # true = the human Disaster plays from the far seat with real cards. false = the Disaster panel.
 const DISASTER_SEAT_VIEW := true
+# true = Player 1 calls the coin and the toss winner picks a side. false = the old one-call coin.
+const PREMATCH_COIN_FLIP := true
+
+# Sent when the toss winner picks a side. "" means the wait was cancelled.
+signal side_chosen(side: String)
 
 var director: Node
 var game: Node
@@ -21,6 +26,64 @@ var saved_enemy_buffs: Dictionary = {}
 var saved_player_hp := 0
 var saved_character := 0
 var saved_caption := ""
+# Coin flip before the match (PREMATCH_COIN_FLIP). Player 1 calls, the winner picks a side.
+var prematch_active := false # true while waiting for the toss winner's side
+var prematch_serial := 0 # goes up on every new wait or clear, so old waits stop
+var coin_call := -1 # 0 Heads, 1 Tails, -1 none
+var coin_winner := 0 # 1 or 2, 0 = none yet
+var player1_side := ""
+var player2_side := ""
+var automated_side := "" # Explicit opt-in for test fixtures, never set by gameplay.
+
+## Player 1 wins the toss when the call matches the result.
+static func resolve_winner(called: int, result: int) -> int:
+	return 1 if called == result else 2
+
+## The toss winner gets the picked side, the other player gets the other side. Returns {1: side, 2: side}.
+static func assign_sides(toss_winner: int, winner_side: String) -> Dictionary:
+	var other := VersusDecks.SIDE_DISASTER
+	if winner_side == VersusDecks.SIDE_DISASTER: other = VersusDecks.SIDE_PREP
+	if toss_winner == 1: return {1: winner_side, 2: other}
+	return {1: other, 2: winner_side}
+
+## The picked side goes first in round 1. player_first is true when Preparedness goes first.
+static func prep_goes_first(winner_side: String) -> bool:
+	return winner_side == VersusDecks.SIDE_PREP
+
+## Start waiting for the toss winner's side. Returns the side, or "" when the wait was cancelled.
+func wait_for_side(called: int, result: int) -> String:
+	prematch_serial += 1
+	var serial := prematch_serial
+	prematch_active = true
+	coin_call = called
+	coin_winner = resolve_winner(called, result)
+	player1_side = ""
+	player2_side = ""
+	if automated_side != "": choose_side.call_deferred(automated_side)
+	var side: String = await side_chosen
+	if serial != prematch_serial: return ""
+	return side
+
+## The later side screen calls this. A repeated, late or unknown choice is ignored.
+func choose_side(side: String) -> void:
+	if not prematch_active: return
+	if side != VersusDecks.SIDE_PREP and side != VersusDecks.SIDE_DISASTER: return
+	prematch_active = false
+	var sides := assign_sides(coin_winner, side)
+	player1_side = sides[1]
+	player2_side = sides[2]
+	side_chosen.emit(side)
+
+## Forget the coin flip state and wake any old wait so it can end.
+func clear_prematch() -> void:
+	var was_waiting := prematch_active
+	prematch_serial += 1
+	prematch_active = false
+	coin_call = -1
+	coin_winner = 0
+	player1_side = ""
+	player2_side = ""
+	if was_waiting: side_chosen.emit("")
 
 func setup(owner_director: Node) -> void:
 	director = owner_director
@@ -47,6 +110,7 @@ func start() -> void:
 	var evolutions := _cards_from_ids(disaster.evolutions, [disaster_pool.evolutions])
 	running = true
 	winner = ""
+	clear_prematch()
 	# Remember the singleplayer state before the match changes it.
 	saved_unlocked.assign(game.plans.unlocked)
 	saved_player_buffs = game.player_run_buffs.duplicate(true)
@@ -83,6 +147,7 @@ func restore_run_state() -> void:
 func finish(prep_won: bool) -> void:
 	if not running: return
 	running = false
+	clear_prematch()
 	winner = "preparedness" if prep_won else "disaster"
 	restore_run_state()
 	director.run_active = false
