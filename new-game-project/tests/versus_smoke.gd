@@ -108,6 +108,8 @@ func check_versus_match() -> void:
 	await check_disaster_picking(game, director)
 	await check_disaster_evolve_picking(game, director)
 	await check_disaster_hand_tuck(game, director)
+	await check_privacy_logic(game, director)
+	await check_privacy_screen_ui(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -397,6 +399,9 @@ func wait_human_turn(game: Node, director: Node, hand: Array) -> Array:
 	game.enemy_hand.assign(hand)
 	await create_timer(0.8, false).timeout
 	await process_frame
+	# The Disaster player has pressed "I am ready" on the privacy screen.
+	director._hide_privacy_screen()
+	await process_frame
 	return done
 
 # The panel picks a lane or a target, calls the same actions as the AI, and cancels itself when it goes stale.
@@ -464,6 +469,174 @@ func check_disaster_picking(game: Node, director: Node) -> void:
 	await create_timer(0.7, false).timeout
 	await check_disaster_target_pick(game, director)
 	game.disaster_is_human = false
+
+# A fixture match for the privacy screen: Versus, human Disaster, the given phase. No turn code runs.
+func privacy_fixture(game: Node, director: Node, phase: int) -> void:
+	start_disaster_turn(game, director, 3)
+	game.disaster_is_human = true
+	game.disaster_waiting = false
+	game._set_phase(phase)
+	director.modal.visible = false
+	await privacy_frames()
+
+func privacy_frames() -> void:
+	await process_frame
+	await process_frame
+
+# Puts the fixture into the Disaster's wait, or out of it.
+func privacy_disaster_wait(game: Node, waiting: bool) -> void:
+	game.disaster_waiting = waiting
+	game._set_phase(game.Phase.ENEMY if waiting else game.Phase.COMBAT)
+	await privacy_frames()
+
+# The cover goes up when the laptop changes hands, and never at the start, in singleplayer or with an AI Disaster.
+func check_privacy_logic(game: Node, director: Node) -> void:
+	var screen: CanvasLayer = director.privacy_screen
+	# The first Preparedness turn needs no hand-over.
+	await privacy_fixture(game, director, game.Phase.PLAYER_PLAY)
+	expect(not screen.visible, "Privacy: not raised at match start")
+	# Preparedness ends its turn, the Disaster waits.
+	await privacy_disaster_wait(game, true)
+	expect(screen.visible and director.privacy_side == "disaster", "Privacy: raised when the Disaster wait starts")
+	director._hide_privacy_screen()
+	await privacy_frames()
+	expect(not screen.visible, "Privacy: stays down once closed")
+	# The Disaster ends its turn, Preparedness plays again.
+	await privacy_disaster_wait(game, false)
+	expect(not screen.visible, "Privacy: not raised during combat")
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	await privacy_frames()
+	expect(screen.visible and director.privacy_side == "prep", "Privacy: raised when the Preparedness turn starts")
+	director._hide_privacy_screen()
+	# The Disaster plays twice in a row (it moved first next round): same player, no hand-over.
+	await privacy_disaster_wait(game, true)
+	director._hide_privacy_screen()
+	await privacy_disaster_wait(game, false)
+	await privacy_disaster_wait(game, true)
+	expect(not screen.visible, "Privacy: not raised when the same side plays again")
+	# Cleared by clear_battle, and by game over.
+	await privacy_disaster_wait(game, false)
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	await privacy_frames()
+	expect(screen.visible, "Privacy: raised again before clearing")
+	game.clear_battle()
+	await privacy_frames()
+	expect(not screen.visible, "Privacy: cleared by clear_battle")
+	await privacy_fixture(game, director, game.Phase.PLAYER_PLAY)
+	await privacy_disaster_wait(game, true)
+	expect(screen.visible, "Privacy: raised before game over")
+	game.disaster_waiting = false
+	game._set_phase(game.Phase.GAME_OVER)
+	await privacy_frames()
+	expect(not screen.visible, "Privacy: cleared by game over")
+	# The Disaster moves first in a new match: the cover goes up.
+	await privacy_fixture(game, director, game.Phase.SETUP)
+	await privacy_disaster_wait(game, true)
+	expect(screen.visible and director.privacy_side == "disaster", "Privacy: Disaster-first match is covered")
+	# The battle ends: no cover on the result screen.
+	director.battle_active = false
+	await privacy_frames()
+	expect(not screen.visible, "Privacy: cleared when the battle ends")
+	# An open modal blocks a new cover.
+	await privacy_fixture(game, director, game.Phase.PLAYER_PLAY)
+	director.modal.visible = true
+	await privacy_disaster_wait(game, true)
+	expect(not screen.visible, "Privacy: not raised under a modal")
+	director.modal.visible = false
+	# An AI Disaster and singleplayer never raise it.
+	await privacy_fixture(game, director, game.Phase.PLAYER_PLAY)
+	game.disaster_is_human = false
+	await privacy_disaster_wait(game, true)
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	await privacy_frames()
+	expect(not screen.visible, "Privacy: not raised with an AI Disaster")
+	await privacy_fixture(game, director, game.Phase.PLAYER_PLAY)
+	game.encounter_kind = "battle"
+	await privacy_disaster_wait(game, true)
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	await privacy_frames()
+	expect(not screen.visible, "Privacy: not raised in singleplayer")
+	game.disaster_waiting = false
+	game.disaster_is_human = false
+	game.clear_battle()
+
+func privacy_key(keycode: int) -> InputEventKey:
+	var key := InputEventKey.new()
+	key.keycode = keycode
+	key.pressed = true
+	return key
+
+# A left click at a point, sent through the real GUI input path.
+func privacy_click(point: Vector2) -> void:
+	var move := InputEventMouseMotion.new()
+	move.position = point
+	move.global_position = point
+	root.push_input(move, true)
+	await privacy_frames()
+	for pressed in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.position = point
+		click.global_position = point
+		click.pressed = pressed
+		root.push_input(click, true)
+	await privacy_frames()
+
+# The scene itself: texts, layer, mouse and key blocking, and the real "I am ready" button.
+func check_privacy_screen_ui(game: Node, director: Node) -> void:
+	var screen: CanvasLayer = director.privacy_screen
+	var ready_button: Button = screen.get_node("%ReadyButton")
+	var cover: Control = screen.get_node("Cover")
+	expect(screen.layer == 30 and screen.layer > game.presentation.layer and screen.layer > director.layer,
+		"Privacy UI: its own layer above the coin screen, banners and the director")
+	expect(cover.mouse_filter == Control.MOUSE_FILTER_STOP, "Privacy UI: the cover stops the mouse")
+	expect(screen.get_node("Cover/Box/Title").text == "PASS THE LAPTOP", "Privacy UI: heading")
+	expect(ready_button.text == "I am ready", "Privacy UI: button text")
+	# Preparedness hands over to the Disaster.
+	await privacy_fixture(game, director, game.Phase.PLAYER_PLAY)
+	await privacy_disaster_wait(game, true)
+	expect(screen.visible and screen.get_node("%SideLine").text == "DISASTER, it is your turn",
+		"Privacy UI: Disaster line")
+	expect(ready_button.has_focus(), "Privacy UI: the button has focus, so Enter and Space work")
+	# Esc and other keys do nothing while it is up.
+	director._input(privacy_key(KEY_ESCAPE))
+	director._input(privacy_key(KEY_P))
+	director._input(privacy_key(KEY_D))
+	await privacy_frames()
+	expect(screen.visible and not director.modal.visible, "Privacy UI: Esc and hotkeys do nothing")
+	# A click on the End button under the cover does nothing.
+	var ends := [0]
+	var count_end := func(): ends[0] += 1
+	game.disaster_actions.turn_ended.connect(count_end)
+	var end_button: Button = director.disaster_panel.get_node("%EndButton")
+	await privacy_click(end_button.get_global_rect().get_center())
+	expect(ends[0] == 0 and screen.visible, "Privacy UI: a click under the cover is blocked")
+	# The real button closes it, and the Disaster panel works.
+	ready_button.pressed.emit()
+	await privacy_frames()
+	expect(not screen.visible, "Privacy UI: the button closes the cover")
+	expect(director.disaster_panel.visible and not end_button.disabled, "Privacy UI: the Disaster panel is usable")
+	await privacy_click(end_button.get_global_rect().get_center())
+	expect(ends[0] == 1, "Privacy UI: the same click works once the cover is closed")
+	game.disaster_actions.turn_ended.disconnect(count_end)
+	# The Disaster hands back to Preparedness: Enter closes it, the hand comes back.
+	await privacy_disaster_wait(game, false)
+	game._set_phase(game.Phase.PLAYER_PLAY)
+	await privacy_frames()
+	expect(screen.visible and screen.get_node("%SideLine").text == "PREPAREDNESS, it is your turn",
+		"Privacy UI: Preparedness line")
+	director._input(privacy_key(KEY_ENTER))
+	await create_timer(0.5, false).timeout
+	expect(not screen.visible, "Privacy UI: Enter closes the cover")
+	expect(not game.is_hand_tucked and not director.privacy_screen.visible, "Privacy UI: the hand is back")
+	# Space closes it too, and nothing else happens.
+	await privacy_disaster_wait(game, true)
+	expect(screen.visible, "Privacy UI: raised once more")
+	director._input(privacy_key(KEY_SPACE))
+	await privacy_frames()
+	expect(not screen.visible and game.phase == game.Phase.ENEMY, "Privacy UI: Space closes it without ending a turn")
+	game.disaster_waiting = false
+	game.clear_battle()
 
 # The Response hand is tucked away while a human Disaster waits, and comes back on every way out.
 func check_disaster_hand_tuck(game: Node, director: Node) -> void:

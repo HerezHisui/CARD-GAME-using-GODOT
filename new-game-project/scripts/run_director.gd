@@ -37,6 +37,7 @@ const ConfirmScene = preload("res://scenes/ui/ui_confirm.tscn")
 const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
 const ChooseSlotScene = preload("res://scenes/ui/ui_choose_slot.tscn")
 const DisasterPanelScene = preload("res://scenes/ui/ui_disaster_panel.tscn")
+const PrivacyScreenScene = preload("res://scenes/ui/ui_privacy_screen.tscn")
 const BuffChoicesScene = preload("res://scenes/ui/ui_buff_choices.tscn")
 const FloorBuffsScene = preload("res://scenes/ui/ui_floor_buffs.tscn")
 ## Pieces that many screens reuse.
@@ -117,6 +118,10 @@ var board_prompt_label: Label
 var disaster_panel: PanelContainer
 var disaster_hand_key := []  # what the Disaster hand list shows now
 var disaster_pick := {}  # empty = not picking. Else kind "lane" or "target", the card and encounter_serial
+var privacy_screen: CanvasLayer  # covers the game while the laptop is passed between two human Versus players
+var privacy_side := ""  # the side the screen waits for: "prep" or "disaster"
+var privacy_last := ""  # the side that played last in this match; empty before the first turn
+var privacy_serial := 0  # encounter_serial the privacy state belongs to
 var unlock_after := "cards"
 var event_key := ""
 var event_type := "locked"
@@ -377,6 +382,46 @@ func _build_ui() -> void:
 	var cancel_pick: Button = pick_box.get_node("CancelPick")
 	cancel_pick.pressed.connect(_cancel_disaster_pick)
 	game.presentation.button_feedback(cancel_pick)
+	# Its own CanvasLayer (30), above the director (10), the coin screen and banners (20).
+	privacy_screen = PrivacyScreenScene.instantiate()
+	add_child(privacy_screen)
+	var ready_button: Button = privacy_screen.get_node("%ReadyButton")
+	ready_button.pressed.connect(_hide_privacy_screen)
+	game.presentation.button_feedback(ready_button)
+
+## Who holds the laptop: "disaster" while a human Disaster waits, "prep" on the Preparedness turn, else "".
+func _privacy_holder() -> String:
+	if game.disaster_waiting and game.phase == game.Phase.ENEMY: return "disaster"
+	if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: return "prep"
+	return ""
+
+## Raises the cover when the laptop changes hands in a human Versus match. Runs before the panel refresh.
+func _refresh_privacy_screen() -> void:
+	var in_match: bool = battle_active and game.encounter_kind == "versus" and game.disaster_is_human \
+		and game.phase != game.Phase.GAME_OVER
+	# A new battle, a finished battle or a game over starts clean, so the cover never outlives its match.
+	if not in_match or privacy_serial != game.encounter_serial:
+		privacy_serial = game.encounter_serial
+		privacy_last = ""
+		if privacy_screen.visible: privacy_screen.visible = false
+		if not in_match: return
+	var holder := _privacy_holder()
+	if holder.is_empty() or holder == privacy_last or modal.visible: return
+	# The very first Preparedness turn needs no hand-over. A Disaster that plays twice in a row keeps the laptop.
+	var match_start := privacy_last.is_empty() and holder == "prep"
+	privacy_last = holder
+	if not match_start: _raise_privacy_screen(holder)
+
+func _raise_privacy_screen(side: String) -> void:
+	privacy_side = side
+	var name_of := "PREPAREDNESS" if side == "prep" else "DISASTER"
+	_set_label_text(privacy_screen.get_node("%SideLine"), "%s, it is your turn" % name_of)
+	privacy_screen.visible = true
+	# Enter and Space press the focused button.
+	privacy_screen.get_node("%ReadyButton").grab_focus()
+
+func _hide_privacy_screen() -> void:
+	privacy_screen.visible = false
 
 ## Plain words for the reasons disaster_actions can give.
 const DISASTER_REASONS := {
@@ -606,6 +651,7 @@ func _process(_delta: float) -> void:
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	_update_boss_intent()
+	_refresh_privacy_screen()
 	_refresh_disaster_panel()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
@@ -645,6 +691,13 @@ func status_text() -> String:
 		counts.evac, counts.douse, counts.clearance, counts.brace, utilities]
 
 func _input(event: InputEvent) -> void:
+	# While the privacy screen is up only Enter and Space close it. Every other key, Esc included, is swallowed.
+	if privacy_screen.visible:
+		if event is InputEventKey:
+			if event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+				_hide_privacy_screen()
+			get_viewport().set_input_as_handled()
+		return
 	if inspect_hold_pending and event is InputEventMouseMotion and event.position.distance_to(inspect_hold_origin) > 12:
 		cancel_inspect_hold()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
