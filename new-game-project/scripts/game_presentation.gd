@@ -189,6 +189,10 @@ func show_side_choice(winner: int, versus_node: Node) -> void:
 		button.theme_type_variation = "TerminalButton"
 		UI.decorate(button)
 		side_buttons.append(button)
+	# LAN D2-d: Player 2 is the other laptop. The host waits and cannot pick for them.
+	if winner == 2 and (game.lan_remote_prep or game.lan_remote_disaster):
+		hint.text = "Player 2 is choosing a side on the other laptop..."
+		for button in side_buttons: button.disabled = true
 	reveal(box)
 
 ## One click picks the side. The buttons turn off so a second click does nothing.

@@ -3,9 +3,13 @@ extends Node
 ## Only made when VersusMatch.LAN_ENABLED is true. Sides are fixed for now:
 ## the host plays Preparedness, the client plays the Disaster.
 ## Later (D2-b..d) a coin result can pass other seats to start_lan_match.
+## D2-d: the sides are no longer fixed. The host is Player 1 and calls the coin, the toss winner picks
+## a side, then the host plays Player 1's side and the client the other one.
 
 const LanSession = preload("res://scripts/lan_session.gd")
 const LanClientPanel = preload("res://scripts/lan_client_panel.gd")
+const LanPrepPanel = preload("res://scripts/lan_prep_panel.gd")
+const VersusMatch = preload("res://scripts/versus_match.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 
 var director: Node
@@ -23,6 +27,9 @@ var ip_edit: LineEdit
 var client_layer: CanvasLayer
 var client_panel: Control
 var esc_menu: Control
+var coin_stage := ""  # host: the last coin stage sent to the client
+var coin_page: Control  # client: the coin screen over the panel, until the host seats this client
+var client_side := ""  # client: the side the host gave this client, "" during the coin
 
 
 func setup(owner_director: Node) -> void:
@@ -72,6 +79,8 @@ func _ensure_session() -> void:
 	session.host_lost.connect(_on_host_lost)
 	session.join_refused.connect(_on_join_refused)
 	session.match_over.connect(_on_match_over)
+	session.side_requested.connect(_on_side_requested)
+	session.event_received.connect(_on_event)
 
 
 # --- Host ---
@@ -110,8 +119,11 @@ func _on_peer_joined(id: int) -> void:
 
 
 ## Starts the Versus match with these seats. Part E: host = "local" Preparedness, "remote" Disaster.
+## D2-d: these seats only last through the coin. The side pick sets the real seats.
 func start_lan_match(prep_seat: String, disaster_seat: String) -> void:
 	in_match = true
+	coin_stage = ""
+	session.lobby = true
 	game.set_seats(prep_seat, disaster_seat)
 	director.start_versus_match()
 	session.game = game
@@ -126,6 +138,49 @@ func _on_peer_left(id: int) -> void:
 	session.game = null
 	session.close()
 	director.versus_match.abort("OPPONENT LEFT", "The other player left the match.")
+
+
+# Host: during the coin, tell the client what the host screen shows. After the side pick, seat the client.
+func _process(_delta: float) -> void:
+	if session == null or not session.is_host or not in_match or not session.lobby:
+		return
+	var versus: Node = director.versus_match
+	if versus.player1_side != "":
+		_seat_from_coin()
+		return
+	var stage := ""
+	var data := {}
+	if versus.prematch_active:
+		stage = "choosing"
+		data = {"call": versus.coin_call, "result": game.coin_result, "winner": versus.coin_winner}
+	elif director.screen == "coin" and game.coin_pick < 0:
+		stage = "calling"
+	elif director.screen == "coin":
+		var toss_winner := VersusMatch.resolve_winner(game.coin_pick, game.coin_result)
+		stage = "tossed"
+		data = {"call": game.coin_pick, "result": game.coin_result, "winner": toss_winner}
+	if stage == "" or stage == coin_stage:
+		return
+	coin_stage = stage
+	data.stage = stage
+	session.send_event("coin", data)
+
+
+# Host: the client plays Player 2's side. game_3d_manager already set the host seats.
+func _seat_from_coin() -> void:
+	var side: String = director.versus_match.player2_side
+	session.seat_client(side)
+	session.lobby = false
+	session.send_event("seat", {"side": side})
+	session.send_view()
+
+
+# Host: the client won the toss and sent its side. Ignored unless Player 2 is choosing now.
+func _on_side_requested(side: String) -> void:
+	var versus: Node = director.versus_match
+	if not in_match or not versus.prematch_active or versus.coin_winner != 2:
+		return
+	versus.choose_side(side)
 
 
 ## run_director.battle_finished calls this when a Versus match ends.
@@ -163,6 +218,7 @@ func connect_to_host() -> void:
 		return
 	ended = false
 	match_over_seen = false
+	client_side = ""
 	session.last_view = {}
 	status_label.text = "Connecting..."
 	if session.join_game(last_ip, port) != OK:
@@ -205,6 +261,7 @@ func _close_client_panel() -> void:
 	client_layer = null
 	client_panel = null
 	esc_menu = null
+	coin_page = null
 	director.visible = true
 
 
@@ -266,6 +323,107 @@ func _on_match_over(winner: String) -> void:
 	match_over_seen = true
 	if is_instance_valid(client_panel):
 		client_panel.show_match_over(winner)
+
+
+# --- Client: coin and seat (D2-d) ---
+
+## The coin screen text on the client, [title, hint]. The client is always Player 2.
+static func coin_texts(data: Dictionary) -> Array:
+	var call_text := "Heads" if int(data.get("call", 0)) == 0 else "Tails"
+	var winner := int(data.get("winner", 0))
+	match str(data.get("stage", "")):
+		"calling":
+			return ["PLAYER 1 IS CALLING", "Player 1 calls Heads or Tails. The toss winner picks a side."]
+		"tossed":
+			var result_text := "HEADS" if int(data.get("result", 0)) == 0 else "TAILS"
+			return [result_text, "Player 1 called %s. Player %d wins the toss." % [call_text, winner]]
+		"choosing":
+			if winner == 2:
+				return ["PLAYER 2, PICK A SIDE", "You won the toss. The side you pick takes the first turn."]
+			return ["PLAYER 1 IS CHOOSING", "Player 1 won the toss and is picking a side."]
+	return ["", ""]
+
+
+func _on_event(kind: String, data: Dictionary) -> void:
+	if session.is_host or not is_instance_valid(client_layer):
+		return
+	if kind == "coin" and client_side == "":
+		_show_coin_page(data)
+	if kind == "seat":
+		_on_seat(str(data.get("side", "")))
+
+
+func _show_coin_page(data: Dictionary) -> void:
+	_close_coin_page()
+	coin_page = ColorRect.new()
+	coin_page.name = "CoinPage"
+	coin_page.color = UI.BACKGROUND
+	coin_page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	client_layer.add_child(coin_page)
+	# The Esc menu stays on top.
+	if is_instance_valid(esc_menu):
+		client_layer.move_child(esc_menu, -1)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	coin_page.add_child(center)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 24)
+	center.add_child(box)
+	var texts := coin_texts(data)
+	var title: Label = director.label(texts[0], 34, UI.GOLD)
+	title.name = "CoinTitle"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var hint: Label = director.label(texts[1], 19)
+	hint.name = "CoinHint"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint)
+	if str(data.get("stage", "")) != "choosing" or int(data.get("winner", 0)) != 2:
+		return
+	var buttons := HBoxContainer.new()
+	buttons.name = "SideButtons"
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 24)
+	box.add_child(buttons)
+	for side in ["preparedness", "disaster"]:
+		var button: Button = director.button(side.capitalize(), _pick_side.bind(side), buttons)
+		button.name = side.capitalize() + "Button"
+		button.custom_minimum_size = Vector2(240, 56)
+
+
+# One click sends the side. The buttons turn off so a second click does nothing.
+func _pick_side(side: String) -> void:
+	if not is_instance_valid(coin_page):
+		return
+	var buttons: Node = coin_page.find_child("SideButtons", true, false)
+	for button in buttons.get_children():
+		if button.disabled:
+			return
+		button.disabled = true
+	session.request_side(side)
+
+
+func _close_coin_page() -> void:
+	if is_instance_valid(coin_page):
+		coin_page.queue_free()
+	coin_page = null
+
+
+# The host gave this client a side. A Preparedness client gets the Preparedness panel instead.
+func _on_seat(side: String) -> void:
+	client_side = side
+	_close_coin_page()
+	if side != "preparedness":
+		return
+	if is_instance_valid(client_panel):
+		client_panel.queue_free()
+	client_panel = LanPrepPanel.new()
+	client_layer.add_child(client_panel)
+	if is_instance_valid(esc_menu):
+		client_layer.move_child(esc_menu, -1)
+	client_panel.back_pressed.connect(back_to_title)
+	session.attach_prep_panel(client_panel)
 
 
 # Show what went wrong, with a button back to the title.

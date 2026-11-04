@@ -4,6 +4,7 @@ extends Node
 ## Uses the multiplayer API of its own subtree, so a test can run a host and a client in one process.
 ## Part C: the client sends Disaster actions, the host checks and applies them, then sends a new view.
 ## Part D2-c: the client may play Preparedness instead (prep_peer). The sender's seat picks the rules.
+## Part D2-d: before the match the host sends coin events, the client may send its side, then the host seats it.
 
 const LanActions = preload("res://scripts/lan_actions.gd")
 const LanView = preload("res://scripts/lan_view.gd")
@@ -28,6 +29,8 @@ signal view_received(view: Dictionary)
 signal event_received(kind: String, data: Dictionary)
 # Host: an action message was handled. result is {ok, reason}.
 signal action_done(result: Dictionary)
+# Host (D2-d): the client picked this side after it won the toss. lan_title.gd checks it.
+signal side_requested(side: String)
 
 var is_host := false
 var peer: ENetMultiplayerPeer
@@ -36,6 +39,7 @@ var disaster_peer := 0  # host only: the client id that plays the Disaster, 0 wh
 var prep_peer := 0  # host only: the client id that plays Preparedness, 0 when none
 var was_phase := -1  # host only: game.phase at the last frame, watched for a Preparedness client
 var was_waiting := false  # host only: game.disaster_waiting at the last frame
+var lobby := false  # host only (D2-d): true during the coin, so no view and no action yet
 var panel: Control  # client only: lan_client_panel.gd, set by attach_panel
 var last_view: Dictionary = {}  # client only: the newest view from the host
 var picked_hand := -1  # client only: the hand card picked on the panel
@@ -146,6 +150,9 @@ func pong(number: int) -> void:
 func send_view() -> void:
 	if not is_host or game == null or not is_instance_valid(game):
 		return
+	# D2-d: the sides are not known during the coin, so a view could show the wrong hand.
+	if lobby:
+		return
 	if disaster_peer != 0:
 		push_view.rpc_id(disaster_peer, LanView.build(game))
 	if prep_peer != 0:
@@ -192,6 +199,8 @@ func send_action(msg) -> void:
 		result = {"ok": false, "reason": "not_prep_peer" if prep_peer != 0 else "not_disaster_peer"}
 	elif game == null or not is_instance_valid(game):
 		result = {"ok": false, "reason": "no_match"}
+	elif lobby:
+		result = {"ok": false, "reason": "lobby"}
 	else:
 		result = await LanActions.apply(game, msg, side)
 	# The client may have left while the action played.
@@ -248,6 +257,33 @@ func send_match_over(winner: String) -> void:
 	if not is_host or peer == null or id == 0:
 		return
 	push_event.rpc_id(id, "match_over", {"winner": winner})
+
+
+# --- Part D2-d: coin, side and seat ---
+
+# Host: send the client one event, for example "coin" or "seat".
+func send_event(kind: String, data: Dictionary) -> void:
+	var id := disaster_peer if disaster_peer != 0 else prep_peer
+	if not is_host or peer == null or id == 0:
+		return
+	push_event.rpc_id(id, kind, data)
+
+
+# Client: the client won the toss and picks this side.
+func request_side(side: String) -> void:
+	if peer == null or is_host:
+		return
+	pick_side.rpc_id(1, side)
+
+
+# Host: a side from the client. Only the joined client counts, and only during the coin.
+@rpc("any_peer", "reliable")
+func pick_side(side) -> void:
+	if not is_host or not lobby:
+		return
+	if seat_of(multiplayer.get_remote_sender_id()) == "":
+		return
+	side_requested.emit(str(side))
 
 
 # Host: give the refusal a few frames to arrive, then drop the client.

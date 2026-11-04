@@ -140,16 +140,28 @@ func check_real_buttons() -> void:
 	expect(director.screen == "title", "join panel: Cancel goes back to the title")
 
 
-# Host starts a session, the other side joins, the Versus match starts with the fixed seats.
+# Host starts a session, the other side joins, the Versus match starts.
+# D2-d (edit approved by Simple): the coin now runs over LAN. The host calls the side the coin
+# landed on, wins the toss and picks Preparedness, so Preparedness goes first.
 func check_host_starts_match() -> void:
+	game.presentation.automated_choice = -1
 	await host_and_join()
 	expect(director.versus_match.running, "host: the Versus match started")
+	var versus: Node = director.versus_match
+	expect(await wait_until(func() -> bool: return director.screen == "coin" and game.presentation.blocking \
+		and not game.presentation.choice_buttons.is_empty()), "host: the coin screen shows")
+	game.presentation.select_coin(game.coin_result)
+	game.presentation.automated_choice = 0
+	expect(await wait_until(func() -> bool: return versus.prematch_active), "host: the coin reaches the side pick")
+	expect(versus.coin_winner == 1, "host: Player 1 wins the toss")
+	versus.choose_side("preparedness")
+	expect(not versus.prematch_active, "host: the side pick ends")
 	expect(game.seat_prep == "local" and game.seat_disaster == "remote", "host: seats are local / remote")
 	expect(game.lan_remote_disaster and game.disaster_is_human, "host: the Disaster is remote and human")
 	expect(await wait_until(func() -> bool: return other_views > 0), "host: the client got a view")
 	var prep_turn := [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]
 	expect(await wait_until(func() -> bool: return game.phase in prep_turn),
-		"host: no coin, the Preparedness turn starts")
+		"host: after the coin, the Preparedness turn starts")
 	expect(game.player_first, "host: Preparedness goes first")
 	expect(not game.versus_hand_hidden, "host: the Preparedness hand shows")
 

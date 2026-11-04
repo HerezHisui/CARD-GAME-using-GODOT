@@ -166,6 +166,8 @@ func abort(title: String, subtitle: String) -> void:
 	if not running: return
 	running = false
 	clear_prematch()
+	# The coin or the side screen may still be open.
+	game.presentation.cancel_coin()
 	game.reveal_versus_hand()
 	winner = ""
 	game._set_phase(game.Phase.GAME_OVER, subtitle)

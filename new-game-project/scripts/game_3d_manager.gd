@@ -1319,18 +1319,13 @@ func _start_match() -> void:
 
 func resume_coin() -> void:
 	var serial := encounter_serial
+	# LAN D2-d: the other player left during the opening banner. No coin after that.
+	if (lan_remote_prep or lan_remote_disaster) and phase == Phase.GAME_OVER: return
 	run_director.screen = "coin"
 	# Versus with the pre-match flip: the toss winner picks a side before round 1.
+	# LAN D2-d: the same coin. The host is Player 1 and calls; the seats are set after the side pick.
 	var versus_flip: bool = preload("res://scripts/versus_match.gd").PREMATCH_COIN_FLIP
 	versus_flip = versus_flip and encounter_kind == "versus" and is_instance_valid(run_director.versus_match)
-	# LAN Part E: sides are fixed (host = Preparedness), so there is no coin yet. Preparedness goes first.
-	if encounter_kind == "versus" and seat_disaster != "local":
-		player_first = true
-		log_event("LAN: no coin flip. Preparedness takes the first turn.")
-		run_director.screen = ""
-		_set_phase(Phase.SETUP, "Preparedness takes the first turn")
-		_begin_round()
-		return
 	# The hand is dealt already. Keep it hidden through the coin fade and the side choice.
 	if versus_flip: hide_versus_hand()
 	var pick: int = await presentation.choose_coin(coin_result, coin_pick)
@@ -1360,8 +1355,12 @@ func _resume_versus_coin(serial: int) -> void:
 	if side == "":
 		reveal_versus_hand()
 		return
+	# LAN D2-d: the host is Player 1. The host plays Player 1's side here, the client plays the other.
+	if lan_remote_prep or lan_remote_disaster:
+		var host_prep: bool = versus_node.player1_side == "preparedness"
+		set_seats("local" if host_prep else "remote", "remote" if host_prep else "local")
 	# With no human Disaster there is no cover to close, so show the hand now.
-	# Over LAN there is no cover either.
+	# Over LAN there is no cover either. A host that plays the Disaster never sees the hand.
 	if not disaster_is_human or lan_remote_disaster: reveal_versus_hand()
 	player_first = versus_node.prep_goes_first(side)
 	var call_text := "Heads" if coin_pick == 0 else "Tails"
