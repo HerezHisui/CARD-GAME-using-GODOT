@@ -100,6 +100,7 @@ func check_versus_match() -> void:
 	play_versus(game, director, false, save_path, save_text)
 	check_run_state_restored("loss", game, director)
 	await check_disaster_actions(game, director)
+	await check_disaster_choices(game, director)
 	await check_ai_uses_actions(game, director)
 	await check_disaster_turn_switch(game, director)
 	await check_disaster_panel(game, director)
@@ -201,6 +202,69 @@ func check_disaster_actions(game: Node, director: Node) -> void:
 	expect(reason_of(await actions.cast(seal_spell, null)) == "bad_target", "Disaster actions: seal needs a target")
 	expect(reason_of(await actions.cast(seal_spell, target)) == "ok", "Disaster actions: seal works")
 	expect(game.is_sealed(target.card_data) and game.tension == 4, "Disaster actions: target sealed, tension paid")
+
+func test_spell(id: String, effect: String) -> Dictionary:
+	return {"id": id, "name": "Test " + id, "type": "disaster", "element": "fire",
+		"utility": true, "effect": effect, "tension_cost": 1}
+
+# The helpers that list legal lanes and targets must agree with what play_base and cast accept.
+func check_disaster_choices(game: Node, director: Node) -> void:
+	start_disaster_turn(game, director, 5)
+	var actions = game.disaster_actions
+	var lanes: Array = game._threat_slots()
+	var base := test_base("t_choice")
+	var first := test_base("t_first")
+	var evolution := {"id": "t_evo2", "name": "Test Evo", "type": "disaster", "element": "fire",
+		"cost": 2, "attack": 3, "health": 4}
+	var seal_spell := test_spell("t_seal2", "seal")
+	var tax_spell := test_spell("t_tax2", "tax")
+	game.enemy_hand.assign([base, first, evolution, seal_spell, tax_spell])
+	expect(actions.legal_lanes(base).size() == 4, "Disaster choices: an empty board offers all 4 lanes")
+	expect(reason_of(await actions.play_base(first, lanes[1])) == "ok", "Disaster choices: fill lane 2")
+	var offered: Array = actions.legal_lanes(base)
+	expect(offered.size() == 3 and lanes[1] not in offered, "Disaster choices: a full lane is not offered")
+	var accepted: Array = []
+	for lane in lanes:
+		var problem: String = actions._base_problem(base, lane)
+		if problem.is_empty(): accepted.append(lane)
+	expect(accepted == offered, "Disaster choices: offered lanes are the lanes play_base accepts")
+	expect(actions.legal_lanes(evolution).is_empty() and not actions.can_use(evolution),
+		"Disaster choices: evolution not usable")
+	# Spell targets: seal skips a sealed card, tax takes any.
+	expect(actions.legal_targets(seal_spell).is_empty() and not actions.can_use(seal_spell),
+		"Disaster choices: seal with an empty Response hand is not usable")
+	game.add_card_to_hand({"id": "t_r1", "name": "Test R1", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 1})
+	game.add_card_to_hand({"id": "t_r2", "name": "Test R2", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 1})
+	var cards: Array = game.get_hand_cards()
+	cards[1].card_data.locked_until = game.turn + 2
+	var seal_targets: Array = actions.legal_targets(seal_spell)
+	expect(seal_targets == [cards[0]], "Disaster choices: seal offers only the unsealed card")
+	expect(actions.legal_targets(tax_spell).size() == 2, "Disaster choices: tax offers every hand card")
+	for card in cards:
+		var seal_ok: bool = actions._cast_problem(seal_spell, card).is_empty()
+		expect(seal_ok == (card in seal_targets), "Disaster choices: seal targets match cast")
+	expect(actions.can_use(seal_spell) and actions.can_use(tax_spell) and actions.can_use(base),
+		"Disaster choices: usable cards")
+	# Cards that must be dimmed.
+	var sealed := test_base("t_sealed2")
+	sealed.locked_until = game.turn + 2
+	game.enemy_hand.append(sealed)
+	expect(not actions.can_use(sealed) and actions.card_problem(sealed) == "sealed",
+		"Disaster choices: sealed card dimmed")
+	var costly := test_base("t_costly")
+	costly.tension_cost = 9
+	game.enemy_hand.append(costly)
+	expect(actions.card_problem(costly) == "no_tension" and not actions.can_use(costly),
+		"Disaster choices: too dear dimmed")
+	actions.actions_used = actions.action_limit
+	expect(actions.card_problem(base) == "action_limit" and not actions.can_use(base),
+		"Disaster choices: action limit dims")
+	actions.actions_used = 0
+	game.tension = 0
+	expect(actions.card_problem(base) == "no_tension", "Disaster choices: no tension dims")
+	game.clear_battle()
 
 # In Versus the AI turn goes through the same actions and ends the same way as a singleplayer turn.
 func check_ai_uses_actions(game: Node, director: Node) -> void:
