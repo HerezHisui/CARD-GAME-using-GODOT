@@ -1,6 +1,8 @@
 extends CanvasLayer
 const UI = preload("res://scripts/ui_theme.gd")
 const COIN_SCENE = preload("res://assets/coin/midnight_coin.glb")
+const VersusMatch = preload("res://scripts/versus_match.gd")
+const VersusDecks = preload("res://scripts/versus_decks.gd")
 ## Short, event-driven UI tweens. No polling, gameplay timers or game-state ownership.
 signal coin_chosen(side: int)
 var game: Node
@@ -15,6 +17,8 @@ var banner_node: Control
 var banner_tween: Tween
 var draw_reminder: Panel
 var draw_reminder_tween: Tween
+var side_root: ColorRect # Versus side choice after the coin flip
+var side_buttons: Array[Button] = []
 
 func setup(owner_game: Node) -> void:
 	game = owner_game
@@ -46,10 +50,15 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 24)
 	center.add_child(box)
-	var title = game.run_director.label("CALL THE COIN", 34, UI.GOLD)
+	# Versus with the pre-match flip: Player 1 calls, the winner picks a side.
+	var versus_flip: bool = game.encounter_kind == "versus" and VersusMatch.PREMATCH_COIN_FLIP
+	var title_text := "PLAYER 1, CALL THE TOSS" if versus_flip else "CALL THE COIN"
+	var hint_text := "Choose a side. Match the toss to take the first turn."
+	if versus_flip: hint_text = "Heads or Tails. The toss winner picks Preparedness or Disaster."
+	var title = game.run_director.label(title_text, 34, UI.GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
-	var hint = game.run_director.label("Choose a side. Match the toss to take the first turn.", 19)
+	var hint = game.run_director.label(hint_text, 19)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
 	var coin_space := CenterContainer.new()
@@ -89,6 +98,7 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	coin_pivot.rotation = Vector3(PI * result, 0, 0)
 	title.text = "HEADS" if result == 0 else "TAILS"
 	hint.text = "You take the first turn." if pick == result else "The Janitor takes the first turn."
+	if versus_flip: hint.text = "Player %d wins the toss." % VersusMatch.resolve_winner(pick, result)
 	for button in choice_buttons: button.hide()
 	var linger := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	linger.tween_interval(0.7)
@@ -141,6 +151,58 @@ func cancel_coin() -> void:
 		if coin_busy: coin_root.hide()
 		else: coin_root.queue_free()
 	coin_root = null
+	close_side_choice()
+	blocking = false
+
+## Versus coin flip: the toss winner picks Preparedness or Disaster. Same look as the coin screen.
+func show_side_choice(winner: int, versus_node: Node) -> void:
+	close_side_choice()
+	blocking = true
+	side_root = ColorRect.new()
+	side_root.name = "SideChoice"
+	side_root.theme = game.run_director.root.theme
+	side_root.color = UI.BACKGROUND
+	side_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	side_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(side_root)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	side_root.add_child(center)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 24)
+	center.add_child(box)
+	var title = game.run_director.label("PLAYER %d, PICK A SIDE" % winner, 34, UI.GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var hint = game.run_director.label("You won the toss. The side you pick takes the first turn.", 19)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 24)
+	box.add_child(buttons)
+	side_buttons.clear()
+	for side in [VersusDecks.SIDE_PREP, VersusDecks.SIDE_DISASTER]:
+		var button = game.run_director.button(side.capitalize(), pick_side.bind(side, versus_node), buttons)
+		button.custom_minimum_size = Vector2(240, 56)
+		button.theme_type_variation = "TerminalButton"
+		UI.decorate(button)
+		side_buttons.append(button)
+	reveal(box)
+
+## One click picks the side. The buttons turn off so a second click does nothing.
+func pick_side(side: String, versus_node: Node) -> void:
+	if not is_instance_valid(side_root) or not is_instance_valid(versus_node): return
+	for button in side_buttons: button.disabled = true
+	versus_node.choose_side(side)
+
+func close_side_choice() -> void:
+	if not is_instance_valid(side_root): return
+	side_root.hide()
+	side_root.queue_free()
+	side_root = null
+	side_buttons.clear()
 	blocking = false
 
 func select_coin(side: int) -> void:

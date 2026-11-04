@@ -114,6 +114,7 @@ func check_versus_match() -> void:
 	await check_privacy_screen_ui(game, director)
 	await check_disaster_seat(game, director)
 	await check_prematch_flow(game, director)
+	await check_flip_screens(game, director)
 	game.clear_battle()
 	DirAccess.remove_absolute(save_path)
 	game.queue_free()
@@ -1443,3 +1444,167 @@ func check_prematch_restart(game: Node, director: Node) -> void:
 	expect(coin_logs(game) == 1 and game.player_first, "Prematch restart: one choice starts one round")
 	game.clear_battle()
 	director.battle_finished(true)
+
+# Waits in frames until the condition is true, at most 8 seconds.
+func wait_until(condition: Callable) -> bool:
+	var start := Time.get_ticks_msec()
+	while not condition.call() and Time.get_ticks_msec() - start < 8000:
+		await process_frame
+	return condition.call()
+
+# All label texts under a node, one per line.
+func screen_texts(node: Node) -> String:
+	var words := ""
+	for label in node.find_children("*", "Label", true, false): words += label.text + "\n"
+	return words
+
+# A key press and release through the real input path.
+func flip_key_tap(keycode: int) -> void:
+	root.push_input(privacy_key(keycode))
+	var release := privacy_key(keycode)
+	release.pressed = false
+	root.push_input(release)
+
+# Esc, L, P, D, G and M, and Space when asked, through the real input path.
+func flip_keys(with_space: bool) -> void:
+	var keys := [KEY_ESCAPE, KEY_L, KEY_P, KEY_D, KEY_G, KEY_M]
+	if with_space: keys.append(KEY_SPACE)
+	for keycode: int in keys: flip_key_tap(keycode)
+	await privacy_frames()
+
+# Before round 1: no menu, no popup, no pause, still on the coin step.
+func flip_keys_ok(game: Node, director: Node) -> bool:
+	return not director.modal.visible and not paused and game.phase == game.Phase.SETUP and director.screen == "coin"
+
+# A real Versus match, stopped on the coin screen with no automated call.
+func start_flip_match(game: Node, director: Node) -> void:
+	game.presentation.automated_choice = -1
+	director.versus_match.automated_side = ""
+	game.clear_battle()
+	director.start_versus_match()
+	await wait_until(func(): return is_instance_valid(game.presentation.coin_root))
+	await privacy_frames()
+
+# Clicks Heads or Tails so the given player wins, then waits for the side screen.
+func flip_call_for(game: Node, winner: int) -> bool:
+	var p: Node = game.presentation
+	var pick: int = game.coin_result if winner == 1 else 1 - game.coin_result
+	await privacy_click(p.choice_buttons[pick].get_global_rect().get_center())
+	var line := "Player %d wins the toss." % winner
+	var named: bool = await wait_until(func(): return is_instance_valid(p.coin_root) \
+		and screen_texts(p.coin_root).contains(line))
+	var hidden_in_fade: bool = not game.hand_container.visible
+	await wait_until(func(): return is_instance_valid(p.side_root))
+	await privacy_frames()
+	return named and hidden_in_fade and not game.hand_container.visible
+
+# The coin flip screens with real clicks and keys: coin, toss cover, side choice, first-turn cover.
+func check_flip_screens(game: Node, director: Node) -> void:
+	await check_flip_player2_prep(game, director)
+	await check_flip_player1_disaster(game, director)
+	await check_flip_restore(game, director)
+	check_flip_singleplayer_coin(game)
+	game.presentation.automated_choice = 0
+
+func check_flip_player2_prep(game: Node, director: Node) -> void:
+	var p: Node = game.presentation
+	var cover: CanvasLayer = director.privacy_screen
+	var versus_node: Node = director.versus_match
+	await start_flip_match(game, director)
+	var coin_words := screen_texts(p.coin_root)
+	expect(coin_words.contains("PLAYER 1, CALL THE TOSS") and not coin_words.contains("Janitor"),
+		"Flip UI: the coin screen asks Player 1 to call")
+	expect(not game.hand_container.visible and game.get_hand_cards().size() > 0, "Flip UI: hand hidden on the coin")
+	await flip_keys(true)
+	expect(flip_keys_ok(game, director) and not p.coin_busy, "Flip UI: keys do nothing on the coin screen")
+	expect(await flip_call_for(game, 2), "Flip UI: the result names Player 2, the hand stays hidden")
+	expect(is_instance_valid(p.side_root) and p.side_root.get_parent() == p and p.layer > director.layer
+		and cover.layer > p.layer, "Flip UI: side screen above the director, the cover above it")
+	expect(cover.visible and cover.get_node("%SideLine").text == "PLAYER 2, you won the toss",
+		"Flip UI: the cover hands the laptop to Player 2")
+	await flip_keys(false)
+	expect(flip_keys_ok(game, director) and cover.visible and versus_node.prematch_active,
+		"Flip UI: keys do nothing on the toss cover")
+	await privacy_click(p.side_buttons[0].get_global_rect().get_center())
+	expect(versus_node.prematch_active and cover.visible, "Flip UI: a click behind the cover picks no side")
+	flip_key_tap(KEY_SPACE)
+	await privacy_frames()
+	expect(not cover.visible and versus_node.prematch_active and is_instance_valid(p.side_root),
+		"Flip UI: Space closes the toss cover and presses nothing behind it")
+	expect(not game.hand_container.visible, "Flip UI: hand hidden on the side screen")
+	var side_words := screen_texts(p.side_root)
+	expect(side_words.contains("PLAYER 2, PICK A SIDE") and p.side_buttons[0].text == "Preparedness"
+		and p.side_buttons[1].text == "Disaster", "Flip UI: the side screen asks Player 2")
+	await flip_keys(true)
+	expect(flip_keys_ok(game, director) and versus_node.prematch_active, "Flip UI: keys do nothing on the side screen")
+	await privacy_click(p.side_buttons[0].get_global_rect().get_center())
+	expect(not versus_node.prematch_active and game.player_first and versus_node.player2_side == Decks.SIDE_PREP
+		and coin_logs(game) == 1 and game.turn == 1, "Flip UI: Player 2 picks Preparedness, it goes first")
+	expect(not is_instance_valid(p.side_root) and not p.blocking, "Flip UI: the side screen closes")
+	await privacy_frames()
+	expect(cover.visible and cover.get_node("%SideLine").text == "PLAYER 2 - PREPAREDNESS, it is your turn",
+		"Flip UI: the first-turn cover names Player 2")
+	expect(not game.hand_container.visible, "Flip UI: hand hidden under the first-turn cover")
+	await flip_keys(false)
+	expect(cover.visible and not director.modal.visible and not paused, "Flip UI: keys do nothing on the first cover")
+	var turn_phase: int = game.phase
+	flip_key_tap(KEY_SPACE)
+	await privacy_frames()
+	expect(not cover.visible and game.phase == turn_phase and turn_phase in [game.Phase.PLAYER_DRAW,
+		game.Phase.PLAYER_PLAY], "Flip UI: Space closes the first cover and does not end the turn")
+	expect(game.hand_container.visible, "Flip UI: the hand shows after the first player's Ready")
+	game.clear_battle()
+	director.battle_finished(true)
+
+func check_flip_player1_disaster(game: Node, director: Node) -> void:
+	var p: Node = game.presentation
+	var cover: CanvasLayer = director.privacy_screen
+	var versus_node: Node = director.versus_match
+	await start_flip_match(game, director)
+	expect(await flip_call_for(game, 1), "Flip UI: the result names Player 1, the hand stays hidden")
+	expect(not cover.visible and screen_texts(p.side_root).contains("PLAYER 1, PICK A SIDE"),
+		"Flip UI: no toss cover when Player 1 wins")
+	await privacy_click(p.side_buttons[1].get_global_rect().get_center())
+	expect(not game.player_first and versus_node.player1_side == Decks.SIDE_DISASTER,
+		"Flip UI: Player 1 picks Disaster, it goes first")
+	expect(await wait_until(func(): return cover.visible), "Flip UI: the Disaster-first cover goes up")
+	expect(game.disaster_waiting and cover.get_node("%SideLine").text == "PLAYER 1 - DISASTER, it is your turn",
+		"Flip UI: the Disaster-first cover names Player 1")
+	expect(not game.hand_container.visible, "Flip UI: hand hidden under the Disaster-first cover")
+	await flip_keys(false)
+	expect(cover.visible and not director.modal.visible and not paused, "Flip UI: keys do nothing on that cover")
+	await privacy_click(cover.get_node("%ReadyButton").get_global_rect().get_center())
+	expect(not cover.visible and game.hand_container.visible, "Flip UI: Ready closes the Disaster-first cover")
+	await privacy_frames()
+	await privacy_frames()
+	expect(not cover.visible and game.is_hand_tucked, "Flip UI: the cover is raised once, the Preparedness hand is tucked")
+	game.clear_battle()
+	director.battle_finished(true)
+
+# The hand comes back on a restart and when the match ends on the side screen.
+func check_flip_restore(game: Node, director: Node) -> void:
+	var p: Node = game.presentation
+	await start_flip_match(game, director)
+	expect(not game.hand_container.visible, "Flip restore: hand hidden on the coin")
+	game.clear_battle()
+	expect(game.hand_container.visible and not game.versus_hand_hidden, "Flip restore: a restart shows the hand")
+	director.battle_finished(true)
+	await start_flip_match(game, director)
+	await flip_call_for(game, 2)
+	director.battle_finished(true)
+	await privacy_frames()
+	expect(game.hand_container.visible and not is_instance_valid(p.side_root) and not p.blocking
+		and not director.privacy_screen.visible, "Flip restore: the match ending on the side screen cleans up")
+	game.clear_battle()
+
+# Singleplayer keeps its coin words, and never hides the hand.
+func check_flip_singleplayer_coin(game: Node) -> void:
+	var p: Node = game.presentation
+	game.clear_battle()
+	game.encounter_kind = "battle"
+	p.choose_coin(0)
+	var words := screen_texts(p.coin_root)
+	expect(words.contains("CALL THE COIN") and words.contains("Choose a side. Match the toss to take the first turn.")
+		and not words.contains("PLAYER"), "Flip singleplayer: coin words unchanged")
+	expect(game.hand_container.visible and not game.versus_hand_hidden, "Flip singleplayer: hand not hidden")
+	p.cancel_coin()

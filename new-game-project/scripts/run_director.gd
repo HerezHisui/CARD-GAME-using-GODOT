@@ -38,6 +38,7 @@ const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
 const ChooseSlotScene = preload("res://scenes/ui/ui_choose_slot.tscn")
 const DisasterPanelScene = preload("res://scenes/ui/ui_disaster_panel.tscn")
 const PrivacyScreenScene = preload("res://scenes/ui/ui_privacy_screen.tscn")
+const VersusDecks = preload("res://scripts/versus_decks.gd")
 const BuffChoicesScene = preload("res://scenes/ui/ui_buff_choices.tscn")
 const FloorBuffsScene = preload("res://scenes/ui/ui_floor_buffs.tscn")
 ## Pieces that many screens reuse.
@@ -409,19 +410,39 @@ func _refresh_privacy_screen() -> void:
 	if holder.is_empty() or holder == privacy_last or modal.visible: return
 	# The very first Preparedness turn needs no hand-over. A Disaster that plays twice in a row keeps the laptop.
 	var match_start := privacy_last.is_empty() and holder == "prep"
+	# After the Versus coin flip the first player may be Player 2, so the first turn is covered too.
+	if _flip_sides_set(): match_start = false
 	privacy_last = holder
 	if not match_start: _raise_privacy_screen(holder)
 
 func _raise_privacy_screen(side: String) -> void:
 	privacy_side = side
 	var name_of := "PREPAREDNESS" if side == "prep" else "DISASTER"
+	# After the Versus coin flip the cover also names the player who holds that side.
+	if _flip_sides_set():
+		var side_id := VersusDecks.SIDE_PREP if side == "prep" else VersusDecks.SIDE_DISASTER
+		var player := 1 if versus_match.player1_side == side_id else 2
+		name_of = "PLAYER %d - %s" % [player, name_of]
 	_set_label_text(privacy_screen.get_node("%SideLine"), "%s, it is your turn" % name_of)
 	privacy_screen.visible = true
 	# Enter and Space press the focused button.
 	privacy_screen.get_node("%ReadyButton").grab_focus()
 
+## True in a Versus match where the coin flip already gave each player a side.
+func _flip_sides_set() -> bool:
+	return is_instance_valid(versus_match) and versus_match.running and versus_match.player1_side != ""
+
+## Versus coin flip: a cover with its own line, for the hand-over to the toss winner.
+func show_privacy_cover(line: String) -> void:
+	privacy_serial = game.encounter_serial
+	_set_label_text(privacy_screen.get_node("%SideLine"), line)
+	privacy_screen.visible = true
+	privacy_screen.get_node("%ReadyButton").grab_focus()
+
 func _hide_privacy_screen() -> void:
 	privacy_screen.visible = false
+	# Versus coin flip: the first player's Ready shows the hand. The toss cover does not.
+	if game.versus_hand_hidden and not _privacy_holder().is_empty(): game.reveal_versus_hand()
 
 ## Plain words for the reasons disaster_actions can give.
 const DISASTER_REASONS := {

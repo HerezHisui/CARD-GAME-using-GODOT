@@ -148,6 +148,8 @@ func finish(prep_won: bool) -> void:
 	if not running: return
 	running = false
 	clear_prematch()
+	# The coin flip may still hide the Preparedness hand.
+	game.reveal_versus_hand()
 	winner = "preparedness" if prep_won else "disaster"
 	restore_run_state()
 	director.run_active = false

@@ -111,6 +111,8 @@ const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "di
 
 var hand_container: Node3D
 var is_hand_tucked := false
+# Versus coin flip: the Preparedness hand stays hidden until the first player's cover is closed.
+var versus_hand_hidden := false
 var hand_tuck_tween: Tween
 
 @onready var camera: Camera3D = $CameraPivot/Camera3D
@@ -195,6 +197,7 @@ func clear_battle(preserve_result: bool = false) -> void:
 	if is_instance_valid(vfx): vfx.clear()
 	if is_instance_valid(boss_fog): boss_fog.set_active(false)
 	if is_instance_valid(presentation): presentation.cancel_coin()
+	reveal_versus_hand()
 	if is_instance_valid(board_input): board_input.clear()
 	if is_instance_valid(plans): plans.reset()
 	if not preserve_result: battle_log.clear()
@@ -1299,12 +1302,15 @@ func _start_match() -> void:
 func resume_coin() -> void:
 	var serial := encounter_serial
 	run_director.screen = "coin"
+	# Versus with the pre-match flip: the toss winner picks a side before round 1.
+	var versus_flip: bool = preload("res://scripts/versus_match.gd").PREMATCH_COIN_FLIP
+	versus_flip = versus_flip and encounter_kind == "versus" and is_instance_valid(run_director.versus_match)
+	# The hand is dealt already. Keep it hidden through the coin fade and the side choice.
+	if versus_flip: hide_versus_hand()
 	var pick: int = await presentation.choose_coin(coin_result, coin_pick)
 	if pick < 0 or serial != encounter_serial: return
 	coin_pick = pick
-	# Versus with the pre-match flip: the toss winner picks a side before round 1.
-	var versus_flip: bool = preload("res://scripts/versus_match.gd").PREMATCH_COIN_FLIP
-	if encounter_kind == "versus" and versus_flip and is_instance_valid(run_director.versus_match):
+	if versus_flip:
 		_resume_versus_coin(serial)
 		return
 	player_first = coin_pick == coin_result
@@ -1316,8 +1322,19 @@ func resume_coin() -> void:
 ## Versus only: wait for the toss winner's side. The picked side takes the first turn.
 func _resume_versus_coin(serial: int) -> void:
 	var versus_node: Node = run_director.versus_match
+	var toss_winner: int = versus_node.resolve_winner(coin_pick, coin_result)
+	# The side screen stays "coin" for the director, so its hotkeys and buttons stay off.
+	presentation.show_side_choice(toss_winner, versus_node)
+	# Player 2 takes the laptop before the side screen shows.
+	if toss_winner == 2 and disaster_is_human: run_director.show_privacy_cover("PLAYER 2, you won the toss")
 	var side: String = await versus_node.wait_for_side(coin_pick, coin_result)
-	if side == "" or serial != encounter_serial: return
+	if serial != encounter_serial: return
+	presentation.close_side_choice()
+	if side == "":
+		reveal_versus_hand()
+		return
+	# With no human Disaster there is no cover to close, so show the hand now.
+	if not disaster_is_human: reveal_versus_hand()
 	player_first = versus_node.prep_goes_first(side)
 	var call_text := "Heads" if coin_pick == 0 else "Tails"
 	var result_text := "Heads" if coin_result == 0 else "Tails"
@@ -1327,6 +1344,17 @@ func _resume_versus_coin(serial: int) -> void:
 	run_director.screen = ""
 	_set_phase(Phase.SETUP, "%s takes the first turn" % first_text)
 	_begin_round()
+
+## Versus coin flip only. Hides the Preparedness hand.
+func hide_versus_hand() -> void:
+	versus_hand_hidden = true
+	hand_container.visible = false
+
+## Shows the hand again. Does nothing when hide_versus_hand did not hide it.
+func reveal_versus_hand() -> void:
+	if not versus_hand_hidden: return
+	versus_hand_hidden = false
+	hand_container.visible = true
 
 func _begin_round() -> void:
 	# A depleted draw pile is still playable while hand or board cards remain.
