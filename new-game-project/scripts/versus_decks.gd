@@ -130,3 +130,28 @@ static func preset(side: String) -> Dictionary:
 		evolutions.assign(DISASTER_PRESET_EVOLUTIONS)
 		return {"main": main, "evolutions": evolutions, "tactics": []}
 	return {}
+
+# =================================================================== SAVED DECKS
+## Custom decks file. Not the run save. Tests set their own path.
+static var save_path := "user://versus_decks.cfg"
+
+## The saved custom deck for a side. Missing file, broken file or a bad deck gives preset(side).
+static func load_custom(side: String) -> Dictionary:
+	var file := ConfigFile.new()
+	if file.load(save_path) != OK: return preset(side)
+	if not file.has_section_key("deck", side): return preset(side)
+	var value: Variant = file.get_value("deck", side)
+	if not value is Dictionary: return preset(side)
+	var deck: Dictionary = value
+	# A pile that is not an Array would break validate(), so check the shape first.
+	for key: String in ["main", "evolutions", "tactics"]:
+		if not deck.get(key, []) is Array: return preset(side)
+	if not validate(side, deck).ok: return preset(side)
+	return deck
+
+## Save one side's custom deck. The other side's deck in the file stays.
+static func save_custom(side: String, deck: Dictionary) -> void:
+	var file := ConfigFile.new()
+	if file.load(save_path) != OK: file = ConfigFile.new()
+	file.set_value("deck", side, deck)
+	file.save(save_path)
