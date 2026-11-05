@@ -290,6 +290,9 @@ func _process(delta: float) -> void:
 	if session == null or not session.is_host or not in_match or not session.lobby:
 		return
 	var versus: Node = director.versus_match
+	# Deck builder Part 2: no seat and no first view before the deck step and the re-deal are done.
+	if versus.deck_step_active:
+		return
 	if versus.player1_side != "":
 		_seat_from_coin()
 		return

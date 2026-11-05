@@ -14,9 +14,14 @@ const PREMATCH_COIN_FLIP := true
 # true = Host / Join over LAN (prototype, branch lan-prototype). false = no LAN code runs.
 # Lobby step: on, so the title shows LAN Versus. Set it back to false if the two-laptop test fails.
 const LAN_ENABLED := true
+# true = after the side pick the LAN host picks Standard or a custom deck (deck builder Part 2).
+# false = no deck step, the flow is exactly as before.
+const DECK_CHOICE_ENABLED := false
 
 # Sent when the toss winner picks a side. "" means the wait was cancelled.
 signal side_chosen(side: String)
+# Sent when both sides have a deck in the deck step.
+signal decks_ready
 
 var director: Node
 var game: Node
@@ -37,6 +42,12 @@ var coin_winner := 0 # 1 or 2, 0 = none yet
 var player1_side := ""
 var player2_side := ""
 var automated_side := "" # Explicit opt-in for test fixtures, never set by gameplay.
+# Deck step after the side pick (DECK_CHOICE_ENABLED). Tests may set deck_choice without editing the const.
+var deck_choice := DECK_CHOICE_ENABLED
+var deck_step_active := false # true from the step start until the re-deal is done
+var deck_ready := {VersusDecks.SIDE_PREP: false, VersusDecks.SIDE_DISASTER: false}
+var custom_decks := {} # side -> valid custom deck. A Standard side is not in here.
+var automated_deck := "" # "standard" or "custom" for test fixtures, never set by gameplay.
 
 ## Player 1 wins the toss when the call matches the result.
 static func resolve_winner(called: int, result: int) -> int:
@@ -86,7 +97,60 @@ func clear_prematch() -> void:
 	coin_winner = 0
 	player1_side = ""
 	player2_side = ""
+	# The deck step ends too. The bumped serial stops wait_for_decks on its next frame.
+	_reset_decks()
+	deck_step_active = false
 	if was_waiting: side_chosen.emit("")
+
+func _reset_decks() -> void:
+	deck_ready[VersusDecks.SIDE_PREP] = false
+	deck_ready[VersusDecks.SIDE_DISASTER] = false
+	custom_decks.clear()
+
+## Start the deck step. Both sides are not ready yet.
+func start_deck_step() -> void:
+	_reset_decks()
+	deck_step_active = true
+
+## The re-deal is done. lan_title may seat the client now.
+func end_deck_step() -> void:
+	deck_step_active = false
+
+func decks_are_ready() -> bool:
+	return deck_ready[VersusDecks.SIDE_PREP] and deck_ready[VersusDecks.SIDE_DISASTER]
+
+## An empty deck means Standard. An invalid deck is refused and counts as Standard.
+## A repeated, late or unknown choice is ignored.
+func choose_deck(side: String, deck: Dictionary) -> void:
+	if not deck_step_active or not deck_ready.has(side) or deck_ready[side]: return
+	if not deck.is_empty() and VersusDecks.validate(side, deck).ok:
+		custom_decks[side] = deck.duplicate(true)
+	deck_ready[side] = true
+	if decks_are_ready(): decks_ready.emit()
+
+## Wait in frames until both sides have a deck. Returns false when the wait was cancelled.
+func wait_for_decks() -> bool:
+	var serial := prematch_serial
+	if automated_deck == "standard": choose_deck.call_deferred(player1_side, {})
+	elif automated_deck == "custom":
+		choose_deck.call_deferred(player1_side, VersusDecks.load_custom(player1_side))
+	while not decks_are_ready() and serial == prematch_serial:
+		await get_tree().process_frame
+	return serial == prematch_serial
+
+## The cards of a side's custom deck: {"main", "evolutions", "tactics"}.
+func deck_cards(side: String) -> Dictionary:
+	var deck: Dictionary = custom_decks.get(side, {})
+	var cards := VersusDecks.pool(side)
+	var main_pools: Array = [cards.base]
+	if side == VersusDecks.SIDE_DISASTER: main_pools.append(cards.spells)
+	var tactics: Array[String] = []
+	tactics.assign(deck.get("tactics", []))
+	return {
+		"main": _cards_from_ids(deck.get("main", []), main_pools),
+		"evolutions": _cards_from_ids(deck.get("evolutions", []), [cards.get("evolutions", {})]),
+		"tactics": tactics,
+	}
 
 func setup(owner_director: Node) -> void:
 	director = owner_director

@@ -1359,6 +1359,10 @@ func _resume_versus_coin(serial: int) -> void:
 	if lan_remote_prep or lan_remote_disaster:
 		var host_prep: bool = versus_node.player1_side == "preparedness"
 		set_seats("local" if host_prep else "remote", "remote" if host_prep else "local")
+	# Deck builder Part 2: the LAN host picks Standard or a custom deck. The client plays Standard for now.
+	if versus_node.deck_choice and (lan_remote_prep or lan_remote_disaster):
+		var dealt: bool = await _versus_deck_step(versus_node, serial)
+		if not dealt: return
 	# With no human Disaster there is no cover to close, so show the hand now.
 	# Over LAN there is no cover either. A host that plays the Disaster never sees the hand.
 	if not disaster_is_human or lan_remote_disaster: reveal_versus_hand()
@@ -1371,6 +1375,50 @@ func _resume_versus_coin(serial: int) -> void:
 	run_director.screen = ""
 	_set_phase(Phase.SETUP, "%s takes the first turn" % first_text)
 	_begin_round()
+
+## LAN deck step. Returns false when the match ended or the wait was cancelled.
+func _versus_deck_step(versus_node: Node, serial: int) -> bool:
+	versus_node.start_deck_step()
+	versus_node.choose_deck(versus_node.player2_side, {})
+	presentation.show_deck_choice(versus_node.player1_side, versus_node)
+	var ok: bool = await versus_node.wait_for_decks()
+	if serial != encounter_serial: return false
+	presentation.close_deck_choice()
+	if not ok:
+		reveal_versus_hand()
+		return false
+	# Standard changes nothing. Only a custom deck is dealt again.
+	for side: String in versus_node.custom_decks:
+		var cards: Dictionary = versus_node.deck_cards(side)
+		redeal_versus_side(side, cards.main, cards.evolutions, cards.tactics)
+	versus_node.end_deck_step()
+	return true
+
+## Versus deck step: swap one side's deck and opening hand. Turn, energy, tension and HP stay.
+## The new cards go into a hand that is still hidden. The reveal rules decide who sees it.
+func redeal_versus_side(side: String, main: Array, evolutions: Array, tactics: Array) -> void:
+	if side == "preparedness":
+		# Same as clear_battle: the old hand cards leave the "cards" group and are freed.
+		for card in hand:
+			if not is_instance_valid(card): continue
+			card.remove_from_group("cards")
+			card.queue_free()
+		hand.clear()
+		deck.clear()
+		for definition: Dictionary in main: deck.append(definition.duplicate(true))
+		deck.shuffle()
+		plans.unlocked.assign(tactics)
+		draw_cards(STARTING_HAND)
+	elif side == "disaster":
+		enemy_hand.clear()
+		enemy_deck.clear()
+		enemy_evolution_deck.clear()
+		for definition: Dictionary in main: enemy_deck.append(definition.duplicate(true))
+		for definition: Dictionary in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
+		enemy_deck.shuffle()
+		enemy_evolution_deck.shuffle()
+		enemy_draw_cards(STARTING_HAND)
+		enemy_draw_evolutions(1)
 
 ## Versus coin flip only. Hides the Preparedness hand.
 func hide_versus_hand() -> void:
