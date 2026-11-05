@@ -397,8 +397,9 @@ func _update_disaster_controls() -> void:
 		game.get_node("HUD/Root").add_child(disaster_grave)
 	var local_disaster: bool = game.lan_remote_prep or (not game.lan_remote_disaster and game.disaster_seat_on)
 	var on: bool = local_disaster and not director.modal.visible
-	disaster_plans.text = "Evolution" if game.evolution_choice.enabled() else ""
-	disaster_plans.get_node("HubIcon").visible = not game.evolution_choice.enabled()
+	disaster_plans.text = ""
+	disaster_plans.get_node("HubIcon").visible = true
+	disaster_plans.tooltip_text = "Evolution" if game.evolution_choice.enabled() else ""
 	disaster_plans.get_node("CountLabel").text = (
 		str(game.evolution_choice.held.size()) if game.evolution_choice.enabled() else "")
 	disaster_plans.visible = on

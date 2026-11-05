@@ -101,7 +101,10 @@ func run() -> void:
 	expect(not director.modal.visible and game.enemy_hand.is_empty(), "Pick closes offer and leaves main hand empty")
 	await frames(20)
 	var hud: Node = director.versus_hud
-	expect(hud.disaster_plans.text == "Evolution", "Host placeholder becomes Evolution")
+	expect(hud.disaster_plans.get_node("HubIcon").visible and hud.disaster_plans.text.is_empty()
+		and hud.disaster_plans.tooltip_text == "Evolution"
+		and hud.disaster_plans.get_node("CountLabel").text == str(choice.held.size()),
+		"Host placeholder becomes Evolution")
 	expect(hud.disaster_plans.visible, "Evolution button visible on Disaster host")
 	await capture("evolution-host-button")
 	await click(hud.disaster_plans)
