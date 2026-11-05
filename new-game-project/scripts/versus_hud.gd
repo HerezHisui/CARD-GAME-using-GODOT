@@ -374,6 +374,10 @@ func _stop_pulse() -> void:
 	pulse_tween = null
 	if is_instance_valid(game) and is_instance_valid(game._end_turn_btn): game._end_turn_btn.self_modulate = Color.WHITE
 
+func _open_disaster_plans() -> void:
+	if game.evolution_choice.enabled(): game.evolution_choice.show_held()
+	else: show_note("Coming later", "Disaster plans are coming later.")
+
 func _update_disaster_controls() -> void:
 	if not VersusMatch.SIDE_BY_SIDE_HUD: return
 	if not is_instance_valid(disaster_plans):
@@ -385,7 +389,7 @@ func _update_disaster_controls() -> void:
 		icon.modulate = UI.GOLD
 		disaster_plans.text = ""
 		disaster_plans.get_node("CountLabel").text = ""
-		disaster_plans.pressed.connect(show_note.bind("Coming later", "Disaster plans are coming later."))
+		disaster_plans.pressed.connect(_open_disaster_plans)
 		game.get_node("HUD/Root").add_child(disaster_plans)
 		disaster_grave = director.graveyard_button.duplicate(0)
 		disaster_grave.name = "DisasterGraveyardButton"
@@ -393,6 +397,10 @@ func _update_disaster_controls() -> void:
 		game.get_node("HUD/Root").add_child(disaster_grave)
 	var local_disaster: bool = game.lan_remote_prep or (not game.lan_remote_disaster and game.disaster_seat_on)
 	var on: bool = local_disaster and not director.modal.visible
+	disaster_plans.text = "Evolution" if game.evolution_choice.enabled() else ""
+	disaster_plans.get_node("HubIcon").visible = not game.evolution_choice.enabled()
+	disaster_plans.get_node("CountLabel").text = (
+		str(game.evolution_choice.held.size()) if game.evolution_choice.enabled() else "")
 	disaster_plans.visible = on
 	disaster_grave.visible = on and not game.presentation.blocking
 	if not local_disaster: return

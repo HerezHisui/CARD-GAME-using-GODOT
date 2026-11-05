@@ -82,6 +82,9 @@ func _capture_zones(state: RefCounted, game: Node) -> void:
 	state.zones.disaster.hand = _pile(state, game.enemy_hand)
 	state.zones.disaster.draw = _pile(state, game.enemy_deck)
 	state.zones.disaster.evolution = _pile(state, game.enemy_evolution_deck)
+	if game.evolution_choice.enabled():
+		state.zones.disaster.held_evolutions = _pile(state, game.evolution_choice.definitions())
+		state.zones.disaster.evolution_offer = game.evolution_choice.offer.duplicate(true)
 
 func _capture_progress(state: RefCounted, game: Node) -> void:
 	state.round_number = game.turn

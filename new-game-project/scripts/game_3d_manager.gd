@@ -19,6 +19,8 @@ var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
+var evolution_draw_choice_override := false
+var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}
 # Versus Disaster actions. They check every action in one place.
@@ -204,6 +206,7 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	evolution_choice.reset()
 	encounter_serial += 1
 	versus_master = {"preparedness": [], "disaster": []}
 	# Free a human Disaster turn that is waiting for End.
@@ -579,6 +582,9 @@ func enemy_draw_cards(count: int) -> void:
 	update_deck_label()
 
 func enemy_draw_evolutions(count: int) -> void:
+	if evolution_choice.enabled():
+		for i in count: evolution_choice.draw()
+		return
 	for i in range(count):
 		if enemy_hand.size() >= 5 or enemy_evolution_deck.is_empty() or enemy_hand.filter(func(card): return int(card.get("cost", 0)) > 0).size() >= 2: break
 		enemy_hand.append(enemy_evolution_deck.pop_back())
@@ -1049,6 +1055,7 @@ func arrange_hand_centered() -> void:
 ##   -> combat (first side attacks first, then the other side) -> next round,
 ##   and the side that goes first swaps every round.
 func can_player_act() -> bool:
+	if evolution_choice.pending(): return false
 	# LAN: a remote Preparedness player acts through preparedness_actions, never through this screen.
 	if seat_prep != "local": return false
 	return phase == Phase.PLAYER_PLAY and board_input.action.is_empty() and (not run_director or not run_director.modal.visible)
@@ -1148,15 +1155,17 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		match effect:
 			"tutor": choices = deck.filter(func(c): return not is_sealed(c))
 			"recover": choices = recoverable_units()
-			"seal": choices = seal_targets()
-			"tax": choices = enemy_hand
+			"seal": choices = seal_targets() + held_evolution_targets()
+			"tax": choices = enemy_hand + held_evolution_targets()
 			"rally", "cleanse": choices = _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if choices.is_empty(): return false
 		pending_utility = card
 		pending_effect = effect
 		if card.get_parent() != hand_container: card.reparent(hand_container, true)
 		arrange_hand_centered()
-		if effect == "seal":
+		if effect == "seal" and evolution_choice.enabled():
+			run_director.choose_evolution_targets(choices, complete_utility_choice, cancel_utility_choice)
+		elif effect == "seal":
 			board_input.pick("Choose a Disaster on the field. Seal " + ("this round." if player_first else "next round."),
 				choices, complete_utility_choice, cancel_utility_choice)
 		elif effect in ["rally", "cleanse"]:
@@ -1204,10 +1213,10 @@ func complete_utility_choice(target: Variant) -> void:
 	if pending_effect == "recover" and (not recoverable_units().has(target) or get_hand_cards().size() > HAND_SIZE_MAX):
 		cancel_utility_choice()
 		return
-	if pending_effect == "seal" and target not in seal_targets():
+	if pending_effect == "seal" and target not in seal_targets() + held_evolution_targets():
 		cancel_utility_choice()
 		return
-	if pending_effect == "tax" and target not in enemy_hand:
+	if pending_effect == "tax" and target not in enemy_hand + held_evolution_targets():
 		cancel_utility_choice()
 		return
 	var power := int(pending_utility.card_data.get("utility_power", 0))
@@ -1215,9 +1224,14 @@ func complete_utility_choice(target: Variant) -> void:
 		"tutor":
 			deck.erase(target)
 		"recover": player_graveyard.erase(target)
-		"seal": seal_field_card(target)
+		"seal":
+			if target is Dictionary:
+				evolution_choice.definition(str(target.id)).locked_until = turn + 2
+			else: seal_field_card(target)
 		"tax":
-			for i in range(1 + power): increase_cost(target)
+			var value: Dictionary = (evolution_choice.definition(str(target.id))
+				if target is Dictionary and target.get("zone", "") == "held_evolutions" else target)
+			for i in range(1 + power): increase_cost(value)
 		"rally": target.add_status("strength", 2 + power)
 		"cleanse":
 			target.cleanse()
@@ -1239,6 +1253,10 @@ func cancel_utility_choice() -> void:
 	run_director.action_cancel = Callable()
 	run_director.close_modal()
 	arrange_hand_centered()
+
+func held_evolution_targets() -> Array:
+	if not evolution_choice.enabled(): return []
+	return evolution_choice.held.map(func(entry): return {"zone": "held_evolutions", "id": entry.id})
 
 func increase_cost(definition: Dictionary) -> void:
 	var key := "cost" if definition.get("type", "response") == "response" or int(definition.get("cost", 0)) > 0 else "tension_cost"
@@ -1305,7 +1323,9 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	phase = p
 	if p == Phase.GAME_OVER and is_instance_valid(opponent_hand): opponent_hand.cancel_action()
 	# Free a human Disaster turn that is waiting for End.
-	if p == Phase.GAME_OVER: disaster_actions.turn_ended.emit()
+	if p == Phase.GAME_OVER:
+		evolution_choice.reset()
+		disaster_actions.turn_ended.emit()
 	# The TURN N banner replaces the side banner at round start.
 	var round_banner: bool = is_instance_valid(turn_banner) and turn_banner.is_playing()
 	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking \
@@ -1416,6 +1436,7 @@ func _resume_versus_coin(serial: int) -> void:
 		versus_node.coin_winner, side.capitalize()])
 	run_director.screen = ""
 	_set_phase(Phase.SETUP, "%s takes the first turn" % first_text)
+	if evolution_choice.enabled() and not await evolution_choice.resolve(): return
 	_begin_round()
 
 ## LAN deck step. Returns false when the match ended or the wait was cancelled.
@@ -1454,6 +1475,7 @@ func redeal_versus_side(side: String, main: Array, evolutions: Array, tactics: A
 		plans.unlocked.assign(tactics)
 		draw_cards(STARTING_HAND)
 	elif side == "disaster":
+		if evolution_choice.enabled(): evolution_choice.reset()
 		enemy_hand.clear()
 		enemy_deck.clear()
 		enemy_evolution_deck.clear()
@@ -1496,7 +1518,9 @@ func _begin_round() -> void:
 	continue_round()
 
 func continue_round() -> void:
-	for definition in deck + enemy_deck + enemy_hand + enemy_evolution_deck: expire_tax(definition)
+	var expiring: Array = deck + enemy_deck + enemy_hand + enemy_evolution_deck
+	if evolution_choice.enabled(): expiring += evolution_choice.definitions()
+	for definition in expiring: expire_tax(definition)
 	for card in get_tree().get_nodes_in_group("cards"):
 		expire_tax(card.card_data)
 		if int(card.card_data.get("seal_round", turn)) < turn: card.card_data.erase("seal_round")
@@ -1552,6 +1576,7 @@ func _begin_player_turn() -> void:
 		_set_phase(Phase.PLAYER_DRAW, "Your turn - draw a card from the deck")
 
 func _on_draw_button_pressed() -> void:
+	if evolution_choice.pending(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW or get_hand_cards().size() >= HAND_SIZE_MAX: return
 	var choices := deck.filter(func(card): return not is_sealed(card))
@@ -1564,6 +1589,7 @@ func _on_draw_button_pressed() -> void:
 	complete_draw_choice(choices.pick_random())
 
 func complete_draw_choice(definition: Dictionary) -> void:
+	if evolution_choice.pending(): return
 	if phase != Phase.PLAYER_DRAW: return
 	if definition not in deck or is_sealed(definition): return
 	if get_hand_cards().size() >= HAND_SIZE_MAX: return
@@ -1584,6 +1610,7 @@ func _on_end_turn_pressed() -> void:
 
 ## Ends the Preparedness turn and plays the rest of the round. Button, Space and preparedness_actions call it.
 func end_prep_turn() -> void:
+	if evolution_choice.pending(): return
 	if not board_input.action.is_empty(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW and phase != Phase.PLAYER_PLAY:
@@ -1675,6 +1702,7 @@ func _enemy_turn() -> void:
 		var serial := encounter_serial
 		disaster_actions.begin_turn()
 		disaster_waiting = true
+		if evolution_choice.enabled() and not await evolution_choice.resolve(): return
 		await disaster_actions.turn_ended
 		disaster_waiting = false
 		# The battle ended or was cleared while waiting: skip the closing lines.

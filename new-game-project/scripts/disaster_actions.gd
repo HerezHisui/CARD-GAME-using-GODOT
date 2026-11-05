@@ -26,10 +26,14 @@ func actions_left() -> int:
 	return maxi(0, action_limit - actions_used)
 
 ## Checks shared by every action. Returns the reason, or "" when the action may go ahead.
-func _common_problem(definition: Dictionary) -> String:
+func _common_problem(definition: Dictionary, held_id: String = "") -> String:
+	if game.evolution_choice.pending(): return "busy"
 	if game.phase != game.Phase.ENEMY: return "not_disaster_turn"
 	if busy: return "busy"
-	if definition not in game.enemy_hand: return "not_in_hand"
+	if held_id.is_empty():
+		if definition not in game.enemy_hand: return "not_in_hand"
+	elif not game.evolution_choice.enabled() or game.evolution_choice.id_for(definition) != held_id:
+		return "not_in_hand"
 	if game.is_sealed(definition): return "sealed"
 	if actions_used >= action_limit: return "action_limit"
 	if game.tension <= 0: return "no_tension"
@@ -45,15 +49,16 @@ func play_base(definition: Dictionary, slot: Node3D) -> Dictionary:
 	return _finish(done)
 
 ## Sacrifice threats and put an evolution in one of their lanes.
-func evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) -> Dictionary:
-	var problem := _common_problem(definition)
+func evolve(definition: Dictionary, sacrifices: Array, slot: Node3D, held_id: String = "") -> Dictionary:
+	var problem := _common_problem(definition, held_id)
 	if problem.is_empty():
 		var cost := int(definition.get("cost", 0))
 		if definition.get("utility", false) or cost < 1: problem = "not_evolution"
 		elif sacrifices.size() != cost: problem = "bad_sacrifice"
 		else: problem = _sacrifice_problem(sacrifices, slot)
 	if not problem.is_empty(): return _result(false, problem)
-	game.enemy_hand.erase(definition)
+	if held_id.is_empty(): game.enemy_hand.erase(definition)
+	else: game.evolution_choice.consume(held_id)
 	busy = true
 	var done: bool = await game.disaster_evolve(definition, sacrifices, slot)
 	return _finish(done)
@@ -105,7 +110,8 @@ func _cast_problem(definition: Dictionary, target) -> String:
 
 ## The reason this card cannot be used at all right now, or "". Used to dim hand rows.
 func card_problem(definition: Dictionary) -> String:
-	var problem := _common_problem(definition)
+	var held_id: String = game.evolution_choice.id_for(definition) if game.evolution_choice.enabled() else ""
+	var problem := _common_problem(definition, held_id)
 	if problem.is_empty() and int(definition.get("tension_cost", 1)) > game.tension: problem = "no_tension"
 	return problem
 
@@ -143,6 +149,7 @@ func can_use(definition: Dictionary) -> bool:
 
 ## Stop the Disaster turn. The turn code waits for turn_ended when a human plays.
 func end_turn() -> Dictionary:
+	if game.evolution_choice.pending(): return _result(false, "busy")
 	if game.phase != game.Phase.ENEMY: return _result(false, "not_disaster_turn")
 	if busy: return _result(false, "busy")
 	turn_ended.emit()

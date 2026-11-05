@@ -49,7 +49,11 @@ const CatalogInspectionScene = preload("res://scenes/ui/ui_catalog_inspection.ts
 const InspectScene = preload("res://scenes/ui/ui_inspect.tscn")
 static var start_after_reload := false
 static var last_character := 0
-const DECISIONS := ["coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff", "intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove", "remove_confirm", "contingency_reward"]
+const DECISIONS := [
+	"coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff",
+	"intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove",
+	"remove_confirm", "contingency_reward", "evolution_offer",
+]
 const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
 const CHARACTERS := [
@@ -477,6 +481,7 @@ func show_privacy_cover(line: String) -> void:
 func _hide_privacy_screen() -> void:
 	privacy_screen.visible = false
 	# Versus coin flip: the first player's Ready shows the hand. The toss cover does not.
+	if game.evolution_choice.pending(): return
 	if game.versus_hand_hidden and not _privacy_holder().is_empty(): game.reveal_versus_hand()
 
 ## Plain words for the reasons disaster_actions can give.
@@ -757,6 +762,10 @@ func status_text() -> String:
 		counts.evac, counts.douse, counts.clearance, counts.brace, utilities]
 
 func _input(event: InputEvent) -> void:
+	if game.evolution_choice.pending() and not privacy_screen.visible:
+		if event is InputEventKey:
+			get_viewport().set_input_as_handled()
+		return
 	# While the privacy screen is up only Enter and Space close it. Every other key, Esc included, is swallowed.
 	if privacy_screen.visible:
 		if event is InputEventKey:
@@ -2303,7 +2312,23 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 		_card_tile(definition, row, callback.bind(entry), "Choose")
 	hook_button(content.get_node("CancelButton"), cancel)
 
+func choose_evolution_targets(cards: Array, callback: Callable, cancel: Callable) -> void:
+	card_picker = true
+	reset_panel("CHOOSE A DISASTER TARGET", "Held evolution faces remain hidden.", "choice")
+	action_cancel = cancel
+	for i in cards.size():
+		var entry: Variant = cards[i]
+		var text: String
+		if entry is Node: text = str(entry.card_data.name)
+		elif entry.get("zone", "") == "held_evolutions": text = "Held evolution %d" % (i + 1)
+		else: text = str(entry.name) if intel_revealed else "Hand card %d" % (i + 1)
+		button(text, callback.bind(entry), content)
+	button("Cancel", cancel, content)
+
 func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> void:
+	if game.evolution_choice.enabled():
+		choose_evolution_targets(cards, callback, cancel)
+		return
 	if intel_revealed:
 		choose_card("CHOOSE AN ENEMY HAND CARD", cards, callback, cancel)
 		return

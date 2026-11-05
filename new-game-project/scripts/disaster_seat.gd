@@ -101,6 +101,9 @@ func _clear_all() -> void:
 ## One Card3D per entry in enemy_hand. Cards that left the hand are freed, new ones are added.
 func _sync_hand() -> void:
 	var pool: Array = game.enemy_hand.duplicate()
+	if game.evolution_choice.enabled():
+		var preview: Dictionary = game.evolution_choice.definition(game.evolution_choice.preview_id)
+		if not preview.is_empty(): pool.append(preview)
 	var changed := false
 	# The card being played goes last, so it is the one that is freed when it has left the hand.
 	var order: Array = cards.filter(func(c): return c != playing_card)
@@ -289,6 +292,9 @@ func _cancel() -> void:
 	dragging = false
 	selected = null
 	_arrange()
+	if game.evolution_choice.enabled() and not game.evolution_choice.preview_id.is_empty():
+		game.evolution_choice.preview_id = ""
+		game.evolution_choice.show_held()
 
 ## A press that stays still opens the card inspection, like holding a Response card does.
 func _check_hold() -> void:
@@ -393,7 +399,8 @@ func _evolve(card: Node3D, definition: Dictionary, sacrifices: Array, slot: Node
 	playing_card = card
 	card.visible = false
 	var serial: int = game.encounter_serial
-	var result: Dictionary = await game.disaster_actions.evolve(definition, sacrifices, slot)
+	var source: String = game.evolution_choice.id_for(definition) if game.evolution_choice.enabled() else ""
+	var result: Dictionary = await game.disaster_actions.evolve(definition, sacrifices, slot, source)
 	playing = false
 	playing_card = null
 	if serial != game.encounter_serial or result.ok or not is_instance_valid(card): return
