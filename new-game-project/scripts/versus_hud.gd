@@ -7,6 +7,11 @@ extends Node
 
 const UI = preload("res://scripts/ui_theme.gd")
 const ENABLED := true
+const VersusMatch = preload("res://scripts/versus_match.gd")
+const HEALTH_TOP := 66.0
+const HEALTH_HEIGHT := 60.0
+const HEALTH_WIDTH := 300.0
+const HUD_MARGIN := 16.0
 const OUT_OF_TENSION := "Out of Tension. End your turn."
 const NOTE_SECONDS := 2.4
 
@@ -30,6 +35,9 @@ var pulse_tween: Tween
 var last_side := ""
 var drawn := {} # the numbers each pip row was last drawn with
 var saved_fills := {} # HP bar fills put back when the match ends
+var disaster_plans: Button
+var disaster_grave: Button
+var saved_health := {}
 var saved_grave := [] # Graveyard button offsets put back when the match ends
 
 func setup(owner_director: Node) -> void:
@@ -212,12 +220,15 @@ func _set_active(on: bool) -> void:
 	if is_instance_valid(turn_plate): turn_plate.visible = on
 	if is_instance_valid(energy_plate): energy_plate.visible = on
 	if is_instance_valid(tension_plate): tension_plate.visible = on
+	if is_instance_valid(disaster_plans): disaster_plans.visible = false
+	if is_instance_valid(disaster_grave): disaster_grave.visible = false
 	_style_hp_fills(on)
 	_move_graveyard(on)
 	if on:
 		last_side = ""
 		drawn.clear()
 	else:
+		_restore_health()
 		_stop_pulse()
 		director.prep.get_parent().modulate.a = 1.0
 		director.threat.get_parent().modulate.a = 1.0
@@ -253,7 +264,39 @@ func _style_hp_fills(on: bool) -> void:
 		bar.add_theme_stylebox_override("fill", saved_fills["fill"])
 		saved_fills.erase("fill")
 
+static func health_rect(view_width: float, on_left: bool) -> Rect2:
+	var width := minf(HEALTH_WIDTH, (view_width - HUD_MARGIN * 3.0) / 2.0)
+	var x := HUD_MARGIN if on_left else view_width - HUD_MARGIN - width
+	return Rect2(x, HEALTH_TOP, width, HEALTH_HEIGHT)
+
+func _layout_health() -> void:
+	if not VersusMatch.SIDE_BY_SIDE_HUD: return
+	var disaster_left: bool = game.lan_remote_prep or (not game.lan_remote_disaster and game.disaster_seat_on)
+	var width := get_viewport().get_visible_rect().size.x
+	for health: Control in [game._player_hp_ui, game._enemy_hp_ui]:
+		if not saved_health.has(health):
+			saved_health[health] = [health.offset_left, health.offset_top, health.offset_right, health.offset_bottom]
+		var on_left: bool = (health == game._player_hp_ui) != disaster_left
+		var rect := health_rect(width, on_left)
+		health.size = rect.size
+		health.global_position = rect.position
+	# Preserve the hidden Janitor in the Disaster seat camera.
+	game.opponent_hand.visible = not director.modal.visible and not game.disaster_seat_on
+	game.opponent_hand.character.holding.visible = not game.disaster_seat_on
+
+func _restore_health() -> void:
+	for health: Control in saved_health:
+		var offsets: Array = saved_health[health]
+		health.offset_left = offsets[0]
+		health.offset_top = offsets[1]
+		health.offset_right = offsets[2]
+		health.offset_bottom = offsets[3]
+	saved_health.clear()
+	game.opponent_hand.character.holding.visible = true
+
 func _refresh() -> void:
+	_layout_health()
+	_update_disaster_controls()
 	# The singleplayer gauges are replaced by the pips. They stay in the tree, only clear,
 	# so the code that shows and hides them is untouched.
 	director.prep.get_parent().modulate.a = 0.0
@@ -330,3 +373,35 @@ func _stop_pulse() -> void:
 	if pulse_tween: pulse_tween.kill()
 	pulse_tween = null
 	if is_instance_valid(game) and is_instance_valid(game._end_turn_btn): game._end_turn_btn.self_modulate = Color.WHITE
+
+func _update_disaster_controls() -> void:
+	if not VersusMatch.SIDE_BY_SIDE_HUD: return
+	if not is_instance_valid(disaster_plans):
+		disaster_plans = director.plans_button.duplicate(0)
+		disaster_plans.name = "DisasterPlansButton"
+		disaster_plans.icon = null
+		var icon: TextureRect = disaster_plans.get_node("HubIcon")
+		icon.texture = load("res://assets/ui/contingency_disaster.svg")
+		icon.modulate = UI.GOLD
+		disaster_plans.text = ""
+		disaster_plans.get_node("CountLabel").text = ""
+		disaster_plans.pressed.connect(show_note.bind("Coming later", "Disaster plans are coming later."))
+		game.get_node("HUD/Root").add_child(disaster_plans)
+		disaster_grave = director.graveyard_button.duplicate(0)
+		disaster_grave.name = "DisasterGraveyardButton"
+		disaster_grave.pressed.connect(director.show_graveyard.bind("disaster"))
+		game.get_node("HUD/Root").add_child(disaster_grave)
+	var local_disaster: bool = game.lan_remote_prep or (not game.lan_remote_disaster and game.disaster_seat_on)
+	var on: bool = local_disaster and not director.modal.visible
+	disaster_plans.visible = on
+	disaster_grave.visible = on and not game.presentation.blocking
+	if not local_disaster: return
+	director.plans_button.visible = false
+	director.graveyard_button.visible = false
+	disaster_plans.disabled = director._dragging() or not game.board_input.action.is_empty()
+	disaster_grave.disabled = disaster_plans.disabled
+	disaster_plans.size = director.plans_button.size
+	disaster_plans.global_position = director.plans_button.global_position
+	disaster_grave.size = director.graveyard_button.size
+	disaster_grave.global_position = director.graveyard_button.global_position
+	disaster_grave.get_node("CountLabel").text = str(game.disaster_graveyard.size())

@@ -6,6 +6,9 @@ extends Node
 ## outside the "cards" group, so no host rule and no game script can touch them.
 
 const UI = preload("res://scripts/ui_theme.gd")
+const VersusMatch = preload("res://scripts/versus_match.gd")
+const VersusHud = preload("res://scripts/versus_hud.gd")
+const Janitor = preload("res://scripts/janitor_character.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
 
 # DESK_VIEW seen from the far side of the table, the Disaster seat.
@@ -44,6 +47,13 @@ var mouse := Vector2.ZERO
 var lane_material: StandardMaterial3D
 var saved := {"hud": true, "slots": [], "hand": true, "game": false}
 
+var disaster_plans: Button
+var disaster_grave: Button
+var grave_note: PanelContainer
+var janitor: Node3D
+var foe_resource: PanelContainer
+var foe_resource_label: Label
+var foe_pips: Control
 var hud: Control
 var foe_plate: Dictionary
 var me_plate: Dictionary
@@ -87,6 +97,7 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 
 
 func _exit_tree() -> void:
+	if is_instance_valid(janitor): janitor.queue_free()
 	if is_instance_valid(hand_root):
 		hand_root.queue_free()
 	if is_instance_valid(foe_root):
@@ -139,8 +150,16 @@ func _reveal() -> void:
 		saved.slots.append(slot.visible)
 	if game.camera_tween:
 		game.camera_tween.kill()
-	game._apply_view(SEAT_VIEW if flipped else game.view_settings(game.view_mode))
+	var camera_view: Dictionary = SEAT_VIEW if flipped else game.view_settings(game.view_mode)
+	if VersusMatch.SIDE_BY_SIDE_CAMERA: camera_view = VersusMatch.seat_camera(flipped)
+	game._apply_view(camera_view)
 	hud.visible = true
+	if VersusMatch.SIDE_BY_SIDE_HUD:
+		janitor = Janitor.new()
+		game.add_child(janitor)
+		janitor.transform = game.opponent_hand.character.global_transform
+		janitor.set_fixed_pose(true)
+		janitor.set_encounter(true)
 
 
 func _on_event(kind: String, data: Dictionary) -> void:
@@ -226,7 +245,9 @@ func _land(card: Node3D, slot: Node3D) -> void:
 	card.set_layer(0)
 	var rest := slot.global_position + Vector3(0, 0.008, 0)
 	card.scale = Vector3.ONE * game.BOARD_SCALE
-	card.rotation = Vector3(0, PI if flipped else 0.0, 0)
+	var yaw := PI if flipped else 0.0
+	if VersusMatch.SIDE_BY_SIDE_CAMERA: yaw = VersusMatch.lane_yaw(flipped)
+	card.rotation = Vector3(0, yaw, 0)
 	card.global_position = rest + Vector3(0, 1.0, 0)
 	var tween := card.create_tween()
 	tween.tween_property(card, "global_position", rest, 0.28).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
@@ -288,27 +309,17 @@ func _arrange_hand() -> void:
 		card.art_sprite.modulate = Color.WHITE if usable or not _my_turn() else Color(0.55, 0.55, 0.6)
 		if i == held and dragging:
 			continue
+		var smooth: bool = VersusMatch.SIDE_BY_SIDE_HUD and side == "disaster"
 		if i == hovered or i == selected:
-			card.move_in_hand(pos + card.HOVER_LIFT, game.UPRIGHT, 100)
+			card.move_in_hand(pos + card.HOVER_LIFT, game.UPRIGHT, 100, 0.14 if smooth else 0.25)
 		else:
-			card.move_in_hand(pos, card_basis, i)
+			card.move_in_hand(pos, card_basis, i, 0.15 if smooth else 0.25)
 
 
-## The other player's hand: face-down cards along the top edge.
+## Opponent cards stay private; the enemy plate shows hand and deck counts instead.
 func _sync_foe() -> void:
-	var counts: Dictionary = view.get("counts", {})
-	var want := mini(int(counts.get("response_hand" if side == "disaster" else "disaster_hand", 0)), FOE_HAND_MAX)
-	while foe_cards.size() > want:
-		foe_cards.pop_back().queue_free()
-	while foe_cards.size() < want:
-		foe_cards.append(_make_card(BACK_CARD, foe_root))
-	for i in foe_cards.size():
-		var n := i - (foe_cards.size() - 1) / 2.0
-		var card := foe_cards[i]
-		card.set_layer(i)
-		card.position = Vector3(n * 0.42, 1.52 + n * n * 0.01, -game.HAND_DIST)
-		card.transform.basis = (Basis(Vector3.BACK, deg_to_rad(n * 2.5)) * Basis(Vector3.UP, PI)
-			* game.UPRIGHT).scaled(Vector3.ONE * game.HAND_SCALE * 0.7)
+	for card in foe_cards: card.queue_free()
+	foe_cards.clear()
 
 
 # ------------------------------------------------------------------- hints
@@ -424,6 +435,7 @@ func _process(delta: float) -> void:
 		return
 	# The director hides the game every frame outside a battle. This runs after it, because it is a child.
 	game.visible = true
+	_layout_hud()
 	if dragging and held >= 0 and held < hand_cards.size():
 		_follow_mouse(hand_cards[held], delta)
 	else:
@@ -590,6 +602,13 @@ func _build_hud() -> void:
 	hud.theme = director.root.theme
 	hud.visible = false
 	add_child(hud)
+	if VersusMatch.SIDE_BY_SIDE_HUD:
+		var top := Panel.new()
+		top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		top.offset_bottom = 52.0
+		top.add_theme_stylebox_override("panel", game.get_node("HUD/TopBar").get_theme_stylebox("panel"))
+		hud.add_child(top)
 	foe_plate = _hp_plate(UI.CRIMSON)
 	me_plate = _hp_plate(UI.ACTION)
 	_place(foe_plate.box, Control.PRESET_TOP_LEFT, Vector2(16, 12))
@@ -624,6 +643,21 @@ func _build_hud() -> void:
 	pips.custom_minimum_size = Vector2(150, 24)
 	pips.draw.connect(_draw_pips)
 	resource_row.add_child(pips)
+	if VersusMatch.SIDE_BY_SIDE_HUD:
+		foe_resource = PanelContainer.new()
+		foe_resource.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		foe_resource.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
+		hud.add_child(foe_resource)
+		var row_foe := HBoxContainer.new()
+		row_foe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_foe.add_theme_constant_override("separation", 10)
+		foe_resource.add_child(row_foe)
+		foe_resource_label = _label(row_foe, 18, UI.TEXT)
+		foe_pips = Control.new()
+		foe_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		foe_pips.custom_minimum_size = Vector2(150, 24)
+		foe_pips.draw.connect(_draw_foe_pips)
+		row_foe.add_child(foe_pips)
 	# End turn, bottom right. The tactic list sits above it for a Preparedness player.
 	end_button = director.button("END TURN", click_end, hud)
 	end_button.name = "EndTurnButton"
@@ -636,6 +670,7 @@ func _build_hud() -> void:
 	_place(tactic_box, Control.PRESET_CENTER_RIGHT, Vector2(-206, -60))
 	_build_note()
 	_build_over()
+	_build_disaster_controls()
 
 
 func _place(control: Control, preset: int, offset: Vector2) -> void:
@@ -782,6 +817,18 @@ func _refresh_hud() -> void:
 		pips_value = int(sides.disaster.resource)
 		pips_cap = int(sides.disaster.resource_cap)
 	pips.queue_redraw()
+	if VersusMatch.SIDE_BY_SIDE_HUD:
+		foe_resource_label.text = "TENSION" if side == "preparedness" else "ENERGY"
+		foe_pips.queue_redraw()
+		foe_plate.title.add_theme_font_size_override("font_size", 14)
+		foe_plate.title.text += "   Hand %d   Deck %d" % [foe_hand, foe_deck]
+		foe_plate.box.tooltip_text = foe_plate.small.text
+		me_plate.box.tooltip_text = me_plate.small.text
+		me_plate.small.visible = false
+		foe_plate.small.visible = false
+		_layout_hud()
+	if is_instance_valid(disaster_grave):
+		disaster_grave.get_node("CountLabel").text = str(counts.get("disaster_graveyard", 0))
 	_fill_tactics()
 
 
@@ -809,27 +856,102 @@ func _fill_tactics() -> void:
 ## One pip per point of the cap. Full = crimson with a gold rim, spent = dark. Energy pips are squares,
 ## Tension pips are diamonds.
 func _draw_pips() -> void:
-	if pips_cap <= 0:
+	_draw_resource(pips, pips_cap, pips_value, side == "preparedness")
+
+func _draw_foe_pips() -> void:
+	if view.is_empty(): return
+	var foe: Dictionary = view.sides.disaster if side == "preparedness" else view.sides.response
+	_draw_resource(foe_pips, int(foe.resource_cap), int(foe.resource), side != "preparedness")
+
+func _draw_resource(target: Control, cap: int, value: int, energy: bool) -> void:
+	if cap <= 0:
 		return
 	var gap := 6.0
-	var size := clampf((pips.size.x - gap * (pips_cap - 1)) / pips_cap, 10.0, 22.0)
-	var top := (pips.size.y - size) / 2.0
-	for index in pips_cap:
+	var size := clampf((target.size.x - gap * (cap - 1)) / cap, 10.0, 22.0)
+	var top := (target.size.y - size) / 2.0
+	for index in cap:
 		var spot := Vector2(index * (size + gap), top)
-		var lit := index < pips_value
+		var lit := index < value
 		var fill: Color = UI.ACTION if lit else UI.INSET
 		var rim: Color = UI.GOLD if lit else UI.MUTED.darkened(0.35)
-		if side == "preparedness":
+		if energy:
 			var box := StyleBoxFlat.new()
 			box.bg_color = fill
 			box.border_color = rim
 			box.set_border_width_all(2)
-			pips.draw_style_box(box, Rect2(spot, Vector2(size, size)))
+			target.draw_style_box(box, Rect2(spot, Vector2(size, size)))
 		else:
 			var middle := spot + Vector2(size, size) / 2.0
 			var half := size / 2.0 + 2.0
 			var shape := PackedVector2Array([middle + Vector2(0, -half), middle + Vector2(half, 0),
 				middle + Vector2(0, half), middle + Vector2(-half, 0)])
-			pips.draw_colored_polygon(shape, fill)
+			target.draw_colored_polygon(shape, fill)
 			shape.append(shape[0])
-			pips.draw_polyline(shape, rim, 2.0)
+			target.draw_polyline(shape, rim, 2.0)
+
+
+func _layout_hud() -> void:
+	if not VersusMatch.SIDE_BY_SIDE_HUD or not is_instance_valid(foe_resource): return
+	var width := get_viewport().get_visible_rect().size.x
+	for mine: bool in [true, false]:
+		var plate: Control = me_plate.box if mine else foe_plate.box
+		var resource: Control = resource_plate if mine else foe_resource
+		var rect := VersusHud.health_rect(width, mine)
+		plate.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		plate.custom_minimum_size = rect.size
+		plate.size = rect.size
+		plate.position = rect.position
+		resource.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		resource.custom_minimum_size = Vector2(rect.size.x, 32)
+		resource.size = resource.custom_minimum_size
+		resource.position = rect.position + Vector2(0, rect.size.y + 6)
+
+
+func _build_disaster_controls() -> void:
+	if not VersusMatch.SIDE_BY_SIDE_HUD or side != "disaster": return
+	disaster_plans = director.plans_button.duplicate(0)
+	disaster_plans.name = "DisasterPlansButton"
+	disaster_plans.icon = null
+	var icon: TextureRect = disaster_plans.get_node("HubIcon")
+	icon.texture = load("res://assets/ui/contingency_disaster.svg")
+	icon.modulate = UI.GOLD
+	disaster_plans.text = ""
+	disaster_plans.get_node("CountLabel").text = ""
+	disaster_plans.disabled = false
+	disaster_plans.visible = true
+	hud.add_child(disaster_plans)
+	disaster_plans.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	disaster_plans.position = Vector2(hud.size.x - 116, hud.size.y - 72)
+	disaster_plans.size = Vector2(100, 56)
+	disaster_plans.pressed.connect(show_note.bind("Coming later", "Disaster plans are coming later."))
+	disaster_grave = director.graveyard_button.duplicate(0)
+	disaster_grave.name = "DisasterGraveyardButton"
+	disaster_grave.visible = true
+	disaster_grave.disabled = false
+	hud.add_child(disaster_grave)
+	disaster_grave.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	disaster_grave.position = Vector2(16, hud.size.y - 72)
+	disaster_grave.size = Vector2(100, 56)
+	disaster_grave.pressed.connect(show_disaster_graveyard)
+	end_button.custom_minimum_size = Vector2(120, 56)
+	end_button.size = Vector2(120, 56)
+	end_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	end_button.offset_left = -244
+	end_button.offset_right = -124
+	end_button.offset_top = -72
+	end_button.offset_bottom = -16
+
+func show_disaster_graveyard() -> void:
+	if is_instance_valid(grave_note): grave_note.queue_free()
+	grave_note = PanelContainer.new()
+	grave_note.name = "DisasterGraveyardNotice"
+	grave_note.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 16))
+	hud.add_child(grave_note)
+	var box := VBoxContainer.new()
+	grave_note.add_child(box)
+	_label(box, 26, UI.GOLD).text = "DISASTER GRAVEYARD"
+	var count := int(view.get("counts", {}).get("disaster_graveyard", 0))
+	_label(box, 20, UI.TEXT).text = "%d cards. Card list is unavailable on this client." % count
+	director.button("Close", func() -> void: grave_note.queue_free(), box)
+	grave_note.reset_size()
+	grave_note.position = (hud.size - grave_note.size) * 0.5

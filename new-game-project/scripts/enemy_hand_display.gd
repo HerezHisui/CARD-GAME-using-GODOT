@@ -16,6 +16,8 @@ func setup(manager: Node) -> void:
 func refresh() -> void:
 	var count: int = game.enemy_hand.size()
 	var active: bool = is_instance_valid(game.run_director) and game.run_director.battle_active
+	var presentation_on: bool = preload("res://scripts/versus_match.gd").SIDE_BY_SIDE_HUD
+	character.set_fixed_pose(presentation_on and game.encounter_kind == "versus" and active)
 	character.set_encounter(active)
 	# Face-down backs only display count; seals do not change their appearance.
 	if signature < 0: character.hand_count = -1

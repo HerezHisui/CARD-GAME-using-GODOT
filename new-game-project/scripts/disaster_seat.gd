@@ -77,6 +77,7 @@ func _set_active(on: bool) -> void:
 ## Board cards read upside down from the far seat. While the seat is on, every card that has landed on a lane is
 ## turned half a circle, and turned back when the seat closes. A card still moving is left alone.
 func _turn_board_cards(turned: bool) -> void:
+	if game.lan_side_view(): return
 	for card: Node in get_tree().get_nodes_in_group("cards"):
 		if not is_instance_valid(card) or card.in_hand or card.current_slot == null: continue
 		var rest: Vector3 = card.current_slot.global_position + Vector3(0, 0.008, 0)
@@ -149,10 +150,11 @@ func _arrange() -> void:
 		card.set_meta("seat_pos", pos)
 		card.set_meta("seat_basis", card_basis)
 		if card == held and dragging: continue
+		var smooth: bool = preload("res://scripts/versus_match.gd").SIDE_BY_SIDE_HUD
 		if card == hovered or card == selected:
-			card.move_in_hand(pos + card.HOVER_LIFT, game.UPRIGHT, 100)
+			card.move_in_hand(pos + card.HOVER_LIFT, game.UPRIGHT, 100, 0.14 if smooth else 0.25)
 		else:
-			card.move_in_hand(pos, card_basis, i)
+			card.move_in_hand(pos, card_basis, i, 0.15 if smooth else 0.25)
 
 # ------------------------------------------------------------------- hit tests
 ## The screen outline of a card. A raised card uses where it is now, the others where they rest.

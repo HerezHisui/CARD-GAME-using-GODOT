@@ -560,7 +560,7 @@ func set_layer(layer: int) -> void:
 
 # ---------------------------------------------------------------- hand motion
 ## Called by the manager to place the card in the fanned hand (camera-local).
-func move_in_hand(pos: Vector3, basis_target: Basis, layer: int) -> void:
+func move_in_hand(pos: Vector3, basis_target: Basis, layer: int, duration: float = 0.25) -> void:
 	set_meta("hand_pos", pos)
 	set_meta("hand_basis", basis_target)
 	set_meta("hand_layer", layer)
@@ -568,7 +568,7 @@ func move_in_hand(pos: Vector3, basis_target: Basis, layer: int) -> void:
 		_apply_hover()
 	else:
 		set_layer(layer)
-		_tween_local(pos, basis_target, 0.25)
+		_tween_local(pos, basis_target, duration)
 
 func _tween_local(pos: Vector3, b: Basis, dur: float) -> void:
 	if _tween: _tween.kill()

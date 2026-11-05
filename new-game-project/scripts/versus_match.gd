@@ -21,6 +21,21 @@ const DECK_CHOICE_ENABLED := true
 # true = the LAN client plays on the same 3D table as the host (scripts/lan_board_3d.gd).
 # false = the old plain 2D panel alone, exactly as before.
 const LAN_BOARD_3D := true
+# Matching LAN seat cameras, HUD placement and a fixed Janitor pose.
+# false restores the checkpoint presentation in both host and client.
+const SIDE_BY_SIDE_HUD := true
+# Retained experimental lateral table view; false keeps checkpoint seat cameras.
+const SIDE_BY_SIDE_CAMERA := false
+# Both seats share framing; opposite yaw puts the local row on the left.
+const SIDE_CAMERA := {"pos": Vector3(0, -0.8, 0), "rot": Vector3(-55, 90, 0), "dist": 8.0, "fov": 60.0}
+
+static func seat_camera(disaster: bool) -> Dictionary:
+	var view := SIDE_CAMERA.duplicate()
+	view.rot = Vector3(SIDE_CAMERA.rot.x, -90 if disaster else 90, 0)
+	return view
+
+static func lane_yaw(disaster: bool) -> float:
+	return deg_to_rad(seat_camera(disaster).rot.y)
 
 # Sent when the toss winner picks a side. "" means the wait was cancelled.
 signal side_chosen(side: String)

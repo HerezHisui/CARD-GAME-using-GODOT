@@ -4,6 +4,8 @@ const MODEL = preload("res://assets/characters/janitor/janitor_rigged.glb")
 const Cloth = preload("res://scripts/janitor_cloth.gd")
 const DirectingHand = preload("res://scripts/janitor_directing_hand.gd")
 const RELEASE_SECONDS := 0.52
+var fixed_pose := false
+var directing: SkeletonModifier3D
 var skeleton: Skeleton3D
 var animation: AnimationPlayer
 var cloth: SkeletonModifier3D
@@ -33,7 +35,7 @@ func _ready() -> void:
 	back_material.roughness = 0.85
 	# Both sides use only a back texture, including at extreme camera/hand angles.
 	back_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var directing := DirectingHand.new()
+	directing = DirectingHand.new()
 	directing.character = self
 	skeleton.add_child(directing)
 	cloth = Cloth.new()
@@ -55,9 +57,19 @@ func set_encounter(enabled: bool) -> void:
 	if active_encounter == enabled: return
 	active_encounter = enabled
 	visible = enabled
-	cloth.running = enabled
+	cloth.running = enabled and not fixed_pose
 	cancel_action()
 	cloth.reset_simulation()
+
+func set_fixed_pose(enabled: bool) -> void:
+	if fixed_pose == enabled: return
+	fixed_pose = enabled
+	directing.active = not enabled
+	cloth.active = not enabled
+	cloth.running = active_encounter and not enabled
+	cloth.reset_simulation()
+	skeleton.reset_bone_poses()
+	cancel_action()
 
 func set_hand_count(count: int) -> void:
 	if hand_count == count: return
@@ -102,6 +114,10 @@ func make_back() -> MeshInstance3D:
 func play_card(definition: Dictionary, target := Vector3.ZERO) -> void:
 	if not active_encounter: return
 	cancel_action()
+	if fixed_pose:
+		released_origin = holding.global_position
+		released = true
+		return
 	played_id = str(definition.get("id", ""))
 	played_target = target
 	action_time = 0.0
@@ -115,7 +131,7 @@ func play_card(definition: Dictionary, target := Vector3.ZERO) -> void:
 	cloth.disturb()
 
 func warden_pattern() -> void:
-	if not active_encounter: return
+	if not active_encounter or fixed_pose: return
 	cancel_action()
 	action_kind = "warden"
 	action_time = 0.0
@@ -123,6 +139,7 @@ func warden_pattern() -> void:
 	cloth.disturb()
 
 func _process(delta: float) -> void:
+	if fixed_pose: return
 	update_floating_cards()
 	if action_time < 0.0: return
 	action_time += delta
@@ -147,8 +164,10 @@ func cancel_action() -> void:
 	released_origin = Vector3.INF
 	if is_instance_valid(playing): clear_cards(playing)
 	if is_instance_valid(animation):
-		animation.play("idle", 0.1)
+		animation.play("idle", 0.0 if fixed_pose else 0.1)
+		if fixed_pose: animation.seek(0.0, true)
 		animation.advance(0)
+		if fixed_pose: animation.pause()
 
 func clear_cards(anchor: Node) -> void:
 	for card in anchor.get_children():

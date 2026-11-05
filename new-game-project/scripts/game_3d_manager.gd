@@ -42,6 +42,7 @@ var seat_disaster := "local"
 var lan_remote_prep := false
 var disaster_seat: Node
 var hand: Array = []
+var disaster_graveyard: Array[Dictionary] = []
 var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
 var hovered_hand_card: Node
@@ -105,6 +106,8 @@ var player_hp := PLAYER_MAX_HP
 var enemy_hp := ENEMY_MAX_HP
 
 # ---- Camera views (pivot position, pivot rotation in degrees, camera distance)
+var side_camera_on := false
+const SeatPresentation = preload("res://scripts/versus_match.gd")
 const DESK_VIEW := {"pos": Vector3(0, 1.0, -0.4), "rot": Vector3(-30, 0, 0), "dist": 5.3, "fov":60.0}
 const WIDE_VIEW := {"pos": Vector3(-0.8, 2.4, -1.0), "rot": Vector3(-12, -12, 0), "dist":10.0, "fov":68.0}
 const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "dist": 3.8, "fov":56.0}
@@ -221,6 +224,7 @@ func clear_battle(preserve_result: bool = false) -> void:
 	dragged_hand_card = null
 	show_drop_targets(false)
 	if not preserve_result:
+		disaster_graveyard.clear()
 		player_graveyard.clear()
 		graveyard_serial = 0
 	player_buffs.clear()
@@ -605,7 +609,7 @@ func step_view(direction: int) -> void:
 
 func set_view(mode: int) -> void:
 	# The Disaster seat owns the camera until its turn ends.
-	if disaster_seat_on: return
+	if disaster_seat_on or lan_side_view(): return
 	view_mode = clampi(mode, View.WIDE, View.BOARD) as View
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
@@ -622,6 +626,7 @@ func set_board_view(on: bool) -> void:
 	set_view(View.BOARD if on else View.DESK)
 
 func _apply_view(v: Dictionary) -> void:
+	if lan_side_view(): v = SeatPresentation.seat_camera(lan_remote_prep)
 	$CameraPivot.position = v.pos
 	$CameraPivot.rotation_degrees = v.rot
 	camera.position = Vector3(0, 0, v.dist)
@@ -629,6 +634,9 @@ func _apply_view(v: Dictionary) -> void:
 	camera.fov = float(v.get("fov", 55.0))
 
 func _shift_camera(v: Dictionary, dur: float = 0.55) -> void:
+	if lan_side_view():
+		_apply_view(v)
+		return
 	var pivot = $CameraPivot
 	if camera_tween: camera_tween.kill()
 	var tween = create_tween().set_parallel(true).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
@@ -699,7 +707,26 @@ func _update_target_pulse() -> void:
 	var want_slots: bool = is_instance_valid(dragged_hand_card) or kind == "place"
 	if want_slots != _slots_lit: show_drop_targets(want_slots)
 
+func lan_side_view() -> bool:
+	return SeatPresentation.SIDE_BY_SIDE_CAMERA and encounter_kind == "versus" \
+		and (lan_remote_prep or lan_remote_disaster)
+
+func _update_side_camera() -> void:
+	var on := lan_side_view()
+	if on != side_camera_on:
+		side_camera_on = on
+		if camera_tween: camera_tween.kill()
+		_apply_view(view_settings(view_mode))
+	var yaw := SeatPresentation.lane_yaw(lan_remote_prep) if on else 0.0
+	if not on and not get_meta("side_cards_turned", false): return
+	for card: Node in get_tree().get_nodes_in_group("cards"):
+		if card.in_hand or card.current_slot == null: continue
+		var rest: Vector3 = card.current_slot.global_position + Vector3(0, 0.008, 0)
+		if card.global_position.distance_to(rest) < 0.02: card.rotation.y = yaw
+	set_meta("side_cards_turned", on)
+
 func _process(_delta: float) -> void:
+	_update_side_camera()
 	if is_instance_valid(opponent_hand): opponent_hand.refresh()
 	update_hand_hover(get_viewport().get_mouse_position())
 	_update_target_pulse()
@@ -954,7 +981,9 @@ func record_graveyard(card: Node, reason: String) -> void:
 	card.graveyard_recorded = true
 	log_event("%s: %s." % [reason, card.card_data.name])
 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
-	if card.card_data.get("type", "response") != "response": return
+	if card.card_data.get("type", "response") != "response":
+		record_disaster_definition(card.card_data, reason)
+		return
 	var entry: Dictionary = card.card_data.duplicate(true)
 	if not card.card_data.get("utility", false): entry.health = card.max_health
 	entry.graveyard_reason = reason
@@ -965,6 +994,14 @@ func record_graveyard(card: Node, reason: String) -> void:
 	entry.graveyard_id = graveyard_serial
 	entry.recovery = card.base_definition.duplicate(true)
 	player_graveyard.append(entry)
+
+func record_disaster_definition(definition: Dictionary, reason: String) -> void:
+	if not SeatPresentation.SIDE_BY_SIDE_HUD or encounter_kind != "versus": return
+	var entry := definition.duplicate(true)
+	entry.graveyard_reason = reason
+	entry.graveyard_round = turn
+	entry.graveyard_id = disaster_graveyard.size() + 1
+	disaster_graveyard.append(entry)
 
 func destroyed_response_units() -> Array:
 	return player_graveyard.filter(func(entry): return entry.get("graveyard_reason", "") == "Destroyed" and not entry.get("utility", false))
@@ -1609,7 +1646,10 @@ func _present_enemy_card(definition: Dictionary, target := Vector3.ZERO) -> bool
 	var serial := encounter_serial
 	if is_instance_valid(opponent_hand): opponent_hand.play_card(definition, target)
 	# Headless logic fixtures do not wait for rendered animation playback.
-	if DisplayServer.get_name() != "headless": await _wait(opponent_hand.character.RELEASE_SECONDS)
+	var still_human: bool = encounter_kind == "versus" and disaster_is_human \
+		and is_instance_valid(opponent_hand) and opponent_hand.character.fixed_pose
+	if DisplayServer.get_name() != "headless" and not still_human:
+		await _wait(opponent_hand.character.RELEASE_SECONDS)
 	if serial != encounter_serial or phase == Phase.GAME_OVER: return false
 	if is_instance_valid(opponent_hand): opponent_hand.release_card()
 	return true
@@ -1725,6 +1765,7 @@ func _disaster_ai_actions() -> bool:
 func disaster_cast(definition: Dictionary, target: Node) -> bool:
 	if not await _present_enemy_card(definition): return false
 	apply_enemy_utility(definition, target)
+	record_disaster_definition(definition, "Cast")
 	tension -= int(definition.get("tension_cost", 1))
 	_set_phase(Phase.ENEMY, "The Janitor casts %s" % definition.name)
 	_refresh_bars()

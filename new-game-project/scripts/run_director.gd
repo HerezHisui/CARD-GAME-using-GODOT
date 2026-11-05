@@ -102,6 +102,7 @@ var confirmation_cancel := Callable()
 var modal_dimmer: ColorRect
 var reward_selection := -1
 var reward_faces: Array[TextureRect] = []
+var disaster_graveyard_view := false
 var graveyard_button: Button
 var saved_content: VBoxContainer
 var saved_screen := ""
@@ -1723,11 +1724,13 @@ func select_extraction_ally(card: Node) -> void:
 func arm_extraction(slot: Node3D, card: Node) -> void:
 	game.plans.arm("extract", [card], slot)
 
-func show_graveyard() -> void:
+func show_graveyard(side: String = "preparedness") -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty() or screen in DECISIONS or saved_content != null: return
 	if screen == "graveyard":
 		close_modal()
 		return
+	disaster_graveyard_view = side == "disaster" and game.encounter_kind == "versus" \
+		and preload("res://scripts/versus_match.gd").SIDE_BY_SIDE_HUD
 	refresh_graveyard()
 
 func refresh_graveyard() -> void:
@@ -1744,7 +1747,7 @@ func refresh_graveyard() -> void:
 	order.text = "Descending" if deck_descending else "Ascending"
 	hook_button(order, func(): deck_descending = not deck_descending; refresh_graveyard())
 	var list: Control = content.get_node("Scroll/List")
-	var cards: Array = game.player_graveyard
+	var cards: Array = game.disaster_graveyard if disaster_graveyard_view else game.player_graveyard
 	viewed_cards.assign(cards)
 	if not cards.is_empty(): list.get_node("EmptyNote").free()
 	var grid := GridContainer.new()

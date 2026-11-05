@@ -157,7 +157,10 @@ func check_seat(seat: String) -> void:
 	for card in board.hand_cards:
 		names.append(card.card_data.name)
 	expect(names == ["Hand Zero", "Hand One", "Hand Two"], label + "hand order")
-	expect(board.foe_cards.size() == (4 if seat == "preparedness" else 5), label + "opponent hand count")
+	expect(board.foe_cards.is_empty(), label + "no opponent hand backs")
+	var foe_count := 4 if seat == "preparedness" else 5
+	expect(("Hand %d" % foe_count) in board.foe_plate.title.text and "Deck 9" in board.foe_plate.title.text,
+		label + "enemy plate keeps visible hand and deck counts")
 	check_safe_cards(board, label)
 	# In place update: same card, lower health.
 	var before: Node3D = board.lane_cards.response[0]
