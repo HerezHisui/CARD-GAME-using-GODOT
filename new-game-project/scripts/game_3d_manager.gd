@@ -19,6 +19,8 @@ var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
+# Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
+var versus_master := {"preparedness": [], "disaster": []}
 # Versus Disaster actions. They check every action in one place.
 var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").new(self)
 # Set by versus_match.gd at match start. True means a person plays the Disaster turn.
@@ -200,6 +202,7 @@ func _ready() -> void:
 
 func clear_battle(preserve_result: bool = false) -> void:
 	encounter_serial += 1
+	versus_master = {"preparedness": [], "disaster": []}
 	# Free a human Disaster turn that is waiting for End.
 	disaster_actions.turn_ended.emit()
 	if is_instance_valid(opponent_hand): opponent_hand.cancel_action()
@@ -358,6 +361,8 @@ func start_versus(prep_deck: Array[Dictionary], disaster_deck: Array[Dictionary]
 	for definition in prep_deck: deck.append(definition.duplicate(true))
 	for definition in disaster_deck: enemy_deck.append(definition.duplicate(true))
 	for definition in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
+	versus_master = {"preparedness": prep_deck.duplicate(true),
+		"disaster": disaster_deck.duplicate(true) + evolutions.duplicate(true)}
 	deck.shuffle()
 	enemy_deck.shuffle()
 	enemy_evolution_deck.shuffle()
@@ -1406,6 +1411,7 @@ func redeal_versus_side(side: String, main: Array, evolutions: Array, tactics: A
 			card.queue_free()
 		hand.clear()
 		deck.clear()
+		versus_master[side] = main.duplicate(true)
 		for definition: Dictionary in main: deck.append(definition.duplicate(true))
 		deck.shuffle()
 		plans.unlocked.assign(tactics)
@@ -1414,6 +1420,7 @@ func redeal_versus_side(side: String, main: Array, evolutions: Array, tactics: A
 		enemy_hand.clear()
 		enemy_deck.clear()
 		enemy_evolution_deck.clear()
+		versus_master[side] = main.duplicate(true) + evolutions.duplicate(true)
 		for definition: Dictionary in main: enemy_deck.append(definition.duplicate(true))
 		for definition: Dictionary in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
 		enemy_deck.shuffle()

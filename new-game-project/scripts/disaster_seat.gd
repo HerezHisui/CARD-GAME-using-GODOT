@@ -438,6 +438,10 @@ func _cast(card: Node3D, definition: Dictionary, target: Node) -> void:
 ## The card goes back to the hand and a short note floats up from it.
 func _refuse(card: Node3D, text: String) -> void:
 	_arrange()
+	# Out of Tension is the one note that needs a big, steady place on the screen.
+	if text == game.run_director.versus_hud.OUT_OF_TENSION:
+		game.run_director.versus_hud.show_note("Out of Tension", "End your turn.")
+		return
 	if not text.is_empty() and is_instance_valid(card): card.spawn_popup(text, UI.AMBER)
 
 ## Open threat lanes glow while a Base card is dragged or picked. For an evolution, the lanes of the cards

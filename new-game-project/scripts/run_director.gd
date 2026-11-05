@@ -113,6 +113,7 @@ var intel_revealed := false
 var idle_hint: Label
 var boss_intent: Label
 var plans_button: Button
+var versus_hud: Node # Versus-only HUD look, see versus_hud.gd
 var dashboard: PanelContainer
 var remove_origin := ""
 var remove_index := -1
@@ -386,6 +387,9 @@ func _build_ui() -> void:
 	plans_button = scene_hud.get_node("PlansBox/PlansButton")
 	plans_button.pressed.connect(show_plans)
 	preload("res://scripts/hud_hub_art.gd").apply(scene_hud)
+	versus_hud = preload("res://scripts/versus_hud.gd").new()
+	versus_hud.setup(self)
+	add_child(versus_hud)
 	graveyard_button = scene_hud.get_node("GraveyardButton")
 	graveyard_button.pressed.connect(show_graveyard)
 	for hud_button in [plans_button, graveyard_button]: game.presentation.button_feedback(hud_button)
@@ -481,7 +485,7 @@ const DISASTER_REASONS := {
 	"bad_sacrifice": "Pick different threat cards to sacrifice.",
 	"bad_target": "That target is not allowed.",
 	"no_tension": "Not enough Tension.",
-	"action_limit": "No actions left.",
+	"action_limit": "Out of Tension. End your turn.",
 	"sealed": "That card is sealed.",
 	"busy": "Wait for the last action.",
 	"not_in_hand": "That card is not in the hand.",
@@ -737,6 +741,8 @@ func _process(_delta: float) -> void:
 	prep.get_parent().visible = battle_active and not modal.visible \
 		and not game.disaster_seat_on
 	threat.get_parent().visible = battle_active and not modal.visible
+	# Last, so the Versus look has the final word on what shows.
+	if is_instance_valid(versus_hud): versus_hud.update()
 
 func status_text() -> String:
 	var counts := {"evac":0, "douse":0, "clearance":0, "brace":0}
@@ -1060,6 +1066,10 @@ func show_map() -> void:
 	if _dragging(): return
 	if saved_content: return
 	if screen in DECISIONS: return
+	# Versus has no map. The button shows a sign instead.
+	if game.encounter_kind == "versus" and battle_active:
+		show_versus_closed()
+		return
 	reset_panel("THE SCHOOL MAP", "", "map")
 	# The layout lives in ui_map.tscn; the room buttons are made here because the route changes each run.
 	unpack_screen(MapScene)
@@ -1125,6 +1135,56 @@ func refresh_map_fog() -> void:
 	elif fog != null:
 		canvas.remove_child(fog)
 		fog.queue_free()
+
+## Versus has no school map. The map button opens a big CLOSED sign. The screen keeps the kind "map",
+## so the Map button, M and Esc close it the way they close the real map.
+func show_versus_closed() -> void:
+	reset_panel("", "", "map")
+	var page := CenterContainer.new()
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(page)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 0)
+	page.add_child(column)
+	# Two short cords hold the sign.
+	var cords := HBoxContainer.new()
+	cords.alignment = BoxContainer.ALIGNMENT_CENTER
+	cords.add_theme_constant_override("separation", 560)
+	column.add_child(cords)
+	for cord in 2:
+		var line := ColorRect.new()
+		line.color = UI.BRONZE.darkened(0.2)
+		line.custom_minimum_size = Vector2(8, 90)
+		cords.add_child(line)
+	var sign_panel := PanelContainer.new()
+	sign_panel.name = "ClosedSign"
+	var face := UI.panel(UI.ACTION.darkened(0.45), UI.GOLD, 22)
+	face.set_border_width_all(8)
+	face.set_corner_radius_all(8)
+	sign_panel.add_theme_stylebox_override("panel", face)
+	sign_panel.custom_minimum_size = Vector2(860, 0)
+	column.add_child(sign_panel)
+	# A thin inner frame, like the plate of a real shop sign.
+	var inner := PanelContainer.new()
+	var rim := UI.panel(Color(0, 0, 0, 0), UI.BRONZE, 30)
+	rim.set_border_width_all(2)
+	rim.set_corner_radius_all(4)
+	inner.add_theme_stylebox_override("panel", rim)
+	sign_panel.add_child(inner)
+	var words := VBoxContainer.new()
+	words.add_theme_constant_override("separation", 6)
+	inner.add_child(words)
+	var closed := label("CLOSED", 220, UI.GOLD)
+	closed.name = "ClosedLabel"
+	closed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	words.add_child(closed)
+	var note := label("The school map is shut during a Versus match.", 20, UI.TEXT)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	words.add_child(note)
+	var footer := HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_END
+	content.add_child(footer)
+	button("Return to battle", toggle_map, footer)
 
 func toggle_map() -> void:
 	if _dragging() or saved_content or screen in DECISIONS: return
@@ -1525,15 +1585,19 @@ func show_deck() -> void:
 		content = VBoxContainer.new()
 		content.add_theme_constant_override("separation", 14)
 		modal.add_child(content)
-	reset_panel("", "", "deck")
+	# Versus has no run deck. The Deck button shows the deck of the side at the table.
+	var versus_deck: bool = game.encounter_kind == "versus" and versus_hud.active
+	if versus_deck and game.versus_hand_hidden: return
+	var shown: Array[Dictionary] = versus_hud.deck_cards() if versus_deck else collection
+	reset_panel(versus_hud.deck_title() if versus_deck else "", "", "deck")
 	# The layout lives in ui_deck.tscn; the card tiles are made in deck_cards().
 	unpack_screen(DeckScene)
 	var deck_button: Button = content.get_node("Tabs/DeckButton")
-	deck_button.text = "Cards (%d)" % collection.size()
-	hook_button(deck_button, deck_cards.bind(collection))
+	deck_button.text = "Cards (%d)" % shown.size()
+	hook_button(deck_button, deck_cards.bind(shown))
 	hook_button(content.get_node("Tabs/CloseButton"), close_modal)
 	setup_sort_controls(content.get_node("SortRow"), false)
-	deck_cards(collection)
+	deck_cards(shown)
 
 func preserve_pending_decision() -> void:
 	if screen in DECISIONS and saved_content == null:
