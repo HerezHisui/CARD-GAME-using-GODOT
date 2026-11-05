@@ -83,8 +83,8 @@ func run() -> void:
 
 
 func check_protocol_const() -> void:
-	expect(LanSession.PROTOCOL == 2, "protocol: PROTOCOL is 2")
-	expect(LanSession.build_string().begins_with("2|"), "protocol: the build string starts with 2")
+	expect(LanSession.PROTOCOL == 3, "protocol: PROTOCOL is 3")
+	expect(LanSession.build_string().begins_with("3|"), "protocol: the build string starts with 3")
 
 
 # The shape check runs before validate, so a bad payload cannot crash the host handler.

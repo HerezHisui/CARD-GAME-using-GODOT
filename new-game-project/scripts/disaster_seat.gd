@@ -450,6 +450,8 @@ func _refuse(card: Node3D, text: String) -> void:
 	# Out of Tension is the one note that needs a big, steady place on the screen.
 	if text == game.run_director.versus_hud.OUT_OF_TENSION:
 		game.run_director.versus_hud.show_note("Out of Tension", "End your turn.")
+	if text == game.run_director.DISASTER_REASONS.action_limit:
+		game.run_director.versus_hud.show_note("Action limit reached", "End your turn.")
 		return
 	if not text.is_empty() and is_instance_valid(card): card.spawn_popup(text, UI.AMBER)
 

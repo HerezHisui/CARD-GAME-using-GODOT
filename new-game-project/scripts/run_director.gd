@@ -491,7 +491,7 @@ const DISASTER_REASONS := {
 	"bad_sacrifice": "Pick different threat cards to sacrifice.",
 	"bad_target": "That target is not allowed.",
 	"no_tension": "Not enough Tension.",
-	"action_limit": "Out of Tension. End your turn.",
+	"action_limit": "Action limit reached. End your turn.",
 	"sealed": "That card is sealed.",
 	"busy": "Wait for the last action.",
 	"not_in_hand": "That card is not in the hand.",
@@ -1454,12 +1454,19 @@ func _modal_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 
-func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(), action_text: String = "") -> void:
+func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(),
+		action_text: String = "", show_name: bool = false) -> void:
 	# The tile layout lives in ui_card_tile.tscn; the card face is made here.
 	var panel: Control = CardTileScene.instantiate()
 	panel.add_theme_stylebox_override("panel", style(UI.PANEL, UI.BRONZE))
 	parent.add_child(panel)
 	var box: Control = panel.get_node("Box")
+	if show_name:
+		var card_name := label(str(card.name), 20, UI.GOLD, true)
+		card_name.name = "CardName"
+		card_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(card_name)
+		box.move_child(card_name, 0)
 	var center: Control = box.get_node("Center")
 	var preview = game.Card3DScene.instantiate()
 	preview.preview_only = true
@@ -2108,10 +2115,13 @@ func show_menu() -> void:
 	unpack_screen(MenuScene)
 	content.get_node("RulesScroll/Rules/Adaptations").text = "Adaptations: " + buff_summary(game.player_buffs)
 	content.get_node("RulesScroll/Rules/Augmentations").text = "Augmentations: " + buff_summary(game.player_run_buffs)
+	var versus: bool = game.encounter_kind == "versus"
+	content.get_node("RulesScroll/Rules/Adaptations").visible = not versus
+	content.get_node("RulesScroll/Rules/Augmentations").visible = not versus
 	hook_button(content.get_node("ResumeButton"), close_modal)
 	var settings := button("Game Settings", show_settings, content)
 	content.move_child(settings, content.get_node("TitleButton").get_index())
-	if battle_active: hook_button(content.get_node("DebugButton"), show_debug)
+	if battle_active and not versus: hook_button(content.get_node("DebugButton"), show_debug)
 	else: content.get_node("DebugButton").free()
 	hook_button(content.get_node("TitleButton"), confirm_title)
 	hook_button(content.get_node("QuitButton"), quit_game)
@@ -2294,7 +2304,8 @@ func _dragging() -> bool:
 
 func restart_scene() -> void: return_title()
 
-func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable, subtitle: String = "") -> void:
+func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable,
+		subtitle: String = "", show_names: bool = false) -> void:
 	card_picker = true
 	reset_panel(title, subtitle, "choice")
 	action_cancel = cancel
@@ -2309,7 +2320,7 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 	)
 	for entry in sorted:
 		var definition: Dictionary = live_definition(entry) if entry is Node else entry
-		_card_tile(definition, row, callback.bind(entry), "Choose")
+		_card_tile(definition, row, callback.bind(entry), "Choose", show_names)
 	hook_button(content.get_node("CancelButton"), cancel)
 
 func choose_evolution_targets(cards: Array, callback: Callable, cancel: Callable) -> void:

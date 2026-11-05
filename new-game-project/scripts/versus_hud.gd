@@ -12,7 +12,7 @@ const HEALTH_TOP := 66.0
 const HEALTH_HEIGHT := 60.0
 const HEALTH_WIDTH := 300.0
 const HUD_MARGIN := 16.0
-const OUT_OF_TENSION := "Out of Tension. End your turn."
+const OUT_OF_TENSION := "Not enough Tension."
 const NOTE_SECONDS := 2.4
 
 var director: Node

@@ -93,7 +93,10 @@ func run() -> void:
 	await frames()
 	expect(director.screen == "" and not director.modal.visible, "Map: the same button closes the sign")
 	# Out of Tension.
-	expect(director.DISASTER_REASONS.action_limit == hud.OUT_OF_TENSION, "Out of Tension: the action limit reason says it")
+	expect(director.DISASTER_REASONS.action_limit != hud.OUT_OF_TENSION
+		and director.DISASTER_REASONS.action_limit == "Action limit reached. End your turn.",
+		"Action limit: distinct from Out of Tension")
+	expect(director.DISASTER_REASONS.no_tension == hud.OUT_OF_TENSION, "Out of Tension: no_tension uses the note")
 	expect(director.DISASTER_REASONS.no_tension == "Not enough Tension.", "Out of Tension: the cost reason is unchanged")
 	game.disaster_seat._refuse(null, hud.OUT_OF_TENSION)
 	expect(hud.note.visible and hud.note_head.text == "OUT OF TENSION", "Out of Tension: a refused action shows the note")

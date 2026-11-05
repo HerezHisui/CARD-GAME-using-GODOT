@@ -12,7 +12,7 @@ const LanView = preload("res://scripts/lan_view.gd")
 # UDP port the host listens on. Open it in the Windows firewall for private networks.
 const PORT := 24680
 # Part E: raise this when the messages change. Host and client must send the same build string.
-const PROTOCOL := 2  # 2: deck builder Part 3 (deck_step, pick_deck, deck_note)
+const PROTOCOL := 3  # 3: remote Preparedness Draw button and draw action
 
 signal peer_joined(id: int)
 signal peer_left(id: int)

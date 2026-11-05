@@ -204,7 +204,7 @@ func check_disaster_actions(game: Node, director: Node) -> void:
 		"Disaster actions: evolve lane must be a sacrificed lane")
 	expect(reason_of(await actions.evolve(evolution, two_cards, lane)) == "ok", "Disaster actions: evolve works")
 	expect(game._get_card_in_slot(lane).card_data.id == "t_evo", "Disaster actions: evolution is on the lane")
-	expect(actions.actions_used == 3 and actions.actions_left() == 2, "Disaster actions: three used, two left")
+	expect(actions.actions_used == 3 and actions.actions_left() == 3, "Disaster actions: three used, three left")
 	# No fixed cap: two more actions fit in the 5 tension the turn started with.
 	var fourth := test_base("t_fourth")
 	var fifth := test_base("t_fifth")
@@ -213,9 +213,13 @@ func check_disaster_actions(game: Node, director: Node) -> void:
 		"Disaster actions: a 4th action is allowed")
 	expect(reason_of(await actions.play_base(fifth, game._threat_slots()[2])) == "ok",
 		"Disaster actions: a 5th action is allowed")
-	expect(actions.actions_used == 5 and actions.actions_left() == 0, "Disaster actions: five actions used")
-	expect(reason_of(await actions.play_base(base, game._threat_slots()[3])) == "action_limit",
-		"Disaster actions: the 6th action is refused")
+	expect(actions.actions_used == 5 and actions.actions_left() == 1, "Disaster actions: five used, one left")
+	expect(reason_of(await actions.play_base(base, game._threat_slots()[3])) == "ok",
+		"Disaster actions: the 6th action is allowed after an evolution")
+	var seventh := test_base("t_seventh")
+	game.enemy_hand.append(seventh)
+	expect(reason_of(await actions.play_base(seventh, game._threat_slots()[3])) == "action_limit",
+		"Disaster actions: the next play is refused after the allowance is spent")
 	expect(reason_of(actions.end_turn()) == "ok", "Disaster actions: end_turn works on the Disaster turn")
 	# Seal and tax need a card in the Response hand.
 	start_disaster_turn(game, director, 5)
