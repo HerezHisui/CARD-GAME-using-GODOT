@@ -54,7 +54,7 @@ var grave_note: PanelContainer
 var janitor: Node3D
 var foe_resource: PanelContainer
 var foe_resource_label: Label
-var foe_pips: Control
+var foe_meter: Dictionary
 var hud: Control
 var foe_plate: Dictionary
 var me_plate: Dictionary
@@ -65,9 +65,7 @@ var lane_inspection: PanelContainer
 var inspected_lane: Node3D
 var resource_plate: PanelContainer
 var resource_label: Label
-var pips: Control
-var pips_cap := 0
-var pips_value := 0
+var resource_meter: Dictionary
 var end_button: Button
 var draw_button: Button
 var tactic_box: VBoxContainer
@@ -664,37 +662,20 @@ func _build_hud() -> void:
 	turn_plate.add_child(row)
 	round_label = _label(row, 18, UI.MUTED)
 	turn_label = _label(row, 20, UI.GOLD)
-	# Energy or Tension under the player's own HP.
-	resource_plate = PanelContainer.new()
-	resource_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	resource_plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
-	hud.add_child(resource_plate)
-	_place(resource_plate, Control.PRESET_BOTTOM_LEFT, Vector2(16, -52))
-	var resource_row := HBoxContainer.new()
-	resource_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	resource_row.add_theme_constant_override("separation", 10)
-	resource_plate.add_child(resource_row)
-	resource_label = _label(resource_row, 18, UI.TEXT)
-	pips = Control.new()
-	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pips.custom_minimum_size = Vector2(150, 24)
-	pips.draw.connect(_draw_pips)
-	resource_row.add_child(pips)
+	# Energy or Tension uses the same plate, fill and centered numbers as HP.
+	resource_meter = _hp_plate(UI.ACTION)
+	resource_plate = resource_meter.box
+	resource_plate.mouse_filter = Control.MOUSE_FILTER_PASS
+	resource_meter.small.hide()
+	resource_label = resource_meter.title
+	_place(me_plate.box, Control.PRESET_BOTTOM_LEFT, Vector2(16, -156))
+	_place(resource_plate, Control.PRESET_BOTTOM_LEFT, Vector2(16, -80))
 	if VersusMatch.SIDE_BY_SIDE_HUD:
-		foe_resource = PanelContainer.new()
-		foe_resource.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		foe_resource.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
-		hud.add_child(foe_resource)
-		var row_foe := HBoxContainer.new()
-		row_foe.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row_foe.add_theme_constant_override("separation", 10)
-		foe_resource.add_child(row_foe)
-		foe_resource_label = _label(row_foe, 18, UI.TEXT)
-		foe_pips = Control.new()
-		foe_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		foe_pips.custom_minimum_size = Vector2(150, 24)
-		foe_pips.draw.connect(_draw_foe_pips)
-		row_foe.add_child(foe_pips)
+		foe_meter = _hp_plate(UI.CRIMSON)
+		foe_resource = foe_meter.box
+		foe_resource.mouse_filter = Control.MOUSE_FILTER_PASS
+		foe_meter.small.hide()
+		foe_resource_label = foe_meter.title
 	# End turn, bottom right. The tactic list sits above it for a Preparedness player.
 	end_button = director.button("END TURN", click_end, hud)
 	end_button.name = "EndTurnButton"
@@ -860,16 +841,14 @@ func _refresh_hud() -> void:
 	draw_button.disabled = not own_turn or phase != "DRAW"
 	if side == "preparedness":
 		resource_label.text = "ENERGY"
-		pips_value = int(view.get("energy", 0))
-		pips_cap = int(view.get("energy_cap", 0))
+		_set_resource(resource_meter, int(view.get("energy", 0)), int(view.get("energy_cap", 0)))
 	else:
 		resource_label.text = "TENSION"
-		pips_value = int(sides.disaster.resource)
-		pips_cap = int(sides.disaster.resource_cap)
-	pips.queue_redraw()
+		_set_resource(resource_meter, int(sides.disaster.resource), int(sides.disaster.resource_cap))
 	if VersusMatch.SIDE_BY_SIDE_HUD:
 		foe_resource_label.text = "TENSION" if side == "preparedness" else "ENERGY"
-		foe_pips.queue_redraw()
+		var foe_data: Dictionary = sides.disaster if side == "preparedness" else sides.response
+		_set_resource(foe_meter, int(foe_data.resource), int(foe_data.resource_cap))
 		foe_plate.title.add_theme_font_size_override("font_size", 14)
 		foe_plate.title.text += "   Hand %d   Deck %d" % [foe_hand, foe_deck]
 		foe_plate.box.tooltip_text = foe_plate.small.text
@@ -905,39 +884,12 @@ func _fill_tactics() -> void:
 
 ## One pip per point of the cap. Full = crimson with a gold rim, spent = dark. Energy pips are squares,
 ## Tension pips are diamonds.
-func _draw_pips() -> void:
-	_draw_resource(pips, pips_cap, pips_value, side == "preparedness")
-
-func _draw_foe_pips() -> void:
-	if view.is_empty(): return
-	var foe: Dictionary = view.sides.disaster if side == "preparedness" else view.sides.response
-	_draw_resource(foe_pips, int(foe.resource_cap), int(foe.resource), side != "preparedness")
-
-func _draw_resource(target: Control, cap: int, value: int, energy: bool) -> void:
-	if cap <= 0:
-		return
-	var gap := 6.0
-	var size := clampf((target.size.x - gap * (cap - 1)) / cap, 10.0, 22.0)
-	var top := (target.size.y - size) / 2.0
-	for index in cap:
-		var spot := Vector2(index * (size + gap), top)
-		var lit := index < value
-		var fill: Color = UI.ACTION if lit else UI.INSET
-		var rim: Color = UI.GOLD if lit else UI.MUTED.darkened(0.35)
-		if energy:
-			var box := StyleBoxFlat.new()
-			box.bg_color = fill
-			box.border_color = rim
-			box.set_border_width_all(2)
-			target.draw_style_box(box, Rect2(spot, Vector2(size, size)))
-		else:
-			var middle := spot + Vector2(size, size) / 2.0
-			var half := size / 2.0 + 2.0
-			var shape := PackedVector2Array([middle + Vector2(0, -half), middle + Vector2(half, 0),
-				middle + Vector2(0, half), middle + Vector2(-half, 0)])
-			target.draw_colored_polygon(shape, fill)
-			shape.append(shape[0])
-			target.draw_polyline(shape, rim, 2.0)
+func _set_resource(meter: Dictionary, current: int, cap: int) -> void:
+	current = maxi(current, 0)
+	cap = maxi(cap, 0)
+	meter.fill.anchor_right = clampf(float(current) / cap, 0.0, 1.0) if cap > 0 else 0.0
+	meter.value.text = "%d / %d" % [current, cap]
+	meter.box.tooltip_text = "%s: %d / %d" % [str(meter.title.text).capitalize(), current, cap]
 
 
 func _layout_hud() -> void:
@@ -952,8 +904,8 @@ func _layout_hud() -> void:
 		plate.size = rect.size
 		plate.position = rect.position
 		resource.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		resource.custom_minimum_size = Vector2(rect.size.x, 32)
-		resource.size = resource.custom_minimum_size
+		resource.custom_minimum_size = Vector2(rect.size.x, 0)
+		resource.size = Vector2(rect.size.x, resource.get_combined_minimum_size().y)
 		resource.position = rect.position + Vector2(0, rect.size.y + 6)
 
 
