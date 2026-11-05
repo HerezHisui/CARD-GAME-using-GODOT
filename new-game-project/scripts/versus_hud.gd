@@ -256,8 +256,9 @@ func _layout_health() -> void:
 		health.size = rect.size
 		health.global_position = rect.position
 	# Preserve the hidden Janitor in the Disaster seat camera.
-	game.opponent_hand.visible = not director.modal.visible and not game.disaster_seat_on
-	game.opponent_hand.character.holding.visible = not game.disaster_seat_on
+	var far_seat: bool = game.disaster_seat_on or game.lan_disaster_view()
+	game.opponent_hand.visible = not director.modal.visible and not far_seat
+	game.opponent_hand.character.holding.visible = not far_seat
 
 func _restore_health() -> void:
 	for health: Control in saved_health:
