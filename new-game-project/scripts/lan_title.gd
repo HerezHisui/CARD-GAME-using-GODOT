@@ -11,6 +11,7 @@ extends Node
 const LanSession = preload("res://scripts/lan_session.gd")
 const LanClientPanel = preload("res://scripts/lan_client_panel.gd")
 const LanPrepPanel = preload("res://scripts/lan_prep_panel.gd")
+const LanBoard3D = preload("res://scripts/lan_board_3d.gd")
 const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusDecks = preload("res://scripts/versus_decks.gd")
 const DeckBuilder = preload("res://scripts/deck_builder.gd")
@@ -30,6 +31,8 @@ var status_label: Label
 var ip_edit: LineEdit
 var client_layer: CanvasLayer
 var client_panel: Control
+var client_cover: ColorRect  # client: the opaque cover over the idle game
+var board_3d: Node  # client: the 3D table mirror (LAN_BOARD_3D)
 var esc_menu: Control
 var coin_stage := ""  # host: the last coin stage sent to the client
 var coin_page: Control  # client: the coin screen over the panel, until the host seats this client
@@ -480,18 +483,38 @@ func _show_client_panel() -> void:
 	background.color = UI.BACKGROUND
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	client_layer.add_child(background)
+	client_cover = background
 	client_panel = LanClientPanel.new()
 	client_layer.add_child(client_panel)
 	client_panel.back_pressed.connect(back_to_title)
 	session.attach_panel(client_panel)
+	_mount_board_3d("disaster")
 	director.visible = false
 
 
+# LAN_BOARD_3D: the 3D table takes over once the first view arrives. The 2D panel stays under it, hidden.
+func _mount_board_3d(side: String) -> void:
+	_free_board_3d()
+	if not VersusMatch.LAN_BOARD_3D:
+		return
+	board_3d = LanBoard3D.new()
+	client_layer.add_child(board_3d)
+	board_3d.setup(game, director, session, client_panel, side, client_cover)
+
+
+func _free_board_3d() -> void:
+	if is_instance_valid(board_3d):
+		board_3d.queue_free()
+	board_3d = null
+
+
 func _close_client_panel() -> void:
+	_free_board_3d()
 	if is_instance_valid(client_layer):
 		client_layer.queue_free()
 	client_layer = null
 	client_panel = null
+	client_cover = null
 	esc_menu = null
 	coin_page = null
 	deck_page = null
@@ -774,6 +797,7 @@ func _on_seat(side: String) -> void:
 	_close_coin_page()
 	if side != "preparedness":
 		return
+	_free_board_3d()
 	if is_instance_valid(client_panel):
 		client_panel.queue_free()
 	client_panel = LanPrepPanel.new()
@@ -782,6 +806,7 @@ func _on_seat(side: String) -> void:
 		client_layer.move_child(esc_menu, -1)
 	client_panel.back_pressed.connect(back_to_title)
 	session.attach_prep_panel(client_panel)
+	_mount_board_3d("preparedness")
 
 
 # Show what went wrong, with a button back to the title (or to the lobby hub when to_hub is true).

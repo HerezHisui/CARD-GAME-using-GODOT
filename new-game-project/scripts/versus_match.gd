@@ -18,6 +18,9 @@ const LAN_ENABLED := true
 # Part 3: the LAN client picks its own deck too. Set it back to false if the two-laptop test fails.
 # false = no deck step, the flow is exactly as before.
 const DECK_CHOICE_ENABLED := true
+# true = the LAN client plays on the same 3D table as the host (scripts/lan_board_3d.gd).
+# false = the old plain 2D panel alone, exactly as before.
+const LAN_BOARD_3D := true
 
 # Sent when the toss winner picks a side. "" means the wait was cancelled.
 signal side_chosen(side: String)
