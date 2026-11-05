@@ -36,6 +36,9 @@ const IntelScene = preload("res://scenes/ui/ui_intel.tscn")
 const ConfirmScene = preload("res://scenes/ui/ui_confirm.tscn")
 const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
 const ChooseSlotScene = preload("res://scenes/ui/ui_choose_slot.tscn")
+const DisasterPanelScene = preload("res://scenes/ui/ui_disaster_panel.tscn")
+const PrivacyScreenScene = preload("res://scenes/ui/ui_privacy_screen.tscn")
+const VersusDecks = preload("res://scripts/versus_decks.gd")
 const BuffChoicesScene = preload("res://scenes/ui/ui_buff_choices.tscn")
 const FloorBuffsScene = preload("res://scenes/ui/ui_floor_buffs.tscn")
 ## Pieces that many screens reuse.
@@ -46,7 +49,11 @@ const CatalogInspectionScene = preload("res://scenes/ui/ui_catalog_inspection.ts
 const InspectScene = preload("res://scenes/ui/ui_inspect.tscn")
 static var start_after_reload := false
 static var last_character := 0
-const DECISIONS := ["coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff", "intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove", "remove_confirm", "contingency_reward"]
+const DECISIONS := [
+	"coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff",
+	"intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove",
+	"remove_confirm", "contingency_reward", "evolution_offer",
+]
 const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
 const CHARACTERS := [
@@ -63,6 +70,9 @@ var acquisition_serial := 0
 var reward_stock: Array[Dictionary] = []
 var run_active := false
 var persistence: Node
+var versus_match: Node
+var lan_title: Node  # LAN Part E: Host / Join on the title. Only made when VersusMatch.LAN_ENABLED is true.
+# Lobby step: the title has one LAN Versus button; Host / Join live in the lobby hub.
 var catalog: Array[Dictionary] = []
 var rooms: Array = []
 var cleared: Array = []
@@ -96,6 +106,7 @@ var confirmation_cancel := Callable()
 var modal_dimmer: ColorRect
 var reward_selection := -1
 var reward_faces: Array[TextureRect] = []
+var disaster_graveyard_view := false
 var graveyard_button: Button
 var saved_content: VBoxContainer
 var saved_screen := ""
@@ -107,11 +118,19 @@ var intel_revealed := false
 var idle_hint: Label
 var boss_intent: Label
 var plans_button: Button
+var versus_hud: Node # Versus-only HUD look, see versus_hud.gd
 var dashboard: PanelContainer
 var remove_origin := ""
 var remove_index := -1
 var board_prompt: PanelContainer
 var board_prompt_label: Label
+var disaster_panel: PanelContainer
+var disaster_hand_key := []  # what the Disaster hand list shows now
+var disaster_pick := {}  # empty = not picking. Else kind "lane" or "target", the card and encounter_serial
+var privacy_screen: CanvasLayer  # covers the game while the laptop is passed between two human Versus players
+var privacy_side := ""  # the side the screen waits for: "prep" or "disaster"
+var privacy_last := ""  # the side that played last in this match; empty before the first turn
+var privacy_serial := 0  # encounter_serial the privacy state belongs to
 var unlock_after := "cards"
 var event_key := ""
 var event_type := "locked"
@@ -176,6 +195,43 @@ func show_title() -> void:
 		start_button.pressed.connect(show_characters)
 		start_button.grab_focus()
 	title_screen.get_node("%QuitButton").pressed.connect(quit_game)
+	title_screen.get_node("%VersusButton").pressed.connect(start_versus_match)
+	if preload("res://scripts/versus_match.gd").LAN_ENABLED: add_lan_buttons(title_screen)
+
+## LAN Part E: Host LAN and Join LAN under Versus, with the same look as the other menu items.
+## Lobby step: one LAN Versus button instead. It opens the LAN lobby hub (lan_title.show_lobby).
+func add_lan_buttons(title_screen: Control) -> void:
+	if not is_instance_valid(lan_title):
+		lan_title = preload("res://scripts/lan_title.gd").new()
+		lan_title.name = "LanTitle"
+		add_child(lan_title)
+		lan_title.setup(self)
+	var versus_button: Button = title_screen.get_node("%VersusButton")
+	# Called twice on one title (show_title, then a test): keep one button.
+	if versus_button.get_parent().has_node("LanVersusButton"):
+		return
+	var lan_button := _lan_menu_button(title_screen, versus_button, "LanVersusButton", "LAN Versus")
+	lan_button.pressed.connect(lan_title.show_lobby)
+
+## One title menu item, copied from the Versus button's size and font, placed under after.
+func _lan_menu_button(title_screen: Control, after: Button, button_name: String, text: String) -> Button:
+	var b := Button.new()
+	b.name = button_name
+	b.text = text
+	b.custom_minimum_size = after.custom_minimum_size
+	b.mouse_default_cursor_shape = after.mouse_default_cursor_shape
+	b.add_theme_font_size_override("font_size", after.get_theme_font_size("font_size"))
+	after.add_sibling(b)
+	title_screen.style_menu_button(b)
+	return b
+
+## Starts a Versus match. The match node is made once and never touches the save file.
+func start_versus_match() -> void:
+	if not is_instance_valid(versus_match):
+		versus_match = preload("res://scripts/versus_match.gd").new()
+		add_child(versus_match)
+		versus_match.setup(self)
+	versus_match.start()
 
 func continue_saved_run() -> void:
 	if not persistence.resume(): show_title()
@@ -336,6 +392,9 @@ func _build_ui() -> void:
 	plans_button = scene_hud.get_node("PlansBox/PlansButton")
 	plans_button.pressed.connect(show_plans)
 	preload("res://scripts/hud_hub_art.gd").apply(scene_hud)
+	versus_hud = preload("res://scripts/versus_hud.gd").new()
+	versus_hud.setup(self)
+	add_child(versus_hud)
 	graveyard_button = scene_hud.get_node("GraveyardButton")
 	graveyard_button.pressed.connect(show_graveyard)
 	for hud_button in [plans_button, graveyard_button]: game.presentation.button_feedback(hud_button)
@@ -347,6 +406,270 @@ func _build_ui() -> void:
 	var cancel_button: Button = board_prompt.get_node("%CancelButton")
 	cancel_button.pressed.connect(func(): game.board_input.cancel())
 	game.presentation.button_feedback(cancel_button)
+	# Disaster panel for a human Versus Disaster turn. Below the modal, so a popup covers it.
+	disaster_panel = DisasterPanelScene.instantiate()
+	root.add_child(disaster_panel)
+	root.move_child(disaster_panel, modal_frame.get_index())
+	var end_button: Button = disaster_panel.get_node("%EndButton")
+	end_button.pressed.connect(func(): game.disaster_actions.end_turn())
+	game.presentation.button_feedback(end_button)
+	disaster_panel.get_node("%Reason").add_theme_color_override("font_color", UI.GOLD)
+	var pick_box: Control = disaster_panel.get_node("%PickBox")
+	for i in 4:
+		var lane_button: Button = pick_box.get_node("Lane%d" % (i + 1))
+		lane_button.pressed.connect(_disaster_pick_lane.bind(i))
+		game.presentation.button_feedback(lane_button)
+	var cancel_pick: Button = pick_box.get_node("CancelPick")
+	cancel_pick.pressed.connect(_cancel_disaster_pick)
+	game.presentation.button_feedback(cancel_pick)
+	# Its own CanvasLayer (30), above the director (10), the coin screen and banners (20).
+	privacy_screen = PrivacyScreenScene.instantiate()
+	add_child(privacy_screen)
+	var ready_button: Button = privacy_screen.get_node("%ReadyButton")
+	ready_button.pressed.connect(_hide_privacy_screen)
+	game.presentation.button_feedback(ready_button)
+
+## Who holds the laptop: "disaster" while a human Disaster waits, "prep" on the Preparedness turn, else "".
+func _privacy_holder() -> String:
+	if game.disaster_waiting and game.phase == game.Phase.ENEMY: return "disaster"
+	if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: return "prep"
+	return ""
+
+## Raises the cover when the laptop changes hands in a human Versus match. Runs before the panel refresh.
+func _refresh_privacy_screen() -> void:
+	var in_match: bool = battle_active and game.encounter_kind == "versus" and game.disaster_is_human \
+		and game.phase != game.Phase.GAME_OVER and not game.lan_remote_disaster and not game.lan_remote_prep
+	# A new battle, a finished battle or a game over starts clean, so the cover never outlives its match.
+	if not in_match or privacy_serial != game.encounter_serial:
+		privacy_serial = game.encounter_serial
+		privacy_last = ""
+		if privacy_screen.visible: privacy_screen.visible = false
+		if not in_match: return
+	var holder := _privacy_holder()
+	if holder.is_empty() or holder == privacy_last or modal.visible: return
+	# The very first Preparedness turn needs no hand-over. A Disaster that plays twice in a row keeps the laptop.
+	var match_start := privacy_last.is_empty() and holder == "prep"
+	# After the Versus coin flip the first player may be Player 2, so the first turn is covered too.
+	if _flip_sides_set(): match_start = false
+	privacy_last = holder
+	if not match_start: _raise_privacy_screen(holder)
+
+func _raise_privacy_screen(side: String) -> void:
+	privacy_side = side
+	var name_of := "PREPAREDNESS" if side == "prep" else "DISASTER"
+	# After the Versus coin flip the cover also names the player who holds that side.
+	if _flip_sides_set():
+		var side_id := VersusDecks.SIDE_PREP if side == "prep" else VersusDecks.SIDE_DISASTER
+		var player := 1 if versus_match.player1_side == side_id else 2
+		name_of = "PLAYER %d - %s" % [player, name_of]
+	_set_label_text(privacy_screen.get_node("%SideLine"), "%s, it is your turn" % name_of)
+	privacy_screen.visible = true
+	# Enter and Space press the focused button.
+	privacy_screen.get_node("%ReadyButton").grab_focus()
+
+## True in a Versus match where the coin flip already gave each player a side.
+func _flip_sides_set() -> bool:
+	return is_instance_valid(versus_match) and versus_match.running and versus_match.player1_side != ""
+
+## Versus coin flip: a cover with its own line, for the hand-over to the toss winner.
+func show_privacy_cover(line: String) -> void:
+	privacy_serial = game.encounter_serial
+	_set_label_text(privacy_screen.get_node("%SideLine"), line)
+	privacy_screen.visible = true
+	privacy_screen.get_node("%ReadyButton").grab_focus()
+
+func _hide_privacy_screen() -> void:
+	privacy_screen.visible = false
+	# Versus coin flip: the first player's Ready shows the hand. The toss cover does not.
+	if game.evolution_choice.pending(): return
+	if game.versus_hand_hidden and not _privacy_holder().is_empty(): game.reveal_versus_hand()
+
+## Plain words for the reasons disaster_actions can give.
+const DISASTER_REASONS := {
+	"lane_full": "That lane is full.",
+	"bad_slot": "That is not a threat lane.",
+	"bad_sacrifice": "Pick different threat cards to sacrifice.",
+	"bad_target": "That target is not allowed.",
+	"no_tension": "Not enough Tension.",
+	"action_limit": "Out of Tension. End your turn.",
+	"sealed": "That card is sealed.",
+	"busy": "Wait for the last action.",
+	"not_in_hand": "That card is not in the hand.",
+	"battle_over": "",
+}
+
+## Shows the Disaster panel only on a human Disaster turn. Labels and the hand list change only when needed.
+func _refresh_disaster_panel() -> void:
+	var show_panel: bool = battle_active and not modal.visible and game.encounter_kind == "versus" \
+		and game.disaster_is_human and game.phase == game.Phase.ENEMY and not game.disaster_seat_view
+	# LAN: the Disaster plays on the other computer, so the host shows no Disaster panel.
+	show_panel = show_panel and not game.lan_remote_disaster
+	disaster_panel.visible = show_panel
+	if _disaster_pick_stale(show_panel): _cancel_disaster_pick()
+	if not show_panel:
+		_set_label_text(disaster_panel.get_node("%Reason"), "")
+		return
+	var actions = game.disaster_actions
+	_refresh_disaster_lanes(actions)
+	_set_label_text(disaster_panel.get_node("%Tension"), "Tension: %d / %d" % [game.tension, game.tension_cap])
+	_set_label_text(disaster_panel.get_node("%Evolutions"), "Evolutions: %d" % game.enemy_evolution_deck.size())
+	_set_label_text(disaster_panel.get_node("%Actions"), "Actions left: %d" % actions.actions_left())
+	var end_button: Button = disaster_panel.get_node("%EndButton")
+	var can_end: bool = game.disaster_waiting and not actions.busy
+	if end_button.disabled == can_end: end_button.disabled = not can_end
+	var key := []
+	for card in game.enemy_hand:
+		key.append("%s %d %s" % [card.get("name", "?"), _disaster_card_cost(card), _disaster_row_state(card)])
+	if key == disaster_hand_key: return
+	disaster_hand_key = key
+	var list: Control = disaster_panel.get_node("%HandList")
+	for old in list.get_children():
+		list.remove_child(old)
+		old.queue_free()
+	for card in game.enemy_hand: _add_disaster_row(list, card)
+
+## "off" rows are dimmed: not usable, busy, or a pick is open.
+func _disaster_row_state(card: Dictionary) -> String:
+	var actions = game.disaster_actions
+	if not game.disaster_waiting or actions.busy or not disaster_pick.is_empty(): return "off"
+	return "on" if actions.can_use(card) else "off"
+
+func _add_disaster_row(list: Control, card: Dictionary) -> void:
+	var text := "%s %d" % [card.get("name", "?"), _disaster_card_cost(card)]
+	var state := _disaster_row_state(card)
+	var row := Button.new()
+	row.text = text
+	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	row.disabled = state != "on"
+	if state == "on": row.pressed.connect(_disaster_row_clicked.bind(card))
+	list.add_child(row)
+
+## Pick kinds that use the lane buttons: a Base lane, evolution sacrifices, the evolution lane.
+const DISASTER_LANE_KINDS := ["lane", "sacrifice", "evo_lane"]
+
+## Lane buttons show only while a pick waits for a lane. Only lanes that are allowed can be pressed.
+func _refresh_disaster_lanes(actions: RefCounted) -> void:
+	var box: Control = disaster_panel.get_node("%PickBox")
+	var kind: String = disaster_pick.get("kind", "")
+	var lane_mode: bool = kind in DISASTER_LANE_KINDS
+	if box.visible != lane_mode: box.visible = lane_mode
+	# The lane buttons take the hand's place, so the panel stays inside the screen at 1280x800.
+	for hand_part in [disaster_panel.get_node("Box/HandTitle"), disaster_panel.get_node("%HandList")]:
+		if hand_part.visible == lane_mode: hand_part.visible = not lane_mode
+	if not lane_mode: return
+	var card: Dictionary = disaster_pick.card
+	var open: Array = actions.legal_lanes(card)
+	var names := {}  # lane -> name of the card that can be sacrificed there
+	var prompt := "Lane for %s:" % card.get("name", "?")
+	if kind == "sacrifice":
+		prompt = "Sacrifice %d of %d" % [disaster_pick.chosen.size() + 1, int(card.get("cost", 0))]
+		open = []
+		for threat in actions.legal_sacrifices(card):
+			if threat.current_slot in disaster_pick.chosen: continue
+			open.append(threat.current_slot)
+			names[threat.current_slot] = threat.card_data.get("name", "?")
+	elif kind == "evo_lane":
+		open = disaster_pick.chosen
+	_set_label_text(box.get_node("Prompt"), prompt)
+	var slots: Array = game._threat_slots()
+	for i in slots.size():
+		var lane_button: Button = box.get_node("Lane%d" % (i + 1))
+		var off: bool = actions.busy or slots[i] not in open
+		if lane_button.disabled != off: lane_button.disabled = off
+		_set_button_text(lane_button, names.get(slots[i], "Lane %d" % (i + 1)))
+
+## A pick is stale when the turn, the battle or the screen it belongs to is gone.
+func _disaster_pick_stale(show_panel: bool) -> bool:
+	if disaster_pick.is_empty(): return false
+	if disaster_pick.serial != game.encounter_serial or game.disaster_actions.busy: return true
+	if not battle_active or game.phase != game.Phase.ENEMY or not game.disaster_waiting: return true
+	# A target pick lives in the choose_card popup, so a visible popup is expected.
+	if disaster_pick.kind == "target": return not (modal.visible and screen == "choice")
+	return not show_panel
+
+func _cancel_disaster_pick() -> void:
+	var was: Dictionary = disaster_pick
+	disaster_pick = {}
+	disaster_panel.get_node("%PickBox").visible = false
+	# Close our target popup, never some other screen.
+	if was.get("kind", "") == "target" and battle_active and modal.visible and screen == "choice":
+		action_cancel = Callable()
+		close_modal()
+
+func _disaster_row_clicked(card: Dictionary) -> void:
+	var actions = game.disaster_actions
+	if not disaster_pick.is_empty() or actions.busy: return
+	var serial: int = game.encounter_serial
+	_set_label_text(disaster_panel.get_node("%Reason"), "")
+	if not card.get("utility", false) and int(card.get("cost", 0)) > 0:
+		disaster_pick = {"kind": "sacrifice", "card": card, "serial": serial, "chosen": []}
+	elif not card.get("utility", false):
+		disaster_pick = {"kind": "lane", "card": card, "serial": serial}
+	elif actions.needs_target(card):
+		var title := "CHOOSE A TARGET · " + str(card.get("name", "")).to_upper()
+		choose_card(title, actions.legal_targets(card), _disaster_target_chosen.bind(card, serial), _cancel_disaster_pick)
+		disaster_pick = {"kind": "target", "card": card, "serial": serial}
+	else:
+		_disaster_report(await actions.cast(card, null), serial)
+
+func _disaster_pick_lane(index: int) -> void:
+	var kind: String = disaster_pick.get("kind", "")
+	if kind not in DISASTER_LANE_KINDS or game.disaster_actions.busy: return
+	var slot: Node3D = game._threat_slots()[index]
+	if kind == "sacrifice":
+		await _disaster_sacrifice_chosen(slot)
+		return
+	if kind == "evo_lane":
+		if slot in disaster_pick.chosen: await _disaster_evolve(slot)
+		return
+	var card: Dictionary = disaster_pick.card
+	var serial: int = disaster_pick.serial
+	disaster_pick = {}
+	_disaster_report(await game.disaster_actions.play_base(card, slot), serial)
+
+## Step 1 of an evolution: remember the lane. Then ask for the evolution lane, or evolve at once for cost 1.
+func _disaster_sacrifice_chosen(slot: Node3D) -> void:
+	var cards: Array = game.disaster_actions.legal_sacrifices(disaster_pick.card)
+	var offered: Array = cards.map(func(c): return c.current_slot)
+	if slot not in offered or slot in disaster_pick.chosen: return
+	disaster_pick.chosen.append(slot)
+	if disaster_pick.chosen.size() < int(disaster_pick.card.get("cost", 0)): return
+	if disaster_pick.chosen.size() == 1: await _disaster_evolve(slot)
+	else: disaster_pick.kind = "evo_lane"
+
+## Step 2: the pick is cleared first, so a second press does nothing. Then evolve() does the work.
+func _disaster_evolve(slot: Node3D) -> void:
+	var card: Dictionary = disaster_pick.card
+	var serial: int = disaster_pick.serial
+	var sacrifices: Array = disaster_pick.chosen.map(func(lane): return game._get_card_in_slot(lane))
+	disaster_pick = {}
+	_disaster_report(await game.disaster_actions.evolve(card, sacrifices, slot), serial)
+
+# choose_card binds the chosen card in front of the arguments bound here, so target comes first.
+func _disaster_target_chosen(target, card: Dictionary, serial: int) -> void:
+	disaster_pick = {}
+	action_cancel = Callable()
+	close_modal()
+	if serial != game.encounter_serial: return
+	if not is_instance_valid(target): return
+	_disaster_report(await game.disaster_actions.cast(card, target), serial)
+
+## A refused action shows its reason in the panel. The board is untouched.
+func _disaster_report(result: Dictionary, serial: int) -> void:
+	if serial != game.encounter_serial or result.ok: return
+	_set_label_text(disaster_panel.get_node("%Reason"), DISASTER_REASONS.get(result.reason, "Action refused."))
+
+func _set_label_text(label: Label, text: String) -> void:
+	if label.text != text: label.text = text
+
+func _set_button_text(button: Button, text: String) -> void:
+	if button.text != text: button.text = text
+
+## Tension cost for spells and bases, evolutions show their sacrifice count.
+func _disaster_card_cost(card: Dictionary) -> int:
+	if int(card.get("cost", 0)) > 0 and not card.get("utility", false): return int(card.get("cost", 0))
+	return int(card.get("tension_cost", 1))
 
 ## A gauge from ui_gauge.tscn on root; returns its bar. Gauges have a title and a bar only.
 func _make_gauge(box_name: String, title: String, color: Color, variation: String) -> ProgressBar:
@@ -382,15 +705,22 @@ func _process(_delta: float) -> void:
 	game.visible = battle_active or screen == "reward"
 	board_prompt.visible = battle_active and not modal.visible and not game.board_input.action.is_empty()
 	if board_prompt.visible: board_prompt_label.text = str(game.board_input.action.get("title", "Choose a board target"))
-	game.opponent_hand.visible = battle_active and not modal.visible
-	game.get_node("HUD/Root/EndTurnButton").disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or not game.board_input.action.is_empty() or _dragging()
+	game.opponent_hand.visible = battle_active and not modal.visible and not game.disaster_seat_on
+	var end_off: bool = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] \
+		or not game.board_input.action.is_empty() or _dragging()
+	# On the Disaster seat the End turn button is on, except while an action runs.
+	if game.disaster_seat_on: end_off = game.disaster_actions.busy
+	game.get_node("HUD/Root/EndTurnButton").disabled = end_off
 	plans_button.visible = battle_active and not modal.visible
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
 	plans_button.get_node("CountLabel").text = "%d/2" % game.plans.tokens
 	dashboard.visible = battle_active and not modal.visible
-	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking
+	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking \
+		and not game.disaster_seat_on
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	_update_boss_intent()
+	_refresh_privacy_screen()
+	_refresh_disaster_panel()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
@@ -414,8 +744,11 @@ func _process(_delta: float) -> void:
 	map_button.disabled = saved_content != null or screen in DECISIONS or not game.board_input.action.is_empty()
 	menu_button.disabled = map_button.disabled
 	idle_hint.visible = false
-	prep.get_parent().visible = battle_active and not modal.visible
+	prep.get_parent().visible = battle_active and not modal.visible \
+		and not game.disaster_seat_on
 	threat.get_parent().visible = battle_active and not modal.visible
+	# Last, so the Versus look has the final word on what shows.
+	if is_instance_valid(versus_hud): versus_hud.update()
 
 func status_text() -> String:
 	var counts := {"evac":0, "douse":0, "clearance":0, "brace":0}
@@ -429,6 +762,17 @@ func status_text() -> String:
 		counts.evac, counts.douse, counts.clearance, counts.brace, utilities]
 
 func _input(event: InputEvent) -> void:
+	if game.evolution_choice.pending() and not privacy_screen.visible:
+		if event is InputEventKey:
+			get_viewport().set_input_as_handled()
+		return
+	# While the privacy screen is up only Enter and Space close it. Every other key, Esc included, is swallowed.
+	if privacy_screen.visible:
+		if event is InputEventKey:
+			if event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+				_hide_privacy_screen()
+			get_viewport().set_input_as_handled()
+		return
 	if inspect_hold_pending and event is InputEventMouseMotion and event.position.distance_to(inspect_hold_origin) > 12:
 		cancel_inspect_hold()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
@@ -470,10 +814,24 @@ func _input(event: InputEvent) -> void:
 		if screen != "inspect":
 			get_viewport().set_input_as_handled()
 			return
+	# Esc leaves the lane choice of the Disaster panel before it can open the menu.
+	if not modal.visible and disaster_pick.get("kind", "") in DISASTER_LANE_KINDS \
+			and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_cancel_disaster_pick()
+		get_viewport().set_input_as_handled()
+		return
 	if not modal.visible and not game.board_input.action.is_empty() and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		game.board_input.cancel()
 		get_viewport().set_input_as_handled()
 		return
+	# Esc drops a card picked in the Disaster seat before it can open the menu.
+	if not modal.visible and game.disaster_seat_on and event is InputEventKey and event.pressed \
+			and event.keycode == KEY_ESCAPE:
+		var seat: Node = game.disaster_seat
+		if seat.selected != null or seat.held != null or seat.dragging or not seat.evo.is_empty():
+			seat._cancel()
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if screen in ["title", "title_help", "characters", "character_preview"]: return
 		match event.keycode:
@@ -718,6 +1076,10 @@ func show_map() -> void:
 	if _dragging(): return
 	if saved_content: return
 	if screen in DECISIONS: return
+	# Versus has no map. The button shows a sign instead.
+	if game.encounter_kind == "versus" and battle_active:
+		show_versus_closed()
+		return
 	reset_panel("THE SCHOOL MAP", "", "map")
 	# The layout lives in ui_map.tscn; the room buttons are made here because the route changes each run.
 	unpack_screen(MapScene)
@@ -784,6 +1146,56 @@ func refresh_map_fog() -> void:
 		canvas.remove_child(fog)
 		fog.queue_free()
 
+## Versus has no school map. The map button opens a big CLOSED sign. The screen keeps the kind "map",
+## so the Map button, M and Esc close it the way they close the real map.
+func show_versus_closed() -> void:
+	reset_panel("", "", "map")
+	var page := CenterContainer.new()
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(page)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 0)
+	page.add_child(column)
+	# Two short cords hold the sign.
+	var cords := HBoxContainer.new()
+	cords.alignment = BoxContainer.ALIGNMENT_CENTER
+	cords.add_theme_constant_override("separation", 560)
+	column.add_child(cords)
+	for cord in 2:
+		var line := ColorRect.new()
+		line.color = UI.BRONZE.darkened(0.2)
+		line.custom_minimum_size = Vector2(8, 90)
+		cords.add_child(line)
+	var sign_panel := PanelContainer.new()
+	sign_panel.name = "ClosedSign"
+	var face := UI.panel(UI.ACTION.darkened(0.45), UI.GOLD, 22)
+	face.set_border_width_all(8)
+	face.set_corner_radius_all(8)
+	sign_panel.add_theme_stylebox_override("panel", face)
+	sign_panel.custom_minimum_size = Vector2(860, 0)
+	column.add_child(sign_panel)
+	# A thin inner frame, like the plate of a real shop sign.
+	var inner := PanelContainer.new()
+	var rim := UI.panel(Color(0, 0, 0, 0), UI.BRONZE, 30)
+	rim.set_border_width_all(2)
+	rim.set_corner_radius_all(4)
+	inner.add_theme_stylebox_override("panel", rim)
+	sign_panel.add_child(inner)
+	var words := VBoxContainer.new()
+	words.add_theme_constant_override("separation", 6)
+	inner.add_child(words)
+	var closed := label("CLOSED", 220, UI.GOLD)
+	closed.name = "ClosedLabel"
+	closed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	words.add_child(closed)
+	var note := label("The school map is shut during a Versus match.", 20, UI.TEXT)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	words.add_child(note)
+	var footer := HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_END
+	content.add_child(footer)
+	button("Return to battle", toggle_map, footer)
+
 func toggle_map() -> void:
 	if _dragging() or saved_content or screen in DECISIONS: return
 	if screen == "map":
@@ -845,6 +1257,12 @@ func battle_finished(won: bool) -> void:
 	intel_revealed = false
 	game.player_buffs.clear()
 	game.enemy_buffs.clear()
+	# Versus ends here: no coins, rewards, save changes or run logic.
+	if encounter == "versus":
+		versus_match.finish(won)
+		# LAN Part E: tell the Disaster client who won.
+		if is_instance_valid(lan_title): lan_title.match_finished(versus_match.winner)
+		return
 	if not won:
 		run_active = false
 		persistence.discard()
@@ -1177,15 +1595,19 @@ func show_deck() -> void:
 		content = VBoxContainer.new()
 		content.add_theme_constant_override("separation", 14)
 		modal.add_child(content)
-	reset_panel("", "", "deck")
+	# Versus has no run deck. The Deck button shows the deck of the side at the table.
+	var versus_deck: bool = game.encounter_kind == "versus" and versus_hud.active
+	if versus_deck and game.versus_hand_hidden: return
+	var shown: Array[Dictionary] = versus_hud.deck_cards() if versus_deck else collection
+	reset_panel(versus_hud.deck_title() if versus_deck else "", "", "deck")
 	# The layout lives in ui_deck.tscn; the card tiles are made in deck_cards().
 	unpack_screen(DeckScene)
 	var deck_button: Button = content.get_node("Tabs/DeckButton")
-	deck_button.text = "Cards (%d)" % collection.size()
-	hook_button(deck_button, deck_cards.bind(collection))
+	deck_button.text = "Cards (%d)" % shown.size()
+	hook_button(deck_button, deck_cards.bind(shown))
 	hook_button(content.get_node("Tabs/CloseButton"), close_modal)
 	setup_sort_controls(content.get_node("SortRow"), false)
-	deck_cards(collection)
+	deck_cards(shown)
 
 func preserve_pending_decision() -> void:
 	if screen in DECISIONS and saved_content == null:
@@ -1282,6 +1704,8 @@ func tactic_available(id: String) -> bool:
 	return not allies.is_empty()
 
 func begin_tactic(id: String) -> void:
+	# LAN: a remote Preparedness player arms tactics by message, not from this screen.
+	if game.seat_prep != "local": return
 	if not tactic_available(id): return
 	close_modal()
 	if id == "coordinate":
@@ -1296,11 +1720,12 @@ func begin_tactic(id: String) -> void:
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
 		game.board_input.pick("Click a deployed ally for " + str(game.plans.definition(id).name) + ".", allies, arm_target_tactic.bind(id), Callable())
 
-func arm_target_tactic(card: Node, id: String) -> void: game.plans.arm(id, [card])
+# Both arm through preparedness_actions, the same step a remote Preparedness player uses.
+func arm_target_tactic(card: Node, id: String) -> void: game.preparedness_actions.arm_tactic(id, card)
 func select_brace() -> void: begin_tactic("brace")
 func arm_brace(card: Node) -> void:
 	game.board_input.clear()
-	game.plans.arm("brace", [card])
+	game.preparedness_actions.arm_tactic("brace", card)
 func select_coordination() -> void: begin_tactic("coordinate")
 func select_extraction_ally(card: Node) -> void:
 	game.board_input.destination(card, arm_extraction.bind(card))
@@ -1308,11 +1733,13 @@ func select_extraction_ally(card: Node) -> void:
 func arm_extraction(slot: Node3D, card: Node) -> void:
 	game.plans.arm("extract", [card], slot)
 
-func show_graveyard() -> void:
+func show_graveyard(side: String = "preparedness") -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty() or screen in DECISIONS or saved_content != null: return
 	if screen == "graveyard":
 		close_modal()
 		return
+	disaster_graveyard_view = side == "disaster" and game.encounter_kind == "versus" \
+		and preload("res://scripts/versus_match.gd").SIDE_BY_SIDE_HUD
 	refresh_graveyard()
 
 func refresh_graveyard() -> void:
@@ -1329,7 +1756,7 @@ func refresh_graveyard() -> void:
 	order.text = "Descending" if deck_descending else "Ascending"
 	hook_button(order, func(): deck_descending = not deck_descending; refresh_graveyard())
 	var list: Control = content.get_node("Scroll/List")
-	var cards: Array = game.player_graveyard
+	var cards: Array = game.disaster_graveyard if disaster_graveyard_view else game.player_graveyard
 	viewed_cards.assign(cards)
 	if not cards.is_empty(): list.get_node("EmptyNote").free()
 	var grid := GridContainer.new()
@@ -1885,7 +2312,23 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 		_card_tile(definition, row, callback.bind(entry), "Choose")
 	hook_button(content.get_node("CancelButton"), cancel)
 
+func choose_evolution_targets(cards: Array, callback: Callable, cancel: Callable) -> void:
+	card_picker = true
+	reset_panel("CHOOSE A DISASTER TARGET", "Held evolution faces remain hidden.", "choice")
+	action_cancel = cancel
+	for i in cards.size():
+		var entry: Variant = cards[i]
+		var text: String
+		if entry is Node: text = str(entry.card_data.name)
+		elif entry.get("zone", "") == "held_evolutions": text = "Held evolution %d" % (i + 1)
+		else: text = str(entry.name) if intel_revealed else "Hand card %d" % (i + 1)
+		button(text, callback.bind(entry), content)
+	button("Cancel", cancel, content)
+
 func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> void:
+	if game.evolution_choice.enabled():
+		choose_evolution_targets(cards, callback, cancel)
+		return
 	if intel_revealed:
 		choose_card("CHOOSE AN ENEMY HAND CARD", cards, callback, cancel)
 		return

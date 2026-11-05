@@ -1,18 +1,49 @@
-# Multiplayer plan
+# Multiplayer
 
-Multiplayer is not playable. The menu entry is disabled. Start with a local rules prototype before adding online rooms.
+Versus is playable from the title screen. Choose Versus for two humans on one computer, using pass and play.
+One player uses Preparedness and the other uses Disasters. A privacy cover hides the screen between human turns.
+Pass the computer to the named player, then choose "I am ready" to continue.
 
-## Scope and tentative rules
+## Local matches
 
-One player uses Preparedness and the other uses Disasters. Reuse card identities and effects, but keep multiplayer rules and deck saves separate from singleplayer. Run upgrades, supplies, character perks and saved progress do not transfer.
+Matches use preset decks and stay separate from singleplayer saves, rewards and progression.
+Run buffs are cleared for the match, and the stored singleplayer state is restored when the match ends.
+The shared coin screen asks for Heads or Tails. Matching the random toss lets Preparedness go first.
+Otherwise Disaster goes first. The starting side switches each round, with one combat after both playing phases.
 
-Tentative decks: 24 main cards per side; Disasters also get six evolutions. Preparedness selects three tactics, including Brace. Begin with two copies per card and unupgraded definitions. These counts and all balance numbers are starting points for testing, not fixed rules.
+In `scripts/versus_match.gd`, both flags are currently true:
 
-Use four lanes per side. Alternate the first player each round, with one combat after both playing phases. Start from the current energy, Tension, sacrifice and Plan rules. Set opening hands, draw rates, health and action limits before testing.
+- `DISASTER_IS_HUMAN` gives the Disaster turn to a human. When false, the existing AI plays that side.
+- `DISASTER_SEAT_VIEW` flips the camera to the far seat and shows the human Disaster hand as cards.
+  When false, the human uses the Disaster panel instead.
 
-## First prototype
+## Disaster seat controls
 
-Build a deck validator and one legal preset per side. Then run both human sides locally, using a privacy screen between turns. Test costs, targets, sacrifice choices, effect expiry and exact duplicate handling. Check that saving decks cannot overwrite a singleplayer run.
+- Drag a Base card onto an empty Disaster lane, or click the card and then its lane.
+- Play a spell onto the board. Spells that need a target open a target popup.
+- Play an evolution onto a deployed Disaster. That card is the first sacrifice.
+  Click any further required sacrifices to finish the evolution.
+- Choose End turn when finished.
+- Esc or right-click cancels a picked, held or dragged card or a pending sacrifice choice.
+  Use Cancel in a target popup to keep the spell in hand. With no pending choice, Esc opens the menu.
+
+## Decks and remaining work
+
+The code already has a deck validator and one preset per side in `scripts/versus_decks.gd`.
+It checks deck sizes, card identities, copy limits, evolution piles and Preparedness tactics.
+The finisher rule is not checked yet. Custom deck saves and online rooms are not built.
+
+Stage 2e would let Player 1 choose Heads or Tails for one flip, then let the winner choose a side and go first.
+That side-selection step is not built. The current coin screen only decides which side starts.
+
+Current deck rules use 24 main cards per side, six Disaster evolutions and at most two copies per card.
+Preparedness uses Brace plus two other tactics. These counts and balance numbers remain subject to playtesting.
+Rotate sides, decks and first player during tests before adjusting balance.
+
+## Known limits
+
+Opening the on-screen Menu during a Disaster drag leaves the drag stuck after Resume.
+A click-picked Disaster card stays picked after a modal, such as the battle log, closes.
 
 ## Online matches
 

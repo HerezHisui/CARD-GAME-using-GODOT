@@ -19,7 +19,32 @@ var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
+var evolution_draw_choice_override := false
+var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
+# Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
+var versus_master := {"preparedness": [], "disaster": []}
+# Versus Disaster actions. They check every action in one place.
+var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").new(self)
+# Set by versus_match.gd at match start. True means a person plays the Disaster turn.
+var disaster_is_human := false
+var disaster_waiting := false  # true only while a human Disaster turn waits for End
+# Set by versus_match.gd. True means the human Disaster plays from the far seat, not from the panel.
+var disaster_seat_view := false
+var disaster_seat_on := false  # true while the camera shows the Disaster seat
+# LAN only: the Disaster is played on another computer. Set with disaster_is_human.
+# No seat, no Disaster panel and no privacy cover on this screen then.
+var lan_remote_disaster := false
+# Versus Preparedness actions (LAN Part D2). The local drag and a remote player both end here.
+var preparedness_actions: RefCounted = preload("res://scripts/preparedness_actions.gd").new(self)
+# Who plays each side on this computer: "local" or "remote". Hot-seat keeps both "local".
+# Change them only with set_seats, so the lan_remote_* flags stay in step.
+var seat_prep := "local"
+var seat_disaster := "local"
+# LAN only: the Preparedness side is played on another computer. Set by set_seats.
+var lan_remote_prep := false
+var disaster_seat: Node
 var hand: Array = []
+var disaster_graveyard: Array[Dictionary] = []
 var player_graveyard: Array[Dictionary] = []
 var graveyard_serial := 0
 var hovered_hand_card: Node
@@ -83,6 +108,8 @@ var player_hp := PLAYER_MAX_HP
 var enemy_hp := ENEMY_MAX_HP
 
 # ---- Camera views (pivot position, pivot rotation in degrees, camera distance)
+var side_camera_on := false
+const SeatPresentation = preload("res://scripts/versus_match.gd")
 const DESK_VIEW := {"pos": Vector3(0, 1.0, -0.4), "rot": Vector3(-30, 0, 0), "dist": 5.3, "fov":60.0}
 const WIDE_VIEW := {"pos": Vector3(-0.8, 2.4, -1.0), "rot": Vector3(-12, -12, 0), "dist":10.0, "fov":68.0}
 const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "dist": 3.8, "fov":56.0}
@@ -100,6 +127,8 @@ const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "di
 
 var hand_container: Node3D
 var is_hand_tucked := false
+# Versus coin flip: the Preparedness hand stays hidden until the first player's cover is closed.
+var versus_hand_hidden := false
 var hand_tuck_tween: Tween
 
 @onready var camera: Camera3D = $CameraPivot/Camera3D
@@ -141,6 +170,9 @@ func _ready() -> void:
 	opponent_hand = preload("res://scripts/enemy_hand_display.gd").new()
 	add_child(opponent_hand)
 	opponent_hand.setup(self)
+	disaster_seat = preload("res://scripts/disaster_seat.gd").new()
+	add_child(disaster_seat)
+	disaster_seat.setup(self)
 	_build_lighting()
 	boss_fog = preload("res://scripts/boss_fog.gd").new()
 	add_child(boss_fog)
@@ -174,11 +206,16 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	evolution_choice.reset()
 	encounter_serial += 1
+	versus_master = {"preparedness": [], "disaster": []}
+	# Free a human Disaster turn that is waiting for End.
+	disaster_actions.turn_ended.emit()
 	if is_instance_valid(opponent_hand): opponent_hand.cancel_action()
 	if is_instance_valid(vfx): vfx.clear()
 	if is_instance_valid(boss_fog): boss_fog.set_active(false)
 	if is_instance_valid(presentation): presentation.cancel_coin()
+	reveal_versus_hand()
 	if is_instance_valid(board_input): board_input.clear()
 	if is_instance_valid(plans): plans.reset()
 	if not preserve_result: battle_log.clear()
@@ -190,6 +227,7 @@ func clear_battle(preserve_result: bool = false) -> void:
 	dragged_hand_card = null
 	show_drop_targets(false)
 	if not preserve_result:
+		disaster_graveyard.clear()
 		player_graveyard.clear()
 		graveyard_serial = 0
 	player_buffs.clear()
@@ -307,6 +345,36 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		add_child(final_boss)
 		final_boss.setup(self)
 		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN"
+	_start_match()
+
+## Versus start: given decks, no floor scaling, no boss or elite extras, no deck trimming.
+func start_versus(prep_deck: Array[Dictionary], disaster_deck: Array[Dictionary],
+		evolutions: Array[Dictionary], tactics: Array[String]) -> void:
+	clear_battle()
+	encounter_kind = "versus"
+	boss_fog.set_active(false)
+	run_director.intel_revealed = false
+	turn = 1
+	log_event("Versus match begins.")
+	plans.unlocked.assign(tactics)
+	energy_cap = ENERGY_START
+	preparedness = energy_cap
+	plans.tokens = 0
+	tension_cap = TENSION_START
+	tension = tension_cap
+	enemy_max_hp = 20
+	enemy_hp = enemy_max_hp
+	_enemy_hp_ui.get_node("Caption").text = "DISASTER"
+	for definition in prep_deck: deck.append(definition.duplicate(true))
+	for definition in disaster_deck: enemy_deck.append(definition.duplicate(true))
+	for definition in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
+	versus_master = {"preparedness": prep_deck.duplicate(true),
+		"disaster": disaster_deck.duplicate(true) + evolutions.duplicate(true)}
+	deck.shuffle()
+	enemy_deck.shuffle()
+	enemy_evolution_deck.shuffle()
+	_refresh_bars()
+	set_board_view(false)
 	_start_match()
 
 func fill_elite_reserve(reserve: Array[Dictionary], limit: int) -> void:
@@ -514,6 +582,9 @@ func enemy_draw_cards(count: int) -> void:
 	update_deck_label()
 
 func enemy_draw_evolutions(count: int) -> void:
+	if evolution_choice.enabled():
+		for i in count: evolution_choice.draw()
+		return
 	for i in range(count):
 		if enemy_hand.size() >= 5 or enemy_evolution_deck.is_empty() or enemy_hand.filter(func(card): return int(card.get("cost", 0)) > 0).size() >= 2: break
 		enemy_hand.append(enemy_evolution_deck.pop_back())
@@ -543,6 +614,8 @@ func step_view(direction: int) -> void:
 	set_view(clampi(int(view_mode) + direction, View.WIDE, View.BOARD))
 
 func set_view(mode: int) -> void:
+	# The Disaster seat owns the camera until its turn ends.
+	if disaster_seat_on or lan_side_view(): return
 	view_mode = clampi(mode, View.WIDE, View.BOARD) as View
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
@@ -559,6 +632,7 @@ func set_board_view(on: bool) -> void:
 	set_view(View.BOARD if on else View.DESK)
 
 func _apply_view(v: Dictionary) -> void:
+	if lan_side_view(): v = SeatPresentation.seat_camera(lan_remote_prep)
 	$CameraPivot.position = v.pos
 	$CameraPivot.rotation_degrees = v.rot
 	camera.position = Vector3(0, 0, v.dist)
@@ -566,6 +640,9 @@ func _apply_view(v: Dictionary) -> void:
 	camera.fov = float(v.get("fov", 55.0))
 
 func _shift_camera(v: Dictionary, dur: float = 0.55) -> void:
+	if lan_side_view():
+		_apply_view(v)
+		return
 	var pivot = $CameraPivot
 	if camera_tween: camera_tween.kill()
 	var tween = create_tween().set_parallel(true).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
@@ -636,13 +713,37 @@ func _update_target_pulse() -> void:
 	var want_slots: bool = is_instance_valid(dragged_hand_card) or kind == "place"
 	if want_slots != _slots_lit: show_drop_targets(want_slots)
 
+func lan_side_view() -> bool:
+	return SeatPresentation.SIDE_BY_SIDE_CAMERA and encounter_kind == "versus" \
+		and (lan_remote_prep or lan_remote_disaster)
+
+func _update_side_camera() -> void:
+	var on := lan_side_view()
+	if on != side_camera_on:
+		side_camera_on = on
+		if camera_tween: camera_tween.kill()
+		_apply_view(view_settings(view_mode))
+	var yaw := SeatPresentation.lane_yaw(lan_remote_prep) if on else 0.0
+	if not on and not get_meta("side_cards_turned", false): return
+	for card: Node in get_tree().get_nodes_in_group("cards"):
+		if card.in_hand or card.current_slot == null: continue
+		var rest: Vector3 = card.current_slot.global_position + Vector3(0, 0.008, 0)
+		if card.global_position.distance_to(rest) < 0.02: card.rotation.y = yaw
+	set_meta("side_cards_turned", on)
+
 func _process(_delta: float) -> void:
+	_update_side_camera()
 	if is_instance_valid(opponent_hand): opponent_hand.refresh()
 	update_hand_hover(get_viewport().get_mouse_position())
 	_update_target_pulse()
 	if phase == Phase.COMBAT:
 		if not is_hand_tucked:
 			set_hand_tucked(true)
+		return
+
+	# A human Disaster must not see the Response hand. When the turn ends the normal rules below untuck it.
+	if disaster_waiting and encounter_kind == "versus" and disaster_is_human:
+		if not is_hand_tucked: set_hand_tucked(true)
 		return
 
 	if view_mode == View.WIDE:
@@ -886,7 +987,9 @@ func record_graveyard(card: Node, reason: String) -> void:
 	card.graveyard_recorded = true
 	log_event("%s: %s." % [reason, card.card_data.name])
 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
-	if card.card_data.get("type", "response") != "response": return
+	if card.card_data.get("type", "response") != "response":
+		record_disaster_definition(card.card_data, reason)
+		return
 	var entry: Dictionary = card.card_data.duplicate(true)
 	if not card.card_data.get("utility", false): entry.health = card.max_health
 	entry.graveyard_reason = reason
@@ -897,6 +1000,14 @@ func record_graveyard(card: Node, reason: String) -> void:
 	entry.graveyard_id = graveyard_serial
 	entry.recovery = card.base_definition.duplicate(true)
 	player_graveyard.append(entry)
+
+func record_disaster_definition(definition: Dictionary, reason: String) -> void:
+	if not SeatPresentation.SIDE_BY_SIDE_HUD or encounter_kind != "versus": return
+	var entry := definition.duplicate(true)
+	entry.graveyard_reason = reason
+	entry.graveyard_round = turn
+	entry.graveyard_id = disaster_graveyard.size() + 1
+	disaster_graveyard.append(entry)
 
 func destroyed_response_units() -> Array:
 	return player_graveyard.filter(func(entry): return entry.get("graveyard_reason", "") == "Destroyed" and not entry.get("utility", false))
@@ -944,7 +1055,17 @@ func arrange_hand_centered() -> void:
 ##   -> combat (first side attacks first, then the other side) -> next round,
 ##   and the side that goes first swaps every round.
 func can_player_act() -> bool:
+	if evolution_choice.pending(): return false
+	# LAN: a remote Preparedness player acts through preparedness_actions, never through this screen.
+	if seat_prep != "local": return false
 	return phase == Phase.PLAYER_PLAY and board_input.action.is_empty() and (not run_director or not run_director.modal.visible)
+
+## Sets who plays each side: "local" or "remote". Hot-seat and singleplayer keep both "local".
+func set_seats(prep: String, disaster: String) -> void:
+	seat_prep = prep
+	seat_disaster = disaster
+	lan_remote_prep = prep == "remote"
+	lan_remote_disaster = disaster == "remote"
 
 func try_play_card(card: Node) -> bool:
 	return can_player_act() and not is_sealed(card.card_data) and preparedness >= int(card.card_data.get("cost", 0))
@@ -1034,15 +1155,17 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		match effect:
 			"tutor": choices = deck.filter(func(c): return not is_sealed(c))
 			"recover": choices = recoverable_units()
-			"seal": choices = seal_targets()
-			"tax": choices = enemy_hand
+			"seal": choices = seal_targets() + held_evolution_targets()
+			"tax": choices = enemy_hand + held_evolution_targets()
 			"rally", "cleanse": choices = _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if choices.is_empty(): return false
 		pending_utility = card
 		pending_effect = effect
 		if card.get_parent() != hand_container: card.reparent(hand_container, true)
 		arrange_hand_centered()
-		if effect == "seal":
+		if effect == "seal" and evolution_choice.enabled():
+			run_director.choose_evolution_targets(choices, complete_utility_choice, cancel_utility_choice)
+		elif effect == "seal":
 			board_input.pick("Choose a Disaster on the field. Seal " + ("this round." if player_first else "next round."),
 				choices, complete_utility_choice, cancel_utility_choice)
 		elif effect in ["rally", "cleanse"]:
@@ -1090,10 +1213,10 @@ func complete_utility_choice(target: Variant) -> void:
 	if pending_effect == "recover" and (not recoverable_units().has(target) or get_hand_cards().size() > HAND_SIZE_MAX):
 		cancel_utility_choice()
 		return
-	if pending_effect == "seal" and target not in seal_targets():
+	if pending_effect == "seal" and target not in seal_targets() + held_evolution_targets():
 		cancel_utility_choice()
 		return
-	if pending_effect == "tax" and target not in enemy_hand:
+	if pending_effect == "tax" and target not in enemy_hand + held_evolution_targets():
 		cancel_utility_choice()
 		return
 	var power := int(pending_utility.card_data.get("utility_power", 0))
@@ -1101,9 +1224,14 @@ func complete_utility_choice(target: Variant) -> void:
 		"tutor":
 			deck.erase(target)
 		"recover": player_graveyard.erase(target)
-		"seal": seal_field_card(target)
+		"seal":
+			if target is Dictionary:
+				evolution_choice.definition(str(target.id)).locked_until = turn + 2
+			else: seal_field_card(target)
 		"tax":
-			for i in range(1 + power): increase_cost(target)
+			var value: Dictionary = (evolution_choice.definition(str(target.id))
+				if target is Dictionary and target.get("zone", "") == "held_evolutions" else target)
+			for i in range(1 + power): increase_cost(value)
 		"rally": target.add_status("strength", 2 + power)
 		"cleanse":
 			target.cleanse()
@@ -1126,6 +1254,10 @@ func cancel_utility_choice() -> void:
 	run_director.close_modal()
 	arrange_hand_centered()
 
+func held_evolution_targets() -> Array:
+	if not evolution_choice.enabled(): return []
+	return evolution_choice.held.map(func(entry): return {"zone": "held_evolutions", "id": entry.id})
+
 func increase_cost(definition: Dictionary) -> void:
 	var key := "cost" if definition.get("type", "response") == "response" or int(definition.get("cost", 0)) > 0 else "tension_cost"
 	if not definition.has("tax_original"):
@@ -1141,24 +1273,38 @@ func expire_tax(definition: Dictionary) -> void:
 		for key in ["tax_original", "tax_key", "tax_until"]: definition.erase(key)
 
 func enemy_utility(definition: Dictionary) -> void:
-	record_enemy_spell(definition)
+	apply_enemy_utility(definition, enemy_spell_target(definition))
+
+## AI pick for a seal or tax target in the Response hand. Null when there is none.
+func enemy_spell_target(definition: Dictionary) -> Node:
 	var effect: String = definition.get("effect", "")
 	if effect == "seal":
 		var choices := get_hand_cards().filter(func(c): return not is_sealed(c.card_data))
 		if not choices.is_empty():
 			var target = choices.pick_random()
 			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, false)
-			target.card_data.locked_until = turn + 2
-			target._refresh_face()
-			target.spawn_popup("SEALED · 2 ROUNDS", UI.DANGER)
+			return target
 	elif effect == "tax":
 		var choices := get_hand_cards()
 		if not choices.is_empty():
 			var target = choices.pick_random()
 			if encounter_kind in ["elite", "boss"]: target = best_disruption_target(choices, true)
-			increase_cost(target.card_data)
-			target.refresh_cost()
-			target.spawn_popup("COST +1", UI.DANGER)
+			return target
+	return null
+
+## Seal or tax the given Response hand card. No choices in here.
+func apply_enemy_utility(definition: Dictionary, target: Node) -> void:
+	record_enemy_spell(definition)
+	if target == null: return
+	var effect: String = definition.get("effect", "")
+	if effect == "seal":
+		target.card_data.locked_until = turn + 2
+		target._refresh_face()
+		target.spawn_popup("SEALED · 2 ROUNDS", UI.DANGER)
+	elif effect == "tax":
+		increase_cost(target.card_data)
+		target.refresh_cost()
+		target.spawn_popup("COST +1", UI.DANGER)
 
 func best_disruption_target(cards: Array, tax: bool) -> Node:
 	var best: Node = cards[0]
@@ -1176,6 +1322,10 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	var previous := phase
 	phase = p
 	if p == Phase.GAME_OVER and is_instance_valid(opponent_hand): opponent_hand.cancel_action()
+	# Free a human Disaster turn that is waiting for End.
+	if p == Phase.GAME_OVER:
+		evolution_choice.reset()
+		disaster_actions.turn_ended.emit()
 	# The TURN N banner replaces the side banner at round start.
 	var round_banner: bool = is_instance_valid(turn_banner) and turn_banner.is_playing()
 	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking \
@@ -1183,7 +1333,8 @@ func _set_phase(p: Phase, text: String = "") -> void:
 		if p in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] and previous not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: presentation.banner("YOUR TURN", "Round %d" % turn, UI.RESPONSE)
 		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("JANITOR'S TURN", "Watch the opposing formation")
 		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
-	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
+	$HUD/Root/DeckDrawButton.disabled = (p != Phase.PLAYER_DRAW
+		or (encounter_kind == "versus" and seat_prep != "local"))
 	if is_instance_valid(presentation): presentation.remind_to_draw(p == Phase.PLAYER_DRAW)
 	if text != "" and _phase_label:
 		_phase_label.text = "Draw" if p == Phase.PLAYER_DRAW else text
@@ -1231,15 +1382,122 @@ func _start_match() -> void:
 
 func resume_coin() -> void:
 	var serial := encounter_serial
+	# LAN D2-d: the other player left during the opening banner. No coin after that.
+	if (lan_remote_prep or lan_remote_disaster) and phase == Phase.GAME_OVER: return
 	run_director.screen = "coin"
+	# Versus with the pre-match flip: the toss winner picks a side before round 1.
+	# LAN D2-d: the same coin. The host is Player 1 and calls; the seats are set after the side pick.
+	var versus_flip: bool = preload("res://scripts/versus_match.gd").PREMATCH_COIN_FLIP
+	versus_flip = versus_flip and encounter_kind == "versus" and is_instance_valid(run_director.versus_match)
+	# The hand is dealt already. Keep it hidden through the coin fade and the side choice.
+	if versus_flip: hide_versus_hand()
 	var pick: int = await presentation.choose_coin(coin_result, coin_pick)
 	if pick < 0 or serial != encounter_serial: return
 	coin_pick = pick
+	if versus_flip:
+		_resume_versus_coin(serial)
+		return
 	player_first = coin_pick == coin_result
 	log_event("Coin: called %s, landed %s. %s takes the first turn." % ["Heads" if coin_pick == 0 else "Tails", "Heads" if coin_result == 0 else "Tails", "Response" if player_first else "The Janitor"])
 	run_director.screen = ""
 	_set_phase(Phase.SETUP, "You take the first turn" if player_first else "The Janitor takes the first turn")
 	_begin_round()
+
+## Versus only: wait for the toss winner's side. The picked side takes the first turn.
+func _resume_versus_coin(serial: int) -> void:
+	var versus_node: Node = run_director.versus_match
+	var toss_winner: int = versus_node.resolve_winner(coin_pick, coin_result)
+	# The side screen stays "coin" for the director, so its hotkeys and buttons stay off.
+	presentation.show_side_choice(toss_winner, versus_node)
+	# Player 2 takes the laptop before the side screen shows.
+	if toss_winner == 2 and disaster_is_human and not lan_remote_disaster:
+		run_director.show_privacy_cover("PLAYER 2, you won the toss")
+	var side: String = await versus_node.wait_for_side(coin_pick, coin_result)
+	if serial != encounter_serial: return
+	presentation.close_side_choice()
+	if side == "":
+		reveal_versus_hand()
+		return
+	# LAN D2-d: the host is Player 1. The host plays Player 1's side here, the client plays the other.
+	if lan_remote_prep or lan_remote_disaster:
+		var host_prep: bool = versus_node.player1_side == "preparedness"
+		set_seats("local" if host_prep else "remote", "remote" if host_prep else "local")
+	# Deck builder Part 2: the LAN host picks Standard or a custom deck. The client plays Standard for now.
+	if versus_node.deck_choice and (lan_remote_prep or lan_remote_disaster):
+		var dealt: bool = await _versus_deck_step(versus_node, serial)
+		if not dealt: return
+	# With no human Disaster there is no cover to close, so show the hand now.
+	# Over LAN there is no cover either. A host that plays the Disaster never sees the hand.
+	if not disaster_is_human or lan_remote_disaster: reveal_versus_hand()
+	player_first = versus_node.prep_goes_first(side)
+	var call_text := "Heads" if coin_pick == 0 else "Tails"
+	var result_text := "Heads" if coin_result == 0 else "Tails"
+	var first_text := "Preparedness" if player_first else "The Disaster"
+	log_event("Coin: Player 1 called %s, landed %s. Player %d picks %s." % [call_text, result_text,
+		versus_node.coin_winner, side.capitalize()])
+	run_director.screen = ""
+	_set_phase(Phase.SETUP, "%s takes the first turn" % first_text)
+	if evolution_choice.enabled() and not await evolution_choice.resolve(): return
+	_begin_round()
+
+## LAN deck step. Returns false when the match ended or the wait was cancelled.
+func _versus_deck_step(versus_node: Node, serial: int) -> bool:
+	versus_node.start_deck_step()
+	# Part 3: a LAN client sends its own deck (lan_title.gd). Without one it plays Standard.
+	if not versus_node.remote_deck_choice: versus_node.choose_deck(versus_node.player2_side, {})
+	presentation.show_deck_choice(versus_node.player1_side, versus_node)
+	var ok: bool = await versus_node.wait_for_decks()
+	if serial != encounter_serial: return false
+	presentation.close_deck_choice()
+	if not ok:
+		reveal_versus_hand()
+		return false
+	# Standard changes nothing. Only a custom deck is dealt again.
+	for side: String in versus_node.custom_decks:
+		var cards: Dictionary = versus_node.deck_cards(side)
+		redeal_versus_side(side, cards.main, cards.evolutions, cards.tactics)
+	versus_node.end_deck_step()
+	return true
+
+## Versus deck step: swap one side's deck and opening hand. Turn, energy, tension and HP stay.
+## The new cards go into a hand that is still hidden. The reveal rules decide who sees it.
+func redeal_versus_side(side: String, main: Array, evolutions: Array, tactics: Array) -> void:
+	if side == "preparedness":
+		# Same as clear_battle: the old hand cards leave the "cards" group and are freed.
+		for card in hand:
+			if not is_instance_valid(card): continue
+			card.remove_from_group("cards")
+			card.queue_free()
+		hand.clear()
+		deck.clear()
+		versus_master[side] = main.duplicate(true)
+		for definition: Dictionary in main: deck.append(definition.duplicate(true))
+		deck.shuffle()
+		plans.unlocked.assign(tactics)
+		draw_cards(STARTING_HAND)
+	elif side == "disaster":
+		if evolution_choice.enabled(): evolution_choice.reset()
+		enemy_hand.clear()
+		enemy_deck.clear()
+		enemy_evolution_deck.clear()
+		versus_master[side] = main.duplicate(true) + evolutions.duplicate(true)
+		for definition: Dictionary in main: enemy_deck.append(definition.duplicate(true))
+		for definition: Dictionary in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
+		enemy_deck.shuffle()
+		enemy_evolution_deck.shuffle()
+		enemy_draw_cards(STARTING_HAND)
+		enemy_draw_evolutions(1)
+
+## Versus coin flip only. Hides the Preparedness hand.
+func hide_versus_hand() -> void:
+	versus_hand_hidden = true
+	hand_container.visible = false
+
+## Shows the hand again. Does nothing when hide_versus_hand did not hide it.
+func reveal_versus_hand() -> void:
+	if not versus_hand_hidden: return
+	versus_hand_hidden = false
+	hand_container.visible = true
 
 func _begin_round() -> void:
 	# A depleted draw pile is still playable while hand or board cards remain.
@@ -1251,7 +1509,9 @@ func _begin_round() -> void:
 		_set_phase(Phase.GAME_OVER, "The Janitor has no threats left")
 		run_director.battle_finished(true)
 		return
-	if turn % preload("res://scripts/battle_rules.gd").BUFF_INTERVAL == 0 and adapted_round != turn:
+	# Versus has no adaptation buff screen.
+	var buff_interval: int = preload("res://scripts/battle_rules.gd").BUFF_INTERVAL
+	if encounter_kind != "versus" and turn % buff_interval == 0 and adapted_round != turn:
 		adapted_round = turn
 		_set_phase(Phase.SETUP, "Choose your adaptation")
 		run_director.show_buff_choices()
@@ -1259,7 +1519,9 @@ func _begin_round() -> void:
 	continue_round()
 
 func continue_round() -> void:
-	for definition in deck + enemy_deck + enemy_hand + enemy_evolution_deck: expire_tax(definition)
+	var expiring: Array = deck + enemy_deck + enemy_hand + enemy_evolution_deck
+	if evolution_choice.enabled(): expiring += evolution_choice.definitions()
+	for definition in expiring: expire_tax(definition)
 	for card in get_tree().get_nodes_in_group("cards"):
 		expire_tax(card.card_data)
 		if int(card.card_data.get("seal_round", turn)) < turn: card.card_data.erase("seal_round")
@@ -1315,6 +1577,8 @@ func _begin_player_turn() -> void:
 		_set_phase(Phase.PLAYER_DRAW, "Your turn - draw a card from the deck")
 
 func _on_draw_button_pressed() -> void:
+	if encounter_kind == "versus" and seat_prep != "local": return
+	if evolution_choice.pending(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW or get_hand_cards().size() >= HAND_SIZE_MAX: return
 	var choices := deck.filter(func(card): return not is_sealed(card))
@@ -1326,7 +1590,11 @@ func _on_draw_button_pressed() -> void:
 	# Turn draw is random. Only Search and Rescue lets you pick.
 	complete_draw_choice(choices.pick_random())
 
-func complete_draw_choice(definition: Dictionary) -> void:
+func complete_draw_choice(definition: Dictionary, remote_owner: bool = false) -> void:
+	if remote_owner:
+		if encounter_kind != "versus" or seat_prep != "remote": return
+	elif encounter_kind == "versus" and seat_prep != "local": return
+	if evolution_choice.pending(): return
 	if phase != Phase.PLAYER_DRAW: return
 	if definition not in deck or is_sealed(definition): return
 	if get_hand_cards().size() >= HAND_SIZE_MAX: return
@@ -1337,6 +1605,17 @@ func complete_draw_choice(definition: Dictionary) -> void:
 	_refresh_bars()
 
 func _on_end_turn_pressed() -> void:
+	# On the Disaster seat this button ends the Disaster turn.
+	if disaster_seat_on:
+		disaster_actions.end_turn()
+		return
+	# LAN: a remote Preparedness player ends the turn by message, not with this button or Space.
+	if seat_prep != "local": return
+	await end_prep_turn()
+
+## Ends the Preparedness turn and plays the rest of the round. Button, Space and preparedness_actions call it.
+func end_prep_turn() -> void:
+	if evolution_choice.pending(): return
 	if not board_input.action.is_empty(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW and phase != Phase.PLAYER_PLAY:
@@ -1399,7 +1678,10 @@ func _present_enemy_card(definition: Dictionary, target := Vector3.ZERO) -> bool
 	var serial := encounter_serial
 	if is_instance_valid(opponent_hand): opponent_hand.play_card(definition, target)
 	# Headless logic fixtures do not wait for rendered animation playback.
-	if DisplayServer.get_name() != "headless": await _wait(opponent_hand.character.RELEASE_SECONDS)
+	var still_human: bool = encounter_kind == "versus" and disaster_is_human \
+		and is_instance_valid(opponent_hand) and opponent_hand.character.fixed_pose
+	if DisplayServer.get_name() != "headless" and not still_human:
+		await _wait(opponent_hand.character.RELEASE_SECONDS)
 	if serial != encounter_serial or phase == Phase.GAME_OVER: return false
 	if is_instance_valid(opponent_hand): opponent_hand.release_card()
 	return true
@@ -1420,22 +1702,36 @@ func _enemy_turn() -> void:
 
 	if turn % 2 == 0: enemy_draw_evolutions(1)
 
+	# A human Disaster plays through disaster_actions and ends the turn with end_turn().
+	if encounter_kind == "versus" and disaster_is_human:
+		var serial := encounter_serial
+		disaster_actions.begin_turn()
+		disaster_waiting = true
+		if evolution_choice.enabled() and not await evolution_choice.resolve(): return
+		await disaster_actions.turn_ended
+		disaster_waiting = false
+		# The battle ended or was cleared while waiting: skip the closing lines.
+		if serial != encounter_serial or phase == Phase.GAME_OVER: return
+	elif not await _disaster_ai_actions(): return
+
+	_set_phase(Phase.ENEMY, "Disaster concludes its turn.")
+	await _wait(0.4)
+
+## The AI plays its cards. Returns false if an action failed, so the turn stops without the closing lines.
+func _disaster_ai_actions() -> bool:
 	# --- Disaster Action Phase (Can play multiple cards in one turn!) ---
 	var actions_taken := 0
 	var max_actions := enemy_action_limit()
 	var played_something := true
+	if encounter_kind == "versus": disaster_actions.begin_turn()
 
 	while played_something and actions_taken < max_actions and tension > 0:
 		played_something = false
 		var spells := enemy_hand.filter(func(d): return d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension and (d.get("effect", "") != "seal" or get_hand_cards().any(func(c): return not is_sealed(c.card_data))) and (d.get("effect", "") != "tax" or not get_hand_cards().is_empty()))
 		if not spells.is_empty():
 			var spell: Dictionary = spells.pick_random()
-			enemy_hand.erase(spell)
-			if not await _present_enemy_card(spell): return
-			enemy_utility(spell)
-			tension -= int(spell.get("tension_cost", 1))
-			_set_phase(Phase.ENEMY, "The Janitor casts %s" % spell.name)
-			_refresh_bars()
+			var spell_target: Node = enemy_spell_target(spell)
+			if not (await _ai_cast(spell, spell_target)).ok: return false
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1465,7 +1761,6 @@ func _enemy_turn() -> void:
 
 		if should_evolve and not active_threats.is_empty():
 			var evo_card_data: Dictionary = plan.card if not plan.is_empty() else evo_candidates.pick_random()
-			enemy_hand.erase(evo_card_data)
 			var sac_count: int = int(evo_card_data.get("cost", 1))
 
 			# Sacrifice lowest health threats first
@@ -1474,26 +1769,7 @@ func _enemy_turn() -> void:
 			var target_slot: Node3D = plan.slot if not plan.is_empty() else to_sacrifice[0].current_slot
 			if to_sacrifice.any(func(card): return not can_sacrifice(card)): break
 
-			_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [to_sacrifice.size(), evo_card_data.get("name", "Apex Threat")])
-			shake_camera(0.08, 0.2)
-
-			for sac_card in to_sacrifice:
-				await sac_card.sacrifice_dissolve()
-
-			await _wait(0.3)
-			if not await _present_enemy_card(evo_card_data, target_slot.global_position): return
-
-			var evo_card = Card3DScene.instantiate()
-			add_child(evo_card)
-			evo_card.add_to_group("cards")
-			evo_card.setup(evo_card_data)
-			await evo_card.enter_from_above(target_slot, opponent_hand.release_position())
-			_on_enemy_card_played(evo_card)
-			major_evolution_entry(evo_card, sac_count)
-			evo_card.spawn_popup("EVOLVED!", UI.AMBER)
-			shake_camera(0.12, 0.3)
-
-			_refresh_bars()
+			if not (await _ai_evolve(evo_card_data, to_sacrifice, target_slot)).ok: return false
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
@@ -1505,40 +1781,105 @@ func _enemy_turn() -> void:
 			var base_in_hand := enemy_hand.filter(func(d): return int(d.get("cost", 0)) == 0 and not d.get("utility", false) and not is_sealed(d) and int(d.get("tension_cost", 1)) <= tension)
 			if not base_in_hand.is_empty():
 				card_data_to_play = choose_base_threat(base_in_hand, empty_slots)
-				enemy_hand.erase(card_data_to_play)
 			else:
 				break
 
-			update_deck_label()
-
 			var target_slot: Node3D = _pick_smart_threat_slot(empty_slots, card_data_to_play)
-			if not await _present_enemy_card(card_data_to_play, target_slot.global_position): return
-			_set_phase(Phase.ENEMY, "Disaster unleashes %s!" % card_data_to_play.get("name", "Threat"))
-
-			var card = Card3DScene.instantiate()
-			add_child(card)
-			card.add_to_group("cards")
-			card.setup(card_data_to_play)
-
-			# Round 4-6 Janitor modifier chance on spawn
-			if encounter_kind != "battle" and turn in [4, 5, 6] and randf() < 0.5:
-				var mods = ["armored", "rampaging", "fierce", "regenerating"]
-				card.add_modifier(mods.pick_random())
-
-			await card.enter_from_above(target_slot, opponent_hand.release_position())
-			_on_enemy_card_played(card)
-			shake_camera(0.06, 0.15)
-
-			tension = maxi(0, tension - int(card_data_to_play.get("tension_cost", 1)))
-			_refresh_bars()
+			if not (await _ai_play_base(card_data_to_play, target_slot)).ok: return false
 			played_something = true
 			actions_taken += 1
 			await _wait(0.5)
+	return true
 
-	_set_phase(Phase.ENEMY, "Disaster concludes its turn.")
-	await _wait(0.4)
+# Disaster action helpers. They make no choices. The caller picks the card and target,
+# and removes the card from enemy_hand first. Each returns false if the battle ended mid-animation.
+
+## Cast a Disaster spell on a Response hand card (target may be null).
+func disaster_cast(definition: Dictionary, target: Node) -> bool:
+	if not await _present_enemy_card(definition): return false
+	apply_enemy_utility(definition, target)
+	record_disaster_definition(definition, "Cast")
+	tension -= int(definition.get("tension_cost", 1))
+	_set_phase(Phase.ENEMY, "The Janitor casts %s" % definition.name)
+	_refresh_bars()
+	return true
+
+## Sacrifice the given threats and put the evolution in slot.
+func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) -> bool:
+	var sac_count: int = int(definition.get("cost", 1))
+	var evo_name = definition.get("name", "Apex Threat")
+	_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [sacrifices.size(), evo_name])
+	shake_camera(0.08, 0.2)
+
+	for sac_card in sacrifices:
+		await sac_card.sacrifice_dissolve()
+
+	await _wait(0.3)
+	if not await _present_enemy_card(definition, slot.global_position): return false
+
+	var evo_card = Card3DScene.instantiate()
+	add_child(evo_card)
+	evo_card.add_to_group("cards")
+	evo_card.setup(definition)
+	await evo_card.enter_from_above(slot, opponent_hand.release_position())
+	_on_enemy_card_played(evo_card)
+	major_evolution_entry(evo_card, sac_count)
+	evo_card.spawn_popup("EVOLVED!", UI.AMBER)
+	shake_camera(0.12, 0.3)
+
+	_refresh_bars()
+	return true
+
+## Play a base threat into an empty threat slot.
+func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
+	update_deck_label()
+
+	if not await _present_enemy_card(definition, slot.global_position): return false
+	_set_phase(Phase.ENEMY, "Disaster unleashes %s!" % definition.get("name", "Threat"))
+
+	var card = Card3DScene.instantiate()
+	add_child(card)
+	card.add_to_group("cards")
+	card.setup(definition)
+
+	# Round 4-6 Janitor modifier chance on spawn
+	if encounter_kind not in ["battle", "versus"] and turn in [4, 5, 6] and randf() < 0.5:
+		var mods = ["armored", "rampaging", "fierce", "regenerating"]
+		card.add_modifier(mods.pick_random())
+
+	await card.enter_from_above(slot, opponent_hand.release_position())
+	_on_enemy_card_played(card)
+	shake_camera(0.06, 0.15)
+
+	tension = maxi(0, tension - int(definition.get("tension_cost", 1)))
+	_refresh_bars()
+	return true
+
+# The AI calls these. Versus goes through disaster_actions.gd, which checks the action and takes
+# the card out of enemy_hand. Singleplayer erases the card and calls the helper as before.
+func _ai_cast(definition: Dictionary, target: Node) -> Dictionary:
+	if encounter_kind == "versus": return _checked(await disaster_actions.cast(definition, target))
+	enemy_hand.erase(definition)
+	return {"ok": await disaster_cast(definition, target), "reason": ""}
+
+func _ai_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) -> Dictionary:
+	if encounter_kind == "versus": return _checked(await disaster_actions.evolve(definition, sacrifices, slot))
+	enemy_hand.erase(definition)
+	return {"ok": await disaster_evolve(definition, sacrifices, slot), "reason": ""}
+
+func _ai_play_base(definition: Dictionary, slot: Node3D) -> Dictionary:
+	if encounter_kind == "versus": return _checked(await disaster_actions.play_base(definition, slot))
+	enemy_hand.erase(definition)
+	return {"ok": await disaster_play_base(definition, slot), "reason": ""}
+
+## Warn when the AI picked an action the checks refused. The AI should never do that.
+func _checked(result: Dictionary) -> Dictionary:
+	if not result.ok and result.reason != "battle_over": push_warning("Disaster action refused: " + result.reason)
+	return result
 
 func enemy_action_limit() -> int:
+	# Versus: no fixed cap. The Disaster acts as long as it has tension. No floor or buff scaling.
+	if encounter_kind == "versus": return tension
 	if encounter_kind == "battle" and run_director.floor_number == 1:
 		return mini(tension, 1 if turn <= 3 else 2)
 	var base_actions := 2 if encounter_kind == "battle" else 3

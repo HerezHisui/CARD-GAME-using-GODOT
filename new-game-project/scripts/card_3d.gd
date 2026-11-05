@@ -38,8 +38,10 @@ const ART: Dictionary = {
 	"Drain Vortex": "res://assets/card_art/drain_vortex.png",
 	"Drill Captain": "res://assets/card_art/drill_captain.png",
 	"Drill Leader": "res://assets/card_art/drill_leader.png",
+	"East Circuit Pillar": "res://assets/card_art/east_circuit_pillar.png",
 	"Ember": "res://assets/card_art/ember.png",
 	"Emergency Exit": "res://assets/card_art/emergency_exit.png",
+	"Emergency Shackle": "res://assets/card_art/emergency_shackle.png",
 	"Evacuation Route": "res://assets/card_art/evacuation_route.png",
 	"Field Medic": "res://assets/card_art/field_medic.png",
 	"Fire Drill": "res://assets/card_art/fire_drill.png",
@@ -51,6 +53,7 @@ const ART: Dictionary = {
 	"Gale Force": "res://assets/card_art/gale_force.png",
 	"Glass Quake": "res://assets/card_art/glass_quake.png",
 	"Gust": "res://assets/card_art/gust.png",
+	"Hall Monitor": "res://assets/card_art/hall_monitor.png",
 	"Hazard Forecast": "res://assets/card_art/hazard_forecast.png",
 	"Hazmat Team": "res://assets/card_art/hazmat_team.png",
 	"Heat Seeker": "res://assets/card_art/heat_seeker.png",
@@ -61,6 +64,7 @@ const ART: Dictionary = {
 	"Momentum Team": "res://assets/card_art/momentum_team.png",
 	"Needle Gale": "res://assets/card_art/needle_gale.png",
 	"Needle Team": "res://assets/card_art/needle_team.png",
+	"Night Watch": "res://assets/card_art/night_watch.png",
 	"Pressure Break": "res://assets/card_art/pressure_break.png",
 	"Pressure Front": "res://assets/card_art/pressure_front.png",
 	"Quick Dash": "res://assets/card_art/quick_dash.png",
@@ -76,6 +80,7 @@ const ART: Dictionary = {
 	"Search and Rescue": "res://assets/card_art/search_and_rescue.png",
 	"Shard Barrier": "res://assets/card_art/shard_barrier.png",
 	"Shelter Brace": "res://assets/card_art/shelter_brace.png",
+	"Shield Guardian": "res://assets/card_art/shield_guardian.png",
 	"Silent Runner": "res://assets/card_art/silent_runner.png",
 	"Sleeping Fault": "res://assets/card_art/sleeping_fault.png",
 	"Steam Team": "res://assets/card_art/steam_team.png",
@@ -87,6 +92,7 @@ const ART: Dictionary = {
 	"Tsunami": "res://assets/card_art/tsunami.png",
 	"Venom Surge": "res://assets/card_art/venom_surge.png",
 	"Warm Front": "res://assets/card_art/warm_front.png",
+	"West Circuit Pillar": "res://assets/card_art/west_circuit_pillar.png",
 	"Wildfire": "res://assets/card_art/wildfire.png",
 	"Worldbreaker": "res://assets/card_art/worldbreaker.png",
 }
@@ -554,7 +560,7 @@ func set_layer(layer: int) -> void:
 
 # ---------------------------------------------------------------- hand motion
 ## Called by the manager to place the card in the fanned hand (camera-local).
-func move_in_hand(pos: Vector3, basis_target: Basis, layer: int) -> void:
+func move_in_hand(pos: Vector3, basis_target: Basis, layer: int, duration: float = 0.25) -> void:
 	set_meta("hand_pos", pos)
 	set_meta("hand_basis", basis_target)
 	set_meta("hand_layer", layer)
@@ -562,7 +568,7 @@ func move_in_hand(pos: Vector3, basis_target: Basis, layer: int) -> void:
 		_apply_hover()
 	else:
 		set_layer(layer)
-		_tween_local(pos, basis_target, 0.25)
+		_tween_local(pos, basis_target, duration)
 
 func _tween_local(pos: Vector3, b: Basis, dur: float) -> void:
 	if _tween: _tween.kill()
@@ -669,8 +675,8 @@ func _drop_card() -> void:
 			reparent(_manager().hand_parent(), true)
 			_manager().arrange_hand_centered()
 			return
-		place_on_slot(slot)
-		_manager().on_card_played(self)
+		# Same place and pay step a remote Preparedness player uses (preparedness_actions.gd).
+		_manager().preparedness_actions.place_unit(self, slot)
 	else:
 		# Return to hand
 		in_hand = true

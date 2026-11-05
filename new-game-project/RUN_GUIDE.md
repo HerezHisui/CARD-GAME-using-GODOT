@@ -1,6 +1,9 @@
 # Midnight DRRills player guide
 
-Open `project.godot` in Godot 4.7 and run the main scene. Choose Singleplayer, then Steve. The other characters and Multiplayer are not playable yet. A saved run offers Continue or Abandon.
+Open `project.godot` in Godot 4.7 and run the main scene. Choose Singleplayer, then Steve.
+The other characters are not playable yet. A saved run offers Continue or Abandon.
+Choose Versus on the title screen for two humans on one computer, using pass and play.
+See the [multiplayer guide](../docs/multiplayer.md) for controls and known limits.
 
 ## Starting a run
 
