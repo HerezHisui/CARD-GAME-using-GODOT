@@ -19,7 +19,7 @@ const NOTE_SECONDS := 2.6
 const HAND_SCALE_HOVER := 1.3
 const FOE_HAND_MAX := 10
 const BACK_CARD := {"name": "Card", "type": "response", "element": "evac", "cost": 0, "attack": 0, "health": 1}
-const REASONS := {"busy": "Wait, the host is still playing."}
+const REASONS := {"busy": "Wait, the host is still playing.", "not_supported": "Not available in LAN"}
 
 var game: Node
 var director: Node
@@ -594,6 +594,9 @@ func click_lane(lane: int) -> void:
 func click_tactic(id: String) -> void:
 	if over or not _my_turn():
 		return
+	if id in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS:
+		_on_event("reject", {"reason": "not_supported"})
+		return
 	selected = -1
 	selected_tactic = id
 	chosen.clear()
@@ -625,7 +628,7 @@ func _explain(index: int) -> void:
 		show_note("Not your turn", "")
 		return
 	var problem := str(_hint(index).get("problem", ""))
-	show_note("Can't play that", problem if problem != "" else "Not now.")
+	show_note("Can't play that", REASONS.get(problem, problem if problem != "" else "Not now."))
 
 
 # ------------------------------------------------------------------- HUD
@@ -879,7 +882,9 @@ func _fill_tactics() -> void:
 		var tactic_button: Button = director.button("%s (%d)" % [tactic.name, tactic.cost],
 			click_tactic.bind(str(tactic.id)), tactic_box)
 		tactic_button.name = "Tactic_" + str(tactic.id)
-		tactic_button.disabled = not bool(tactic.available) or not _my_turn()
+		var unsupported: bool = str(tactic.id) in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS
+		tactic_button.disabled = (not bool(tactic.available) and not unsupported) or not _my_turn()
+		if unsupported: tactic_button.tooltip_text = REASONS.not_supported
 
 
 ## One pip per point of the cap. Full = crimson with a gold rim, spent = dark. Energy pips are squares,
