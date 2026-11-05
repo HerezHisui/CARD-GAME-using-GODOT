@@ -52,7 +52,7 @@ static var last_character := 0
 const DECISIONS := [
 	"coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff",
 	"intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove",
-	"remove_confirm", "contingency_reward", "evolution_offer",
+	"remove_confirm", "contingency_reward", "evolution_offer", "disaster_relocation",
 ]
 const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
@@ -500,6 +500,7 @@ const DISASTER_REASONS := {
 
 ## Shows the Disaster panel only on a human Disaster turn. Labels and the hand list change only when needed.
 func _refresh_disaster_panel() -> void:
+	game.disaster_relocation.refresh_local()
 	var show_panel: bool = battle_active and not modal.visible and game.encounter_kind == "versus" \
 		and game.disaster_is_human and game.phase == game.Phase.ENEMY and not game.disaster_seat_view
 	# LAN: the Disaster plays on the other computer, so the host shows no Disaster panel.

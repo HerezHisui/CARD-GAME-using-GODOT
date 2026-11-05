@@ -53,7 +53,8 @@ var build := build_string()  # sent with the join; a test may change it to check
 
 # Protocol number plus the Godot version, for example "1|4.7.2-stable (official)".
 static func build_string() -> String:
-	return "%d|%s" % [PROTOCOL, Engine.get_version_info().string]
+	# Refuse protocol-3 builds that cannot resolve the mandatory Crosswind choice.
+	return "%d|%s|crosswind1" % [PROTOCOL, Engine.get_version_info().string]
 
 
 func _ready() -> void:
@@ -77,7 +78,7 @@ func _process(_delta: float) -> void:
 		for field in preload("res://scripts/battle_snapshot.gd").CARD_FIELDS:
 			entry[field] = card.get(field)
 		lanes.append(entry)
-	var fingerprint := hash(lanes)
+	var fingerprint := hash([lanes, game.disaster_relocation.view()])
 	if game.disaster_waiting != was_waiting or game.phase != was_phase or fingerprint != lane_fingerprint:
 		was_waiting = game.disaster_waiting
 		was_phase = game.phase
@@ -130,6 +131,7 @@ func leave() -> void:
 
 # Drop the link at once and go back offline.
 func close() -> void:
+	if is_host and is_instance_valid(game): game.disaster_relocation.reset()
 	if peer == null:
 		return
 	_disconnect_signals()
@@ -332,6 +334,7 @@ func _drop_later(id: int) -> void:
 # takes the first target the host allows (the client cannot see the Preparedness hand).
 func attach_panel(new_panel: Control) -> void:
 	panel = new_panel
+	panel.relocation_picked.connect(request_action)
 	panel.hand_pressed.connect(_on_hand_pressed)
 	panel.lane_pressed.connect(_on_lane_pressed)
 	panel.end_turn_pressed.connect(func() -> void: request_action({"kind": "end"}))
@@ -441,8 +444,10 @@ func _on_peer_connected(id: int) -> void:
 func _on_peer_disconnected(id: int) -> void:
 	if is_host:
 		if id == disaster_peer:
+			if is_instance_valid(game): game.disaster_relocation.reset()
 			disaster_peer = 0
 		if id == prep_peer:
+			if is_instance_valid(game): game.disaster_relocation.reset()
 			prep_peer = 0
 		peer_left.emit(id)
 

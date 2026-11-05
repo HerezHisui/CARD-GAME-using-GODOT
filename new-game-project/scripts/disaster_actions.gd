@@ -29,7 +29,7 @@ func actions_left() -> int:
 
 ## Checks shared by every action. Returns the reason, or "" when the action may go ahead.
 func _common_problem(definition: Dictionary, held_id: String = "") -> String:
-	if game.evolution_choice.pending(): return "busy"
+	if game.evolution_choice.pending() or game.disaster_relocation.pending(): return "busy"
 	if game.phase != game.Phase.ENEMY: return "not_disaster_turn"
 	if busy: return "busy"
 	if held_id.is_empty():
@@ -151,7 +151,7 @@ func can_use(definition: Dictionary) -> bool:
 
 ## Stop the Disaster turn. The turn code waits for turn_ended when a human plays.
 func end_turn() -> Dictionary:
-	if game.evolution_choice.pending(): return _result(false, "busy")
+	if game.evolution_choice.pending() or game.disaster_relocation.pending(): return _result(false, "busy")
 	if game.phase != game.Phase.ENEMY: return _result(false, "not_disaster_turn")
 	if busy: return _result(false, "busy")
 	turn_ended.emit()

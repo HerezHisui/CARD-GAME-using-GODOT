@@ -39,6 +39,7 @@ var lane_cards := {"response": [null, null, null, null], "disaster": [null, null
 var hovered := -1
 var held := -1
 var dragging := false
+var relocation_box: PanelContainer
 var selected := -1
 var selected_tactic := ""
 var chosen: Array = []
@@ -133,6 +134,7 @@ func _on_view(new_view: Dictionary) -> void:
 	_sync_hand()
 	_sync_foe()
 	_refresh_hud()
+	_refresh_relocation()
 
 
 ## The first view turns the table on: the 2D cover and panel go, the camera takes the seat.
@@ -174,6 +176,7 @@ func _on_event(kind: String, data: Dictionary) -> void:
 
 func _on_match_over(winner: String) -> void:
 	over = true
+	_refresh_relocation()
 	held = -1
 	dragging = false
 	_cancel_pick(false)
@@ -332,6 +335,7 @@ func _hint(index: int) -> Dictionary:
 
 
 func _usable(index: int) -> bool:
+	if not view.get("relocation", {}).is_empty(): return false
 	if not _my_turn():
 		return false
 	return bool(_hint(index).get("can_play" if side == "preparedness" else "can_use", false))
@@ -346,6 +350,7 @@ func _is_spell(index: int) -> bool:
 func _open_lanes_for(index: int) -> Array:
 	if not _my_turn():
 		return []
+	if side == "disaster" and not view.get("relocation", {}).is_empty(): return panel.relocation_lanes()
 	var lanes: Array = []
 	if side == "preparedness":
 		if selected_tactic != "":
@@ -574,6 +579,11 @@ func click_hand(index: int) -> void:
 
 
 func click_lane(lane: int) -> void:
+	if side == "disaster" and not view.get("relocation", {}).is_empty():
+		if over: return
+		panel.pick_relocation(lane)
+		_refresh_relocation()
+		return
 	if over or (selected < 0 and selected_tactic == ""):
 		return
 	if lane not in _open_lanes_for(selected):
@@ -594,6 +604,7 @@ func click_tactic(id: String) -> void:
 
 
 func click_end() -> void:
+	if not view.get("relocation", {}).is_empty(): return
 	if over or not _my_turn():
 		return
 	_cancel_pick(false)
@@ -844,7 +855,7 @@ func _refresh_hud() -> void:
 	var own_turn: bool = view.get("turn_side", side if _my_turn() else "") == side
 	turn_label.text = ("YOUR TURN" if own_turn else "OPPONENT'S TURN") + " · " + phase
 	turn_label.add_theme_color_override("font_color", UI.GOLD if own_turn else UI.MUTED)
-	end_button.disabled = not _my_turn()
+	end_button.disabled = not _my_turn() or not view.get("relocation", {}).is_empty()
 	draw_button.visible = side == "preparedness"
 	draw_button.disabled = not own_turn or phase != "DRAW"
 	if side == "preparedness":
@@ -994,3 +1005,25 @@ func show_disaster_graveyard() -> void:
 	director.button("Close", func() -> void: grave_note.queue_free(), box)
 	grave_note.reset_size()
 	grave_note.position = (hud.size - grave_note.size) * 0.5
+
+
+func _refresh_relocation() -> void:
+	if is_instance_valid(relocation_box):
+		relocation_box.get_parent().remove_child(relocation_box)
+		relocation_box.queue_free()
+	relocation_box = null
+	if side != "disaster" or over or view.get("relocation", {}).is_empty(): return
+	relocation_box = PanelContainer.new()
+	relocation_box.name = "CrosswindChoice"
+	relocation_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
+	hud.add_child(relocation_box)
+	_place(relocation_box, Control.PRESET_CENTER_LEFT, Vector2(16, -80))
+	var box := VBoxContainer.new()
+	relocation_box.add_child(box)
+	var title := _label(box, 24, UI.GOLD)
+	title.text = "CROSSWIND"
+	var prompt := _label(box, 18, UI.TEXT)
+	prompt.text = "Choose an ally lane" if panel.relocation_ally < 0 else "Choose an empty lane"
+	if panel.relocation_sent: prompt.text = "Waiting for the host..."
+	for lane in panel.relocation_lanes():
+		director.button("Lane %d" % (lane + 1), click_lane.bind(lane), box)

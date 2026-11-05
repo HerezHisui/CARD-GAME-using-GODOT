@@ -19,6 +19,7 @@ var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
+var disaster_relocation: RefCounted = preload("res://scripts/disaster_relocation.gd").new(self)
 var evolution_draw_choice_override := false
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
@@ -206,6 +207,7 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	disaster_relocation.reset()
 	evolution_choice.reset()
 	encounter_serial += 1
 	versus_master = {"preparedness": [], "disaster": []}
@@ -2012,6 +2014,9 @@ func best_evolution_plan(active: Array, candidates: Array) -> Dictionary:
 	return best
 
 func relocate_enemy_ally(source: Node) -> void:
+	if encounter_kind == "versus" and disaster_is_human:
+		disaster_relocation.begin(source)
+		return
 	var best_ally: Node
 	var best_slot: Node3D
 	var gain := 1.0
