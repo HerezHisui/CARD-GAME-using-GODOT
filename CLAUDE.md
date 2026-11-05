@@ -12,7 +12,9 @@
 - Keep changes small and simple, like a first-year CS student would write them. No new patterns, autoloads or abstractions unless I ask.
 - Comments are short and plain. Do not delete or shorten existing comments.
 - Do not change card numbers, balance or save formats during a refactor.
-- Test baseline: all 32 tests pass. Run the headless smoke tests that cover the files you touched. If a test that passed now fails, stop and tell me.
+- The repo has 75 smoke suites. This count does not establish that they pass.
+  Run the headless smoke tests that cover the files you touched.
+  If a test that passed now fails, stop and tell me.
 - Run the headless smoke tests that cover the files you touched, before and after. Do not weaken a test to make it pass.
 - Tag git before a risky refactor step: `git tag before-<step-name>`.
 - Commit once per finished step with a plain-English message.
