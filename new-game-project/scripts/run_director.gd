@@ -68,6 +68,7 @@ var run_active := false
 var persistence: Node
 var versus_match: Node
 var lan_title: Node  # LAN Part E: Host / Join on the title. Only made when VersusMatch.LAN_ENABLED is true.
+# Lobby step: the title has one LAN Versus button; Host / Join live in the lobby hub.
 var catalog: Array[Dictionary] = []
 var rooms: Array = []
 var cleared: Array = []
@@ -192,6 +193,7 @@ func show_title() -> void:
 	if preload("res://scripts/versus_match.gd").LAN_ENABLED: add_lan_buttons(title_screen)
 
 ## LAN Part E: Host LAN and Join LAN under Versus, with the same look as the other menu items.
+## Lobby step: one LAN Versus button instead. It opens the LAN lobby hub (lan_title.show_lobby).
 func add_lan_buttons(title_screen: Control) -> void:
 	if not is_instance_valid(lan_title):
 		lan_title = preload("res://scripts/lan_title.gd").new()
@@ -199,10 +201,11 @@ func add_lan_buttons(title_screen: Control) -> void:
 		add_child(lan_title)
 		lan_title.setup(self)
 	var versus_button: Button = title_screen.get_node("%VersusButton")
-	var host_button := _lan_menu_button(title_screen, versus_button, "HostLanButton", "Host LAN")
-	host_button.pressed.connect(lan_title.show_host)
-	var join_button := _lan_menu_button(title_screen, host_button, "JoinLanButton", "Join LAN")
-	join_button.pressed.connect(lan_title.show_join)
+	# Called twice on one title (show_title, then a test): keep one button.
+	if versus_button.get_parent().has_node("LanVersusButton"):
+		return
+	var lan_button := _lan_menu_button(title_screen, versus_button, "LanVersusButton", "LAN Versus")
+	lan_button.pressed.connect(lan_title.show_lobby)
 
 ## One title menu item, copied from the Versus button's size and font, placed under after.
 func _lan_menu_button(title_screen: Control, after: Button, button_name: String, text: String) -> Button:

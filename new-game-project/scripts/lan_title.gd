@@ -5,6 +5,8 @@ extends Node
 ## Later (D2-b..d) a coin result can pass other seats to start_lan_match.
 ## D2-d: the sides are no longer fixed. The host is Player 1 and calls the coin, the toss winner picks
 ## a side, then the host plays Player 1's side and the client the other one.
+## Lobby step: LAN Versus opens a hub (Host a game / Join a game). Both players wait in a room
+## that shows who is connected. Only the host's Start match begins the match.
 
 const LanSession = preload("res://scripts/lan_session.gd")
 const LanClientPanel = preload("res://scripts/lan_client_panel.gd")
@@ -30,6 +32,17 @@ var esc_menu: Control
 var coin_stage := ""  # host: the last coin stage sent to the client
 var coin_page: Control  # client: the coin screen over the panel, until the host seats this client
 var client_side := ""  # client: the side the host gave this client, "" during the coin
+
+# Lobby step: the room before the match. Not session.lobby, which means "the coin is running".
+const PING_EVERY := 2.0  # seconds between pings in a room
+var cfg_path := "user://lan.cfg"  # the last IP typed on Join; a test uses a temporary file
+var room := ""  # "host" or "client" while a room shows, "" otherwise
+var ping_ms := -1  # the last ping in a room, -1 when none yet
+var ping_wait := 0.0
+var room_status: Label  # the Connected / Waiting / Disconnected line at the top of a room
+var player1_row: Label  # client room: the host's row
+var player2_row: Label  # host room: the client's row
+var start_button: Button  # host room
 
 
 func setup(owner_director: Node) -> void:
@@ -81,6 +94,104 @@ func _ensure_session() -> void:
 	session.match_over.connect(_on_match_over)
 	session.side_requested.connect(_on_side_requested)
 	session.event_received.connect(_on_event)
+	session.pong_received.connect(_on_pong)
+
+
+# --- Lobby hub and rooms ---
+
+## The LAN lobby hub: Host a game, Join a game, Back to the title.
+func show_lobby() -> void:
+	room = ""
+	if session != null and session.is_open():
+		session.close()
+	director.reset_panel("LAN LOBBY", "Host a game, or join a game another player hosts.", "title_help")
+	var box: VBoxContainer = director.content
+	var status: Label = director.label("Not connected", 18, UI.MUTED)
+	status.name = "StatusLine"
+	box.add_child(status)
+	director.button("Host a game", show_host, box).name = "HostButton"
+	director.button("Join a game", show_join, box).name = "JoinButton"
+	director.button("Back", director.show_title, box).name = "BackButton"
+
+
+# The one-line status at the top of a room.
+func _add_room_status(box: VBoxContainer) -> void:
+	room_status = director.label("", 20, UI.AMBER)
+	room_status.name = "StatusLine"
+	box.add_child(room_status)
+
+
+# A room row label, for example "PLAYER 2   Waiting for a player...".
+func _add_row(box: VBoxContainer, row_name: String, text: String) -> Label:
+	var row: Label = director.label(text, 18)
+	row.name = row_name
+	box.add_child(row)
+	return row
+
+
+# Host: Player 2 has joined and has the same build.
+func room_connected() -> bool:
+	if room == "host":
+		return remote_id != 0
+	return room == "client"
+
+
+# Update the status line, the rows and the Start button. Text changes only when it differs.
+func _refresh_room() -> void:
+	var connected := room_connected()
+	var text := "Connected" if connected else "Waiting"
+	var color: Color = UI.GOLD if connected else UI.AMBER
+	if room == "":
+		text = "Disconnected"
+		color = UI.DANGER
+	var ping_text := "" if ping_ms < 0 else "  %d ms" % ping_ms
+	if is_instance_valid(room_status) and room_status.text != text:
+		room_status.text = text
+		room_status.add_theme_color_override("font_color", color)
+	if room == "host" and is_instance_valid(player2_row):
+		var row_text := "PLAYER 2   Connected" + ping_text if connected else "PLAYER 2   Waiting for a player..."
+		if player2_row.text != row_text:
+			player2_row.text = row_text
+	if is_instance_valid(start_button):
+		start_button.disabled = room != "host" or not connected
+	if room == "client" and is_instance_valid(player1_row):
+		var host_text := "PLAYER 1 (host, %s)   Connected%s" % [last_ip, ping_text]
+		if player1_row.text != host_text:
+			player1_row.text = host_text
+
+
+# In a room, ping the other side every 2 seconds. Counted with the _process delta, no timer.
+func _room_ping(delta: float) -> void:
+	if room == "" or session == null or not session.is_open():
+		return
+	ping_wait += delta
+	if ping_wait < PING_EVERY:
+		return
+	ping_wait = 0.0
+	session.send_ping(Time.get_ticks_msec())
+
+
+# The ping number is the send time, so the answer gives the round trip in ms.
+func _on_pong(number: int) -> void:
+	if room == "":
+		return
+	ping_ms = maxi(0, Time.get_ticks_msec() - number)
+	_refresh_room()
+
+
+## The last IP typed on Join, or "" if the file is missing or broken.
+static func read_last_ip(path: String) -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(path) != OK:
+		return ""
+	var ip := str(cfg.get_value("join", "last_ip", ""))
+	return ip if ip.is_valid_ip_address() else ""
+
+
+static func save_last_ip(path: String, ip: String) -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("join", "last_ip", ip)
+	cfg.save(path)
 
 
 # --- Host ---
@@ -89,12 +200,18 @@ func show_host() -> void:
 	_ensure_session()
 	in_match = false
 	remote_id = 0
+	ping_ms = -1
 	var error: Error = session.host_game(port)
-	director.reset_panel("HOST LAN", "Waiting for a player...", "title_help")
+	room = "host" if error == OK else ""
+	director.reset_panel("LAN ROOM", "You host. Start the match when Player 2 is connected.", "title_help")
 	var box: VBoxContainer = director.content
+	_add_room_status(box)
+	start_button = null
 	if error != OK:
 		box.add_child(director.label("Could not open port %d (error %d)." % [port, error], 18, UI.TEXT, true))
 	else:
+		_add_row(box, "Player1Row", "PLAYER 1 (you, host)   Ready")
+		player2_row = _add_row(box, "Player2Row", "")
 		box.add_child(director.label("Port %d" % port, 18))
 		var lines := host_addresses(Array(IP.get_local_addresses()))
 		if lines.is_empty():
@@ -103,24 +220,42 @@ func show_host() -> void:
 			box.add_child(director.label(line, 18))
 		var firewall := "Allow UDP %d in Windows Firewall (Private and Radmin networks)." % port
 		box.add_child(director.label(firewall, 16, UI.MUTED, true))
+		start_button = director.button("Start match", start_match, box)
+		start_button.name = "StartButton"
 	director.button("Cancel", cancel_host, box).name = "CancelButton"
+	_refresh_room()
 
 
+# Lobby step: Cancel goes back to the hub, not the title.
 func cancel_host() -> void:
+	room = ""
 	session.close()
-	director.show_title()
+	show_lobby()
 
 
+# Lobby step: a join no longer starts the match. The room shows Player 2 and turns Start match on.
 func _on_peer_joined(id: int) -> void:
 	if not session.is_host or in_match:
 		return
 	remote_id = id
+	ping_ms = -1
+	ping_wait = PING_EVERY  # ping at once
+	_refresh_room()
+
+
+## Host: the Start match button. The only way a LAN match begins.
+## The client gets "start" first, so its panel exists before the first coin event (RPCs keep their order).
+func start_match() -> void:
+	if room != "host" or remote_id == 0 or in_match:
+		return
+	session.send_event("start", {})
 	start_lan_match("local", "remote")
 
 
 ## Starts the Versus match with these seats. Part E: host = "local" Preparedness, "remote" Disaster.
 ## D2-d: these seats only last through the coin. The side pick sets the real seats.
 func start_lan_match(prep_seat: String, disaster_seat: String) -> void:
+	room = ""
 	in_match = true
 	coin_stage = ""
 	session.lobby = true
@@ -131,7 +266,15 @@ func start_lan_match(prep_seat: String, disaster_seat: String) -> void:
 
 
 func _on_peer_left(id: int) -> void:
-	if not session.is_host or not in_match or id != remote_id:
+	if not session.is_host or id != remote_id:
+		return
+	# Lobby step: Player 2 left the room. Wait for another player; the port stays open.
+	if room == "host":
+		remote_id = 0
+		ping_ms = -1
+		_refresh_room()
+		return
+	if not in_match:
 		return
 	in_match = false
 	remote_id = 0
@@ -141,7 +284,9 @@ func _on_peer_left(id: int) -> void:
 
 
 # Host: during the coin, tell the client what the host screen shows. After the side pick, seat the client.
-func _process(_delta: float) -> void:
+# Lobby step: first the room ping, on both sides.
+func _process(delta: float) -> void:
+	_room_ping(delta)
 	if session == null or not session.is_host or not in_match or not session.lobby:
 		return
 	var versus: Node = director.versus_match
@@ -196,6 +341,10 @@ func match_finished(winner: String) -> void:
 func show_join() -> void:
 	_ensure_session()
 	ended = false
+	room = ""
+	# Lobby step: the last IP comes from user://lan.cfg the first time.
+	if last_ip == "":
+		last_ip = read_last_ip(cfg_path)
 	director.reset_panel("JOIN LAN", "Type the host's IP address.", "title_help")
 	var box: VBoxContainer = director.content
 	ip_edit = LineEdit.new()
@@ -216,6 +365,7 @@ func connect_to_host() -> void:
 	if not last_ip.is_valid_ip_address():
 		status_label.text = "Type an IP address, for example 26.12.34.56."
 		return
+	save_last_ip(cfg_path, last_ip)
 	ended = false
 	match_over_seen = false
 	client_side = ""
@@ -225,17 +375,42 @@ func connect_to_host() -> void:
 		status_label.text = "Could not connect"
 
 
+# Lobby step: Cancel goes back to the hub, not the title.
 func cancel_join() -> void:
 	session.close()
-	director.show_title()
+	show_lobby()
 
 
+# Lobby step: connected. Wait in the client room until the host presses Start match.
 func _on_joined_host() -> void:
 	if session.is_host:
 		return
 	if is_instance_valid(status_label):
 		status_label.text = "Connected"
-	_show_client_panel()
+	_show_client_room()
+
+
+func _show_client_room() -> void:
+	room = "client"
+	ping_ms = -1
+	ping_wait = PING_EVERY  # ping at once
+	director.reset_panel("LAN ROOM", "You joined. The host starts the match.", "title_help")
+	var box: VBoxContainer = director.content
+	_add_room_status(box)
+	start_button = null
+	player1_row = _add_row(box, "Player1Row", "")
+	_add_row(box, "Player2Row", "PLAYER 2 (you)   Ready")
+	box.add_child(director.label("Waiting for the host to start...", 18, UI.MUTED))
+	director.button("Leave", leave_room, box).name = "LeaveButton"
+	_refresh_room()
+
+
+# Client room: Leave closes the link and goes back to the hub.
+func leave_room() -> void:
+	room = ""
+	ended = true
+	session.close()
+	show_lobby()
 
 
 # The Disaster board fills the screen. The title stays hidden under it.
@@ -316,6 +491,10 @@ func _on_host_lost() -> void:
 	if match_over_seen:
 		session.close()
 		return
+	# Lobby step: the host left before Start match. Back to the hub, not the title.
+	if room == "client":
+		_client_message("The host left.", true)
+		return
 	_client_message("The host left the match.")
 
 
@@ -345,7 +524,15 @@ static func coin_texts(data: Dictionary) -> Array:
 
 
 func _on_event(kind: String, data: Dictionary) -> void:
-	if session.is_host or not is_instance_valid(client_layer):
+	if session.is_host:
+		return
+	# Lobby step: the host pressed Start match. The panel is made here, before any coin event arrives.
+	if kind == "start":
+		if room == "client":
+			room = ""
+			_show_client_panel()
+		return
+	if not is_instance_valid(client_layer):
 		return
 	if kind == "coin" and client_side == "":
 		_show_coin_page(data)
@@ -426,12 +613,16 @@ func _on_seat(side: String) -> void:
 	session.attach_prep_panel(client_panel)
 
 
-# Show what went wrong, with a button back to the title.
-func _client_message(text: String) -> void:
+# Show what went wrong, with a button back to the title (or to the lobby hub when to_hub is true).
+func _client_message(text: String, to_hub := false) -> void:
 	if ended or session.is_host:
 		return
 	ended = true
+	room = ""
 	session.close()
 	_close_client_panel()
 	director.reset_panel("JOIN LAN", text, "title_help")
+	if to_hub:
+		director.button("Back to lobby", show_lobby, director.content).name = "BackButton"
+		return
 	director.button("Back to title", director.show_title, director.content).name = "BackButton"

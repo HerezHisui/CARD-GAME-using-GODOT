@@ -51,6 +51,7 @@ func run() -> void:
 	director.add_lan_buttons(director.content.get_child(0))
 	lan = director.lan_title
 	lan.port = TEST_PORT
+	lan.cfg_path = "user://test_lan_lobby_smoke.cfg"  # lobby step: never the real user://lan.cfg
 	# The four combinations, each once with match_over and once with a disconnect.
 	for ending in ["over", "left"]:
 		await check_combo(true, "preparedness", ending)
@@ -224,6 +225,10 @@ func check_client(seat: String) -> void:
 	await frames(3)
 	await click(find_button("Connect"))
 	expect(await wait_until(func() -> bool: return other_joins.size() == 1), name + ": the host accepted the client")
+	# Lobby step: the client waits in the room until the host sends "start".
+	expect(await wait_until(func() -> bool: return lan.room == "client"), name + ": waits in the room")
+	other.send_event("start", {})
+	expect(await wait_until(func() -> bool: return is_instance_valid(lan.client_panel)), name + ": panel after start")
 	expect(is_instance_valid(lan.client_panel), name + ": the client panel shows")
 	other.lobby = true
 	other.send_event("coin", {"stage": "calling"})
@@ -279,7 +284,11 @@ func host_and_join() -> void:
 	other_events.clear()
 	expect(lan.session.is_open(), "join: host listens")
 	expect(other.join_game("127.0.0.1", TEST_PORT) == OK, "join: client starts joining")
-	expect(await wait_until(func() -> bool: return other_joined and lan.in_match), "join: host accepted the client")
+	# Lobby step: the join no longer starts the match. The host presses Start match.
+	expect(await wait_until(func() -> bool: return other_joined and lan.room_connected()),
+		"join: host accepted the client")
+	lan.start_match()
+	expect(lan.in_match, "join: Start match starts the match")
 
 
 func coin_screen_ready() -> bool:

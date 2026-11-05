@@ -77,12 +77,14 @@ func check_address_filter() -> void:
 
 
 # The real title, built the way the game builds it. No Host or Join button with the flag false.
+# Lobby step: the flag is true now. The title has one LAN Versus button and no Host or Join button.
 func check_title_without_lan() -> void:
-	expect(VersusMatch.LAN_ENABLED == false, "LAN_ENABLED is false in the repo")
+	expect(VersusMatch.LAN_ENABLED == true, "LAN_ENABLED is true in the repo")
 	director.show_title()
-	expect(find_button("Host LAN") == null, "title: no Host LAN button with the flag false")
-	expect(find_button("Join LAN") == null, "title: no Join LAN button with the flag false")
-	expect(not is_instance_valid(director.lan_title), "title: no lan_title node with the flag false")
+	expect(find_button("Host LAN") == null, "title: no Host LAN button")
+	expect(find_button("Join LAN") == null, "title: no Join LAN button")
+	expect(is_instance_valid(director.lan_title), "title: the lan_title node is made")
+	expect(find_button("LAN Versus") != null, "title: the LAN Versus button is there")
 	expect(find_button("Versus") != null, "title: the Versus button is there")
 
 
@@ -104,23 +106,26 @@ func make_other() -> void:
 
 
 # Real mouse input on the LAN buttons: Host LAN, its Cancel, then Join LAN and its Cancel.
+# Lobby step: LAN Versus opens the hub; Host a game and Join a game are there, Cancel goes back to the hub.
 func check_real_buttons() -> void:
 	director.show_title()
 	var title_screen: Control = director.content.get_child(0)
 	director.add_lan_buttons(title_screen)
 	lan = director.lan_title
 	lan.port = TEST_PORT
+	lan.cfg_path = "user://test_lan_title_smoke.cfg"  # never the real user://lan.cfg
 	expect(is_instance_valid(lan), "buttons: lan_title made")
-	var host_button := find_button("Host LAN")
-	var join_button := find_button("Join LAN")
-	expect(host_button != null and join_button != null, "buttons: Host LAN and Join LAN added")
+	var lan_button := find_button("LAN Versus")
+	expect(lan_button != null, "buttons: LAN Versus added")
 	var menu: Node = title_screen.get_node("%Menu")
 	var versus_index: int = title_screen.get_node("%VersusButton").get_index()
-	expect(host_button.get_parent() == menu and host_button.get_index() == versus_index + 1,
-		"buttons: Host LAN sits under Versus")
-	expect(join_button.get_index() == versus_index + 2, "buttons: Join LAN sits under Host LAN")
+	expect(lan_button.get_parent() == menu and lan_button.get_index() == versus_index + 1,
+		"buttons: LAN Versus sits under Versus")
 	await frames(3)
-	await click(host_button)
+	await click(lan_button)
+	expect(director.screen == "title_help" and find_label("LAN LOBBY") != null, "buttons: LAN Versus opens the hub")
+	await frames(3)
+	await click(find_button("Host a game"))
 	expect(director.screen == "title_help" and lan.session.is_open() and lan.session.is_host,
 		"buttons: Host LAN opens the host panel and listens")
 	expect(find_label("Port %d" % TEST_PORT) != null, "host panel: shows the port")
@@ -128,16 +133,17 @@ func check_real_buttons() -> void:
 	await frames(3)
 	await click(find_button("Cancel"))
 	expect(not lan.session.is_open(), "host panel: Cancel closes the session")
-	expect(director.screen == "title", "host panel: Cancel goes back to the title")
-	title_screen = director.content.get_child(0)
-	director.add_lan_buttons(title_screen)
+	expect(find_label("LAN LOBBY") != null, "host panel: Cancel goes back to the hub")
 	await frames(3)
-	await click(find_button("Join LAN"))
+	await click(find_button("Join a game"))
 	expect(director.screen == "title_help" and find_node_named("IpEdit") != null,
 		"buttons: Join LAN opens the join panel with an IP field")
 	await frames(3)
 	await click(find_button("Cancel"))
-	expect(director.screen == "title", "join panel: Cancel goes back to the title")
+	expect(find_label("LAN LOBBY") != null, "join panel: Cancel goes back to the hub")
+	await frames(3)
+	await click(find_button("Back"))
+	expect(director.screen == "title", "hub: Back goes back to the title")
 
 
 # Host starts a session, the other side joins, the Versus match starts.
@@ -215,6 +221,10 @@ func check_client_flow() -> void:
 	await frames(3)
 	await click(find_button("Connect"))
 	expect(lan.last_ip == "127.0.0.1", "client: the IP is kept in memory")
+	# Lobby step: the client waits in the room until the host sends "start".
+	expect(await wait_until(func() -> bool: return other_joins.size() == 1 and lan.room == "client"),
+		"client: waits in the room")
+	other.send_event("start", {})
 	expect(await wait_until(func() -> bool: return is_instance_valid(lan.client_panel)), "client: panel shows")
 	expect(not director.visible, "client: the title is hidden")
 	expect(await wait_until(func() -> bool: return other_joins.size() == 1), "client: the host accepted the build")
@@ -262,7 +272,11 @@ func host_and_join() -> void:
 	other_over = ""
 	expect(lan.session.is_open(), "join: host listens")
 	expect(other.join_game("127.0.0.1", TEST_PORT) == OK, "join: client starts joining")
-	expect(await wait_until(func() -> bool: return other_joined and lan.in_match), "join: host accepted the client")
+	# Lobby step: the join no longer starts the match. The host presses Start match.
+	expect(await wait_until(func() -> bool: return other_joined and lan.room_connected()),
+		"join: host accepted the client")
+	lan.start_match()
+	expect(lan.in_match, "join: Start match starts the match")
 
 
 # --- helpers ---

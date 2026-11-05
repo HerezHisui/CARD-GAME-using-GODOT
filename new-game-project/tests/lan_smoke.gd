@@ -62,7 +62,8 @@ func run() -> void:
 
 
 func check_flag_default() -> void:
-	expect(VersusMatch.LAN_ENABLED == false, "LAN_ENABLED is false by default")
+	# Lobby step: the flag is on in the repo now.
+	expect(VersusMatch.LAN_ENABLED == true, "LAN_ENABLED is true in the repo")
 
 
 # Two subtrees, each with its own multiplayer API.
