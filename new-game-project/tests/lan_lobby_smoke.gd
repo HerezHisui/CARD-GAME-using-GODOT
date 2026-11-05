@@ -109,6 +109,7 @@ func check_combo(host_wins: bool, winner_side: String, ending: String) -> void:
 	var name := "P%d wins, picks %s, %s" % [1 if host_wins else 2, winner_side, ending]
 	await host_and_join()
 	var versus: Node = director.versus_match
+	versus.deck_choice = false
 	expect(await wait_until(coin_screen_ready), name + ": the host coin screen shows")
 	expect(await wait_until(func() -> bool: return last_coin_stage() == "calling"),
 		name + ": the client hears Player 1 is calling")

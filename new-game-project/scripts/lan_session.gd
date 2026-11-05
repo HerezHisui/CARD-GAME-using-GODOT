@@ -12,7 +12,7 @@ const LanView = preload("res://scripts/lan_view.gd")
 # UDP port the host listens on. Open it in the Windows firewall for private networks.
 const PORT := 24680
 # Part E: raise this when the messages change. Host and client must send the same build string.
-const PROTOCOL := 1
+const PROTOCOL := 2  # 2: deck builder Part 3 (deck_step, pick_deck, deck_note)
 
 signal peer_joined(id: int)
 signal peer_left(id: int)
@@ -31,6 +31,8 @@ signal event_received(kind: String, data: Dictionary)
 signal action_done(result: Dictionary)
 # Host (D2-d): the client picked this side after it won the toss. lan_title.gd checks it.
 signal side_requested(side: String)
+# Host (deck builder Part 3): the client sent its deck. Untyped, lan_title.gd checks the shape.
+signal deck_requested(deck)
 
 var is_host := false
 var peer: ENetMultiplayerPeer
@@ -284,6 +286,24 @@ func pick_side(side) -> void:
 	if seat_of(multiplayer.get_remote_sender_id()) == "":
 		return
 	side_requested.emit(str(side))
+
+
+# Client (deck builder Part 3): the deck this client plays. {} means the Standard deck.
+func request_deck(deck: Dictionary) -> void:
+	if peer == null or is_host:
+		return
+	pick_deck.rpc_id(1, deck)
+
+
+# Host: a deck from the client. Only the joined client counts, and only before the seat.
+# Untyped on purpose, like send_action: lan_title.gd checks the shape before anything else.
+@rpc("any_peer", "reliable")
+func pick_deck(deck) -> void:
+	if not is_host or not lobby:
+		return
+	if seat_of(multiplayer.get_remote_sender_id()) == "":
+		return
+	deck_requested.emit(deck)
 
 
 # Host: give the refusal a few frames to arrive, then drop the client.

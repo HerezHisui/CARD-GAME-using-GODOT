@@ -144,7 +144,7 @@ func swap_one(pile: Array, allowed: Dictionary) -> Array:
 
 # ---------------------------------------------------------------- checks
 func check_wait_state() -> void:
-	expect(not VersusMatch.DECK_CHOICE_ENABLED, "Flag: DECK_CHOICE_ENABLED is false in the repo")
+	expect(VersusMatch.DECK_CHOICE_ENABLED, "Flag: DECK_CHOICE_ENABLED is true in the repo")
 	expect(versus.deck_choice == VersusMatch.DECK_CHOICE_ENABLED, "Flag: deck_choice starts from the const")
 	var good := custom_deck(Decks.SIDE_PREP)
 	expect(Decks.validate(Decks.SIDE_PREP, good).ok, "Fixture: the custom Preparedness deck is legal")

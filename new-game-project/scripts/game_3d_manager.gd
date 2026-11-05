@@ -1379,7 +1379,8 @@ func _resume_versus_coin(serial: int) -> void:
 ## LAN deck step. Returns false when the match ended or the wait was cancelled.
 func _versus_deck_step(versus_node: Node, serial: int) -> bool:
 	versus_node.start_deck_step()
-	versus_node.choose_deck(versus_node.player2_side, {})
+	# Part 3: a LAN client sends its own deck (lan_title.gd). Without one it plays Standard.
+	if not versus_node.remote_deck_choice: versus_node.choose_deck(versus_node.player2_side, {})
 	presentation.show_deck_choice(versus_node.player1_side, versus_node)
 	var ok: bool = await versus_node.wait_for_decks()
 	if serial != encounter_serial: return false

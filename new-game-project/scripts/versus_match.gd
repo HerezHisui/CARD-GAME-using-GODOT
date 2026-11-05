@@ -15,8 +15,9 @@ const PREMATCH_COIN_FLIP := true
 # Lobby step: on, so the title shows LAN Versus. Set it back to false if the two-laptop test fails.
 const LAN_ENABLED := true
 # true = after the side pick the LAN host picks Standard or a custom deck (deck builder Part 2).
+# Part 3: the LAN client picks its own deck too. Set it back to false if the two-laptop test fails.
 # false = no deck step, the flow is exactly as before.
-const DECK_CHOICE_ENABLED := false
+const DECK_CHOICE_ENABLED := true
 
 # Sent when the toss winner picks a side. "" means the wait was cancelled.
 signal side_chosen(side: String)
@@ -48,6 +49,9 @@ var deck_step_active := false # true from the step start until the re-deal is do
 var deck_ready := {VersusDecks.SIDE_PREP: false, VersusDecks.SIDE_DISASTER: false}
 var custom_decks := {} # side -> valid custom deck. A Standard side is not in here.
 var automated_deck := "" # "standard" or "custom" for test fixtures, never set by gameplay.
+# Part 3: true while a LAN host runs the match. The client then sends its own deck.
+# false = the client side is marked Standard at once, as in Part 2.
+var remote_deck_choice := false
 
 ## Player 1 wins the toss when the call matches the result.
 static func resolve_winner(called: int, result: int) -> int:
@@ -177,6 +181,7 @@ func start() -> void:
 	var evolutions := _cards_from_ids(disaster.evolutions, [disaster_pool.evolutions])
 	running = true
 	winner = ""
+	remote_deck_choice = false # lan_title.gd turns it on after the start
 	clear_prematch()
 	# Remember the singleplayer state before the match changes it.
 	saved_unlocked.assign(game.plans.unlocked)

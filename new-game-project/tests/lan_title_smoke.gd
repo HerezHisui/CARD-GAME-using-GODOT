@@ -154,6 +154,7 @@ func check_host_starts_match() -> void:
 	await host_and_join()
 	expect(director.versus_match.running, "host: the Versus match started")
 	var versus: Node = director.versus_match
+	versus.deck_choice = false
 	expect(await wait_until(func() -> bool: return director.screen == "coin" and game.presentation.blocking \
 		and not game.presentation.choice_buttons.is_empty()), "host: the coin screen shows")
 	game.presentation.select_coin(game.coin_result)

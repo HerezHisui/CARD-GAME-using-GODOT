@@ -12,6 +12,8 @@ const LanSession = preload("res://scripts/lan_session.gd")
 const LanClientPanel = preload("res://scripts/lan_client_panel.gd")
 const LanPrepPanel = preload("res://scripts/lan_prep_panel.gd")
 const VersusMatch = preload("res://scripts/versus_match.gd")
+const VersusDecks = preload("res://scripts/versus_decks.gd")
+const DeckBuilder = preload("res://scripts/deck_builder.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 
 var director: Node
@@ -32,6 +34,13 @@ var esc_menu: Control
 var coin_stage := ""  # host: the last coin stage sent to the client
 var coin_page: Control  # client: the coin screen over the panel, until the host seats this client
 var client_side := ""  # client: the side the host gave this client, "" during the coin
+# Deck builder Part 3.
+const DECK_NOTE := "Your deck was not valid. You play the Standard deck."
+const MAX_PILE := 40  # longest pile the host reads from the client, before validate
+var deck_step_sent := false  # host: "deck_step" went out for this step
+var deck_page: Control  # client: Standard or Customize, over the coin page, until the seat
+var deck_builder: Control  # client: the builder inside the deck page
+var deck_side := ""  # client: the side of the deck step
 
 # Lobby step: the room before the match. Not session.lobby, which means "the coin is running".
 const PING_EVERY := 2.0  # seconds between pings in a room
@@ -93,6 +102,7 @@ func _ensure_session() -> void:
 	session.join_refused.connect(_on_join_refused)
 	session.match_over.connect(_on_match_over)
 	session.side_requested.connect(_on_side_requested)
+	session.deck_requested.connect(_on_deck_requested)
 	session.event_received.connect(_on_event)
 	session.pong_received.connect(_on_pong)
 
@@ -261,6 +271,9 @@ func start_lan_match(prep_seat: String, disaster_seat: String) -> void:
 	session.lobby = true
 	game.set_seats(prep_seat, disaster_seat)
 	director.start_versus_match()
+	# Part 3: the client sends its own deck in the deck step.
+	director.versus_match.remote_deck_choice = true
+	deck_step_sent = false
 	session.game = game
 	session.send_view()
 
@@ -291,8 +304,13 @@ func _process(delta: float) -> void:
 		return
 	var versus: Node = director.versus_match
 	# Deck builder Part 2: no seat and no first view before the deck step and the re-deal are done.
+	# Part 3: the client hears the step once, with its side only. Never the host's deck.
 	if versus.deck_step_active:
+		if not deck_step_sent:
+			deck_step_sent = true
+			session.send_event("deck_step", {"side": versus.player2_side})
 		return
+	deck_step_sent = false
 	if versus.player1_side != "":
 		_seat_from_coin()
 		return
@@ -329,6 +347,42 @@ func _on_side_requested(side: String) -> void:
 	if not in_match or not versus.prematch_active or versus.coin_winner != 2:
 		return
 	versus.choose_side(side)
+
+
+## True when a deck from the network has the right shape: a Dictionary whose "main", "evolutions" and
+## "tactics" are each missing or an Array of Strings, at most MAX_PILE long. validate() checks the rest.
+static func deck_shape_ok(deck) -> bool:
+	if not deck is Dictionary:
+		return false
+	for key in ["main", "evolutions", "tactics"]:
+		if not deck.has(key):
+			continue
+		var pile = deck[key]
+		if not pile is Array or pile.size() > MAX_PILE:
+			return false
+		for id in pile:
+			if not id is String:
+				return false
+	return true
+
+
+# Host: the client sent its deck. Ignored outside the step or after the client already chose.
+# A bad deck means the Standard deck, and the client hears why.
+func _on_deck_requested(deck) -> void:
+	var versus: Node = director.versus_match
+	if not in_match or not versus.deck_step_active:
+		return
+	var side: String = versus.player2_side
+	if not versus.deck_ready.has(side) or versus.deck_ready[side]:
+		return
+	var ok := deck_shape_ok(deck)
+	if ok and not deck.is_empty():
+		ok = VersusDecks.validate(side, deck).ok
+	if not ok:
+		versus.choose_deck(side, {})
+		session.send_event("deck_note", {"text": DECK_NOTE})
+		return
+	versus.choose_deck(side, deck)
 
 
 ## run_director.battle_finished calls this when a Versus match ends.
@@ -440,6 +494,8 @@ func _close_client_panel() -> void:
 	client_panel = null
 	esc_menu = null
 	coin_page = null
+	deck_page = null
+	deck_builder = null
 	director.visible = true
 
 
@@ -539,6 +595,10 @@ func _on_event(kind: String, data: Dictionary) -> void:
 		return
 	if kind == "coin" and client_side == "":
 		_show_coin_page(data)
+	if kind == "deck_step" and client_side == "":
+		_show_deck_page(str(data.get("side", "")))
+	if kind == "deck_note" and is_instance_valid(deck_page):
+		_deck_hint().text = str(data.get("text", ""))
 	if kind == "seat":
 		_on_seat(str(data.get("side", "")))
 
@@ -598,6 +658,114 @@ func _close_coin_page() -> void:
 	if is_instance_valid(coin_page):
 		coin_page.queue_free()
 	coin_page = null
+	# Part 3: the seat also ends the deck step.
+	_close_deck_page()
+
+
+# --- Client: deck step (deck builder Part 3) ---
+
+# The deck page over the coin page: Standard deck or Customize deck for this client's side.
+func _show_deck_page(side: String) -> void:
+	_close_deck_page()
+	deck_side = side
+	deck_page = ColorRect.new()
+	deck_page.name = "DeckPage"
+	deck_page.color = UI.BACKGROUND
+	deck_page.theme = director.root.theme
+	deck_page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	deck_page.mouse_filter = Control.MOUSE_FILTER_STOP
+	client_layer.add_child(deck_page)
+	# The Esc menu stays on top.
+	if is_instance_valid(esc_menu):
+		client_layer.move_child(esc_menu, -1)
+	var center := CenterContainer.new()
+	center.name = "DeckCenter"
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	deck_page.add_child(center)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 24)
+	center.add_child(box)
+	var title: Label = director.label("PLAYER 2: %s DECK" % side.to_upper(), 34, UI.GOLD)
+	title.name = "DeckTitle"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var hint: Label = director.label("Play the Standard deck, or build your own.", 19)
+	hint.name = "DeckHint"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint)
+	var buttons := HBoxContainer.new()
+	buttons.name = "DeckButtons"
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 24)
+	box.add_child(buttons)
+	var standard: Button = director.button("Standard deck", _pick_standard_deck, buttons)
+	standard.name = "StandardButton"
+	var custom: Button = director.button("Customize deck", _open_deck_builder, buttons)
+	custom.name = "CustomizeButton"
+	for button: Button in [standard, custom]:
+		button.custom_minimum_size = Vector2(240, 56)
+
+
+func _deck_hint() -> Label:
+	return deck_page.find_child("DeckHint", true, false)
+
+
+func _deck_buttons_off() -> bool:
+	var buttons: Node = deck_page.find_child("DeckButtons", true, false)
+	return buttons.get_child(0).disabled
+
+
+func _pick_standard_deck() -> void:
+	if not is_instance_valid(deck_page) or _deck_buttons_off():
+		return
+	_send_deck({})
+
+
+# Customize: the builder opens on the saved custom deck (Standard the first time).
+func _open_deck_builder() -> void:
+	if not is_instance_valid(deck_page) or is_instance_valid(deck_builder) or _deck_buttons_off():
+		return
+	deck_page.find_child("DeckCenter", true, false).hide()
+	deck_builder = DeckBuilder.new()
+	deck_builder.name = "DeckBuilder"
+	deck_builder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	deck_page.add_child(deck_builder)
+	deck_builder.setup(deck_side, VersusDecks.load_custom(deck_side), director)
+	deck_builder.done.connect(_on_deck_builder_done)
+	deck_builder.back.connect(_close_deck_builder)
+
+
+# Done saves the deck on this computer, then sends it to the host.
+func _on_deck_builder_done(deck: Dictionary) -> void:
+	VersusDecks.save_custom(deck_side, deck)
+	_close_deck_builder()
+	_send_deck(deck)
+
+
+# Back: the builder closes and the two buttons show again.
+func _close_deck_builder() -> void:
+	if is_instance_valid(deck_builder):
+		deck_builder.hide()
+		deck_builder.queue_free()
+	deck_builder = null
+	if is_instance_valid(deck_page):
+		deck_page.find_child("DeckCenter", true, false).show()
+
+
+# One choice per step. The buttons turn off and the page waits for the seat.
+func _send_deck(deck: Dictionary) -> void:
+	for button in deck_page.find_child("DeckButtons", true, false).get_children():
+		button.disabled = true
+	_deck_hint().text = "Waiting for Player 1..."
+	session.request_deck(deck)
+
+
+func _close_deck_page() -> void:
+	if is_instance_valid(deck_page):
+		deck_page.queue_free()
+	deck_page = null
+	deck_builder = null
 
 
 # The host gave this client a side. A Preparedness client gets the Preparedness panel instead.
