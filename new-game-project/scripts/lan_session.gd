@@ -40,6 +40,7 @@ var game: Node  # host only: the running Versus board
 var disaster_peer := 0  # host only: the client id that plays the Disaster, 0 when none
 var prep_peer := 0  # host only: the client id that plays Preparedness, 0 when none
 var was_phase := -1  # host only: game.phase at the last frame, watched for a Preparedness client
+var lane_fingerprint := 0
 var was_waiting := false  # host only: game.disaster_waiting at the last frame
 var lobby := false  # host only (D2-d): true during the coin, so no view and no action yet
 var panel: Control  # client only: lan_client_panel.gd, set by attach_panel
@@ -65,11 +66,22 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if not is_host or game == null or not is_instance_valid(game):
 		return
-	if game.disaster_waiting != was_waiting:
+	if lobby or (prep_peer == 0 and disaster_peer == 0): return
+	var lanes: Array = []
+	for slot in game._response_slots() + game._threat_slots():
+		var card: Node = game._get_card_in_slot(slot)
+		if not is_instance_valid(card):
+			lanes.append(null)
+			continue
+		var entry := {"instance": card.get_instance_id(), "definition": card.card_data}
+		for field in preload("res://scripts/battle_snapshot.gd").CARD_FIELDS:
+			entry[field] = card.get(field)
+		lanes.append(entry)
+	var fingerprint := hash(lanes)
+	if game.disaster_waiting != was_waiting or game.phase != was_phase or fingerprint != lane_fingerprint:
 		was_waiting = game.disaster_waiting
-		send_view()
-	if prep_peer != 0 and game.phase != was_phase:
 		was_phase = game.phase
+		lane_fingerprint = fingerprint
 		send_view()
 
 

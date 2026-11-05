@@ -20,6 +20,8 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 	var zones: Dictionary = snapshot.zones
 	var view := {
 		"round": snapshot.round_number,
+		"phase": phase_name(game),
+		"turn_side": turn_side(game),
 		"is_disaster_turn": game.phase == game.Phase.ENEMY,
 		"first_side": snapshot.first_side,
 		"coin": snapshot.coin.duplicate(),
@@ -49,6 +51,8 @@ static func build_prep(game: Node) -> Dictionary:
 	var view := {
 		"side": "preparedness",
 		"round": snapshot.round_number,
+		"phase": phase_name(game),
+		"turn_side": turn_side(game),
 		"is_prep_turn": game.phase == game.Phase.PLAYER_PLAY,
 		"first_side": snapshot.first_side,
 		"coin": snapshot.coin.duplicate(),
@@ -155,3 +159,14 @@ static func tactic_hints(game: Node) -> Array:
 			"lanes": ally_lanes.duplicate() if available else [],
 		})
 	return hints
+
+static func phase_name(game: Node) -> String:
+	if game.phase == game.Phase.PLAYER_DRAW: return "draw"
+	if game.phase in [game.Phase.PLAYER_PLAY, game.Phase.ENEMY]: return "play"
+	return "end"
+
+
+static func turn_side(game: Node) -> String:
+	if game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]: return "preparedness"
+	if game.phase == game.Phase.ENEMY: return "disaster"
+	return ""

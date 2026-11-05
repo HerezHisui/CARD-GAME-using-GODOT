@@ -36,6 +36,8 @@ static func apply(game: Node, msg, side: String = "disaster") -> Dictionary:
 static func _apply_prep(game: Node, msg: Dictionary) -> Dictionary:
 	var actions: RefCounted = game.preparedness_actions
 	match msg.kind:
+		"draw":
+			return actions.draw_card()
 		"end":
 			return actions.end_turn()
 		"play":

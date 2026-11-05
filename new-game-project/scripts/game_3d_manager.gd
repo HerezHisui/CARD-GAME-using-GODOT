@@ -1333,7 +1333,8 @@ func _set_phase(p: Phase, text: String = "") -> void:
 		if p in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] and previous not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: presentation.banner("YOUR TURN", "Round %d" % turn, UI.RESPONSE)
 		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("JANITOR'S TURN", "Watch the opposing formation")
 		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
-	$HUD/Root/DeckDrawButton.disabled = p != Phase.PLAYER_DRAW
+	$HUD/Root/DeckDrawButton.disabled = (p != Phase.PLAYER_DRAW
+		or (encounter_kind == "versus" and seat_prep != "local"))
 	if is_instance_valid(presentation): presentation.remind_to_draw(p == Phase.PLAYER_DRAW)
 	if text != "" and _phase_label:
 		_phase_label.text = "Draw" if p == Phase.PLAYER_DRAW else text
@@ -1576,6 +1577,7 @@ func _begin_player_turn() -> void:
 		_set_phase(Phase.PLAYER_DRAW, "Your turn - draw a card from the deck")
 
 func _on_draw_button_pressed() -> void:
+	if encounter_kind == "versus" and seat_prep != "local": return
 	if evolution_choice.pending(): return
 	if run_director and run_director.modal.visible: return
 	if phase != Phase.PLAYER_DRAW or get_hand_cards().size() >= HAND_SIZE_MAX: return
@@ -1588,7 +1590,10 @@ func _on_draw_button_pressed() -> void:
 	# Turn draw is random. Only Search and Rescue lets you pick.
 	complete_draw_choice(choices.pick_random())
 
-func complete_draw_choice(definition: Dictionary) -> void:
+func complete_draw_choice(definition: Dictionary, remote_owner: bool = false) -> void:
+	if remote_owner:
+		if encounter_kind != "versus" or seat_prep != "remote": return
+	elif encounter_kind == "versus" and seat_prep != "local": return
 	if evolution_choice.pending(): return
 	if phase != Phase.PLAYER_DRAW: return
 	if definition not in deck or is_sealed(definition): return

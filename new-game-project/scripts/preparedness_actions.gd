@@ -26,6 +26,19 @@ func _common_problem() -> String:
 	if not game.board_input.action.is_empty(): return "busy"
 	return ""
 
+## A remote Preparedness owner presses Draw once during its draw phase.
+func draw_card() -> Dictionary:
+	if game.encounter_kind != "versus" or game.seat_prep != "remote": return _result(false, "not_remote_prep")
+	if game.phase != game.Phase.PLAYER_DRAW: return _result(false, "not_draw_phase")
+	if game.evolution_choice.pending() or not game.board_input.action.is_empty(): return _result(false, "busy")
+	if game.get_hand_cards().size() >= game.HAND_SIZE_MAX: return _result(false, "hand_full")
+	var choices: Array = game.deck.filter(func(card): return not game.is_sealed(card))
+	if choices.is_empty():
+		game._set_phase(game.Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
+		game._refresh_bars()
+	else: game.complete_draw_choice(choices.pick_random(), true)
+	return _result(true)
+
 ## Play a unit card from the hand into an empty Preparedness lane.
 func play_card(hand_index, lane) -> Dictionary:
 	var problem := _common_problem()

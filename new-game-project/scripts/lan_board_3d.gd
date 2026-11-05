@@ -60,12 +60,15 @@ var me_plate: Dictionary
 var turn_plate: PanelContainer
 var round_label: Label
 var turn_label: Label
+var lane_inspection: PanelContainer
+var inspected_lane: Node3D
 var resource_plate: PanelContainer
 var resource_label: Label
 var pips: Control
 var pips_cap := 0
 var pips_value := 0
 var end_button: Button
+var draw_button: Button
 var tactic_box: VBoxContainer
 var note: PanelContainer
 var note_head: Label
@@ -446,6 +449,7 @@ func _process(delta: float) -> void:
 		var target: Vector3 = Vector3.ONE * game.HAND_SCALE * grow
 		hand_cards[i].scale = hand_cards[i].scale.lerp(target, 1.0 - exp(-16.0 * delta))
 	_update_lanes()
+	_update_lane_inspection()
 
 
 func _update_hover() -> void:
@@ -454,6 +458,28 @@ func _update_hover() -> void:
 		return
 	hovered = index
 	_arrange_hand()
+
+
+func _update_lane_inspection() -> void:
+	var foe := "response" if side == "disaster" else "disaster"
+	var lane := _lane_at(mouse, foe) if not dragging and hovered < 0 and not over else -1
+	var card: Node3D = lane_cards[foe][lane] if lane >= 0 else null
+	if card == inspected_lane: return
+	inspected_lane = card
+	if is_instance_valid(lane_inspection): lane_inspection.queue_free()
+	if not is_instance_valid(card): return
+	lane_inspection = PanelContainer.new()
+	lane_inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lane_inspection.add_theme_stylebox_override("panel", _plate_style(UI.GOLD))
+	hud.add_child(lane_inspection)
+	var face := TextureRect.new()
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	face.texture = card._vp.get_texture()
+	face.custom_minimum_size = Vector2(220, 310)
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	lane_inspection.add_child(face)
+	lane_inspection.position = Vector2(hud.size.x - 250, 220)
 
 
 func _follow_mouse(card: Node3D, delta: float) -> void:
@@ -491,8 +517,8 @@ func _hand_at(point: Vector2) -> int:
 
 
 ## The lane of the player's own row under a screen point. Same ray and plane test the host uses.
-func _lane_at(point: Vector2) -> int:
-	var slots := _slots(_own_side())
+func _lane_at(point: Vector2, lane_side: String = "") -> int:
+	var slots := _slots(_own_side() if lane_side.is_empty() else lane_side)
 	for lane in slots.size():
 		var slot: Node3D = slots[lane]
 		var plane := Plane(Vector3.UP, slot.global_position.y)
@@ -664,6 +690,10 @@ func _build_hud() -> void:
 	end_button.add_theme_font_size_override("font_size", 22)
 	end_button.custom_minimum_size = Vector2(190, 58)
 	_place(end_button, Control.PRESET_BOTTOM_RIGHT, Vector2(-206, -76))
+	draw_button = director.button("DRAW", _draw_pressed, hud)
+	draw_button.name = "ClientDrawButton"
+	draw_button.custom_minimum_size = Vector2(190, 58)
+	_place(draw_button, Control.PRESET_BOTTOM_RIGHT, Vector2(-206, -146))
 	tactic_box = VBoxContainer.new()
 	tactic_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(tactic_box)
@@ -791,6 +821,11 @@ func show_note(head: String, body: String) -> void:
 	note_tween.tween_callback(func() -> void: note.visible = false)
 
 
+func _draw_pressed() -> void:
+	if side != "preparedness" or view.get("turn_side", "") != side or view.get("phase", "") != "draw": return
+	session.request_action({"kind": "draw"})
+
+
 func _refresh_hud() -> void:
 	var sides: Dictionary = view.sides
 	var mine := _own_side()
@@ -805,9 +840,13 @@ func _refresh_hud() -> void:
 	me_plate.small.text = ("Barrier %d" % barrier) if barrier > 0 else ""
 	me_plate.small.visible = barrier > 0
 	round_label.text = "ROUND %d" % int(view.get("round", 1))
-	turn_label.text = "YOUR TURN" if _my_turn() else "OPPONENT'S TURN"
-	turn_label.add_theme_color_override("font_color", UI.GOLD if _my_turn() else UI.MUTED)
+	var phase := str(view.get("phase", "play" if _my_turn() else "end")).to_upper()
+	var own_turn: bool = view.get("turn_side", side if _my_turn() else "") == side
+	turn_label.text = ("YOUR TURN" if own_turn else "OPPONENT'S TURN") + " · " + phase
+	turn_label.add_theme_color_override("font_color", UI.GOLD if own_turn else UI.MUTED)
 	end_button.disabled = not _my_turn()
+	draw_button.visible = side == "preparedness"
+	draw_button.disabled = not own_turn or phase != "DRAW"
 	if side == "preparedness":
 		resource_label.text = "ENERGY"
 		pips_value = int(view.get("energy", 0))
