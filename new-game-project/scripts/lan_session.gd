@@ -134,13 +134,14 @@ func close() -> void:
 	if is_host and is_instance_valid(game): game.disaster_relocation.reset()
 	if peer == null:
 		return
-	_disconnect_signals()
+	# Scene teardown can detach this session before LanTitle closes its ENet peer.
+	if multiplayer != null: _disconnect_signals()
 	peer.close()
 	peer = null
 	is_host = false
 	disaster_peer = 0
 	prep_peer = 0
-	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	if multiplayer != null: multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 
 
 # Ask the other side to answer with the same number.
