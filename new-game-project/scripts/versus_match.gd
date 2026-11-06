@@ -7,8 +7,8 @@ const VersusDecks = preload("res://scripts/versus_decks.gd")
 
 # Who plays the Disaster in Versus. true = a human uses the Disaster panel, false = the existing AI.
 const DISASTER_IS_HUMAN := true
-# Stage 1 is opt-in locally; LAN retains legacy evolution draws.
-const EVOLUTION_DRAW_CHOICE := false
+# Local human Versus uses evolution choices; LAN retains legacy evolution draws.
+const EVOLUTION_DRAW_CHOICE := true
 # true = the human Disaster plays from the far seat with real cards. false = the Disaster panel.
 const DISASTER_SEAT_VIEW := true
 # true = Player 1 calls the coin and the toss winner picks a side. false = the old one-call coin.

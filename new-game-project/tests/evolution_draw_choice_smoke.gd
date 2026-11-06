@@ -20,7 +20,7 @@ func run() -> void:
 	game.clear_battle()
 	game.encounter_kind = "versus"
 	game.disaster_is_human = true
-	expect(not game.evolution_choice.enabled(), "Default flag ships dark")
+	expect(game.evolution_choice.enabled(), "Local human Versus enables evolution choice by default")
 	game.set("evolution_draw_choice_override", true)
 	game.enemy_evolution_deck.assign([
 		{"id": "a", "name": "A", "type": "disaster", "cost": 1},
