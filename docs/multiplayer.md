@@ -39,10 +39,10 @@ Preparedness uses Brace plus two other tactics. The finisher rule is not checked
 The LAN deck step supports Standard presets or saved custom decks for both players.
 These deck rules and balance values still need playtesting with sides and first player rotated.
 
-## Experimental LAN Versus
+## LAN Versus
 
-LAN Versus is **EXPERIMENTAL**. Validation so far is limited to localhost and automated suites.
-A two-laptop test is still required before claiming that it works over a real network or Radmin VPN.
+ZeL and Tssy tested LAN Versus over the network on an earlier build.
+The final build passed all automated suites and a localhost run; its network re-test is pending.
 It uses ENet over UDP port 24680 and protocol 3. Both peers need the same game build and Godot version;
 the connection handshake also checks the Crosswind build marker.
 
@@ -67,7 +67,8 @@ Human Crosswind has an ally-and-destination chooser on the host and remote Disas
 - Hidden hands and draw piles are redacted from the opponent's view. A player-hosted match cannot protect
   private information from the host itself.
 - Disconnect ends the match. Do not assume reconnection or mid-match recovery is supported.
-- Two-computer testing must cover both seat assignments, firewall/Radmin setup, targeting and match completion.
+- The final build network re-test must cover both seat assignments, firewall/Radmin setup, targeting
+  and match completion.
 
 ## Validation notes
 
