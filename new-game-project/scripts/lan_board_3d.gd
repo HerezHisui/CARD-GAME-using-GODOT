@@ -41,6 +41,9 @@ var held := -1
 var dragging := false
 var relocation_box: PanelContainer
 var selected := -1
+var selected_held := ""
+var held_preview: Node3D
+var evolution_play_sent := false
 var selected_tactic := ""
 var chosen: Array = []
 var press_pos := Vector2.ZERO
@@ -83,6 +86,9 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 	director = owner_director
 	session = lan_session
 	panel = lan_panel
+	if panel.has_method("setup_evolutions"):
+		panel.setup_evolutions(director)
+		panel.held_pressed.connect(_on_held_pressed)
 	cover = cover_rect
 	side = seat
 	flipped = seat == "disaster"
@@ -94,6 +100,7 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 	session.view_received.connect(_on_view)
 	session.event_received.connect(_on_event)
 	session.match_over.connect(_on_match_over)
+	session.evolution_reset.connect(_reset_evolutions)
 	if not session.last_view.is_empty():
 		_on_view(session.last_view)
 
@@ -124,6 +131,9 @@ func _exit_tree() -> void:
 
 # ------------------------------------------------------------------- views
 func _on_view(new_view: Dictionary) -> void:
+	if new_view.has("match_id") and new_view.match_id != view.get("match_id"):
+		over = false
+		over_box.hide()
 	view = new_view
 	_cancel_pick(false)
 	if not shown:
@@ -190,7 +200,8 @@ func _own_side() -> String:
 
 
 func _my_turn() -> bool:
-	return not over and bool(view.get("is_prep_turn" if side == "preparedness" else "is_disaster_turn", false))
+	return not over and not view.get("evolution_waiting", false) \
+		and bool(view.get("is_prep_turn" if side == "preparedness" else "is_disaster_turn", false))
 
 
 func _slots(lane_side: String) -> Array:
@@ -350,6 +361,9 @@ func _open_lanes_for(index: int) -> Array:
 	if not _my_turn():
 		return []
 	if side == "disaster" and not view.get("relocation", {}).is_empty(): return panel.relocation_lanes()
+	if not selected_held.is_empty():
+		if evolution_play_sent: return []
+		return _held_entry().get("hints", {}).get("sacrifices", []).filter(func(lane): return lane not in chosen)
 	var lanes: Array = []
 	if side == "preparedness":
 		if selected_tactic != "":
@@ -373,6 +387,7 @@ func _open_lanes() -> Array:
 func _input(event: InputEvent) -> void:
 	if not shown or over:
 		return
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	# W and S would move the idle game's camera.
 	if event is InputEventKey and event.keycode in [KEY_W, KEY_S]:
 		get_viewport().set_input_as_handled()
@@ -394,6 +409,7 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not shown or over:
 		return
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_on_press(event.position)
 
@@ -466,7 +482,7 @@ func _update_hover() -> void:
 
 func _update_lane_inspection() -> void:
 	var foe := "response" if side == "disaster" else "disaster"
-	var lane := _lane_at(mouse, foe) if not dragging and hovered < 0 and not over else -1
+	var lane := _lane_at(mouse, foe) if not dragging and hovered < 0 and not over and not _evolution_open() else -1
 	var card: Node3D = lane_cards[foe][lane] if lane >= 0 else null
 	if card == inspected_lane: return
 	inspected_lane = card
@@ -562,6 +578,7 @@ func _lane_look() -> StandardMaterial3D:
 # ------------------------------------------------------------------- actions
 ## Pick a hand card. A spell casts at once, a unit waits for a lane. Picking it again lets it go.
 func click_hand(index: int) -> void:
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	if over or index < 0 or index >= hand_cards.size():
 		return
 	if not _usable(index):
@@ -571,6 +588,7 @@ func click_hand(index: int) -> void:
 		_cancel_pick(true)
 		return
 	selected = index
+	_clear_held_preview()
 	selected_tactic = ""
 	chosen.clear()
 	_arrange_hand()
@@ -578,17 +596,20 @@ func click_hand(index: int) -> void:
 
 
 func click_lane(lane: int) -> void:
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	if side == "disaster" and not view.get("relocation", {}).is_empty():
 		if over: return
 		panel.pick_relocation(lane)
 		_refresh_relocation()
 		return
-	if over or (selected < 0 and selected_tactic == ""):
+	if over or (selected < 0 and selected_tactic == "" and selected_held.is_empty()):
 		return
 	if lane not in _open_lanes_for(selected):
 		show_note("Pick a lit lane", "")
 		return
 	chosen.append(lane)
+	if not selected_held.is_empty() and chosen.size() >= int(_held_entry().get("card", {}).get("cost", 1)):
+		evolution_play_sent = true
 	panel.lane_pressed.emit(lane)
 
 
@@ -606,6 +627,7 @@ func click_tactic(id: String) -> void:
 
 
 func click_end() -> void:
+	if _evolution_open(): return
 	if not view.get("relocation", {}).is_empty(): return
 	if over or not _my_turn():
 		return
@@ -614,7 +636,8 @@ func click_end() -> void:
 
 
 func _cancel_pick(tell_session: bool) -> void:
-	var had := selected >= 0 or selected_tactic != ""
+	var had := selected >= 0 or selected_tactic != "" or not selected_held.is_empty()
+	_clear_held_preview()
 	selected = -1
 	selected_tactic = ""
 	chosen.clear()
@@ -843,6 +866,7 @@ func _refresh_hud() -> void:
 	end_button.disabled = not _my_turn() or not view.get("relocation", {}).is_empty()
 	draw_button.visible = side == "preparedness"
 	draw_button.disabled = not own_turn or phase != "DRAW"
+	if view.get("evolution_waiting", false): draw_button.disabled = true
 	if side == "preparedness":
 		resource_label.text = "ENERGY"
 		_set_resource(resource_meter, int(view.get("energy", 0)), int(view.get("energy_cap", 0)))
@@ -862,6 +886,10 @@ func _refresh_hud() -> void:
 		_layout_hud()
 	if is_instance_valid(disaster_grave):
 		disaster_grave.get_node("CountLabel").text = str(counts.get("disaster_graveyard", 0))
+	if is_instance_valid(disaster_plans) and view.has("held_evolutions"):
+		disaster_plans.tooltip_text = "Evolution"
+		disaster_plans.get_node("CountLabel").text = str(view.held_evolutions.size())
+	if view.get("evolution_waiting", false): turn_label.text = "DISASTER CHOOSES AN EVOLUTION"
 	_fill_tactics()
 
 
@@ -931,7 +959,9 @@ func _build_disaster_controls() -> void:
 	disaster_plans.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	disaster_plans.position = Vector2(hud.size.x - 116, hud.size.y - 72)
 	disaster_plans.size = Vector2(100, 56)
-	disaster_plans.pressed.connect(show_note.bind("Coming later", "Disaster plans are coming later."))
+	disaster_plans.pressed.connect(func() -> void:
+		if view.has("held_evolutions"): panel.show_held_evolutions()
+		else: show_note("Coming later", "Disaster plans are coming later."))
 	disaster_grave = director.graveyard_button.duplicate(0)
 	disaster_grave.name = "DisasterGraveyardButton"
 	disaster_grave.visible = true
@@ -985,3 +1015,50 @@ func _refresh_relocation() -> void:
 	if panel.relocation_sent: prompt.text = "Waiting for the host..."
 	for lane in panel.relocation_lanes():
 		director.button("Lane %d" % (lane + 1), click_lane.bind(lane), box)
+
+
+func _evolution_open() -> bool:
+	return is_instance_valid(panel) and panel.has_method("evolution_open") and panel.evolution_open()
+
+
+func _held_entry() -> Dictionary:
+	for entry in view.get("held_evolutions", []):
+		if entry.id == selected_held: return entry
+	return {}
+
+
+func _on_held_pressed(id: String) -> void:
+	if not _my_turn(): return
+	_cancel_pick(false)
+	selected_held = id
+	var entry := _held_entry()
+	if entry.is_empty():
+		selected_held = ""
+		return
+	held_preview = _make_card(entry.card, hand_root)
+	held_preview.transform = Transform3D(game.UPRIGHT.scaled(Vector3.ONE * game.HAND_SCALE),
+		Vector3(1.6, game.HAND_Y + 0.1, -game.HAND_DIST))
+	show_note(str(entry.card.name), "Choose %d sacrifice lanes." % int(entry.card.get("cost", 1)))
+	_arrange_hand()
+
+
+func _clear_held_preview() -> void:
+	if is_instance_valid(held_preview):
+		held_preview.hide()
+		held_preview.queue_free()
+	held_preview = null
+	selected_held = ""
+	evolution_play_sent = false
+
+
+func _reset_evolutions() -> void:
+	_cancel_pick(false)
+	held = -1
+	dragging = false
+	view = {}
+	end_button.disabled = true
+	draw_button.disabled = true
+	note.hide()
+	note_head.text = ""
+	note_body.text = ""
+	if is_instance_valid(disaster_plans): disaster_plans.get_node("CountLabel").text = ""

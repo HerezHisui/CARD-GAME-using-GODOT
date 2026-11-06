@@ -5,8 +5,7 @@ These rules apply to every task. A prompt file can add to them, but it cannot re
 
 ## Hard rules
 - Never run `git commit`, `git push`, `git add` or `git stash`. Simple commits after Cowork reviews the diff.
-- Work on branch `multiplayer-hotseat`. Do not switch branches.
-- Work on branch `lan-prototype` is allowed for LAN stages (gated by `LAN_ENABLED` in `scripts/versus_match.gd`).
+- Work on the branch you start on (now `lan-prototype`). Do not switch branches.
 - Do not `cd`. You start in the project folder (`new-game-project`).
 - Keep CRLF in files that use CRLF. Keep lines at most 120 characters.
 - Do not edit existing tests to make them pass. Add tests, or stop and report.
@@ -15,10 +14,22 @@ These rules apply to every task. A prompt file can add to them, but it cannot re
   (for example `game.disaster_seat_on`).
 
 ## Files you may edit
-- Edit only the files the prompt lists.
-- A named shared file (for example `scripts/run_director.gd`) may be edited when the real cause is there,
-  but only with a guard that keeps singleplayer unchanged. If the cause is in a file the prompt did not list, stop and ask.
-- Stop and ask when a check cannot pass without a code change beyond what the prompt listed.
+- Edit the files the prompt lists, the files an AUTHORIZED message lists, and any NEW file (tests, scripts,
+  docs/notes). A prompt that lists no files means the files its steps name.
+- A shared file (for example `scripts/run_director.gd`) may be edited when the real cause is there,
+  but only with a guard that keeps singleplayer unchanged.
+- If the real cause is in a file nobody listed: do NOT stop the whole goal. Skip that item, write the file and
+  the reason in the report, finish the other items, and ask once at the end.
+- Never change a LAN message shape, `PROTOCOL`, `lan_session.gd` or `lan_actions.gd` unless the prompt names them.
+
+## Working through a goal
+- Stop between parts only if the prompt says STOP AFTER EACH PART. Otherwise run the parts in order and report once
+  at the end, saving a cumulative `docs/notes/<name>-after-part-N.patch` after each part.
+- Items the prompt lists as DEFERRED or SKIPPED are decided: note them in the report and continue.
+- After each part run the suites the change touches, plus `ui_consistency_smoke` and `versus_smoke`.
+  Run ALL suites once at the end of the goal. A failing suite you did not expect stops that part.
+- Stop below 15 percent of the 5-hour limit. Do not ask questions the prompt already answers.
+- Do not read or probe skill, observation or notes folders outside `docs/notes`.
 
 ## Running tests
 - Godot: `C:/Users/0stef/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe`

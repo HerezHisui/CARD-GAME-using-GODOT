@@ -43,6 +43,7 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 	var relocation: Dictionary = game.disaster_relocation.view()
 	if not relocation.is_empty(): view["relocation"] = relocation
 	_keep_cards(view, snapshot.cards, view.disaster_hand)
+	if game.evolution_choice.lan_enabled(): _disaster_evolutions(game, view)
 	return view
 
 
@@ -78,7 +79,42 @@ static func build_prep(game: Node) -> Dictionary:
 		"hints": prep_hand_hints(game),
 	}
 	_keep_cards(view, snapshot.cards, view.prep_hand)
+	if game.evolution_choice.lan_enabled(): _evolution_counts(game, view)
 	return view
+
+
+# Preparedness receives only these public additions. Private zones never enter its wire dictionary.
+static func _evolution_counts(game: Node, view: Dictionary) -> void:
+	view["evolution_waiting"] = game.evolution_choice.pending()
+	view.counts["disaster_held_evolutions"] = game.evolution_choice.held.size()
+
+
+# Build the owner's private payload on the host, separately from the Preparedness whitelist.
+static func _disaster_evolutions(game: Node, view: Dictionary) -> void:
+	var choice: RefCounted = game.evolution_choice
+	_evolution_counts(game, view)
+	view["match_id"] = choice.match_id
+	view["evolution_offer"] = {}
+	view["held_evolutions"] = []
+	if choice.pending():
+		var candidates: Array = []
+		for entry in choice.offer:
+			candidates.append({"id": entry.id, "card": entry.definition.duplicate(true)})
+		view.evolution_offer = {"match_id": choice.match_id, "offer_id": choice.offer_id, "candidates": candidates}
+	for entry in choice.held:
+		view.held_evolutions.append({"id": entry.id, "card": entry.definition.duplicate(true),
+			"hints": _held_hints(game, entry.definition)})
+
+
+static func _held_hints(game: Node, definition: Dictionary) -> Dictionary:
+	var actions: RefCounted = game.disaster_actions
+	var slots: Array = game._threat_slots()
+	var sacrifices: Array = []
+	for card in actions.legal_sacrifices(definition):
+		sacrifices.append(_lane_of(game, slots, card))
+	var can_use: bool = actions.can_use(definition)
+	return {"can_use": can_use, "problem": actions.card_problem(definition), "needs_target": false,
+		"sacrifices": sacrifices, "lanes": sacrifices.duplicate() if can_use else [], "targets": []}
 
 
 # Copy only the cards that sit in a lane or in the hand this view keeps.

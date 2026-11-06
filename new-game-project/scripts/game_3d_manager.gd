@@ -22,6 +22,8 @@ var enemy_hand: Array[Dictionary] = []
 var disaster_relocation: RefCounted = preload("res://scripts/disaster_relocation.gd").new(self)
 # null follows the feature flag; local tests and play may explicitly choose either path.
 var evolution_draw_choice_override: Variant = null
+# null follows the LAN flag; only tests override the LAN evolution path.
+var lan_evolution_picks_override: Variant = null
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}
@@ -1276,6 +1278,8 @@ func cancel_utility_choice() -> void:
 	arrange_hand_centered()
 
 func held_evolution_targets() -> Array:
+	# LAN held tax and seal targeting belong to a separate goal.
+	if evolution_choice.lan_enabled(): return []
 	if not evolution_choice.enabled(): return []
 	return evolution_choice.held.map(func(entry): return {"zone": "held_evolutions", "id": entry.id})
 
@@ -1431,7 +1435,8 @@ func _resume_versus_coin(serial: int) -> void:
 	# The side screen stays "coin" for the director, so its hotkeys and buttons stay off.
 	presentation.show_side_choice(toss_winner, versus_node)
 	# Player 2 takes the laptop before the side screen shows.
-	if toss_winner == 2 and disaster_is_human and not lan_remote_disaster:
+	if toss_winner == 2 and disaster_is_human and not lan_remote_disaster \
+			and not evolution_choice.lan_enabled():
 		run_director.show_privacy_cover("PLAYER 2, you won the toss")
 	var side: String = await versus_node.wait_for_side(coin_pick, coin_result)
 	if serial != encounter_serial: return
@@ -1843,6 +1848,8 @@ func disaster_cast(definition: Dictionary, target: Node) -> bool:
 
 ## Sacrifice the given threats and put the evolution in slot.
 func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) -> bool:
+	var lan_identity: String = evolution_choice.match_id if evolution_choice.lan_enabled() else ""
+	var lan_serial := encounter_serial
 	var sac_count: int = int(definition.get("cost", 1))
 	var evo_name = definition.get("name", "Apex Threat")
 	_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [sacrifices.size(), evo_name])
@@ -1850,15 +1857,19 @@ func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) ->
 
 	for sac_card in sacrifices:
 		await sac_card.sacrifice_dissolve()
+		if not _lan_evolution_continues(lan_identity, lan_serial): return false
 
 	await _wait(0.3)
+	if not _lan_evolution_continues(lan_identity, lan_serial): return false
 	if not await _present_enemy_card(definition, slot.global_position): return false
+	if not _lan_evolution_continues(lan_identity, lan_serial): return false
 
 	var evo_card = Card3DScene.instantiate()
 	add_child(evo_card)
 	evo_card.add_to_group("cards")
 	evo_card.setup(definition)
 	await evo_card.enter_from_above(slot, opponent_hand.release_position())
+	if not _lan_evolution_continues(lan_identity, lan_serial): return false
 	_on_enemy_card_played(evo_card)
 	major_evolution_entry(evo_card, sac_count)
 	evo_card.spawn_popup("EVOLVED!", UI.AMBER)
@@ -1866,6 +1877,10 @@ func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) ->
 
 	_refresh_bars()
 	return true
+
+func _lan_evolution_continues(identity: String, serial: int) -> bool:
+	if identity.is_empty(): return true
+	return identity == evolution_choice.match_id and serial == encounter_serial and phase == Phase.ENEMY
 
 ## Play a base threat into an empty threat slot.
 func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:

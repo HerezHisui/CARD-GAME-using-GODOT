@@ -11,6 +11,8 @@ const DISASTER_IS_HUMAN := true
 const DISASTER_DRAW_BUTTON := false
 # Local human Versus uses evolution choices; LAN retains legacy evolution draws.
 const EVOLUTION_DRAW_CHOICE := true
+# Opt-in LAN offer and held-copy transport. False preserves protocol 3 and legacy draws.
+const LAN_EVOLUTION_PICKS := false
 # true = the human Disaster plays from the far seat with real cards. false = the Disaster panel.
 const DISASTER_SEAT_VIEW := true
 # true = Player 1 calls the coin and the toss winner picks a side. false = the old one-call coin.

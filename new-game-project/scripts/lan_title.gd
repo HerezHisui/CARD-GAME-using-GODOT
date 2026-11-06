@@ -486,6 +486,7 @@ func _show_client_panel() -> void:
 	client_cover = background
 	client_panel = LanClientPanel.new()
 	client_layer.add_child(client_panel)
+	client_panel.setup_evolutions(director)
 	client_panel.back_pressed.connect(back_to_title)
 	session.attach_panel(client_panel)
 	_mount_board_3d("disaster")
