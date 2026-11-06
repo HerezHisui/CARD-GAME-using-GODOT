@@ -138,6 +138,7 @@ var _cost_label: Label
 var _status_row: GridContainer
 var _cost_caption: Label
 var _seal_label: Label
+var _seal_banner: Label
 # Painted frame overlay per element; null means the old StyleBoxFlat frame.
 const FRAME_DIR := "res://assets/ui/card_frames/frame_%s_%s.png"
 var _frame_art: TextureRect
@@ -385,6 +386,18 @@ func _build_face() -> void:
 		# The painted frame has the ATK/HP captions baked in.
 		atk_cap.visible = not framed
 		frame.add_child(atk_cap)
+	_seal_banner = _face_label(title_font, 22, UI.TEXT)
+	_seal_banner.name = "SealBanner"
+	_seal_banner.position = Vector2(16, 218)
+	_seal_banner.size = Vector2(FACE_W - 32, 30)
+	_seal_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_seal_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var seal_style := StyleBoxFlat.new()
+	seal_style.bg_color = UI.CRIMSON
+	seal_style.border_color = UI.TEXT
+	seal_style.set_border_width_all(2)
+	_seal_banner.add_theme_stylebox_override("normal", seal_style)
+	frame.add_child(_seal_banner)
 	_refresh_face()
 
 func _face_label(font: Font, size: int, col: Color) -> Label:
@@ -454,6 +467,7 @@ func _refresh_face() -> void:
 		var pending := int(card_data.get("seal_round", -1))
 		_seal_label.text = ("SEALED · R%d" if not preview_only and pending == _manager().turn \
 			else "NEXT · R%d") % pending
+	_refresh_seal_banner()
 	if _status_row:
 		for child in _status_row.get_children():
 			_status_row.remove_child(child)
@@ -483,6 +497,33 @@ func _refresh_face() -> void:
 			_add_effect_icon("sealed", 0, _manager().field_seal_text(card_data))
 		if has_modifier("sluggish") and not can_attack(_manager().turn): _add_effect_icon("resting")
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+static func seal_hint(definition: Dictionary, round_number: int) -> String:
+	var until := int(definition.get("locked_until", 0))
+	if until > round_number:
+		return "Sealed by a Disaster effect. Cannot play this card until round %d." % until
+	var field_round := int(definition.get("seal_round", -1))
+	if field_round >= round_number:
+		var timing := "Active this round" if field_round == round_number else "Pending for round %d" % field_round
+		return "Sealed: %s. Cannot evolve or be sacrificed. Attacks are allowed." % timing
+	return ""
+
+func _refresh_seal_banner() -> void:
+	if _seal_banner == null: return
+	_seal_banner.hide()
+	# LAN previews have no authoritative manager or round clock.
+	if preview_only or _manager().encounter_kind != "versus": return
+	var round_number: int = _manager().turn
+	var hint := seal_hint(card_data, round_number)
+	if hint.is_empty(): return
+	var remaining := int(card_data.get("locked_until", 0)) - round_number
+	if remaining > 0:
+		_seal_banner.text = "SEALED · %d ROUND%s" % [remaining, "" if remaining == 1 else "S"]
+	else:
+		var field_round := int(card_data.get("seal_round", -1))
+		_seal_banner.text = "SEALED" if field_round == round_number else "SEAL NEXT · R%d" % field_round
+	_seal_banner.tooltip_text = hint
+	_seal_banner.show()
 
 ## Every effect remains represented; the grid shrinks to its reserved card-face area.
 func _symbol_bounds() -> Rect2:
@@ -642,7 +683,9 @@ func _start_drag() -> void:
 
 func current_face_signature() -> int:
 	if preview_only: return hash([card_data, statuses, modifiers])
-	return hash([card_data, statuses, modifiers, effective_attack(), planned_guard, plan_ignore_taunt, can_attack(_manager().turn), _manager().is_sealed(card_data)])
+	return hash([card_data, statuses, modifiers, effective_attack(), planned_guard, plan_ignore_taunt,
+		can_attack(_manager().turn), _manager().is_sealed(card_data),
+		_manager().turn if _manager().encounter_kind == "versus" else 0])
 
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint(): return
@@ -665,8 +708,15 @@ func _process(delta: float) -> void:
 	var target_q := (cam.global_basis * UPRIGHT).get_rotation_quaternion()
 	quaternion = quaternion.slerp(target_q, 1.0 - exp(-15.0 * delta))
 
+func sealed_drop_message() -> String:
+	if preview_only or _manager().encounter_kind != "versus" or not _manager().is_sealed(card_data): return ""
+	var remaining: int = int(card_data.locked_until) - _manager().turn
+	return "SEALED - wait %d round%s." % [remaining, "" if remaining == 1 else "s"]
+
 func _drop_card() -> void:
 	var slot := _slot_under_card()
+	var refusal := sealed_drop_message() if slot != null else ""
+	if not refusal.is_empty(): spawn_popup(refusal, UI.DANGER)
 	# Player may only use their own (Response) row, an empty slot, with enough energy
 	if slot and "Response" in slot.name and not _slot_occupied(slot) and _manager().try_play_card(self):
 		if card_data.get("utility", false):
@@ -739,6 +789,10 @@ func is_alive() -> bool:
 	if card_data.get("utility", false): return in_hand and not graveyard_recorded
 	return card_data.get("health", 0) > 0
 
+func _flatten_return_tilt() -> void:
+	rotation.x = 0.0
+	rotation.z = 0.0
+
 ## Wind-up, then lunge at `target`. Returns at the moment of impact
 ## (await it), the recoil back home keeps playing on its own.
 func attack_lunge(target: Vector3) -> void:
@@ -758,6 +812,7 @@ func attack_lunge(target: Vector3) -> void:
 	_tween.tween_property(self, "rotation:x", tilt * 0.6, 0.09)
 	await _tween.finished
 	# Recoil home
+	_flatten_return_tilt()
 	_tween = create_tween().set_parallel(true)
 	_tween.tween_property(self, "global_position", home, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	_tween.tween_property(self, "rotation:x", 0.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
@@ -869,6 +924,7 @@ func take_damage(amt: int, mult: float = 1.0, bypass_armor: bool = false, ignore
 	_tween.tween_property(self, "rotation:z", 0.18, 0.04)
 	_tween.tween_property(self, "rotation:z", -0.14, 0.07)
 	_tween.tween_property(self, "rotation:z", 0.07, 0.06)
+	_tween.tween_callback(_flatten_return_tilt)
 	_tween.tween_property(self, "rotation:z", 0.0, 0.06)
 	_tween.parallel().tween_property(self, "global_position", home, 0.2)
 

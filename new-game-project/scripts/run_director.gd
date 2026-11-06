@@ -116,6 +116,7 @@ var action_cancel: Callable
 var buff_choices: Array = []
 var intel_revealed := false
 var idle_hint: Label
+var seal_tooltip: Label
 var boss_intent: Label
 var plans_button: Button
 var versus_hud: Node # Versus-only HUD look, see versus_hud.gd
@@ -387,6 +388,15 @@ func _build_ui() -> void:
 	idle_hint.add_theme_font_override("font", UI.font(false))
 	idle_hint.add_theme_font_size_override("font_size", 20)
 	idle_hint.add_theme_color_override("font_color", UI.RESPONSE)
+	seal_tooltip = Label.new()
+	seal_tooltip.name = "SealTooltip"
+	seal_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	seal_tooltip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	seal_tooltip.custom_minimum_size.x = 420
+	seal_tooltip.add_theme_font_size_override("font_size", 22)
+	seal_tooltip.add_theme_stylebox_override("normal", style(UI.PANEL, UI.GOLD))
+	seal_tooltip.hide()
+	root.add_child(seal_tooltip)
 	var intent_panel: Control = root.get_node("BossIntent")
 	boss_intent = intent_panel.get_node("%IntentLabel")
 	plans_button = scene_hud.get_node("PlansBox/PlansButton")
@@ -722,6 +732,7 @@ func _process(_delta: float) -> void:
 	_update_boss_intent()
 	_refresh_privacy_screen()
 	_refresh_disaster_panel()
+	_refresh_seal_tooltip()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
@@ -856,6 +867,23 @@ func _input(event: InputEvent) -> void:
 					show_menu()
 			_: return
 		get_viewport().set_input_as_handled()
+
+func _refresh_seal_tooltip() -> void:
+	seal_tooltip.hide()
+	if game.encounter_kind != "versus" or not battle_active or modal.visible or privacy_screen.visible: return
+	if _dragging() or game.presentation.blocking: return
+	var mouse := get_viewport().get_mouse_position()
+	var card: Node = game.hovered_hand_card
+	if game.disaster_seat.active: card = game.disaster_seat.hovered
+	if not is_instance_valid(card): card = game.card_at_board_position(mouse)
+	if not is_instance_valid(card): return
+	var hint := CardFace.seal_hint(card.card_data, game.turn)
+	if hint.is_empty(): return
+	seal_tooltip.text = hint
+	seal_tooltip.size = Vector2(420, 0)
+	var bounds := get_viewport().get_visible_rect().size - seal_tooltip.size - Vector2(8, 8)
+	seal_tooltip.position = (mouse + Vector2(18, 18)).clamp(Vector2(8, 8), bounds)
+	seal_tooltip.show()
 
 func _update_boss_intent() -> void:
 	var boss: Node = game.final_boss
@@ -1805,11 +1833,13 @@ func live_definition(card: Node) -> Dictionary:
 	return definition
 
 func card_rules(card: Dictionary) -> String:
+	var seal_rules := CardFace.seal_hint(card, game.turn) if game.encounter_kind == "versus" else ""
+	if not seal_rules.is_empty(): seal_rules += "\n"
 	var effect: String = str(card.get("effect", ""))
 	if card.get("utility", false):
-		return Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
+		return seal_rules + Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
 			+ "Choose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
-	var rules := "Adjacent matching types: +1 attack.\n" + Rules.special_text(card) + "\n"
+	var rules := seal_rules + "Adjacent matching types: +1 attack.\n" + Rules.special_text(card) + "\n"
 	var pillar_details := preload("res://scripts/final_boss.gd").pillar_description(card)
 	if not pillar_details.is_empty(): rules += pillar_details + "\n"
 	if effect == "draw": rules += "On play: draw %d.\n" % int(card.get("draw_count", 1))
