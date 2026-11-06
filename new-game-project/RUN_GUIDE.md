@@ -8,10 +8,11 @@ Disaster. The toss winner chooses a side, which plays first. The HUD shows side-
 Matches start from preset decks. Human Crosswind play asks for another ally and an empty destination lane.
 See the [multiplayer guide](../docs/multiplayer.md) for controls and limits.
 
-## Experimental LAN Versus
+## LAN Versus
 
 LAN Versus uses ENet UDP 24680, protocol 3, over the same network or Radmin VPN.
-Validation so far is limited to localhost and automated suites. A two-laptop test is still required.
+ZeL and Tssy tested LAN Versus over the network on an earlier build.
+The final build passed all automated suites and a localhost run; its network re-test is pending.
 Choose LAN Versus, then host or join using the host's displayed network address. Both peers need the same build.
 The LAN deck step supports Standard presets and saved custom decks.
 

@@ -16,8 +16,9 @@ encounters and the Janitor while climbing the school map. Current work is on the
   play with a pass-the-laptop privacy cover. `DISASTER_IS_HUMAN` selects human or AI Disaster.
   The side-by-side HUD shows Energy and Tension bars. Human Crosswind play chooses an ally and destination.
   Matches start from preset decks; the LAN deck step also supports saved custom decks.
-- LAN Versus is **EXPERIMENTAL**. It uses ENet UDP 24680, protocol 3, over the same network or Radmin VPN.
-  Validation so far is limited to localhost and automated suites. A two-laptop test is still required.
+- LAN Versus uses ENet UDP 24680, protocol 3, over the same network or Radmin VPN.
+  ZeL and Tssy tested LAN Versus over the network on an earlier build.
+  The final build passed all automated suites and a localhost run; its network re-test is pending.
   Remote Preparedness utilities, Supply, Shelter and Extraction show "Not available in LAN".
   Evolution draw choice is local only and off by default (`EVOLUTION_DRAW_CHOICE := false`).
 
@@ -27,6 +28,6 @@ The repo has 75 smoke suites. This is a file count, not a claim that they were r
 
 - [Player guide](new-game-project/RUN_GUIDE.md)
 - [Singleplayer design notes](docs/singleplayer.md): rules, card lists and balance changes
-- [Multiplayer guide](docs/multiplayer.md): local controls, experimental LAN setup and limitations
+- [Multiplayer guide](docs/multiplayer.md): local controls, LAN setup and limitations
 
 For development: [refactor plan](docs/refactor-plan.md) and [refactor notes](docs/refactor-notes.md).
