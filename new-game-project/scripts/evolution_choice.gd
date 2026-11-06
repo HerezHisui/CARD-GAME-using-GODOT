@@ -13,9 +13,10 @@ func _init(owner_game: Node) -> void:
 
 func enabled() -> bool:
 	if not is_instance_valid(game): return false
-	return (preload("res://scripts/versus_match.gd").EVOLUTION_DRAW_CHOICE
-		or game.evolution_draw_choice_override) and game.encounter_kind == "versus" \
-		and game.disaster_is_human and not game.lan_remote_prep and not game.lan_remote_disaster
+	if game.encounter_kind != "versus" or not game.disaster_is_human \
+			or game.lan_remote_prep or game.lan_remote_disaster: return false
+	if game.evolution_draw_choice_override is bool: return game.evolution_draw_choice_override
+	return preload("res://scripts/versus_match.gd").EVOLUTION_DRAW_CHOICE
 
 func pending() -> bool:
 	if not is_instance_valid(game): return false

@@ -207,7 +207,8 @@ func _make_card(definition: Dictionary, parent: Node) -> Node3D:
 	return card
 
 
-func _apply_runtime(card: Node3D, entry: Dictionary) -> void:
+func _apply_runtime(card: Node3D, entry: Dictionary, own_side: bool = true) -> void:
+	card.preview_seal_round = int(view.get("round", 1)) if own_side else -1
 	var runtime: Dictionary = entry.get("runtime", {})
 	card.card_data = entry.definition.duplicate(true)
 	card.max_health = int(runtime.get("max_health", card.max_health))
@@ -231,12 +232,12 @@ func _sync_lanes() -> void:
 				continue
 			var entry: Dictionary = view.cards[id]
 			if current != null and current.card_data.get("name") == entry.definition.get("name"):
-				_apply_runtime(current, entry)
+				_apply_runtime(current, entry, lane_side == _own_side())
 				continue
 			if current != null:
 				_remove_lane_card(lane_side, lane)
 			var card := _make_card(entry.definition, game)
-			_apply_runtime(card, entry)
+			_apply_runtime(card, entry, lane_side == _own_side())
 			lane_cards[lane_side][lane] = card
 			_land(card, slots[lane])
 

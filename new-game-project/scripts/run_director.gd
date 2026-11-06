@@ -731,6 +731,7 @@ func _process(_delta: float) -> void:
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	_update_boss_intent()
 	_refresh_privacy_screen()
+	game.disaster_draw.refresh_button()
 	_refresh_disaster_panel()
 	_refresh_seal_tooltip()
 	prep.max_value = game.energy_cap
@@ -2134,7 +2135,11 @@ func resolve_event(choice: String) -> void:
 func event_risk() -> void: resolve_event("risk")
 
 func show_menu() -> void:
-	if _dragging(): return
+	if _dragging():
+		if game.encounter_kind != "versus": return
+		game.dragged_hand_card.cancel_hand_drag()
+	if game.encounter_kind == "versus" and game.disaster_seat_on:
+		game.disaster_seat._cancel()
 	# Pressing Menu again closes it, like Resume.
 	if screen == "menu":
 		close_modal()

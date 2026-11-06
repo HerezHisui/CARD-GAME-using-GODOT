@@ -7,6 +7,8 @@ const VersusDecks = preload("res://scripts/versus_decks.gd")
 
 # Who plays the Disaster in Versus. true = a human uses the Disaster panel, false = the existing AI.
 const DISASTER_IS_HUMAN := true
+# Optional local human draw step. LAN always keeps automatic Disaster draws.
+const DISASTER_DRAW_BUTTON := false
 # Local human Versus uses evolution choices; LAN retains legacy evolution draws.
 const EVOLUTION_DRAW_CHOICE := true
 # true = the human Disaster plays from the far seat with real cards. false = the Disaster panel.
@@ -239,6 +241,10 @@ func restore_run_state() -> void:
 func finish(prep_won: bool) -> void:
 	if not running: return
 	running = false
+	game.disaster_draw.cancel()
+	# Invalidate waiting callbacks before cancellation wakes any of them.
+	game.encounter_serial += 1
+	game.presentation.cancel_coin()
 	clear_prematch()
 	# The coin flip may still hide the Preparedness hand.
 	game.reveal_versus_hand()

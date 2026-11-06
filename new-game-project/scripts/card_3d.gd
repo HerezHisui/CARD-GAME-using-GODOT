@@ -122,6 +122,8 @@ var last_evaded_hit := false
 var is_relocating := false
 var in_hand := true
 var preview_only := false
+# Set only for a LAN preview on the local side; other previews have no seal clock.
+var preview_seal_round := -1
 var current_slot: Node3D = null
 var card_height := CARD_WIDTH * FACE_H / FACE_W
 var max_health := 0
@@ -511,9 +513,9 @@ static func seal_hint(definition: Dictionary, round_number: int) -> String:
 func _refresh_seal_banner() -> void:
 	if _seal_banner == null: return
 	_seal_banner.hide()
-	# LAN previews have no authoritative manager or round clock.
-	if preview_only or _manager().encounter_kind != "versus": return
-	var round_number: int = _manager().turn
+	if preview_only and preview_seal_round < 0: return
+	if not preview_only and _manager().encounter_kind != "versus": return
+	var round_number: int = preview_seal_round if preview_only else _manager().turn
 	var hint := seal_hint(card_data, round_number)
 	if hint.is_empty(): return
 	var remaining := int(card_data.get("locked_until", 0)) - round_number

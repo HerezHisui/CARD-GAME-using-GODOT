@@ -20,7 +20,8 @@ var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
 var disaster_relocation: RefCounted = preload("res://scripts/disaster_relocation.gd").new(self)
-var evolution_draw_choice_override := false
+# null follows the feature flag; local tests and play may explicitly choose either path.
+var evolution_draw_choice_override: Variant = null
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}
@@ -28,6 +29,7 @@ var versus_master := {"preparedness": [], "disaster": []}
 var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").new(self)
 # Set by versus_match.gd at match start. True means a person plays the Disaster turn.
 var disaster_is_human := false
+var disaster_draw: RefCounted = preload("res://scripts/local_disaster_draw.gd").new(self)
 var disaster_waiting := false  # true only while a human Disaster turn waits for End
 # Set by versus_match.gd. True means the human Disaster plays from the far seat, not from the panel.
 var disaster_seat_view := false
@@ -208,6 +210,7 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	disaster_draw.cancel()
 	disaster_relocation.reset()
 	evolution_choice.reset()
 	encounter_serial += 1
@@ -1595,6 +1598,9 @@ func _begin_player_turn() -> void:
 		_set_phase(Phase.PLAYER_DRAW, "Your turn - draw a card from the deck")
 
 func _on_draw_button_pressed() -> void:
+	if disaster_draw.waiting:
+		disaster_draw.draw()
+		return
 	if encounter_kind == "versus" and seat_prep != "local": return
 	if evolution_choice.pending(): return
 	if run_director and run_director.modal.visible: return
@@ -1705,6 +1711,13 @@ func _present_enemy_card(definition: Dictionary, target := Vector3.ZERO) -> bool
 	return true
 
 func _enemy_turn() -> void:
+	var turn_serial := encounter_serial
+	# Keep opening Response faces hidden until the Disaster's first Ready cover closes.
+	if encounter_kind == "versus" and disaster_is_human and turn == 1 \
+			and not lan_remote_prep and not lan_remote_disaster:
+		hide_versus_hand()
+		# The opening evolution cover is a separate hand-over from the first turn.
+		run_director.privacy_last = ""
 	if is_instance_valid(final_boss):
 		_set_phase(Phase.ENEMY, "The Warden prepares its announced pattern")
 		await _wait(0.4)
@@ -1712,12 +1725,18 @@ func _enemy_turn() -> void:
 	_set_phase(Phase.ENEMY, "Disaster's turn...")
 	await _wait(0.5)
 
+	if disaster_draw.enabled() and turn_serial != encounter_serial: return
+
 	# --- Disaster Draw Phase ---
 	if not enemy_deck.is_empty() and enemy_hand.size() < 6:
-		enemy_draw_cards(maxi(0, 1 + buff_value(false, "draw")))
+		if disaster_draw.enabled():
+			if not await disaster_draw.resolve(): return
+		else:
+			enemy_draw_cards(maxi(0, 1 + buff_value(false, "draw")))
 		_set_phase(Phase.ENEMY, "Disaster draws a card...")
 		await _wait(0.4)
 
+	if disaster_draw.enabled() and turn_serial != encounter_serial: return
 	if turn % 2 == 0: enemy_draw_evolutions(1)
 
 	# A human Disaster plays through disaster_actions and ends the turn with end_turn().

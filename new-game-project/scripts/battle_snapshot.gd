@@ -1,5 +1,5 @@
 extends RefCounted
-## Read-only scene adapter. Does not participate in play or save/load yet.
+## Detached scene capture with local evolution-zone restoration. Other live zones remain scene-owned.
 const State = preload("res://scripts/battle_state.gd")
 const CARD_FIELDS := [
 	"max_health", "statuses", "modifiers", "last_attack_turn", "planned_guard", "plan_attack_bonus",
@@ -85,6 +85,10 @@ func _capture_zones(state: RefCounted, game: Node) -> void:
 	if game.evolution_choice.enabled():
 		state.zones.disaster.held_evolutions = _pile(state, game.evolution_choice.definitions())
 		state.zones.disaster.evolution_offer = game.evolution_choice.offer.duplicate(true)
+		state.zones.disaster.evolution_choice = {
+			"held_ids": game.evolution_choice.held.map(func(entry): return entry.id),
+			"next_id": game.evolution_choice.next_id, "offer_id": game.evolution_choice.offer_id,
+		}
 
 func _capture_progress(state: RefCounted, game: Node) -> void:
 	state.round_number = game.turn
@@ -153,3 +157,37 @@ func _utility_targets(state: RefCounted, game: Node) -> Array:
 		"tax": choices = game.enemy_hand
 		"rally", "cleanse": choices = game.board_input.action.get("cards", [])
 	return _pile(state, choices)
+
+## Restore only the local evolution zones. The caller owns restoring the rest of the encounter.
+func restore_evolutions(game: Node, snapshot: Dictionary) -> bool:
+	if not game.evolution_choice.enabled(): return false
+	snapshot = State.copy_data(snapshot)
+	var zone: Dictionary = snapshot.get("zones", {}).get("disaster", {})
+	if not zone.has("evolution_choice"): return false
+	var cards: Dictionary = snapshot.get("cards", {})
+	var saved: Dictionary = zone.evolution_choice
+	var held_ids: Array = saved.get("held_ids", [])
+	var held_cards: Array = zone.get("held_evolutions", [])
+	if held_ids.size() != held_cards.size() or held_cards.size() > 2: return false
+	var deck: Array[Dictionary] = []
+	for id in zone.get("evolution", []):
+		if not cards.has(id): return false
+		deck.append(cards[id].definition.duplicate(true))
+	var held: Array[Dictionary] = []
+	for i in held_cards.size():
+		if not cards.has(held_cards[i]): return false
+		held.append({"id": held_ids[i], "definition": cards[held_cards[i]].definition.duplicate(true)})
+	var offer: Array[Dictionary] = []
+	for entry in zone.get("evolution_offer", []):
+		var index := int(entry.index)
+		if index < 0 or index >= deck.size() or entry.definition != deck[index]: return false
+		offer.append({"id": entry.id, "index": index, "definition": deck[index]})
+	var choice: RefCounted = game.evolution_choice
+	choice.reset()
+	game.enemy_evolution_deck.assign(deck)
+	choice.held.assign(held)
+	choice.offer.assign(offer)
+	choice.serial = game.encounter_serial
+	choice.next_id = maxi(choice.next_id, int(saved.get("next_id", 0)))
+	choice.offer_id = maxi(choice.offer_id, int(saved.get("offer_id", 0))) + 1
+	return true
