@@ -1054,10 +1054,34 @@ func show_disaster_graveyard() -> void:
 	grave_note.add_child(box)
 	_label(box, 26, UI.GOLD).text = "DISASTER GRAVEYARD"
 	var count := int(view.get("counts", {}).get("disaster_graveyard", 0))
-	_label(box, 20, UI.TEXT).text = "%d cards. Card list is unavailable on this client." % count
+	# Flag on: the host sends the list. Flag off: only the count.
+	if view.has("disaster_graveyard_list"):
+		_fill_grave_list(box, view.disaster_graveyard_list)
+	else:
+		_label(box, 20, UI.TEXT).text = "%d cards. Card list is unavailable on this client." % count
 	director.button("Close", func() -> void: grave_note.queue_free(), box)
 	grave_note.reset_size()
 	grave_note.position = (hud.size - grave_note.size) * 0.5
+
+
+# The Disaster graveyard cards in the order the host sent them, each with its reason and round.
+func _fill_grave_list(box: VBoxContainer, cards: Array) -> void:
+	if cards.is_empty():
+		_label(box, 20, UI.TEXT).text = "The graveyard is empty."
+		return
+	var scroll := ScrollContainer.new()
+	scroll.name = "GraveList"
+	scroll.custom_minimum_size = Vector2(minf(760, hud.size.x - 80), minf(420, hud.size.y - 220))
+	box.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	scroll.add_child(grid)
+	for entry: Dictionary in cards:
+		director._card_tile(entry, grid)
+		var reason := str(entry.get("graveyard_reason", "Destroyed"))
+		var caption := _label(grid.get_child(-1).get_node("Box"), 14, UI.MUTED)
+		caption.text = "%s · round %d" % [reason, int(entry.get("graveyard_round", 1))]
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
 func _refresh_relocation() -> void:

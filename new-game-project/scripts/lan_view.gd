@@ -44,6 +44,8 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 	if not relocation.is_empty(): view["relocation"] = relocation
 	_keep_cards(view, snapshot.cards, view.disaster_hand)
 	if game.evolution_choice.lan_enabled(): _disaster_evolutions(game, view)
+	# Flag on: the Disaster's own graveyard as a list. The Preparedness view keeps the count only.
+	if game.preparedness_actions.utilities_on(): view["disaster_graveyard_list"] = _graveyard_list(game)
 	return view
 
 
@@ -84,6 +86,14 @@ static func build_prep(game: Node) -> Dictionary:
 	if game.preparedness_actions.utilities_on():
 		view["pending_choice"] = game.preparedness_actions.utility_choice.view()
 	return view
+
+
+# The Disaster's own graveyard cards: every one was played face up. Plain copies, oldest first.
+static func _graveyard_list(game: Node) -> Array:
+	var list: Array = []
+	for entry in game.disaster_graveyard:
+		list.append(entry.duplicate(true))
+	return list
 
 
 # Preparedness receives only these public additions. Private zones never enter its wire dictionary.
