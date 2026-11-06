@@ -13,6 +13,8 @@ const DISASTER_DRAW_BUTTON := true
 const EVOLUTION_DRAW_CHOICE := true
 # Opt-in LAN offer and held-copy transport. False preserves protocol 3 and legacy draws.
 const LAN_EVOLUTION_PICKS := false
+# Opt-in LAN Preparedness utility cards and the delayed contingency tactics. False keeps "not_supported".
+const LAN_PREP_UTILITIES := false
 # true = the human Disaster plays from the far seat with real cards. false = the Disaster panel.
 const DISASTER_SEAT_VIEW := true
 # true = Player 1 calls the coin and the toss winner picks a side. false = the old one-call coin.

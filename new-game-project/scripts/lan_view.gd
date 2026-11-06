@@ -80,6 +80,9 @@ static func build_prep(game: Node) -> Dictionary:
 	}
 	_keep_cards(view, snapshot.cards, view.prep_hand)
 	if game.evolution_choice.lan_enabled(): _evolution_counts(game, view)
+	# Flag on: the open utility pick. It goes to the Preparedness client only, never to the Disaster view.
+	if game.preparedness_actions.utilities_on():
+		view["pending_choice"] = game.preparedness_actions.utility_choice.view()
 	return view
 
 
@@ -169,11 +172,20 @@ static func prep_hand_hints(game: Node) -> Array:
 	var hints: Array = []
 	for index in game.get_hand_cards().size():
 		var lanes: Array = actions.legal_lanes(index)
-		hints.append({
+		var hint := {
 			"can_play": not lanes.is_empty(),
 			"problem": actions.hand_problem(index),
 			"lanes": lanes,
-		})
+		}
+		# Flag on: a utility is cast, not placed. It has no lanes; the effect tells the client what to send.
+		var card: Node = game.get_hand_cards()[index]
+		if actions.utilities_on() and card.card_data.get("utility", false):
+			hint["can_play"] = hint.problem == ""
+			hint["utility"] = true
+			hint["effect"] = str(card.card_data.get("effect", ""))
+			# The stage the host will ask for first: "" means the card runs at once.
+			hint["pick"] = actions.utility_choice.first_stage(hint.effect)
+		hints.append(hint)
 	return hints
 
 
@@ -188,14 +200,22 @@ static func tactic_hints(game: Node) -> Array:
 	var hints: Array = []
 	for id in game.plans.unlocked:
 		var tactic: Dictionary = game.plans.definition(id)
-		var available: bool = id not in actions.NOT_SUPPORTED_TACTICS and game.run_director.tactic_available(id)
-		hints.append({
+		# Flag on: Supply Line and Shelter are allowed, and they take no ally.
+		var no_ally: bool = actions.utilities_on() and id in actions.NO_ALLY_TACTICS
+		# Flag on: Emergency Extraction opens a pick (ally, then empty lane), so it has no lanes here.
+		var pick_first: bool = actions.utilities_on() and id == "extract"
+		var available: bool = (id not in actions.NOT_SUPPORTED_TACTICS or no_ally or pick_first) \
+			and game.run_director.tactic_available(id) and not actions.utility_choice.active()
+		var hint := {
 			"id": id,
 			"name": str(tactic.get("name", id)),
 			"cost": int(tactic.get("cost", 0)),
 			"available": available,
-			"lanes": ally_lanes.duplicate() if available else [],
-		})
+			"lanes": [] if no_ally or pick_first or not available else ally_lanes.duplicate(),
+		}
+		if no_ally: hint["no_ally"] = true
+		if pick_first: hint["pick"] = true
+		hints.append(hint)
 	return hints
 
 static func phase_name(game: Node) -> String:

@@ -53,7 +53,14 @@ static func _apply_prep(game: Node, msg: Dictionary) -> Dictionary:
 		"tactic":
 			return actions.use_tactic(msg.get("id"), msg.get("lane"))
 		"utility":
-			return actions.use_utility(msg.get("hand"), msg.get("target"))
+			return actions.use_utility(msg.get("hand"), msg.get("target"), msg.get("id"))
+		# Flag on only: a pick or a cancel of the open utility choice. Flag off they are unknown messages.
+		"utility_pick":
+			if not actions.utilities_on(): return _refuse("bad_message")
+			return actions.utility_pick(msg)
+		"utility_cancel":
+			if not actions.utilities_on(): return _refuse("bad_message")
+			return actions.utility_cancel(msg)
 	return _refuse("bad_message")
 
 

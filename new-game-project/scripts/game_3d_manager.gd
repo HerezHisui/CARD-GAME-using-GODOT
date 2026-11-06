@@ -24,6 +24,8 @@ var disaster_relocation: RefCounted = preload("res://scripts/disaster_relocation
 var evolution_draw_choice_override: Variant = null
 # null follows the LAN flag; only tests override the LAN evolution path.
 var lan_evolution_picks_override: Variant = null
+# null follows LAN_PREP_UTILITIES; only tests override it.
+var lan_prep_utilities_override: Variant = null
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}
@@ -214,6 +216,7 @@ func _ready() -> void:
 func clear_battle(preserve_result: bool = false) -> void:
 	disaster_draw.cancel()
 	disaster_relocation.reset()
+	preparedness_actions.utility_choice.reset()
 	evolution_choice.reset()
 	encounter_serial += 1
 	versus_master = {"preparedness": [], "disaster": []}
@@ -1139,11 +1142,16 @@ func complete_move_effect(slot: Node3D) -> void:
 		moving_ally.is_dragging = false
 		moving_ally.is_relocating = false
 		end_hand_drag(moving_ally)
-		moving_ally.place_on_slot(slot)
-		log_event("Relocated %s." % moving_ally.card_data.name)
-		if is_instance_valid(moving_source) and int(moving_source.card_data.get("move_heal", 0)) > 0: moving_ally.heal(int(moving_source.card_data.move_heal))
-		if is_instance_valid(moving_source) and moving_source.card_data.get("utility", false): consume_utility(moving_source)
+		apply_relocation(moving_ally, slot, moving_source)
 	cancel_move_effect()
+
+## Moves an ally to an empty lane, heals it when the source says so, and pays for a utility source.
+## The local pick and the LAN host both call this.
+func apply_relocation(ally: Node, slot: Node3D, source: Node) -> void:
+	ally.place_on_slot(slot)
+	log_event("Relocated %s." % ally.card_data.name)
+	if is_instance_valid(source) and int(source.card_data.get("move_heal", 0)) > 0: ally.heal(int(source.card_data.move_heal))
+	if is_instance_valid(source) and source.card_data.get("utility", false): consume_utility(source)
 
 func cancel_move_effect() -> void:
 	if is_instance_valid(moving_ally) and moving_ally.is_dragging:
@@ -1196,6 +1204,11 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		elif effect == "tax": run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
 		else: run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
 		return true
+	apply_simple_utility(card, effect)
+	return true
+
+## Pays for a utility that needs no pick and runs its effect. The local drag and the LAN host both end here.
+func apply_simple_utility(card: Node, effect: String) -> void:
 	if effect in ["blast", "barrier", "herb", "tablet"]: set_board_view(true)
 	consume_utility(card)
 	if effect == "draw": draw_cards(int(card.card_data.get("draw_count", 2)) + int(card.card_data.get("utility_power", 0)))
@@ -1218,7 +1231,6 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 				target.statuses.erase("healing_reduced")
 				target.heal(2 + int(card.card_data.get("utility_power", 0)))
 	_check_game_over()
-	return true
 
 func consume_utility(card: Node) -> void:
 	if card.card_data.get("curse", false): _damage_side(true, 1, true)
@@ -1242,8 +1254,21 @@ func complete_utility_choice(target: Variant) -> void:
 	if pending_effect == "tax" and target not in enemy_hand + held_evolution_targets():
 		cancel_utility_choice()
 		return
-	var power := int(pending_utility.card_data.get("utility_power", 0))
-	match pending_effect:
+	apply_utility_pick(pending_effect, target, int(pending_utility.card_data.get("utility_power", 0)))
+	var tutoring := pending_effect in ["tutor", "recover"]
+	var received: Dictionary = recovered_definition(target) if pending_effect == "recover" else (target if pending_effect == "tutor" else {})
+	consume_utility(pending_utility)
+	pending_utility = null
+	pending_effect = ""
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+	if tutoring: add_card_to_hand(received)
+	_refresh_bars()
+
+## The effect of a utility that picked a target. The local pick and the LAN host both call this.
+## It does not pay for the card: the caller runs consume_utility and, for tutor and recover, adds the card.
+func apply_utility_pick(effect: String, target: Variant, power: int) -> void:
+	match effect:
 		"tutor":
 			deck.erase(target)
 		"recover": player_graveyard.erase(target)
@@ -1259,15 +1284,6 @@ func complete_utility_choice(target: Variant) -> void:
 		"cleanse":
 			target.cleanse()
 			if power > 0: target.heal(2 * power)
-	var tutoring := pending_effect in ["tutor", "recover"]
-	var received: Dictionary = recovered_definition(target) if pending_effect == "recover" else (target if pending_effect == "tutor" else {})
-	consume_utility(pending_utility)
-	pending_utility = null
-	pending_effect = ""
-	run_director.action_cancel = Callable()
-	run_director.close_modal()
-	if tutoring: add_card_to_hand(received)
-	_refresh_bars()
 
 func cancel_utility_choice() -> void:
 	board_input.clear()

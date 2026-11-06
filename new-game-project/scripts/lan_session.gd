@@ -12,7 +12,9 @@ const LanView = preload("res://scripts/lan_view.gd")
 # UDP port the host listens on. Open it in the Windows firewall for private networks.
 const PORT := 24680
 # Part E: raise this when the messages change. Host and client must send the same build string.
-const PROTOCOL := 4 if preload("res://scripts/versus_match.gd").LAN_EVOLUTION_PICKS else 3
+# 3 = base, +1 for evolution picks, +2 for prep utilities, so no flag combination shares a number.
+const PROTOCOL := 3 + (1 if preload("res://scripts/versus_match.gd").LAN_EVOLUTION_PICKS else 0) \
+	+ (2 if preload("res://scripts/versus_match.gd").LAN_PREP_UTILITIES else 0)
 
 signal peer_joined(id: int)
 signal peer_left(id: int)
@@ -51,6 +53,7 @@ var picked_lanes: Array = []  # client only: sacrifice lanes picked so far for a
 var picked_tactic := ""  # client only (Preparedness): the tactic picked on the panel, waiting for an ally lane
 var picked_held := ""
 var picked_held_match := ""
+var choice_pick_sent := ""  # client (Preparedness): the stage already answered, until the next view
 var completed_evolution_match := ""
 # Disaster client: the identity the host rotated to when it ended the match (flag on only).
 var completed_evolution_terminal := ""
@@ -142,6 +145,7 @@ func leave() -> void:
 func close() -> void:
 	_reset_client_evolutions()
 	if is_host and is_instance_valid(game): game.disaster_relocation.reset()
+	if is_host and is_instance_valid(game): game.preparedness_actions.utility_choice.reset()
 	if is_host and is_instance_valid(game) and game.evolution_choice.lan_enabled():
 		game.evolution_choice.reset()
 	if peer == null:
@@ -247,6 +251,7 @@ func push_view(view: Dictionary) -> void:
 	if view.has("match_id") and _is_completed_match(str(view.match_id)): return
 	last_view = view
 	_clear_pick()
+	choice_pick_sent = ""
 	if is_instance_valid(panel):
 		panel.show_view(view)
 	view_received.emit(view)
@@ -414,6 +419,10 @@ func attach_prep_panel(new_panel: Control) -> void:
 	panel.tactic_pressed.connect(_on_prep_tactic_pressed)
 	panel.lane_pressed.connect(_on_prep_lane_pressed)
 	panel.end_turn_pressed.connect(func() -> void: request_action({"kind": "end"}))
+	# Flag on: list picks and Cancel of an open utility choice.
+	if panel.has_signal("choice_picked"):
+		panel.choice_picked.connect(_on_choice_picked)
+		panel.choice_cancelled.connect(_on_choice_cancelled)
 	if not last_view.is_empty():
 		panel.show_view(last_view)
 
@@ -421,15 +430,73 @@ func attach_prep_panel(new_panel: Control) -> void:
 func _on_prep_hand_pressed(index: int) -> void:
 	_clear_pick()
 	if index >= 0 and index < last_view.get("hints", []).size():
+		# Flag on: a utility card is cast with one message. A spell with a pick opens the host's choice.
+		if last_view.hints[index].get("utility", false):
+			if last_view.hints[index].get("can_play", false) and last_view.get("pending_choice", {}).is_empty():
+				request_action(_utility_message(index))
+			return
 		picked_hand = index
+
+
+func _utility_message(index: int) -> Dictionary:
+	var msg := {"kind": "utility", "hand": index}
+	var ids: Array = last_view.get("prep_hand", [])
+	if index < ids.size() and last_view.cards.has(ids[index]):
+		var card_id = last_view.cards[ids[index]].definition.get("id")
+		if typeof(card_id) == TYPE_STRING: msg["id"] = card_id
+	return msg
+
+
+func _tactic_hint(id: String) -> Dictionary:
+	for hint in last_view.get("tactics", []):
+		if hint.id == id: return hint
+	return {}
 
 
 func _on_prep_tactic_pressed(id: String) -> void:
 	_clear_pick()
+	# Flag on: Supply Line and Shelter need no ally, Extraction opens the host's choice. One message each.
+	var hint := _tactic_hint(id)
+	if hint.get("no_ally", false) or hint.get("pick", false):
+		if hint.get("available", false) and last_view.get("pending_choice", {}).is_empty():
+			request_action({"kind": "tactic", "id": id})
+		return
 	picked_tactic = id
 
 
+# Flag on: the open choice from the newest view, or {}.
+func _open_choice() -> Dictionary:
+	return last_view.get("pending_choice", {})
+
+
+func _send_choice_pick(handle: int) -> void:
+	var open := _open_choice()
+	if open.is_empty(): return
+	# One pick per stage until the host answers with a new view, so a double click cannot send twice.
+	var key := "%d:%d:%s" % [open.encounter, open.choice, open.stage]
+	if key == choice_pick_sent: return
+	choice_pick_sent = key
+	request_action({"kind": "utility_pick", "encounter": open.encounter, "choice": open.choice,
+		"stage": open.stage, "handle": handle})
+
+
+func _on_choice_picked(handle: int) -> void:
+	_send_choice_pick(handle)
+
+
+func _on_choice_cancelled() -> void:
+	var open := _open_choice()
+	if open.is_empty(): return
+	request_action({"kind": "utility_cancel", "encounter": open.encounter, "choice": open.choice})
+
+
 func _on_prep_lane_pressed(lane: int) -> void:
+	# Flag on: while a choice with a lane stage is open, a lane press is a pick of that stage.
+	var open := _open_choice()
+	if not open.is_empty() and open.stage in ["ally", "field", "destination"]:
+		_send_choice_pick(lane)
+		_clear_pick()
+		return
 	if picked_tactic != "":
 		request_action({"kind": "tactic", "id": picked_tactic, "lane": lane})
 	elif picked_hand >= 0:
@@ -522,6 +589,8 @@ func _on_peer_disconnected(id: int) -> void:
 			disaster_peer = 0
 		if id == prep_peer:
 			if is_instance_valid(game): game.disaster_relocation.reset()
+			# An open utility pick belongs to the player who left.
+			if is_instance_valid(game): game.preparedness_actions.utility_choice.reset()
 			prep_peer = 0
 		peer_left.emit(id)
 
