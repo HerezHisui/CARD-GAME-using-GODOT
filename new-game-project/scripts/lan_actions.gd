@@ -22,6 +22,9 @@ static func apply(game: Node, msg, side: String = "disaster") -> Dictionary:
 		return _apply_prep(game, msg)
 	var actions: RefCounted = game.disaster_actions
 	match msg.kind:
+		"move_ally":
+			if side != "disaster": return _refuse("bad_message")
+			return game.disaster_relocation.pick(msg)
 		"end":
 			return actions.end_turn()
 		"base":

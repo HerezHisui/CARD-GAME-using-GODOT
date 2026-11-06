@@ -19,6 +19,7 @@ var deck: Array[Dictionary] = []
 var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
+var disaster_relocation: RefCounted = preload("res://scripts/disaster_relocation.gd").new(self)
 var evolution_draw_choice_override := false
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
@@ -109,6 +110,7 @@ var enemy_hp := ENEMY_MAX_HP
 
 # ---- Camera views (pivot position, pivot rotation in degrees, camera distance)
 var side_camera_on := false
+var lan_disaster_camera_on := false
 const SeatPresentation = preload("res://scripts/versus_match.gd")
 const DESK_VIEW := {"pos": Vector3(0, 1.0, -0.4), "rot": Vector3(-30, 0, 0), "dist": 5.3, "fov":60.0}
 const WIDE_VIEW := {"pos": Vector3(-0.8, 2.4, -1.0), "rot": Vector3(-12, -12, 0), "dist":10.0, "fov":68.0}
@@ -206,6 +208,7 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	disaster_relocation.reset()
 	evolution_choice.reset()
 	encounter_serial += 1
 	versus_master = {"preparedness": [], "disaster": []}
@@ -615,7 +618,7 @@ func step_view(direction: int) -> void:
 
 func set_view(mode: int) -> void:
 	# The Disaster seat owns the camera until its turn ends.
-	if disaster_seat_on or lan_side_view(): return
+	if disaster_seat_on or lan_side_view() or lan_disaster_view(): return
 	view_mode = clampi(mode, View.WIDE, View.BOARD) as View
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
@@ -625,6 +628,10 @@ func set_view(mode: int) -> void:
 # Dim W at the overhead view and S at the wide view.
 func _update_view_buttons() -> void:
 	if _view_forward_btn == null or _view_back_btn == null: return
+	if lan_disaster_view():
+		_view_forward_btn.disabled = true
+		_view_back_btn.disabled = true
+		return
 	_view_forward_btn.disabled = view_mode == View.BOARD
 	_view_back_btn.disabled = view_mode == View.WIDE
 
@@ -633,6 +640,8 @@ func set_board_view(on: bool) -> void:
 
 func _apply_view(v: Dictionary) -> void:
 	if lan_side_view(): v = SeatPresentation.seat_camera(lan_remote_prep)
+	elif lan_disaster_view() or (encounter_kind == "versus" and disaster_seat_on):
+		v = preload("res://scripts/disaster_seat.gd").SEAT_VIEW
 	$CameraPivot.position = v.pos
 	$CameraPivot.rotation_degrees = v.rot
 	camera.position = Vector3(0, 0, v.dist)
@@ -640,7 +649,8 @@ func _apply_view(v: Dictionary) -> void:
 	camera.fov = float(v.get("fov", 55.0))
 
 func _shift_camera(v: Dictionary, dur: float = 0.55) -> void:
-	if lan_side_view():
+	if lan_side_view() or lan_disaster_view() or (encounter_kind == "versus" and disaster_seat_on):
+		if camera_tween: camera_tween.kill()
 		_apply_view(v)
 		return
 	var pivot = $CameraPivot
@@ -717,19 +727,27 @@ func lan_side_view() -> bool:
 	return SeatPresentation.SIDE_BY_SIDE_CAMERA and encounter_kind == "versus" \
 		and (lan_remote_prep or lan_remote_disaster)
 
+## The LAN host owns one seat for the match, independently of the lateral camera experiment.
+func lan_disaster_view() -> bool:
+	return encounter_kind == "versus" and disaster_is_human and seat_disaster == "local" and lan_remote_prep \
+		and is_instance_valid(run_director) and run_director.battle_active
+
 func _update_side_camera() -> void:
 	var on := lan_side_view()
-	if on != side_camera_on:
+	var disaster := lan_disaster_view()
+	if on != side_camera_on or disaster != lan_disaster_camera_on:
 		side_camera_on = on
+		lan_disaster_camera_on = disaster
 		if camera_tween: camera_tween.kill()
 		_apply_view(view_settings(view_mode))
-	var yaw := SeatPresentation.lane_yaw(lan_remote_prep) if on else 0.0
-	if not on and not get_meta("side_cards_turned", false): return
+		_update_view_buttons()
+	var yaw := SeatPresentation.lane_yaw(lan_remote_prep) if on else (PI if disaster else 0.0)
+	if not on and not disaster and not get_meta("side_cards_turned", false): return
 	for card: Node in get_tree().get_nodes_in_group("cards"):
 		if card.in_hand or card.current_slot == null: continue
 		var rest: Vector3 = card.current_slot.global_position + Vector3(0, 0.008, 0)
 		if card.global_position.distance_to(rest) < 0.02: card.rotation.y = yaw
-	set_meta("side_cards_turned", on)
+	set_meta("side_cards_turned", on or disaster)
 
 func _process(_delta: float) -> void:
 	_update_side_camera()
@@ -2012,6 +2030,9 @@ func best_evolution_plan(active: Array, candidates: Array) -> Dictionary:
 	return best
 
 func relocate_enemy_ally(source: Node) -> void:
+	if encounter_kind == "versus" and disaster_is_human:
+		disaster_relocation.begin(source)
+		return
 	var best_ally: Node
 	var best_slot: Node3D
 	var gain := 1.0

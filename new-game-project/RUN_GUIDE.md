@@ -2,8 +2,31 @@
 
 Open `project.godot` in Godot 4.7 and run the main scene. Choose Singleplayer, then Steve.
 The other characters are not playable yet. A saved run offers Continue or Abandon.
-Choose Versus on the title screen for two humans on one computer, using pass and play.
-See the [multiplayer guide](../docs/multiplayer.md) for controls and known limits.
+Choose Versus on the title screen for a single Preparedness versus Disaster battle.
+Human Disaster uses hot-seat play with a pass-the-laptop privacy cover. `DISASTER_IS_HUMAN` selects human or AI
+Disaster. The toss winner chooses a side, which plays first. The HUD shows side-by-side Energy and Tension bars.
+Matches start from preset decks. Human Crosswind play asks for another ally and an empty destination lane.
+See the [multiplayer guide](../docs/multiplayer.md) for controls and limits.
+
+## Experimental LAN Versus
+
+LAN Versus uses ENet UDP 24680, protocol 3, over the same network or Radmin VPN.
+Validation so far is limited to localhost and automated suites. A two-laptop test is still required.
+Choose LAN Versus, then host or join using the host's displayed network address. Both peers need the same build.
+The LAN deck step supports Standard presets and saved custom decks.
+
+On the host, allow the game executable through Windows Firewall for the local or Radmin network profile.
+If an inbound port rule is needed, allow UDP 24680 on the host for that trusted network.
+
+Remote Preparedness uses Draw only in its own draw phase. Disaster draws remain automatic.
+The client shows the turn and phase, updates lane cards, and allows read-only inspection of opponent lanes.
+Remote Preparedness utilities, Supply Line, Emergency Shelter and Emergency Extraction show
+"Not available in LAN". Supported one-ally contingencies remain available.
+Evolution draw choice is local human Versus only and off by default (`EVOLUTION_DRAW_CHOICE := false`).
+LAN keeps the existing shared-hand evolution draws. Disconnect ends the match.
+
+The repo has 75 smoke suites. No suites were run for this documentation update.
+The remaining sections describe singleplayer unless stated otherwise.
 
 ## Starting a run
 

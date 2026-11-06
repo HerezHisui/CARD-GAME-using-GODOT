@@ -3,6 +3,7 @@ extends Control
 ## It only draws a view from lan_view.gd. Lane buttons light up only where the host's hints allow.
 ## Part C connects the signals to the network.
 
+signal relocation_picked(msg: Dictionary)
 signal hand_pressed(index: int)
 signal lane_pressed(lane: int)
 signal end_turn_pressed
@@ -13,6 +14,8 @@ const LANE_COUNT := 4
 
 var view: Dictionary = {}
 var selected := -1
+var relocation_ally := -1
+var relocation_sent := false
 var over_text := ""  # Part E: set when the match ended, so a late view keeps it
 
 var header: Label
@@ -65,7 +68,12 @@ func _add_row(parent: Node) -> HBoxContainer:
 
 # Draw a new view from the host. Clears the pick, because the hand may have changed.
 func show_view(new_view: Dictionary) -> void:
+	var old_choice: int = int(view.get("relocation", {}).get("choice", -1))
 	view = new_view
+	var relocation: Dictionary = view.get("relocation", {})
+	if old_choice != int(relocation.get("choice", -1)) or relocation_ally not in relocation.get("allies", []):
+		relocation_ally = -1
+	relocation_sent = false
 	selected = -1
 	if is_node_ready():
 		_redraw()
@@ -85,6 +93,7 @@ func show_match_over(winner: String) -> void:
 	header.text = over_text
 	end_button.disabled = true
 	back_button.visible = true
+	if not view.get("relocation", {}).is_empty(): _redraw()
 
 
 func _redraw() -> void:
@@ -97,10 +106,12 @@ func _redraw() -> void:
 	info.text = "Their hand: %d | Your deck: %d | Evolutions: %d | Actions left: %d" % [
 		counts.response_hand, counts.disaster_draw, counts.disaster_evolution, view.actions_left,
 	]
+	if not view.get("relocation", {}).is_empty():
+		info.text = "Crosswind: choose an ally lane." if relocation_ally < 0 else "Crosswind: choose an empty lane."
 	_fill_lanes(response_row, "response", [])
 	_fill_lanes(disaster_row, "disaster", _allowed_lanes())
 	_fill_hand()
-	end_button.disabled = not view.is_disaster_turn
+	end_button.disabled = not view.is_disaster_turn or not view.get("relocation", {}).is_empty()
 	if over_text != "":
 		header.text = over_text
 		end_button.disabled = true
@@ -108,6 +119,7 @@ func _redraw() -> void:
 
 # Lanes the picked card may use: free lanes for a base, sacrifice lanes for an evolution.
 func _allowed_lanes() -> Array:
+	if not view.get("relocation", {}).is_empty(): return relocation_lanes()
 	if selected < 0 or selected >= view.hints.size():
 		return []
 	var hint: Dictionary = view.hints[selected]
@@ -121,7 +133,10 @@ func _fill_lanes(row: HBoxContainer, side: String, allowed: Array) -> void:
 		button.text = _card_text(view.lanes[side][lane])
 		button.custom_minimum_size = Vector2(140, 60)
 		button.disabled = side == "response" or lane not in allowed
-		button.pressed.connect(func() -> void: lane_pressed.emit(lane))
+		button.pressed.connect(func() -> void:
+			if not view.get("relocation", {}).is_empty(): pick_relocation(lane)
+			else: lane_pressed.emit(lane)
+		)
 		row.add_child(button)
 
 
@@ -130,7 +145,7 @@ func _fill_hand() -> void:
 	for index in view.disaster_hand.size():
 		var button := Button.new()
 		button.text = _card_text(view.disaster_hand[index])
-		button.disabled = not view.hints[index].can_use
+		button.disabled = not view.hints[index].can_use or not view.get("relocation", {}).is_empty()
 		button.toggle_mode = true
 		button.button_pressed = index == selected
 		button.pressed.connect(_on_hand_pressed.bind(index))
@@ -138,6 +153,7 @@ func _fill_hand() -> void:
 
 
 func _on_hand_pressed(index: int) -> void:
+	if not view.get("relocation", {}).is_empty(): return
 	selected = index
 	hand_pressed.emit(index)
 	_redraw()
@@ -157,3 +173,20 @@ func _clear(row: Node) -> void:
 	for child in row.get_children():
 		row.remove_child(child)
 		child.queue_free()
+
+
+func relocation_lanes() -> Array:
+	if over_text != "" or relocation_sent or not view.get("is_disaster_turn", false): return []
+	var relocation: Dictionary = view.get("relocation", {})
+	return relocation.get("allies" if relocation_ally < 0 else "destinations", [])
+
+func pick_relocation(lane: int) -> void:
+	if lane not in relocation_lanes(): return
+	if relocation_ally < 0:
+		relocation_ally = lane
+	else:
+		var relocation: Dictionary = view.relocation
+		relocation_sent = true
+		relocation_picked.emit({"kind": "move_ally", "choice": relocation.choice,
+			"encounter": relocation.encounter, "ally": relocation_ally, "lane": lane})
+	if is_node_ready(): _redraw()

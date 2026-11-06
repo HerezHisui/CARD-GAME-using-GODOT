@@ -7,6 +7,7 @@ signal turn_ended
 
 var game: Node
 var actions_used := 0
+var evolution_actions := 0
 var action_limit := 0
 var busy := false
 
@@ -19,15 +20,16 @@ func _result(ok: bool, reason: String = "") -> Dictionary:
 ## Call once at the start of each Disaster turn, after the draw.
 func begin_turn() -> void:
 	actions_used = 0
+	evolution_actions = 0
 	action_limit = game.enemy_action_limit()
 	busy = false
 
 func actions_left() -> int:
-	return maxi(0, action_limit - actions_used)
+	return maxi(0, action_limit - actions_used + evolution_actions)
 
 ## Checks shared by every action. Returns the reason, or "" when the action may go ahead.
 func _common_problem(definition: Dictionary, held_id: String = "") -> String:
-	if game.evolution_choice.pending(): return "busy"
+	if game.evolution_choice.pending() or game.disaster_relocation.pending(): return "busy"
 	if game.phase != game.Phase.ENEMY: return "not_disaster_turn"
 	if busy: return "busy"
 	if held_id.is_empty():
@@ -35,7 +37,7 @@ func _common_problem(definition: Dictionary, held_id: String = "") -> String:
 	elif not game.evolution_choice.enabled() or game.evolution_choice.id_for(definition) != held_id:
 		return "not_in_hand"
 	if game.is_sealed(definition): return "sealed"
-	if actions_used >= action_limit: return "action_limit"
+	if actions_left() <= 0: return "action_limit"
 	if game.tension <= 0: return "no_tension"
 	return ""
 
@@ -61,7 +63,7 @@ func evolve(definition: Dictionary, sacrifices: Array, slot: Node3D, held_id: St
 	else: game.evolution_choice.consume(held_id)
 	busy = true
 	var done: bool = await game.disaster_evolve(definition, sacrifices, slot)
-	return _finish(done)
+	return _finish(done, game.encounter_kind == "versus")
 
 ## Each sacrifice must be a different Disaster card on the board that is allowed to go. The lane is one of theirs.
 func _sacrifice_problem(sacrifices: Array, slot: Node3D) -> String:
@@ -149,14 +151,16 @@ func can_use(definition: Dictionary) -> bool:
 
 ## Stop the Disaster turn. The turn code waits for turn_ended when a human plays.
 func end_turn() -> Dictionary:
-	if game.evolution_choice.pending(): return _result(false, "busy")
+	if game.evolution_choice.pending() or game.disaster_relocation.pending(): return _result(false, "busy")
 	if game.phase != game.Phase.ENEMY: return _result(false, "not_disaster_turn")
 	if busy: return _result(false, "busy")
 	turn_ended.emit()
 	return _result(true)
 
-func _finish(done: bool) -> Dictionary:
+func _finish(done: bool, evolution: bool = false) -> Dictionary:
 	busy = false
 	if not done: return _result(false, "battle_over")
 	actions_used += 1
+	# Versus evolutions stay in the total, but spend sacrifices instead of the turn allowance.
+	if evolution: evolution_actions += 1
 	return _result(true)

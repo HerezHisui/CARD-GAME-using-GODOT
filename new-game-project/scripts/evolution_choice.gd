@@ -81,7 +81,8 @@ func show_offer() -> void:
 	if not pending(): return
 	var director: Node = game.run_director
 	var cards: Array = offer.map(func(entry): return entry.definition)
-	director.choose_card("CHOOSE AN EVOLUTION", cards, _choose, Callable(), "Choose 1. The other cards stay in the deck.")
+	director.choose_card("CHOOSE AN EVOLUTION", cards, _choose, Callable(),
+		"Choose 1. The other cards stay in the deck.", true)
 	director.content.get_node("CancelButton").hide()
 	director.screen = "evolution_offer"
 	game.get_tree().paused = false
@@ -98,7 +99,7 @@ func show_held() -> void:
 		return
 	if not enabled() or not game.disaster_seat_on: return
 	game.run_director.choose_card("HELD EVOLUTIONS", definitions(), _preview,
-		game.run_director.close_modal, "Choose a card, then click its sacrifice lane on the board.")
+		game.run_director.close_modal, "Choose a card, then click its sacrifice lane on the board.", true)
 
 func _preview(value: Dictionary) -> void:
 	preview_id = id_for(value)

@@ -1,6 +1,6 @@
 extends Node
 ## Versus-only look for the HUD. A Versus match reuses the singleplayer HUD, which has parts that mean nothing there.
-## While a match runs this node hides those parts, shows Energy and Tension as pips under each side's HP plate,
+## While a match runs this node hides those parts, shows Energy and Tension as bars under each side's HP plate,
 ## adds a round and turn plate, and shows a note when the Disaster has no Tension left.
 ## It changes nothing in a singleplayer run. Set ENABLED to false to get the old Versus HUD back.
 ## Child of run_director. run_director._process calls update() last, so it has the final word on what shows.
@@ -12,7 +12,7 @@ const HEALTH_TOP := 66.0
 const HEALTH_HEIGHT := 60.0
 const HEALTH_WIDTH := 300.0
 const HUD_MARGIN := 16.0
-const OUT_OF_TENSION := "Out of Tension. End your turn."
+const OUT_OF_TENSION := "Not enough Tension."
 const NOTE_SECONDS := 2.4
 
 var director: Node
@@ -24,16 +24,15 @@ var turn_plate: PanelContainer
 var round_label: Label
 var side_label: Label
 var energy_plate: PanelContainer
-var energy_pips: Control
+var energy_bar: ProgressBar
 var tension_plate: PanelContainer
-var tension_pips: Control
+var tension_bar: ProgressBar
 var note: PanelContainer
 var note_head: Label
 var note_body: Label
 var note_tween: Tween
 var pulse_tween: Tween
 var last_side := ""
-var drawn := {} # the numbers each pip row was last drawn with
 var saved_fills := {} # HP bar fills put back when the match ends
 var disaster_plans: Button
 var disaster_grave: Button
@@ -94,11 +93,9 @@ func _build() -> void:
 	side_label = _label(row, 20, UI.GOLD)
 	# Energy (Preparedness) and Tension (Disaster) sit under the two HP plates.
 	energy_plate = _resource_plate(hud_root, "VersusEnergy", "ENERGY")
-	energy_pips = energy_plate.get_meta("pips")
+	energy_bar = energy_plate.get_meta("bar")
 	tension_plate = _resource_plate(hud_root, "VersusTension", "TENSION")
-	tension_pips = tension_plate.get_meta("pips")
-	energy_pips.draw.connect(_draw_pips.bind(energy_pips, "energy"))
-	tension_pips.draw.connect(_draw_pips.bind(tension_pips, "tension"))
+	tension_bar = tension_plate.get_meta("bar")
 	# The note for a refused action.
 	note = PanelContainer.new()
 	note.name = "VersusNote"
@@ -142,53 +139,27 @@ func _label(parent: Control, size: int, color: Color) -> Label:
 func _resource_plate(parent: Control, plate_name: String, title: String) -> PanelContainer:
 	var plate := PanelContainer.new()
 	plate.name = plate_name
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.mouse_filter = Control.MOUSE_FILTER_PASS
 	plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
 	plate.visible = false
 	parent.add_child(plate)
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 10)
-	plate.add_child(row)
-	var heading := _label(row, 18, UI.TEXT)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 2)
+	plate.add_child(box)
+	var heading := _label(box, 18, UI.GOLD)
 	heading.text = title
-	var pips := Control.new()
-	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pips.custom_minimum_size = Vector2(96, 24)
-	row.add_child(pips)
-	plate.set_meta("pips", pips)
+	var bar := ProgressBar.new()
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.custom_minimum_size = Vector2(0, 24)
+	bar.show_percentage = false
+	box.add_child(bar)
+	var value := _label(bar, 18, UI.TEXT)
+	value.name = "Value"
+	value.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plate.set_meta("bar", bar)
 	return plate
-
-## One pip per point of the cap. Full = crimson with a gold rim, spent = dark and empty.
-## Energy pips are squares, Tension pips are diamonds.
-func _draw_pips(pips: Control, kind: String) -> void:
-	var cap: int = game.energy_cap if kind == "energy" else game.tension_cap
-	var value: int = game.preparedness if kind == "energy" else game.tension
-	if cap <= 0: return
-	var gap := 6.0
-	var size := clampf((pips.size.x - gap * (cap - 1)) / cap, 10.0, 22.0)
-	var start := pips.size.x - (size * cap + gap * (cap - 1))
-	var top := (pips.size.y - size) / 2.0
-	for index in cap:
-		var spot := Vector2(start + index * (size + gap), top)
-		var lit := index < value
-		var fill: Color = UI.ACTION if lit else UI.INSET
-		var rim: Color = UI.GOLD if lit else UI.MUTED.darkened(0.35)
-		if kind == "energy":
-			var box := StyleBoxFlat.new()
-			box.bg_color = fill
-			box.border_color = rim
-			box.set_border_width_all(2)
-			pips.draw_style_box(box, Rect2(spot, Vector2(size, size)))
-		else:
-			var middle := spot + Vector2(size, size) / 2.0
-			var half := size / 2.0 + 2.0
-			var shape := PackedVector2Array([middle + Vector2(0, -half), middle + Vector2(half, 0),
-				middle + Vector2(0, half), middle + Vector2(-half, 0)])
-			pips.draw_colored_polygon(shape, fill)
-			shape.append(shape[0])
-			pips.draw_polyline(shape, rim, 2.0)
 
 # ------------------------------------------------------------------- update
 func update() -> void:
@@ -223,10 +194,14 @@ func _set_active(on: bool) -> void:
 	if is_instance_valid(disaster_plans): disaster_plans.visible = false
 	if is_instance_valid(disaster_grave): disaster_grave.visible = false
 	_style_hp_fills(on)
+	if on:
+		for pair in [[energy_bar, game._player_hp_ui], [tension_bar, game._enemy_hp_ui]]:
+			var hp: ProgressBar = pair[1].get_node("Bar")
+			for part in ["background", "fill"]:
+				pair[0].add_theme_stylebox_override(part, hp.get_theme_stylebox(part))
 	_move_graveyard(on)
 	if on:
 		last_side = ""
-		drawn.clear()
 	else:
 		_restore_health()
 		_stop_pulse()
@@ -281,8 +256,9 @@ func _layout_health() -> void:
 		health.size = rect.size
 		health.global_position = rect.position
 	# Preserve the hidden Janitor in the Disaster seat camera.
-	game.opponent_hand.visible = not director.modal.visible and not game.disaster_seat_on
-	game.opponent_hand.character.holding.visible = not game.disaster_seat_on
+	var far_seat: bool = game.disaster_seat_on or game.lan_disaster_view()
+	game.opponent_hand.visible = not director.modal.visible and not far_seat
+	game.opponent_hand.character.holding.visible = not far_seat
 
 func _restore_health() -> void:
 	for health: Control in saved_health:
@@ -297,7 +273,7 @@ func _restore_health() -> void:
 func _refresh() -> void:
 	_layout_health()
 	_update_disaster_controls()
-	# The singleplayer gauges are replaced by the pips. They stay in the tree, only clear,
+	# The singleplayer gauges are replaced by the Versus bars. They stay in the tree, only clear,
 	# so the code that shows and hides them is untouched.
 	director.prep.get_parent().modulate.a = 0.0
 	director.threat.get_parent().modulate.a = 0.0
@@ -325,8 +301,8 @@ func _refresh() -> void:
 	tension_plate.visible = true
 	energy_plate.modulate.a = 0.5 if side == "disaster" else 1.0
 	tension_plate.modulate.a = 1.0 if side == "disaster" else 0.5
-	_redraw_if_changed("energy", [game.preparedness, game.energy_cap], energy_pips)
-	_redraw_if_changed("tension", [game.tension, game.tension_cap], tension_pips)
+	_update_resource(energy_plate, energy_bar, game.preparedness, game.energy_cap, "Energy")
+	_update_resource(tension_plate, tension_bar, game.tension, game.tension_cap, "Tension")
 	# The Disaster has no tactics, and its draw pile is its own deck.
 	if seated_disaster:
 		director.plans_button.visible = false
@@ -341,11 +317,14 @@ func _place(plate: PanelContainer, x: float, y: float, width: float) -> void:
 	plate.size = Vector2(width, plate.get_combined_minimum_size().y)
 	plate.global_position = Vector2(x, y)
 
-func _redraw_if_changed(key: String, values: Array, pips: Control) -> void:
-	if drawn.get(key) == values and pips.size == drawn.get(key + "_size"): return
-	drawn[key] = values.duplicate()
-	drawn[key + "_size"] = pips.size
-	pips.queue_redraw()
+func _update_resource(plate: PanelContainer, bar: ProgressBar, current: int, cap: int, title: String) -> void:
+	current = maxi(current, 0)
+	cap = maxi(cap, 0)
+	bar.max_value = maxi(cap, 1)
+	bar.value = current if cap > 0 else 0
+	var text := "%d / %d" % [current, cap]
+	bar.get_node("Value").text = text
+	plate.tooltip_text = title + ": " + text
 
 # ------------------------------------------------------------------- note and pulse
 ## A big note near the top for a refused action. It fades by itself.

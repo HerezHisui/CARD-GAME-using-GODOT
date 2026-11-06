@@ -40,6 +40,8 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 		"cards": {},
 		"hints": hand_hints(game),
 	}
+	var relocation: Dictionary = game.disaster_relocation.view()
+	if not relocation.is_empty(): view["relocation"] = relocation
 	_keep_cards(view, snapshot.cards, view.disaster_hand)
 	return view
 

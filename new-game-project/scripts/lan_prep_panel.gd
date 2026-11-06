@@ -79,7 +79,7 @@ func show_view(new_view: Dictionary) -> void:
 # Show why the host refused the last action.
 func show_reject(reason: String) -> void:
 	if is_node_ready():
-		reject_label.text = "Refused: " + reason
+		reject_label.text = "Refused: " + ("Not available in LAN" if reason == "not_supported" else reason)
 
 
 # The host says who won. No more turns, only Back to title.
@@ -142,6 +142,9 @@ func _fill_hand() -> void:
 		var button := Button.new()
 		button.text = _card_text(view.prep_hand[index])
 		button.disabled = not view.hints[index].can_play
+		if view.hints[index].get("problem", "") == "not_supported":
+			button.text += " (Not available in LAN)"
+			button.tooltip_text = "Not available in LAN"
 		button.toggle_mode = true
 		button.button_pressed = index == selected
 		button.pressed.connect(_on_hand_pressed.bind(index))
@@ -154,6 +157,9 @@ func _fill_tactics() -> void:
 		var button := Button.new()
 		button.text = "%s (%d)" % [tactic.name, tactic.cost]
 		button.disabled = not tactic.available
+		if str(tactic.id) in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS:
+			button.text += " (Not available in LAN)"
+			button.tooltip_text = "Not available in LAN"
 		button.toggle_mode = true
 		button.button_pressed = tactic.id == selected_tactic
 		button.pressed.connect(_on_tactic_pressed.bind(str(tactic.id)))
@@ -161,6 +167,9 @@ func _fill_tactics() -> void:
 
 
 func _on_hand_pressed(index: int) -> void:
+	if view.hints[index].get("problem", "") == "not_supported":
+		show_reject("not_supported")
+		return
 	selected = index
 	selected_tactic = ""
 	hand_pressed.emit(index)
@@ -168,6 +177,9 @@ func _on_hand_pressed(index: int) -> void:
 
 
 func _on_tactic_pressed(id: String) -> void:
+	if id in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS:
+		show_reject("not_supported")
+		return
 	selected = -1
 	selected_tactic = id
 	tactic_pressed.emit(id)

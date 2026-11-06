@@ -77,7 +77,7 @@ func _set_active(on: bool) -> void:
 ## Board cards read upside down from the far seat. While the seat is on, every card that has landed on a lane is
 ## turned half a circle, and turned back when the seat closes. A card still moving is left alone.
 func _turn_board_cards(turned: bool) -> void:
-	if game.lan_side_view(): return
+	if game.lan_side_view() or game.lan_disaster_view(): return
 	for card: Node in get_tree().get_nodes_in_group("cards"):
 		if not is_instance_valid(card) or card.in_hand or card.current_slot == null: continue
 		var rest: Vector3 = card.current_slot.global_position + Vector3(0, 0.008, 0)
@@ -450,6 +450,8 @@ func _refuse(card: Node3D, text: String) -> void:
 	# Out of Tension is the one note that needs a big, steady place on the screen.
 	if text == game.run_director.versus_hud.OUT_OF_TENSION:
 		game.run_director.versus_hud.show_note("Out of Tension", "End your turn.")
+	if text == game.run_director.DISASTER_REASONS.action_limit:
+		game.run_director.versus_hud.show_note("Action limit reached", "End your turn.")
 		return
 	if not text.is_empty() and is_instance_valid(card): card.spawn_popup(text, UI.AMBER)
 
