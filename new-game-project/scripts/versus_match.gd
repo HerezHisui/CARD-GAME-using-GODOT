@@ -8,7 +8,7 @@ const VersusDecks = preload("res://scripts/versus_decks.gd")
 # Who plays the Disaster in Versus. true = a human uses the Disaster panel, false = the existing AI.
 const DISASTER_IS_HUMAN := true
 # Optional local human draw step. LAN always keeps automatic Disaster draws.
-const DISASTER_DRAW_BUTTON := false
+const DISASTER_DRAW_BUTTON := true
 # Local human Versus uses evolution choices; LAN retains legacy evolution draws.
 const EVOLUTION_DRAW_CHOICE := true
 # Opt-in LAN offer and held-copy transport. False preserves protocol 3 and legacy draws.
