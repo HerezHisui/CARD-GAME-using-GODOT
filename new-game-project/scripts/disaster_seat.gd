@@ -7,6 +7,7 @@ extends Node
 
 const UI = preload("res://scripts/ui_theme.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
+const Sfx = preload("res://scripts/sfx_call.gd")
 
 # DESK_VIEW seen from the other side of the table.
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
@@ -227,12 +228,26 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _warn_draw_first(event): return
 	if not _can_use() or not event is InputEventMouseButton or not event.pressed: return
 	mouse = event.position
 	if event.button_index == MOUSE_BUTTON_RIGHT:
 		_cancel()
 	elif event.button_index == MOUSE_BUTTON_LEFT and _on_press(event.position):
 		get_viewport().set_input_as_handled()
+
+## Draw button on: a click on a hand card before this turn's draw shows DRAW A CARD FIRST and plays nothing.
+func _warn_draw_first(event: InputEvent) -> bool:
+	if not active or playing or not game.disaster_draw.waiting: return false
+	if not event is InputEventMouseButton or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
+		return false
+	if game.run_director.modal.visible or game.run_director.privacy_screen.visible: return false
+	var card := _card_at(event.position)
+	if card == null: return false
+	Sfx.play("invalid_action")
+	_refuse(card, game.run_director.DISASTER_REASONS.draw_first)
+	get_viewport().set_input_as_handled()
+	return true
 
 ## Where a card is dropped: a Base card on a threat lane, a spell on any lane of the board.
 func _drop_slot(card: Node3D, point: Vector2) -> Node3D:

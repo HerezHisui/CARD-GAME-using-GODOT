@@ -16,6 +16,8 @@ const OVERRIDES := {
 const THRESHOLDS := {
 	"ash_predator": 2, "venom_surge": 1, "fracture_hunter": 2,
 	"heat_seeker": 1, "last_responder": 1, "containment_lance": 2,
+	# Discord fix: 3 combined stacks on the lane target almost never survive the round-end decay.
+	"toxin_hunter": 2,
 }
 const ORDINARY_BASES := {"ember": "fire", "tremor": "earthquake", "rising_tide": "flood", "gust": "typhoon"}
 

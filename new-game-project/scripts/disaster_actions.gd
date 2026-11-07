@@ -31,6 +31,8 @@ func actions_left() -> int:
 func _common_problem(definition: Dictionary, held_id: String = "") -> String:
 	if game.evolution_choice.pending() or game.disaster_relocation.pending(): return "busy"
 	if game.phase != game.Phase.ENEMY: return "not_disaster_turn"
+	# Draw button on: nothing is played before this turn's draw.
+	if game.disaster_draw.waiting: return "draw_first"
 	if busy: return "busy"
 	if held_id.is_empty():
 		if definition not in game.enemy_hand: return "not_in_hand"

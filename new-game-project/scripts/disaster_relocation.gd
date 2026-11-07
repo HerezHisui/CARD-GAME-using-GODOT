@@ -1,5 +1,6 @@
 extends RefCounted
 ## The host owns a human Crosswind choice. Client messages only name lanes in that choice.
+const Sfx = preload("res://scripts/sfx_call.gd")
 var game: Node
 var source: Node
 var encounter := -1
@@ -68,7 +69,9 @@ func pick(msg: Dictionary) -> Dictionary:
 		return {"ok": false, "reason": "bad_lane"}
 	var slots: Array = game._threat_slots()
 	var ally: Node = game._get_card_in_slot(slots[msg.ally])
-	ally.place_on_slot(slots[msg.lane])
+	# Same move step as a Preparedness relocation. The AI Crosswind plays the same sound.
+	game.apply_relocation(ally, slots[msg.lane], source)
+	Sfx.play("relocation")
 	game.log_event("Crosswind moves %s to lane %d." % [ally.card_data.name, msg.lane + 1])
 	reset()
 	return {"ok": true, "reason": ""}

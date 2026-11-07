@@ -10,6 +10,7 @@ const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusHud = preload("res://scripts/versus_hud.gd")
 const Janitor = preload("res://scripts/janitor_character.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
+const Sfx = preload("res://scripts/sfx_call.gd")
 
 # DESK_VIEW seen from the far side of the table, the Disaster seat.
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
@@ -20,7 +21,7 @@ const HAND_SCALE_HOVER := 1.3
 const FOE_HAND_MAX := 10
 const BACK_CARD := {"name": "Card", "type": "response", "element": "evac", "cost": 0, "attack": 0, "health": 1}
 const REASONS := {"busy": "Wait, the host is still playing.", "not_supported": "Not available in LAN",
-	"choice_pending": "Finish or cancel the open choice first."}
+	"choice_pending": "Finish or cancel the open choice first.", "draw_first": "DRAW A CARD FIRST"}
 # Flag on: the lane stages of an open utility choice. The other stages pick from a list.
 const LANE_STAGES := ["ally", "field", "destination"]
 
@@ -715,6 +716,11 @@ func _cancel_pick(tell_session: bool) -> void:
 
 
 func _explain(index: int) -> void:
+	# The Preparedness draw comes first. The host refuses a play then with the same text.
+	if side == "preparedness" and str(view.get("phase", "")) == "draw" and not over:
+		Sfx.play("invalid_action")
+		show_note(REASONS.draw_first, "")
+		return
 	if not _my_turn():
 		show_note("Not your turn", "")
 		return

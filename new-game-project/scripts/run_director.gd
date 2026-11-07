@@ -511,6 +511,7 @@ const DISASTER_REASONS := {
 	"action_limit": "Action limit reached. End your turn.",
 	"sealed": "That card is sealed.",
 	"busy": "Wait for the last action.",
+	"draw_first": "DRAW A CARD FIRST",
 	"not_in_hand": "That card is not in the hand.",
 	"battle_over": "",
 }
@@ -1773,7 +1774,7 @@ func begin_tactic(id: String) -> void:
 	close_modal()
 	if id == "coordinate":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
-		game.board_input.pick("Click one ally. It and the nearest ally on each side gain +1 attack this combat.",
+		game.board_input.pick("Click one ally. It and the adjacent ally on each side gain +1 attack this combat.",
 			allies, arm_target_tactic.bind("coordinate"), Callable(), "coordinate")
 	elif id == "extract":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)

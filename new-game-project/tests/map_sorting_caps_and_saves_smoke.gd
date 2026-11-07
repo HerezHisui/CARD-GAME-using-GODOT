@@ -58,7 +58,7 @@ func run() -> void:
 	game.player_first = false
 	var first = unit("First", 0)
 	var second = unit("Second", 2, "brace")
-	check(second in game.plans.coordination_targets(first), "nearest allies across an empty lane can coordinate with different types")
+	check(second not in game.plans.coordination_targets(first), "an empty lane breaks coordination")
 	var blocker = unit("Between", 1, "douse")
 	check(second not in game.plans.coordination_targets(first), "cannot skip an intervening ally")
 	check(blocker in game.plans.coordination_targets(first), "physically adjacent mixed types coordinate")

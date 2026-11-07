@@ -75,7 +75,7 @@ Conditional attacks use the named subject and stack threshold. Venom Surge gains
 
 Ending a turn automatically banks 2 unused energy into 1 Plan token, at most once per round. Hold up to two tokens and arm one tactic per round. Tactics take effect during combat and expire afterward. Unlocks last the run; tokens reset between encounters.
 
-Brace protects one ally from up to 2 damage on its next attack hit. Coordinated Response gives the selected ally and its nearest ally on each side 1 temporary attack. Empty lanes and different types do not prevent coordination. Elite and boss rewards can unlock other tactics, including healing, extraction and temporary hero protection.
+Brace protects one ally from up to 2 damage on its next attack hit. Coordinated Response gives the selected ally and the ally directly next to it on each side 1 temporary attack. An empty lane breaks the link; different types do not. Elite and boss rewards can unlock other tactics, including healing, extraction and temporary hero protection.
 
 Cast utilities by dropping them on an empty Response lane, then choosing a target if needed. Utilities have no unit ATK or HP. Cancelling a target choice keeps the card and energy. Rally and healing use board clicks; relocation uses board dragging. Response seals target deployed Disaster cards. The restriction lasts this round when Response plays first, or next round when Response plays second. Sealed units can still attack. Enemy seals and all taxes continue to target held cards. Tax lasts for the current and next round and caps at 2 extra cost.
 

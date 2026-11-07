@@ -3,7 +3,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 ## Response trades unused energy for a limited, delayed combat plan.
 const TACTICS := [
 	{"id":"brace", "name":"Brace", "cost":1, "description":"One ally blocks up to 2 damage from its next attack hit this combat."},
-	{"id":"coordinate", "name":"Coordinated Response", "cost":1, "description":"Choose one ally. It and the nearest ally on each side gain +1 attack this combat."},
+	{"id":"coordinate", "name":"Coordinated Response", "cost":1, "description":"Choose one ally. It and the adjacent ally on each side gain +1 attack this combat."},
 	{"id":"medicine", "name":"Field Medicine", "cost":1, "description":"At combat start, heal one ally 3 and remove its Bleed."},
 	{"id":"supply", "name":"Supply Line", "cost":1, "description":"Draw 1 card at combat start to prepare your next turn."},
 	{"id":"flank", "name":"Flanking Route", "cost":1, "description":"One ally ignores guardian Taunt for this combat."},
@@ -62,14 +62,12 @@ func coordination_targets(center: Node) -> Array:
 	var result: Array = [center]
 	var slots: Array = game._response_slots()
 	var origin: int = slots.find(center.current_slot)
+	# Only the lane right next to it on each side counts. An empty lane breaks the link.
 	for direction in [-1, 1]:
 		var lane: int = origin + direction
-		while lane >= 0 and lane < slots.size():
-			var ally = game._get_card_in_slot(slots[lane])
-			if eligible(ally):
-				result.append(ally)
-				break
-			lane += direction
+		if lane < 0 or lane >= slots.size(): continue
+		var ally = game._get_card_in_slot(slots[lane])
+		if eligible(ally): result.append(ally)
 	return result
 
 func arm(kind: String, cards: Array, destination: Node3D = null) -> bool:
@@ -133,7 +131,7 @@ func apply_combat() -> void:
 		for card in coordination_targets(targets[0]):
 			var movement: int = int(card.get_meta("dash_attack", 0)) if game.balance_enabled() else 0
 			card.set_plan_attack_bonus(1 + movement)
-		game.log_event("Coordinated Response grants the chosen ally and its nearest neighbors +1 attack for this combat.")
+		game.log_event("Coordinated Response grants the chosen ally and its adjacent allies +1 attack for this combat.")
 	elif armed.kind == "medicine" and eligible(targets[0]):
 		targets[0].statuses.erase("bleed")
 		targets[0].heal(3)

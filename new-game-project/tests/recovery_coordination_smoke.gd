@@ -76,7 +76,8 @@ func run() -> void:
 	game.board_input.click_card(center)
 	check(game.plans.tokens == 0 and game.plans.armed.targets == [center], "one board click arms one center without spending twice")
 	game.plans.apply_combat()
-	check([left, center, right].all(func(card): return card.plan_attack_bonus == 1), "chosen card and nearest allies across gaps gain the combat bonus")
+	check([left, center].all(func(card): return card.plan_attack_bonus == 1) and right.plan_attack_bonus == 0,
+		"chosen card and adjacent ally gain the combat bonus; the ally past a gap does not")
 	game.plans.finish_combat()
 	check([left, center, right].all(func(card): return card.plan_attack_bonus == 0), "coordination expires after combat")
 	var nearer = unit("nearer", 2)

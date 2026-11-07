@@ -32,6 +32,8 @@ func _is_index(value, size: int) -> bool:
 
 ## Checks shared by every action in the play phase. Returns the reason, or "" when it may go ahead.
 func _common_problem() -> String:
+	# The draw phase comes first: a play before the draw gets its own reason.
+	if game.phase == game.Phase.PLAYER_DRAW: return "draw_first"
 	if game.phase != game.Phase.PLAYER_PLAY: return "not_prep_turn"
 	if not game.board_input.action.is_empty(): return "busy"
 	# Flag on: an open utility pick blocks every other play until it is picked or cancelled.
