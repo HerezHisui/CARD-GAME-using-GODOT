@@ -1192,6 +1192,9 @@ func _refresh_choice() -> void:
 			var lane_button: Button = director.button("Lane %d%s" % [lane + 1, named], click_lane.bind(lane), box)
 			lane_button.name = "ChoiceLane%d" % lane
 	var candidates: Array = open.get("candidates", [])
+	if VersusMatch.UI_CARD_PICKER and not candidates.is_empty():
+		_build_card_picker(box, candidates)
+		candidates = []
 	if not candidates.is_empty():
 		# Long lists scroll inside the viewport. The panel grows both ways from the center.
 		var scroll := ScrollContainer.new()
@@ -1216,6 +1219,86 @@ func _refresh_choice() -> void:
 		scroll.custom_minimum_size.y = minf(row * candidates.size(), maxf(120.0, hud.size.y - 300.0))
 	var cancel: Button = director.button("Cancel", _cancel_choice, box)
 	cancel.name = "ChoiceCancel"
+
+
+## UI_CARD_PICKER: the candidates as a grid of real card tiles instead of a list of text buttons. The panel is only as
+## large as the cards need and scrolls when they do not fit. Hidden entries show a card back. Handles are unchanged.
+func _build_card_picker(box: VBoxContainer, candidates: Array) -> void:
+	var cards_per_row := clampi(int(hud.size.x * 0.8 / 232.0), 1, 6)
+	var scroll := ScrollContainer.new()
+	scroll.name = "ChoiceScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = mini(cards_per_row, candidates.size())
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	scroll.add_child(grid)
+	for entry: Dictionary in candidates:
+		var handle := int(entry.handle)
+		var tile_index := grid.get_child_count()
+		if entry.has("card"):
+			var data := {"type": "response", "element": "evac", "cost": 0, "attack": 0, "health": 1}
+			data.merge(entry.card, true)
+			director._card_tile(data, grid, _pick_candidate.bind(handle), "Pick", false)
+		else:
+			_hidden_tile(grid, handle)
+		var tile: Control = grid.get_child(tile_index)
+		# Deck-viewer look: bare cards, no plate and no name above (the card face already has its name).
+		tile.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		var action: Button = tile.find_child("ActionButton", true, false)
+		if action != null:
+			action.name = "ChoiceEntry%d" % handle
+			action.text = str(entry.card.get("name", "?")) if entry.has("card") else "Hidden card %d" % (handle + 1)
+			_click_overlay(tile, action)
+			# A hidden card has no "card" here, so it cannot be inspected.
+			if entry.has("card"): _hook_entry_inspect(action, entry.card)
+	_fit_card_picker.call_deferred(scroll, grid)
+	_place(choice_box, Control.PRESET_CENTER, Vector2.ZERO)
+	choice_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	choice_box.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+
+## After one layout pass the grid knows its real size: the panel takes it, up to what the screen allows.
+func _fit_card_picker(scroll: ScrollContainer, grid: GridContainer) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(scroll) or not is_instance_valid(grid): return
+	var wide: float = minf(grid.size.x + 14.0, hud.size.x * 0.92)
+	var tall: float = minf(grid.size.y + 4.0, maxf(180.0, hud.size.y - 280.0))
+	scroll.custom_minimum_size = Vector2(wide, tall)
+
+
+## The whole card is the button: a click on the card picks it. The button covers the tile and shows an outline on hover.
+func _click_overlay(tile: Control, button: Button) -> void:
+	if button.get_parent() != tile: button.reparent(tile)
+	# The text stays (the card name, or Hidden card N) so tools and tests can read it; it is drawn invisible.
+	for color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+		button.add_theme_color_override(color, Color(0, 0, 0, 0))
+	button.flat = true
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, empty)
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(1, 1, 1, 0.07)
+	hover.border_color = UI.GOLD
+	hover.set_border_width_all(3)
+	hover.set_corner_radius_all(8)
+	button.add_theme_stylebox_override("hover", hover)
+
+
+## A card the player cannot see: the card back and a Pick button. Same size as a card tile.
+func _hidden_tile(parent: Node, handle: int) -> void:
+	var tile := PanelContainer.new()
+	tile.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	parent.add_child(tile)
+	var column := VBoxContainer.new()
+	tile.add_child(column)
+	director.card_image(preload("res://scripts/card_3d.gd")._card_back(), column, 180)
+	var pick: Button = director.button("Hidden card %d" % (handle + 1), _pick_candidate.bind(handle), tile)
+	pick.name = "ActionButton"
+	_click_overlay(tile, pick)
 
 
 ## Flag on, after Scout: the Disaster hand as it was when Hazard Forecast was cast. Preparedness view only.
