@@ -160,6 +160,7 @@ func _on_view(new_view: Dictionary) -> void:
 	if new_view.has("match_id") and new_view.match_id != view.get("match_id"):
 		over = false
 		over_box.hide()
+		for part in _play_hud(): part.visible = true
 	view = new_view
 	_cancel_pick(false)
 	if not shown:
@@ -228,6 +229,16 @@ func _on_match_over(winner: String) -> void:
 	over_note.text = "The school is safe." if prep_won else "The school was lost."
 	over_box.visible = true
 	end_button.disabled = true
+	# The last view can be stale (old health, "OPPONENT'S TURN"), so the match HUD hides behind the result.
+	for part in _play_hud(): part.visible = false
+
+
+## The HUD parts that show the running match: health, Energy or Tension, the turn plate and the buttons.
+func _play_hud() -> Array:
+	var parts: Array = [turn_plate, me_plate.box, foe_plate.box, resource_plate, end_button, draw_button, tactic_box]
+	for part in [foe_resource, disaster_plans, disaster_grave]:
+		if is_instance_valid(part): parts.append(part)
+	return parts
 
 
 func _own_side() -> String:
@@ -543,7 +554,8 @@ func _on_release(point: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
-	if not shown:
+	# The game can be freed before this board (a test or a teardown): touch nothing then.
+	if not shown or not is_instance_valid(game):
 		return
 	# The director hides the game every frame outside a battle. This runs after it, because it is a child.
 	game.visible = true
@@ -1008,7 +1020,7 @@ func _refresh_hud() -> void:
 	turn_label.text = ("YOUR TURN" if own_turn else "OPPONENT'S TURN") + " · " + phase
 	turn_label.add_theme_color_override("font_color", UI.GOLD if own_turn else UI.MUTED)
 	end_button.disabled = not _my_turn() or not view.get("relocation", {}).is_empty() or not _pending().is_empty()
-	draw_button.visible = side == "preparedness"
+	draw_button.visible = side == "preparedness" and not over
 	draw_button.disabled = not own_turn or phase != "DRAW"
 	if view.get("evolution_waiting", false): draw_button.disabled = true
 	if side == "preparedness":
