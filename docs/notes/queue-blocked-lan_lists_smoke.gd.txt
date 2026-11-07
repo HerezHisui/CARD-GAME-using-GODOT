@@ -1,0 +1,93 @@
+extends SceneTree
+## P2 gaps: the host sends the battle log, the owner's deck list and (Preparedness) graveyard. The client shows
+## them with L, D and G. The Preparedness view never holds the Disaster deck, and the Disaster view never holds
+## the Preparedness graveyard or deck.
+
+const LanView = preload("res://scripts/lan_view.gd")
+const LanSession = preload("res://scripts/lan_session.gd")
+const LanBoard3D = preload("res://scripts/lan_board_3d.gd")
+const LanPrepPanel = preload("res://scripts/lan_prep_panel.gd")
+
+var failures := 0
+var checks := 0
+var game: Node
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func expect(condition: bool, label: String) -> void:
+	checks += 1
+	if not condition:
+		failures += 1
+		push_error("FAILED: " + label)
+
+func key(code: int) -> void:
+	for pressed in [true, false]:
+		var event := InputEventKey.new()
+		event.keycode = code
+		event.physical_keycode = code
+		event.pressed = pressed
+		root.push_input(event, true)
+		await process_frame
+
+func run() -> void:
+	game = load("res://scenes/game_3d.tscn").instantiate()
+	root.add_child(game)
+	current_scene = game
+	await process_frame
+	game.clear_battle()
+	game.encounter_kind = "versus"
+	game.disaster_is_human = true
+	game.versus_master = {"preparedness": [{"id": "p1", "name": "Prep Card", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 2}], "disaster": [{"id": "d1", "name": "Disaster Card", "type": "disaster",
+		"element": "fire", "cost": 0, "attack": 1, "health": 2}]}
+	game.player_graveyard.append({"id": "g1", "name": "Fallen Unit", "type": "response", "element": "evac",
+		"cost": 1, "attack": 1, "health": 2, "graveyard_reason": "Destroyed"})
+	game.log_event("Test line one.")
+	game.log_event("Test line two.")
+	var prep: Dictionary = LanView.build_prep(game)
+	var disaster: Dictionary = LanView.build(game, "disaster")
+	expect(prep.log.size() >= 2 and str(prep.log[-1]).ends_with("Test line two."), "the Preparedness view has the log")
+	expect(disaster.log == prep.log, "both views share the same public log")
+	expect(prep.prep_graveyard.size() == 1 and prep.prep_graveyard[0].name == "Fallen Unit", "own graveyard list")
+	expect(prep.deck_list.size() == 1 and prep.deck_list[0].name == "Prep Card", "own deck list")
+	expect(disaster.deck_list.size() == 1 and disaster.deck_list[0].name == "Disaster Card", "Disaster deck list")
+	expect(not JSON.stringify(prep).contains("Disaster Card"), "the Preparedness view never holds the Disaster deck")
+	expect(not JSON.stringify(disaster).contains("Prep Card") and not JSON.stringify(disaster).contains("Fallen Unit"),
+		"the Disaster view never holds the Preparedness deck or graveyard")
+	# The client overlay.
+	var session := LanSession.new()
+	root.add_child(session)
+	var cover := ColorRect.new()
+	root.add_child(cover)
+	game.visible = false
+	var board := LanBoard3D.new()
+	root.add_child(board)
+	board.setup(game, game.run_director, session, LanPrepPanel.new(), "preparedness", cover)
+	var view := {"round": 1, "first_side": "response", "coin": {}, "side": "preparedness", "is_prep_turn": true,
+		"sides": {"response": {"hp": 20, "max_hp": 20, "barrier": 0, "resource": 3, "resource_cap": 5},
+			"disaster": {"hp": 20, "max_hp": 20, "barrier": 0, "resource": 3, "resource_cap": 4}},
+		"lanes": {"response": ["", "", "", ""], "disaster": ["", "", "", ""]}, "cards": {}, "hints": [],
+		"prep_hand": [], "counts": {"disaster_hand": 0, "disaster_draw": 0, "response_draw": 0},
+		"energy": 3, "energy_cap": 5, "plan_tokens": 0, "armed": "", "tactics": []}
+	view.merge(prep, false)
+	session.view_received.emit(view)
+	await process_frame
+	await key(KEY_L)
+	expect(is_instance_valid(board.list_overlay) and board.list_overlay.name == "List_log", "L opens the log")
+	expect(board.list_overlay.find_child("LogText", true, false).text.contains("Test line two."), "the log text shows")
+	await key(KEY_L)
+	expect(not is_instance_valid(board.list_overlay), "L again closes it")
+	await key(KEY_D)
+	expect(board.list_overlay.find_child("ListGrid", true, false).get_child_count() == 1, "D lists the deck")
+	await key(KEY_G)
+	expect(board.list_overlay.name == "List_grave" and board.list_overlay.find_child("ListGrid", true, false).get_child_count() == 1,
+		"G switches to the graveyard")
+	await key(KEY_ESCAPE)
+	expect(not is_instance_valid(board.list_overlay), "Esc closes the list")
+	board.queue_free()
+	session.queue_free()
+	game.queue_free()
+	await process_frame
+	print("%s: lan_lists_smoke (%d checks)" % ["FAIL" if failures else "PASS", checks])
+	quit(1 if failures else 0)
