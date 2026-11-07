@@ -44,7 +44,7 @@ func run() -> void:
 	var resting := unit(false, 2, 1, 10)
 	resting.add_modifier("sluggish")
 	game.add_card_to_hand(starter[0])
-	check(killer.effective_attack() == 7 and int(killer.statuses.get("bleed", 0)) == 0, "Blood Pact grants two attack without Bleed")
+	check(killer.effective_attack() == 6 and int(killer.statuses.get("bleed", 0)) == 0, "Blood Pact grants one attack without Bleed")
 	game.resolve_single_strike(killer, victim, true)
 	game.resolve_single_strike(missed, null, true)
 	game.resolve_blood_pact()

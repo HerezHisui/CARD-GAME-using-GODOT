@@ -50,10 +50,10 @@ func run() -> void:
 	check(game._synergy_bonus(ally) == 1, "adjacent matching type grants attack")
 	neighbor.card_data.element = "brace"
 	check(game._synergy_bonus(ally) == 0, "other types do not grant synergy")
-	var defender = make_card({"name":"Test", "type":"disaster", "element":"earthquake", "cost":0, "attack":2, "health":5}, game._threat_slots()[2])
-	check(game._calc_damage(ally, defender).dmg == 4, "Evac deals double vs Earthquake")
-	defender.card_data.element = "flood"
-	check(game._calc_damage(ally, defender).dmg == 1, "Evac deals half vs Flood")
+	var defender = make_card({"name":"Test", "type":"disaster", "element":"typhoon", "cost":0, "attack":2, "health":5}, game._threat_slots()[2])
+	check(game._calc_damage(ally, defender).dmg == 4, "Evac deals double vs Typhoon")
+	defender.card_data.element = "earthquake"
+	check(game._calc_damage(ally, defender).dmg == 1, "Evac deals half vs Earthquake")
 	defender.card_data.element = "fire"
 	check(game._calc_damage(ally, defender).dmg == 2, "neutral damage preserved")
 	game.player_first = false

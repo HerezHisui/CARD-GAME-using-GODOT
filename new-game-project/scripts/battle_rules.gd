@@ -10,26 +10,26 @@ const BUFFS := [
 	{"id":"bleed", "name":"Deep Cuts", "description":"Your cards apply 1 extra Bleed stack whenever they inflict Bleed."},
 	{"id":"draw", "name":"Rapid Logistics", "description":"Draw 1 extra card in each normal draw phase, up to the hand limit."},
 	{"id":"glass", "name":"Glass Cannon", "description":
-		"Future units gain +2 attack, but -1 maximum health. Deployed units are unchanged. This battle only."},
+		"Future units gain +2 attack, but -2 maximum health. Deployed units are unchanged. This battle only."},
 	{"id":"overclock", "name":"Overclock", "description":"Gain 2 capacity now and +1 extra capacity growth each round (2 total normally), but take 50% more damage (rounded up)."},
-	{"id":"blood_pact", "name":"Blood Pact", "description":"Units gain 2 Strength. At combat end, each deployed unit that did not kill a card this combat dies. Hero hits and resting do not count."},
-	{"id":"patient", "name":"Patient Formation", "description":"All units regenerate 2 each round, but become Sluggish."},
+	{"id":"blood_pact", "name":"Blood Pact", "description":"Units gain 1 Strength. At combat end, each deployed unit that did not kill a card this combat dies. Hero hits and resting do not count."},
+	{"id":"patient", "name":"Patient Formation", "description":"All units regenerate 1 each round, but become Sluggish."},
 	{"id":"toxic_ward", "name":"Toxic Ward", "description":"Apply 2 extra Poison stacks, but all your units lose 1 attack."},
-	{"id":"formation", "name":"Close Ranks", "description":"Matching adjacent units deal 2 extra damage. Isolated deployed units lose 1 attack."},
+	{"id":"formation", "name":"Close Ranks", "description":"Matching adjacent units deal 1 extra damage. Isolated deployed units lose 1 attack."},
 	{"id":"spines", "name":"Bristling Defense", "description":
 		"Future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. "
 		+ "Deployed units are unchanged."},
 	{"id":"precision", "name":"Piercing Formation", "description":"All units gain Piercing, but lose 1 attack."}
 ]
 const RUN_BUFFS := [
-	{"id":"beacon", "name":"Signal Beacon", "description":"PERMANENT: draw 1 extra card in normal draw phases."},
-	{"id":"bulwark", "name":"School Bulwark", "description":"PERMANENT: units gain 2 maximum health, but lose 1 attack."},
+	{"id":"beacon", "name":"Signal Beacon", "description":"PERMANENT: draw 1 extra card in normal draw phases, but lose 1 resource capacity."},
+	{"id":"bulwark", "name":"School Bulwark", "description":"PERMANENT: units gain 1 maximum health, but lose 1 attack."},
 	{"id":"glass", "name":"Bold Strategy", "description":
-		"PERMANENT: future units gain 2 attack, but lose 1 maximum health. Deployed units are unchanged."},
+		"PERMANENT: future units gain 2 attack, but lose 2 maximum health. Deployed units are unchanged."},
 	{"id":"field_school", "name":"Field School", "description":
-		"PERMANENT: +1 resources and +1 normal draw. Future units lose 1 maximum health; deployed units are unchanged."},
+		"PERMANENT: +1 resources and +1 normal draw. Future units lose 2 maximum health; deployed units are unchanged."},
 	{"id":"hazard_manual", "name":"Hazard Manual", "description":"PERMANENT: apply +2 Burn, +1 Poison, +1 Bleed, but lose 1 resource capacity."},
-	{"id":"formation", "name":"Buddy System", "description":"PERMANENT: matching neighbors deal 2 extra damage; isolated deployed units lose 1 attack."},
+	{"id":"formation", "name":"Buddy System", "description":"PERMANENT: matching neighbors deal 1 extra damage; isolated deployed units lose 1 attack."},
 	{"id":"medical", "name":"Infirmary Network", "description":"PERMANENT: heal your side's health by 1 each round, but units lose 1 attack."},
 	{"id":"spines", "name":"Jagged Barricades", "description":
 		"PERMANENT: future units retaliate for 1 fixed damage after surviving a block, but lose 1 maximum health. "
@@ -43,12 +43,12 @@ const CHARACTER_BUFFS := [
 const BONUSES := {
 	"cadet":{"health":1}, "marshal":{"synergy":1},
 	"chemist":{"burn":1, "poison":1, "health":-1}, "warden":{"thorns":1},
-	"glass":{"strength":2, "health":-1}, "overclock":{"energy":2, "damage_taken":1},
-	"blood_pact":{"strength":2, "kill_or_die":1}, "patient":{"regen":2, "sluggish":1},
-	"toxic_ward":{"poison":2, "strength":-1}, "formation":{"synergy":2, "isolation":1},
+	"glass":{"strength":2, "health":-2}, "overclock":{"energy":2, "damage_taken":1},
+	"blood_pact":{"strength":1, "kill_or_die":1}, "patient":{"regen":1, "sluggish":1},
+	"toxic_ward":{"poison":2, "strength":-1}, "formation":{"synergy":1, "isolation":1},
 	"spines":{"thorns":1, "health":-1}, "precision":{"piercing":1, "strength":-1},
-	"beacon":{"draw":1}, "bulwark":{"health":2, "strength":-1},
-	"field_school":{"energy":1, "draw":1, "health":-1},
+	"beacon":{"draw":1, "energy":-1}, "bulwark":{"health":1, "strength":-1},
+	"field_school":{"energy":1, "draw":1, "health":-2},
 	"hazard_manual":{"burn":1, "poison":1, "bleed":1, "energy":-1},
 	"medical":{"hero_regen":1, "strength":-1}, "drill_tactics":{"plan_start":1, "energy":-1}
 }
