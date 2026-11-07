@@ -49,6 +49,10 @@ var held := -1
 var dragging := false
 var relocation_box: PanelContainer
 var choice_box: PanelContainer
+# Crosswind, Lane Marshal and Evacuation Route: the ally is dragged onto an empty lane, as in hot-seat.
+var move_ally := -1  # the lane of the ally being dragged, -1 = none
+var move_queued := {}  # Preparedness: {choice, lane} to send once the host has taken the ally
+var move_hint := -1  # the last move choice that showed the drag hint
 var forecast_box: PanelContainer
 var foe_lit := false
 var selected := -1
@@ -167,6 +171,8 @@ func _on_view(new_view: Dictionary) -> void:
 	_refresh_relocation()
 	_refresh_choice()
 	_refresh_forecast()
+	_send_queued_move()
+	_show_move_hint()
 	# The boxes above are made again each view. The inspect overlay stays on top of them.
 	if is_instance_valid(inspection): hud.move_child(inspection, -1)
 
@@ -401,6 +407,8 @@ func _is_spell(index: int) -> bool:
 func _open_lanes_for(index: int) -> Array:
 	if not _my_turn():
 		return []
+	# A move lights the allies, and the empty lanes while one is dragged.
+	if _move_open(): return _move_destinations() if move_ally >= 0 else _move_allies()
 	# Flag on: an open utility choice lights exactly the lanes of its stage.
 	var open := _pending()
 	if not open.is_empty(): return open.handles.duplicate() if open.stage in LANE_STAGES else []
@@ -464,6 +472,7 @@ func _input(event: InputEvent) -> void:
 		if held < 0 and not _picking() and _right_click_inspect(event.position): return
 		_cancel_pick(true)
 		_cancel_choice()
+		move_ally = -1
 		held = -1
 		dragging = false
 		_arrange_hand()
@@ -480,6 +489,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_press(point: Vector2) -> void:
 	mouse = point
+	# A move: press an ally, drag it, and let go on an empty lane.
+	if _move_open():
+		var ally := _lane_at(point)
+		move_ally = ally if ally in _move_allies() else -1
+		if move_ally >= 0: return
 	var index := _hand_at(point)
 	if index >= 0:
 		# Own hand cards can always be inspected, also on the other player's turn.
@@ -501,6 +515,11 @@ func _on_press(point: Vector2) -> void:
 
 
 func _on_release(point: Vector2) -> void:
+	if move_ally >= 0:
+		var ally := move_ally
+		move_ally = -1
+		_drop_move(ally, _lane_at(point))
+		return
 	if held < 0:
 		return
 	var index := held
@@ -1153,7 +1172,8 @@ func _refresh_relocation() -> void:
 		relocation_box.get_parent().remove_child(relocation_box)
 		relocation_box.queue_free()
 	relocation_box = null
-	if side != "disaster" or over or view.get("relocation", {}).is_empty(): return
+	# Crosswind is a drag now (_drop_move), so no picker box opens.
+	if _move_open() or side != "disaster" or over or view.get("relocation", {}).is_empty(): return
 	relocation_box = PanelContainer.new()
 	relocation_box.name = "CrosswindChoice"
 	relocation_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
@@ -1183,7 +1203,8 @@ func _refresh_choice() -> void:
 		choice_box.queue_free()
 	choice_box = null
 	var open := _pending()
-	if open.is_empty(): return
+	# Lane Marshal and Evacuation Route are a drag now (_drop_move), so no box opens. Esc skips them.
+	if open.is_empty() or _move_open(): return
 	choice_box = PanelContainer.new()
 	choice_box.name = "UtilityChoice"
 	choice_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
@@ -1344,6 +1365,84 @@ func _pick_candidate(handle: int) -> void:
 func _cancel_choice() -> void:
 	if _pending().is_empty(): return
 	panel.choice_cancelled.emit()
+
+
+# ------------------------------------------------------------------- move by drag
+## True while a move of a friendly ally is open: Crosswind (Disaster), Lane Marshal or Evacuation Route
+## (Preparedness). The host still checks every lane (disaster_relocation.gd, lan_utility_choice.gd).
+func _move_open() -> bool:
+	if over or not _my_turn(): return false
+	if side == "disaster": return not view.get("relocation", {}).is_empty()
+	var open := _pending()
+	var kind := str(open.get("kind", ""))
+	return kind == "relocation" or (kind == "utility" and str(open.get("effect", "")) == "move")
+
+
+## The lanes a move drag may start from. After the host took the ally, only that ally.
+func _move_allies() -> Array:
+	if side == "disaster":
+		return [] if panel.relocation_sent else view.relocation.get("allies", [])
+	var open := _pending()
+	if open.stage == "ally": return open.handles
+	return [int(open.get("ally", -1))]
+
+
+## The empty lanes a dragged ally may land on.
+func _move_destinations() -> Array:
+	if side == "disaster": return view.relocation.get("destinations", [])
+	var open := _pending()
+	if open.stage == "destination": return open.handles
+	var lanes: Array = []
+	var own: Array = lane_cards[_own_side()]
+	for lane in own.size():
+		if own[lane] == null: lanes.append(lane)
+	return lanes
+
+
+## The dragged ally lands on the empty lane under the mouse. Anywhere else, nothing moves.
+func _drop_move(ally: int, lane: int) -> void:
+	if lane < 0 or lane == ally or not _move_open(): return
+	if lane not in _move_destinations():
+		show_note("Cannot move there", "")
+		return
+	if side == "disaster":
+		# One message with both lanes, the same one the old lane buttons sent.
+		panel.relocation_ally = -1
+		panel.pick_relocation(ally)
+		panel.pick_relocation(lane)
+		return
+	var open := _pending()
+	if open.stage == "destination":
+		panel.lane_pressed.emit(lane)
+		return
+	# The host takes the ally first. The lane is sent when its view comes back (_send_queued_move).
+	move_queued = {"choice": int(open.choice), "lane": lane}
+	panel.lane_pressed.emit(ally)
+
+
+## Preparedness: the second half of a drag, once the host has moved the choice on to the lane stage.
+func _send_queued_move() -> void:
+	if move_queued.is_empty(): return
+	var open := _pending()
+	if int(open.get("choice", -1)) != move_queued.choice:
+		move_queued = {}
+		return
+	if open.stage != "destination": return
+	var lane: int = move_queued.lane
+	move_queued = {}
+	if lane in open.handles: panel.lane_pressed.emit(lane)
+	else: show_note("Cannot move there", "")
+
+
+## A short note when a move opens, since there is no panel any more.
+func _show_move_hint() -> void:
+	if not _move_open(): return
+	var id: int = int(view.relocation.choice) if side == "disaster" else int(_pending().choice)
+	if id == move_hint: return
+	move_hint = id
+	var title := "CROSSWIND" if side == "disaster" else str(_pending().get("name", "MOVE")).to_upper()
+	var skip := "" if side == "disaster" else " Esc to skip."
+	show_note(title, "Drag an ally onto an empty lane." + skip)
 
 
 func _evolution_open() -> bool:

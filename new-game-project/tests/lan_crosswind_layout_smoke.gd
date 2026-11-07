@@ -1,6 +1,7 @@
 extends SceneTree
 
 # Crosswind picker must stay clear of the Tension plate at two window sizes.
+# Now Crosswind is a drag (no picker panel): no panel opens, the Tension plate stays on screen.
 class RecordingLink:
 	extends "res://scripts/lan_session.gd"
 	func request_action(_msg) -> void:
@@ -64,20 +65,11 @@ func run() -> void:
 		root.size = size
 		link.push_view(private_view)
 		await frames(15)
-		var picker: Control = board.relocation_box
-		expect(picker != null, "Picker exists at %s" % size)
-		if picker == null: continue
-		for step in 2:
-			# Step 1 lists the ally lanes, step 2 the empty destinations.
-			var tension: Rect2 = board.resource_plate.get_global_rect()
-			var rect := picker.get_global_rect()
-			print("%s step %d picker %s tension %s" % [size, step, rect, tension])
-			expect(not rect.intersects(tension), "Picker clear of Tension at %s step %d" % [size, step])
-			expect(Rect2(Vector2.ZERO, Vector2(size)).encloses(rect), "Picker on screen at %s step %d" % [size, step])
-			if step == 0:
-				board.click_lane(0)
-				await frames(5)
-				picker = board.relocation_box
+		# Crosswind is a drag now: no picker panel, so nothing can cover the Tension plate.
+		var tension: Rect2 = board.resource_plate.get_global_rect()
+		expect(board.hud.find_child("CrosswindChoice", true, false) == null, "No picker panel at %s" % size)
+		expect(Rect2(Vector2.ZERO, Vector2(size)).encloses(tension), "Tension plate on screen at %s" % size)
+		expect(board._open_lanes() == [0], "The ally lane is lit at %s" % size)
 	game.clear_battle()
 	game.queue_free()
 	await frames()

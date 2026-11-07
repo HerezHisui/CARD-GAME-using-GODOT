@@ -160,6 +160,23 @@ func click(button: Button) -> void:
 		root.push_input(event, true)
 		await process_frame
 
+# The screen point of a threat lane (the Disaster client's own row).
+func lane_point(lane: int) -> Vector2:
+	var slot: Node3D = game._threat_slots()[lane]
+	return game.camera.unproject_position(slot.to_global(slot.get_aabb().get_center()))
+
+# A real mouse move and a left press or release at a point.
+func mouse_button(point: Vector2, down: bool) -> void:
+	var move := InputEventMouseMotion.new()
+	move.position = point
+	root.push_input(move, true)
+	var event := InputEventMouseButton.new()
+	event.position = point
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = down
+	root.push_input(event, true)
+	await process_frame
+
 func capture(name: String) -> void:
 	if not rendered: return
 	DirAccess.make_dir_recursive_absolute(output)
@@ -214,28 +231,32 @@ func check_client() -> void:
 	await frames(15)
 	expect(board.end_button.disabled, "Remote End turn is disabled during relocation")
 	expect(board._open_lanes() == [0], "Only remote ally lane is lit initially")
+	expect(board.hud.find_child("CrosswindChoice", true, false) == null, "Remote Crosswind opens no picker panel")
 	await capture("client-choose-ally")
-	await click(buttons(board.relocation_box)[0])
-	await frames()
-	expect(panel.relocation_ally == 0 and board._open_lanes() == [2, 3], "Remote ally click reveals empty lanes")
+	# Drag the ally (lane 1) onto the empty lane 3, as in hot-seat.
+	await mouse_button(lane_point(0), true)
+	expect(board.move_ally == 0 and board._open_lanes() == [2, 3], "Remote ally press lights the empty lanes")
 	link.push_view(private_view)
 	await frames()
-	expect(panel.relocation_ally == 0, "Repeated pending view preserves selected ally")
+	expect(board.move_ally == 0, "Repeated pending view keeps the dragged ally")
 	await capture("client-choose-destination")
-	await click(buttons(board.relocation_box)[0])
+	await mouse_button(lane_point(2), false)
 	await frames()
 	expect(link.sent.size() == 1 and link.sent[0].kind == "move_ally", "Remote UI sends a relocation action")
+	if not link.sent.is_empty():
+		expect(link.sent[0].ally == 0 and link.sent[0].lane == 2, "The drag names the ally and the empty lane")
 	expect(ally.current_slot == game._threat_slots()[0], "Client does not move authoritative card")
 	if not link.sent.is_empty():
 		var result: Dictionary = await Actions.apply(game, link.sent[0])
 		expect(result.ok and ally.current_slot == game._threat_slots()[2], "Host validates remote UI payload")
 	link.push_view(View.build(game))
 	await frames()
-	expect(board.relocation_box == null, "Resolved view removes remote choice UI")
+	expect(board._open_lanes().is_empty(), "Resolved view removes remote choice UI")
 	link.push_view(private_view)
 	link.push_event("match_over", {"winner": "preparedness"})
 	await frames()
-	expect(board.relocation_box == null and board._open_lanes().is_empty(), "Match end removes remote chooser")
+	expect(board.hud.find_child("CrosswindChoice", true, false) == null and board._open_lanes().is_empty(),
+		"Match end removes remote chooser")
 	board.queue_free()
 	panel.queue_free()
 	link.queue_free()
