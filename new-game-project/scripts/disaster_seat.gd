@@ -31,6 +31,7 @@ var playing := false
 var evo := {}  # an evolution waiting for sacrifices: card, definition, slot, chosen, serial. Empty = none
 var mouse := Vector2.ZERO
 var lane_material: StandardMaterial3D
+var sacrifice_label: Label
 
 func setup(manager: Node) -> void:
 	game = manager
@@ -486,6 +487,47 @@ func _update_lanes() -> void:
 		if slot.visible == lit: continue
 		slot.visible = lit
 		slot.material_override = _lane_look() if lit else null
+	_mark_sacrifices(card)
+
+## While an evolution is dragged, picked or waits for more sacrifices: outline and tag the cards that may be
+## sacrificed, mark the chosen ones, dim the rest, and say how many are chosen.
+func _mark_sacrifices(card: Node3D) -> void:
+	var definition: Dictionary = {}
+	var chosen: Array = []
+	if active and not evo.is_empty():
+		definition = evo.definition
+		chosen = evo.chosen
+	elif active and is_instance_valid(card) and _is_evolution(card.get_meta("seat_def")):
+		definition = card.get_meta("seat_def")
+	var picks: Array = game.disaster_actions.legal_sacrifices(definition) if not definition.is_empty() else []
+	for slot: Node3D in game._threat_slots():
+		var threat: Node = game._get_card_in_slot(slot)
+		if threat == null: continue
+		var mode := ""
+		if not definition.is_empty():
+			mode = "chosen" if threat in chosen else ("pick" if threat in picks else "dim")
+		threat.set_sacrifice_mark(mode)
+	_say_chosen(definition, chosen)
+
+## The "1 of 2 chosen" line at the top of the screen. Shown only while sacrifices are being picked.
+func _say_chosen(definition: Dictionary, chosen: Array) -> void:
+	if sacrifice_label == null:
+		sacrifice_label = Label.new()
+		sacrifice_label.name = "SacrificeCounter"
+		sacrifice_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sacrifice_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		sacrifice_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		sacrifice_label.offset_top = 104
+		sacrifice_label.add_theme_font_override("font", UI.font(true))
+		sacrifice_label.add_theme_font_size_override("font_size", 30)
+		sacrifice_label.add_theme_color_override("font_color", UI.GOLD)
+		sacrifice_label.add_theme_color_override("font_outline_color", UI.BACKGROUND)
+		sacrifice_label.add_theme_constant_override("outline_size", 8)
+		game.get_node("HUD/Root").add_child(sacrifice_label)
+	var picking: bool = not definition.is_empty() and not evo.is_empty()
+	sacrifice_label.visible = picking
+	if picking:
+		sacrifice_label.text = "Sacrifice: %d of %d chosen" % [chosen.size(), int(definition.get("cost", 0))]
 
 ## Lanes holding a card that may be sacrificed and is not chosen yet.
 func _sacrifice_lanes(definition: Dictionary, chosen: Array) -> Array:

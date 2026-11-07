@@ -152,6 +152,9 @@ var face_signature := 0
 const FACE_CHECK_INTERVAL := 0.1
 var face_check_elapsed := 0.0
 var popup_stack := 0
+var sacrifice_mark := ""
+var _sacrifice_outline: Sprite3D
+var _sacrifice_tag: Label3D
 var last_popup_msec := -1000
 
 @onready var art_sprite: Sprite3D = $Art
@@ -1003,6 +1006,49 @@ func set_target_pulse(on: bool) -> void:
 		_pulse_tween.kill()
 		_pulse_tween = null
 		art_sprite.modulate = Color.WHITE
+
+## Sacrifice pick marks. "pick" = may be sacrificed (outline and SACRIFICE tag), "chosen" = already picked,
+## "dim" = cannot be picked, "" = no mark. Safe to call every frame.
+func set_sacrifice_mark(mode: String) -> void:
+	if mode == sacrifice_mark: return
+	sacrifice_mark = mode
+	if mode in ["pick", "chosen"] and _sacrifice_outline == null: _build_sacrifice_marks()
+	if _sacrifice_outline != null:
+		_sacrifice_outline.visible = mode in ["pick", "chosen"]
+		_sacrifice_tag.visible = mode in ["pick", "chosen"]
+		_sacrifice_tag.text = "CHOSEN" if mode == "chosen" else "SACRIFICE"
+		_sacrifice_outline.modulate = UI.DANGER if mode == "chosen" else UI.GOLD
+	if _pulse_tween == null and is_instance_valid(art_sprite):
+		art_sprite.modulate = Color(0.4, 0.4, 0.4) if mode == "dim" else Color.WHITE
+
+func _build_sacrifice_marks() -> void:
+	var image := Image.create(132, 180, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for x in 132:
+		for y in 180:
+			if x < 6 or y < 6 or x >= 126 or y >= 174: image.set_pixel(x, y, Color.WHITE)
+	_sacrifice_outline = Sprite3D.new()
+	_sacrifice_outline.texture = ImageTexture.create_from_image(image)
+	_sacrifice_outline.pixel_size = CARD_WIDTH * 1.06 / 132.0
+	_sacrifice_outline.transform = art_sprite.transform
+	_sacrifice_outline.position.y = art_sprite.position.y + 0.004
+	_sacrifice_outline.shaded = false
+	_sacrifice_outline.no_depth_test = true
+	_sacrifice_outline.render_priority = 90
+	add_child(_sacrifice_outline)
+	_sacrifice_tag = Label3D.new()
+	_sacrifice_tag.font = UI.font(true)
+	_sacrifice_tag.font_size = 40
+	_sacrifice_tag.pixel_size = 0.0025
+	_sacrifice_tag.outline_size = 8
+	_sacrifice_tag.outline_modulate = Color(UI.BACKGROUND, 0.95)
+	_sacrifice_tag.modulate = UI.GOLD
+	_sacrifice_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_sacrifice_tag.no_depth_test = true
+	_sacrifice_tag.render_priority = 121
+	_sacrifice_tag.outline_render_priority = 120
+	_sacrifice_tag.position = Vector3(0, 0.12, 0)
+	add_child(_sacrifice_tag)
 
 func set_plan_attack_bonus(amount: int) -> void:
 	plan_attack_bonus = amount
