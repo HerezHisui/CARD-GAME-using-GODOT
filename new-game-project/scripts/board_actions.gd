@@ -5,11 +5,6 @@ var action: Dictionary = {}
 
 func setup(manager: Node) -> void:
 	game = manager
-	for slot in game._response_slots():
-		var body: CollisionObject3D = slot.get_node("StaticBody3D")
-		body.input_event.connect(func(_camera, event, _position, _normal, _shape):
-			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed: choose_slot(slot)
-		)
 
 func clear() -> void: action.clear()
 
@@ -22,9 +17,12 @@ func relocation(source: Node) -> void:
 	game.set_board_view(true)
 	action = {"kind":"relocate", "title":"Drag another friendly card onto an empty lane.", "source":source, "cancel":game.cancel_move_effect}
 
-func destination(card: Node, callback: Callable) -> void:
+## Emergency Extraction: drag an ally onto the empty lane it escapes to, like a relocation.
+## Nothing moves now: drop(slot, ally) arms the tactic (game.complete_move_effect).
+func extraction(drop: Callable) -> void:
 	game.set_board_view(true)
-	action = {"kind":"place", "title":"Click an empty friendly lane for Emergency Extraction.", "card":card, "callback":callback, "cancel":Callable()}
+	action = {"kind":"relocate", "title":"Drag an ally onto an empty lane for Emergency Extraction.", "source":null,
+		"cancel":game.cancel_move_effect, "drop":drop}
 
 func click_card(card: Node) -> bool:
 	if action.is_empty() or game.run_director.modal.visible: return false
@@ -37,12 +35,6 @@ func click_card(card: Node) -> bool:
 				clear()
 				callback.call(card)
 	return true
-
-func choose_slot(slot: Node3D) -> void:
-	if action.get("kind", "") != "place" or game.run_director.modal.visible or game._get_card_in_slot(slot) != null: return
-	var callback: Callable = action.callback
-	clear()
-	callback.call(slot)
 
 func cancel() -> void:
 	if action.is_empty(): return

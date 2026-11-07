@@ -133,11 +133,11 @@ func run() -> void:
 	game.plans.tokens = 1
 	director.show_plans()
 	director.begin_tactic("extract")
+	# Drag: the press picks the ally up, the release on lane 3 is complete_move_effect (card_3d._input).
 	click(ally)
-	var choose := InputEventMouseButton.new()
-	choose.button_index = MOUSE_BUTTON_LEFT
-	choose.pressed = true
-	game._response_slots()[2].get_node("StaticBody3D").input_event.emit(game.camera, choose, Vector3.ZERO, Vector3.UP, 0)
+	check(game.moving_ally == ally, "extraction picks the ally up like a relocation")
+	game.complete_move_effect(game._response_slots()[2])
+	check(ally.current_slot == game._response_slots()[0], "extraction does not move the ally yet")
 	check(game.plans.armed.kind == "extract" and game.plans.armed.destination == game._response_slots()[2], "extraction chooses ally then exact empty board lane")
 	ally.take_damage(20)
 	check(ally.is_alive() and ally.card_data.health == 2 and ally.current_slot == game._response_slots()[2], "extraction saves one lethal attack without losing HP")

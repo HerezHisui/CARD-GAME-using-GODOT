@@ -36,7 +36,6 @@ const PlansScene = preload("res://scenes/ui/ui_plans.tscn")
 const IntelScene = preload("res://scenes/ui/ui_intel.tscn")
 const ConfirmScene = preload("res://scenes/ui/ui_confirm.tscn")
 const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
-const ChooseSlotScene = preload("res://scenes/ui/ui_choose_slot.tscn")
 const DisasterPanelScene = preload("res://scenes/ui/ui_disaster_panel.tscn")
 const PrivacyScreenScene = preload("res://scenes/ui/ui_privacy_screen.tscn")
 const VersusDecks = preload("res://scripts/versus_decks.gd")
@@ -1777,8 +1776,7 @@ func begin_tactic(id: String) -> void:
 		game.board_input.pick("Click one ally. It and the adjacent ally on each side gain +1 attack this combat.",
 			allies, arm_target_tactic.bind("coordinate"), Callable(), "coordinate")
 	elif id == "extract":
-		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
-		game.board_input.pick("Click the ally to protect with Emergency Extraction.", allies, select_extraction_ally, Callable())
+		game.board_input.extraction(arm_extraction)
 	elif id in ["supply", "shelter"]: game.plans.arm(id, [])
 	else:
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
@@ -1791,9 +1789,6 @@ func arm_brace(card: Node) -> void:
 	game.board_input.clear()
 	game.preparedness_actions.arm_tactic("brace", card)
 func select_coordination() -> void: begin_tactic("coordinate")
-func select_extraction_ally(card: Node) -> void:
-	game.board_input.destination(card, arm_extraction.bind(card))
-
 func arm_extraction(slot: Node3D, card: Node) -> void:
 	game.plans.arm("extract", [card], slot)
 
@@ -2465,15 +2460,6 @@ func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> vo
 	var cancel_button: Button = content.get_node("CancelButton")
 	cancel_button.text = "Cancel"
 	hook_button(cancel_button, cancel)
-
-func choose_slot(slots: Array, callback: Callable, cancel: Callable) -> void:
-	card_picker = false
-	reset_panel("CHOOSE AN EMPTY LANE", "", "choice")
-	action_cancel = cancel
-	for slot in slots: button("Lane %d" % (game._response_slots().find(slot) + 1), callback.bind(slot), content)
-	# The lane buttons change each time; the Skip button comes from ui_choose_slot.tscn.
-	unpack_screen(ChooseSlotScene)
-	hook_button(content.get_node("SkipButton"), cancel)
 
 func show_intel() -> void:
 	intel_revealed = true

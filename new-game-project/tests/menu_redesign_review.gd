@@ -46,8 +46,6 @@ func extra_states() -> void:
 	await shot("floor-buffs", director.show_floor_buffs)
 	await shot("pick-card", func(): director.choose_card("CHOOSE A CARD", starter.slice(0, 3),
 		func(_card): pass, func(): pass), true)
-	await shot("pick-lane", func(): director.choose_slot(game._response_slots(), func(_slot): pass,
-		func(): pass), true)
 	await shot("confirm-title", director.confirm_title, true)
 	await shot("confirm-abandon", director.confirm_abandon)
 	await shot("defeat", func(): director.battle_finished(false), true)

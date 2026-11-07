@@ -1347,14 +1347,18 @@ func _cancel_choice() -> void:
 
 
 # ------------------------------------------------------------------- move by drag
-## True while a move of a friendly ally is open: Crosswind (Disaster), Lane Marshal or Evacuation Route
-## (Preparedness). The host still checks every lane (disaster_relocation.gd, lan_utility_choice.gd).
+## True while a move of a friendly ally is open: Crosswind (Disaster), Lane Marshal, Evacuation Route or
+## Emergency Extraction (Preparedness). The host still checks every lane (disaster_relocation.gd,
+## lan_utility_choice.gd).
 func _move_open() -> bool:
 	if over or not _my_turn(): return false
 	if side == "disaster": return not view.get("relocation", {}).is_empty()
 	var open := _pending()
 	var kind := str(open.get("kind", ""))
-	return kind == "relocation" or (kind == "utility" and str(open.get("effect", "")) == "move")
+	var effect := str(open.get("effect", ""))
+	# Extraction picks an ally and its escape lane the same way, so it is a drag too. Nothing moves until it fires.
+	if kind == "tactic": return effect == "extract"
+	return kind == "relocation" or (kind == "utility" and effect == "move")
 
 
 ## The lanes a move drag may start from. After the host took the ally, only that ally.

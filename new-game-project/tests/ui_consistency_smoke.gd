@@ -111,9 +111,6 @@ func review_overlays(suffix: String) -> void:
 	director.show_intel()
 	await capture("intel_" + suffix)
 	battle()
-	director.choose_slot(game._response_slots(), func(_slot): pass, director.close_modal)
-	await capture("lanes_" + suffix)
-	battle()
 	var original_turn: int = game.turn
 	game.turn = 5
 	director.show_buff_choices()

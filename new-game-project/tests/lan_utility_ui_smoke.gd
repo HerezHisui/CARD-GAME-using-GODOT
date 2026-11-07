@@ -211,6 +211,23 @@ func click(control: Control) -> void:
 	await process_frame
 
 
+# A real mouse move and a left press (down) or release at a point.
+func press_at(point: Vector2, down: bool) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = point
+	motion.global_position = point
+	root.push_input(motion, true)
+	await process_frame
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.position = point
+	event.global_position = point
+	event.pressed = down
+	root.push_input(event, true)
+	await process_frame
+	await process_frame
+
+
 func click_at(point: Vector2, button: int = MOUSE_BUTTON_LEFT) -> void:
 	var motion := InputEventMouseMotion.new()
 	motion.position = point
@@ -560,20 +577,19 @@ func check_board_flow() -> void:
 	board.click_tactic("extract")
 	before = host_results.size()
 	await answered(before)
-	await settle_box()
+	expect(board.choice_box == null, "board: Extraction opens no picker panel, it is a drag")
 	expect(lit_lanes(true) == [0, 2] and game.plans.tokens == 2, "board: Extraction lights the allies, no token yet")
 	board.click_tactic("brace")
 	expect(is_instance_valid(board.note) and board.note_head.text == "Can't do that",
 		"board: other tactics wait for the choice")
+	# Drag the ally in lane 1 onto the empty lane 4: the host gets the ally, then the lane.
 	before = host_results.size()
-	await click_at(lane_point(0, true))
-	await answered(before)
-	await wait_until(func() -> bool: return client.last_view.pending_choice.get("stage", "") == "destination")
-	await process_frame
-	expect(lit_lanes(true) == [1, 3], "board: the empty lanes light for the destination")
-	before = host_results.size()
-	await click_at(lane_point(3, true))
-	expect(await answered(before), "board: the destination click sent the pick")
+	await press_at(lane_point(0, true), true)
+	expect(lit_lanes(true) == [1, 3], "board: the empty lanes light while the ally is dragged")
+	await press_at(lane_point(3, true), false)
+	expect(await wait_until(func() -> bool: return host_results.size() >= before + 2),
+		"board: the drag sent both picks")
+	for i in 6: await process_frame
 	expect(game.plans.armed.get("kind", "") == "extract" and game.plans.tokens == 1, "board: Extraction armed")
 	# Supply is one click.
 	game.plans.armed.clear()

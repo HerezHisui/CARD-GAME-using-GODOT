@@ -1182,10 +1182,18 @@ func select_moving_ally(card: Node) -> void:
 	card._set_overlay(true)
 
 func complete_move_effect(slot: Node3D) -> void:
+	# Emergency Extraction uses the same drag, but only arms the tactic: the ally goes back to its lane.
+	var drop: Callable = board_input.action.get("drop", Callable())
 	if is_instance_valid(moving_ally) and slot in _response_slots() and _get_card_in_slot(slot) == null:
 		moving_ally.is_dragging = false
 		moving_ally.is_relocating = false
 		end_hand_drag(moving_ally)
+		if drop.is_valid():
+			var ally: Node = moving_ally
+			ally.place_on_slot(ally.current_slot)
+			cancel_move_effect()
+			drop.call(slot, ally)
+			return
 		apply_relocation(moving_ally, slot, moving_source)
 	cancel_move_effect()
 
