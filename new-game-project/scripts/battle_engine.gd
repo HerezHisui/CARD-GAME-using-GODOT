@@ -4,15 +4,15 @@ const Rules = preload("res://scripts/battle_rules.gd")
 
 const TYPE_CHART := {
 	# Response attacking Disaster
-	"evac": {"earthquake": 2.0, "flood": 0.5},
-	"douse": {"fire": 2.0, "typhoon": 0.5},
-	"clearance": {"flood": 2.0, "earthquake": 0.5},
-	"brace": {"typhoon": 2.0, "fire": 0.5},
+	"evac": {"typhoon": 2.0, "earthquake": 0.5},
+	"douse": {"fire": 2.0, "flood": 0.5},
+	"clearance": {"flood": 2.0, "typhoon": 0.5},
+	"brace": {"earthquake": 2.0, "fire": 0.5},
 	# Disaster attacking Response
-	"flood": {"evac": 2.0, "clearance": 0.5},
-	"earthquake": {"clearance": 2.0, "evac": 0.5},
-	"typhoon": {"douse": 2.0, "brace": 0.5},
+	"earthquake": {"evac": 2.0, "brace": 0.5},
 	"fire": {"brace": 2.0, "douse": 0.5},
+	"flood": {"douse": 2.0, "clearance": 0.5},
+	"typhoon": {"clearance": 2.0, "evac": 0.5},
 }
 
 static func overclock_stacks(context: Dictionary, response: bool) -> int:
