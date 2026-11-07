@@ -102,9 +102,9 @@ func run() -> void:
 	game.encounter_kind = "boss"
 	game.player_first = false
 	var opposite = make_card({"name":"Evac", "type":"response", "element":"evac", "cost":1, "attack":2, "health":5}, game._response_slots()[0])
+	var typhoon := {"name":"Typhoon", "type":"disaster", "element":"typhoon", "cost":0, "attack":2, "health":3}
 	var quake := {"name":"Quake", "type":"disaster", "element":"earthquake", "cost":0, "attack":2, "health":3}
-	var flood := {"name":"Flood", "type":"disaster", "element":"flood", "cost":0, "attack":2, "health":3}
-	check(game.choose_base_threat([quake, flood], [game._threat_slots()[0]]) == flood, "boss picks a counter over a weak matchup")
+	check(game.choose_base_threat([typhoon, quake], [game._threat_slots()[0]]) == quake, "boss picks a counter over a weak matchup")
 	var weak = make_card({"name":"Weak", "type":"disaster", "element":"flood", "cost":0, "attack":1, "health":1}, game._threat_slots()[0])
 	var strong = make_card({"name":"Strong", "type":"disaster", "element":"flood", "cost":0, "attack":5, "health":8}, game._threat_slots()[1])
 	var evolution := {"name":"Upgrade", "type":"disaster", "element":"flood", "cost":1, "attack":4, "health":6}

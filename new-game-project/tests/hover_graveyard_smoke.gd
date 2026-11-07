@@ -151,10 +151,9 @@ func run() -> void:
 				game.turn = round_number
 				for energy in [0, 10]:
 					game.enemy_buffs.energy = energy
-					var cap := (1 if round_number <= 3 else 2) if floor_number == 1 and kind == "battle" else (mini(4, 2 + energy) if kind == "battle" else mini(5, 3 + energy))
 					for resource in [0, 1, 10]:
 						game.tension = resource
-						check(game.enemy_action_limit() == mini(resource, cap), "action ramp scope, round boundary, tension and buff cap")
+						check(game.enemy_action_limit() == resource, "action limit is tension only in every mode")
 	fixture()
 	game.turn = 2
 	game.tension = 3

@@ -158,9 +158,9 @@ func round_fixture() -> void:
 		game.complete_draw_choice(game.deck[0])
 	check(game.phase == game.Phase.PLAYER_PLAY and game.get_hand_cards().size() == 1, "draw enters play phase")
 	game.turn = 3
-	check(game.enemy_action_limit() == 1, "Floor 1 normal has one action through round three")
+	check(game.enemy_action_limit() == game.tension, "Floor 1 normal: actions are limited by tension only in round three")
 	game.turn = 4
-	check(game.enemy_action_limit() == 2, "Floor 1 normal has two actions from round four")
+	check(game.enemy_action_limit() == game.tension, "Floor 1 normal: actions are limited by tension only from round four")
 
 func sacrifice_fixture() -> void:
 	fixture()

@@ -100,9 +100,9 @@ func run() -> void:
 		check(director.floor_number == 1 and game.turn == 3, "Continue preserves floor and round")
 		check(director.collection == saved.director.collection and director.rooms == saved.director.rooms, "Continue preserves collection and map")
 		game.tension = 10
-		check(game.enemy_action_limit() == 1, "resumed round three has one action")
+		check(game.enemy_action_limit() == 10, "resumed round three is limited by tension only")
 		game.turn = 4
-		check(game.enemy_action_limit() == 2, "resumed round four has two actions")
+		check(game.enemy_action_limit() == 10, "resumed round four is limited by tension only")
 	saved.game.erase("explorer_mode")
 	saved.game.erase("explorer_damage_remainder")
 	saved.game.player_hp = 18

@@ -2057,13 +2057,8 @@ func _checked(result: Dictionary) -> Dictionary:
 	return result
 
 func enemy_action_limit() -> int:
-	# Versus: no fixed cap. The Disaster acts as long as it has tension. No floor or buff scaling.
-	if encounter_kind == "versus": return tension
-	if encounter_kind == "battle" and run_director.floor_number == 1:
-		return mini(tension, 1 if turn <= 3 else 2)
-	var base_actions := 2 if encounter_kind == "battle" else 3
-	var maximum := 4 if encounter_kind == "battle" else 5
-	return mini(tension, clampi(base_actions + buff_value(false, "energy"), 1, maximum))
+	# No fixed cap in any mode. The Disaster acts as long as it has tension. No floor or buff scaling.
+	return tension
 
 func _on_enemy_card_played(card: Node) -> void:
 	log_event("Disaster plays %s." % card.card_data.name)
