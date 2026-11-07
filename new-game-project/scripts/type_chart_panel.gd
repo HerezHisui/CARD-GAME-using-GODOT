@@ -19,7 +19,7 @@ var pinned := ""
 var collapsed := false
 var forced_compact := false
 var game: Node
-var _last_layout := Vector3.ZERO
+var _last_layout := Vector4.ZERO
 
 func _ready() -> void:
 	theme = UI.get_theme()
@@ -137,7 +137,6 @@ func set_collapsed(value: bool) -> void:
 	size = Vector2(WIDTH, HEADER_HEIGHT if value else EXPANDED_HEIGHT)
 	toggle.text = "+" if value else "-"
 	toggle.tooltip_text = "Expand type chart" if value else "Collapse type chart"
-	_place_view_buttons()
 
 func _draw_ring() -> void:
 	ring.draw_arc(Vector2(130, 96), 78, 0, TAU, 64, UI.BRONZE.darkened(0.55), 1, true)
@@ -175,33 +174,36 @@ func _edge(rect: Rect2, direction: Vector2) -> Vector2:
 
 func bind_hud(owner_game: Node) -> void:
 	game = owner_game
-	_last_layout = Vector3.ZERO
+	_last_layout = Vector4.ZERO
 	_layout_hud()
 
 func _process(_delta: float) -> void:
 	if is_instance_valid(game): _layout_hud()
 
 func _layout_hud() -> void:
-	var top := 60.0
+	# Top right: same right margin as the HP plates, below the lowest plate above it.
 	var hud := game.get_node("HUD/Root")
-	for plate: Control in [game._player_hp_ui, game._enemy_hp_ui,
-			hud.get_node_or_null("VersusEnergy"), hud.get_node_or_null("VersusTension")]:
+	var plates: Array = [game._player_hp_ui, game._enemy_hp_ui,
+			hud.get_node_or_null("VersusEnergy"), hud.get_node_or_null("VersusTension")]
+	# The main game has its own Tension gauge under the Janitor. Versus replaces it with VersusTension.
+	var director = game.run_director
+	if game.encounter_kind != "versus" and director != null and director.threat != null:
+		plates.append(director.threat.get_parent())
+	var right_edge := 0.0
+	for health: Control in [game._player_hp_ui, game._enemy_hp_ui]:
+		right_edge = maxf(right_edge, health.get_global_rect().end.x)
+	var top := 60.0
+	for plate: Control in plates:
 		if not is_instance_valid(plate) or not plate.is_visible_in_tree(): continue
 		var rect := plate.get_global_rect()
-		if rect.position.x < WIDTH + 16 and rect.end.x > 16:
+		if rect.end.x > right_edge - WIDTH and rect.position.x < right_edge:
 			top = maxf(top, rect.end.y + 8)
 	var view_height := get_viewport_rect().size.y
-	var layout := Vector3(top, view_height, float(game.encounter_kind == "versus"))
+	var layout := Vector4(top, view_height, float(game.encounter_kind == "versus"), right_edge)
 	if layout != _last_layout:
 		_last_layout = layout
-		position = Vector2(16, top)
-		var compact := top + EXPANDED_HEIGHT + 46 > view_height * 0.72
+		position = Vector2(right_edge - WIDTH, top)
+		var compact := top + EXPANDED_HEIGHT + 8 > view_height * 0.72
 		if compact or forced_compact:
 			set_collapsed(compact)
 		forced_compact = compact
-	_place_view_buttons()
-
-func _place_view_buttons() -> void:
-	if not is_instance_valid(game): return
-	game._view_forward_btn.position = position + Vector2(0, size.y + 6)
-	game._view_back_btn.position = position + Vector2(48, size.y + 6)

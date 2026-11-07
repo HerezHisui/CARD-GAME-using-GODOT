@@ -191,17 +191,26 @@ func check_layout(game: Node, chart: Control, label: String) -> void:
 	var top_bar: Control = game.get_node("HUD/TopBar")
 	expect(chart.is_visible_in_tree(), label + " chart visible")
 	expect(rect.position.y >= top_bar.get_global_rect().end.y + 6, label + " below top bar")
-	expect(is_equal_approx(rect.position.x, 16), label + " left aligned")
 	var hud: Control = game.get_node("HUD/Root")
+	var right_edge := maxf(game._player_hp_ui.get_global_rect().end.x, game._enemy_hp_ui.get_global_rect().end.x)
+	expect(is_equal_approx(rect.end.x, right_edge), label + " right aligned with the HP plates")
+	expect(is_equal_approx(root.get_visible_rect().size.x - rect.end.x, 16.0), label + " 16 px from the right edge")
+	var lowest := 0.0
 	for plate: Control in [game._player_hp_ui, game._enemy_hp_ui,
-			hud.get_node_or_null("VersusEnergy"), hud.get_node_or_null("VersusTension")]:
+			hud.get_node_or_null("VersusEnergy"), hud.get_node_or_null("VersusTension"),
+			game.run_director.threat.get_parent() if game.encounter_kind != "versus" else null]:
 		if is_instance_valid(plate) and plate.is_visible_in_tree():
-			expect(not rect.intersects(plate.get_global_rect()), label + " avoids " + plate.name)
-	for button: Button in [game._view_forward_btn, game._view_back_btn]:
-		expect(is_equal_approx(button.position.y, rect.end.y + 6), label + " W/S follow chart bottom")
-		if button.visible:
-			expect(button.get_global_rect().end.y < root.get_visible_rect().size.y * 0.72,
-				label + " buttons stay above hand region")
+			var plate_rect := plate.get_global_rect()
+			expect(not rect.intersects(plate_rect), label + " avoids " + plate.name)
+			if plate_rect.end.x > rect.position.x and plate_rect.position.x < rect.end.x:
+				lowest = maxf(lowest, plate_rect.end.y)
+	expect(is_equal_approx(rect.position.y, lowest + 8.0), label + " sits 8 px under the lowest plate")
+	for name in ["DeckDrawButton", "EndTurnButton", "PlansBox", "GraveyardButton"]:
+		var corner: Control = hud.get_node(name)
+		if corner.is_visible_in_tree():
+			expect(not rect.intersects(corner.get_global_rect()), label + " avoids " + name)
+	expect(game._view_forward_btn.position == Vector2(24, 88), label + " W stays at its original place")
+	expect(game._view_back_btn.position == Vector2(72, 88), label + " S stays at its original place")
 	expect(rect.end.y < root.get_visible_rect().size.y * 0.72, label + " chart stays above hand region")
 	var outline := PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y),
 		rect.end, Vector2(rect.position.x, rect.end.y)])
