@@ -199,6 +199,7 @@ func _ready() -> void:
 	# W and S view buttons, same steps as the W and S keys.
 	_view_forward_btn.pressed.connect(view_button_pressed.bind(1))
 	_view_back_btn.pressed.connect(view_button_pressed.bind(-1))
+	$HUD/Root/TypeChartPanel.bind_hud(self)
 
 	load_deck_from_json("res://data/starter_deck.json", deck)
 	var all_disaster: Array[Dictionary] = []

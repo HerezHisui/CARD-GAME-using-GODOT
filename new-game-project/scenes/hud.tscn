@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://e5m3q1dd7fhh"]
 
 [ext_resource type="Script" path="res://scripts/hud_theme.gd" id="1_theme"]
+[ext_resource type="Script" path="res://scripts/type_chart_panel.gd" id="10_types"]
 [ext_resource type="Texture2D" path="res://assets/ui/energy_dial.png" id="4_dial"]
 [ext_resource type="Texture2D" path="res://assets/ui/draw_icon.png" id="6_draw"]
 [ext_resource type="Texture2D" path="res://assets/ui/graveyard_icon.png" id="7_grave"]
@@ -235,14 +236,22 @@ text = "Turn 1"
 horizontal_alignment = 1
 vertical_alignment = 0
 
+[node name="TypeChartPanel" type="Panel" parent="Root"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 60.0
+offset_right = 276.0
+offset_bottom = 408.0
+script = ExtResource("10_types")
+
 [node name="ViewForwardButton" type="Button" parent="Root" unique_id=503125375]
 editor_description = "W: move the view one step forward (toward overhead)."
 custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
-offset_left = 24.0
-offset_top = 88.0
-offset_right = 64.0
-offset_bottom = 128.0
+offset_left = 16.0
+offset_top = 414.0
+offset_right = 56.0
+offset_bottom = 454.0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 text = "W"
@@ -251,10 +260,10 @@ text = "W"
 editor_description = "S: move the view one step back (toward the wide room view)."
 custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
-offset_left = 72.0
-offset_top = 88.0
-offset_right = 112.0
-offset_bottom = 128.0
+offset_left = 64.0
+offset_top = 414.0
+offset_right = 104.0
+offset_bottom = 454.0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 text = "S"
