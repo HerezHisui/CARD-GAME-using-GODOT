@@ -1,4 +1,5 @@
 extends Node3D
+const Sfx = preload("res://scripts/sfx_call.gd")
 const BattleEngine = preload("res://scripts/battle_engine.gd")
 const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 const UI = preload("res://scripts/ui_theme.gd")
@@ -302,6 +303,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	clear_battle()
 	encounter_kind = kind
 	boss_fog.set_active(kind == "boss")
+	Sfx.encounter_music(kind, floor_level)
 	run_director.intel_revealed = false
 	turn = 1
 	log_event("Encounter begins: %s, floor %d." % [kind.capitalize(), floor_level])
@@ -355,6 +357,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		final_boss = preload("res://scripts/final_boss.gd").new()
 		add_child(final_boss)
 		final_boss.setup(self)
+		Sfx.warden_enter()
 		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN"
 	_start_match()
 
@@ -803,6 +806,7 @@ func draw_cards(count: int) -> void:
 
 func add_card_to_hand(definition: Dictionary) -> void:
 	log_event("Response receives %s." % definition.get("name", "a card"))
+	Sfx.play("card_draw")
 	var card = Card3DScene.instantiate()
 	hand_container.add_child(card)
 	card.add_to_group("cards")
@@ -834,6 +838,7 @@ func seal_field_card(card: Node) -> void:
 	if card not in seal_targets(): return
 	# player_first is the actual alternating round order, independent of animation timing.
 	card.card_data.seal_round = turn if player_first else turn + 1
+	Sfx.play("card_seal")
 	card._refresh_face()
 	card.spawn_popup("SEALED" if player_first else "SEAL NEXT ROUND", UI.AMBER)
 	log_event("%s: %s" % [card.card_data.name, field_seal_text(card.card_data)])
@@ -942,12 +947,14 @@ func update_hand_hover(mouse: Vector2) -> void:
 	clear_hand_hover()
 	hovered_hand_card = picked
 	if picked: picked.set_hand_hover(true)
+	if picked: Sfx.play("card_hover")
 
 func begin_hand_drag(card: Node) -> bool:
 	if not board_input.action.is_empty() or not can_player_act() or is_instance_valid(dragged_hand_card): return false
 	dragged_hand_card = card
 	clear_hand_hover()
 	show_drop_targets(true)
+	Sfx.play("card_select")
 	return true
 
 func end_hand_drag(card: Node) -> void:
@@ -1013,6 +1020,7 @@ func record_graveyard(card: Node, reason: String) -> void:
 	card.graveyard_recorded = true
 	log_event("%s: %s." % [reason, card.card_data.name])
 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
+	if reason == "Destroyed" and card.card_data.get("boss_role", "") == "pillar": Sfx.play("pillar_destroyed")
 	if card.card_data.get("type", "response") != "response":
 		record_disaster_definition(card.card_data, reason)
 		return
@@ -1104,6 +1112,7 @@ func on_card_played(card: Node) -> void:
 	arrange_hand_centered()
 	if not card.card_data.get("utility", false) and card.card_data.get("effect", "") == "draw": draw_cards(int(card.card_data.get("draw_count", 1)))
 	if not card.card_data.get("utility", false):
+		Sfx.play("unit_deploy")
 		if int(card.card_data.get("on_play_draw", 0)) > 0: draw_cards(int(card.card_data.on_play_draw))
 		apply_formation_effect(card)
 		if card.card_data.get("effect", "") == "grave_guard": card.add_status("barrier", mini(2, destroyed_response_units().size()))
@@ -1235,6 +1244,7 @@ func apply_simple_utility(card: Node, effect: String) -> void:
 func consume_utility(card: Node) -> void:
 	if card.card_data.get("curse", false): _damage_side(true, 1, true)
 	record_graveyard(card, "Cast")
+	Sfx.play("utility_cast")
 	on_card_played(card)
 	preparedness = mini(energy_cap, preparedness + int(card.card_data.get("refund_energy", 0)))
 	_refresh_bars()
@@ -1286,6 +1296,7 @@ func apply_utility_pick(effect: String, target: Variant, power: int) -> void:
 			if power > 0: target.heal(2 * power)
 
 func cancel_utility_choice() -> void:
+	Sfx.play("card_cancel_return")
 	board_input.clear()
 	pending_utility = null
 	pending_effect = ""
@@ -1307,6 +1318,7 @@ func increase_cost(definition: Dictionary) -> void:
 	# A tax adds at most 2 cost. Casting it again refreshes it instead of stacking.
 	definition[key] = mini(int(definition.tax_original) + 2, int(definition.get(key, 1)) + 1)
 	definition.tax_until = turn + 2
+	Sfx.play("cost_increase")
 
 func expire_tax(definition: Dictionary) -> void:
 	if definition.has("tax_original") and int(definition.get("tax_until", 0)) <= turn:
@@ -1592,6 +1604,7 @@ func continue_round() -> void:
 
 	if is_instance_valid(final_boss):
 		final_boss.prepare_round()
+		Sfx.warden_prepare(final_boss)
 		if _check_game_over(): return
 		_begin_player_turn()
 	elif player_first:
@@ -1613,6 +1626,7 @@ func _apply_round_modifiers() -> void:
 				target.add_modifier(picked)
 
 func _begin_player_turn() -> void:
+	Sfx.play("turn_start")
 	if deck.is_empty() or get_hand_cards().size() >= HAND_SIZE_MAX:
 		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 	else:
@@ -1669,7 +1683,8 @@ func end_prep_turn() -> void:
 	for c in get_hand_cards():
 		if c.is_dragging: return
 
-	plans.bank_unused_energy()
+	Sfx.play("end_turn_sfx")
+	if plans.bank_unused_energy(): Sfx.play("plan_saved")
 	if player_first:
 		# Player went first -> now the Disaster plays its card
 		await _enemy_turn()
@@ -1889,6 +1904,7 @@ func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) ->
 	_on_enemy_card_played(evo_card)
 	major_evolution_entry(evo_card, sac_count)
 	evo_card.spawn_popup("EVOLVED!", UI.AMBER)
+	Sfx.play("evolution_summoned")
 	shake_camera(0.12, 0.3)
 
 	_refresh_bars()
@@ -1956,6 +1972,7 @@ func enemy_action_limit() -> int:
 
 func _on_enemy_card_played(card: Node) -> void:
 	log_event("Disaster plays %s." % card.card_data.name)
+	Sfx.play("unit_deploy")
 	if card.card_data.get("effect", "") == "draw": enemy_draw_cards(int(card.card_data.get("draw_count", 1)))
 	if int(card.card_data.get("on_play_draw", 0)) > 0: enemy_draw_cards(int(card.card_data.on_play_draw))
 	apply_formation_effect(card)
@@ -2096,6 +2113,7 @@ func relocate_enemy_ally(source: Node) -> void:
 				gain = value
 				best_ally = ally
 				best_slot = destination
+	if best_ally: Sfx.play("relocation")
 	if best_ally: best_ally.place_on_slot(best_slot)
 
 # ------------------------------------------------------------------- combat
@@ -2128,6 +2146,8 @@ func _combat() -> void:
 	set_hand_tucked(true)
 	log_event("Combat begins.")
 	plans.apply_combat()
+	if not plans.armed.is_empty(): Sfx.play("contingency_unlocked_and_activated")
+	if not plans.armed.is_empty(): Sfx.play_element(str(plans.armed.get("kind", "")))
 	_set_phase(Phase.COMBAT, "Combat Phase!")
 	await _wait(0.65)
 
@@ -2135,6 +2155,7 @@ func _combat() -> void:
 	if is_instance_valid(final_boss):
 		await _side_attacks(true)
 		if phase != Phase.GAME_OVER and is_instance_valid(final_boss):
+			Sfx.warden_intent(final_boss)
 			final_boss.resolve_intent()
 			if phase != Phase.GAME_OVER: await _side_attacks(false)
 	elif player_first:

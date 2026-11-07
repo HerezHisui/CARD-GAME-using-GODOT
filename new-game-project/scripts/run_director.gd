@@ -1,5 +1,6 @@
 extends CanvasLayer
 ## Owns the persistent run. Battle copies never mutate the collection.
+const Sfx = preload("res://scripts/sfx_call.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 const MenuSkin = preload("res://scripts/suspended_menu.gd")
 const RouteCanvas = preload("res://scripts/route_canvas.gd")
@@ -172,6 +173,7 @@ func _ready() -> void:
 		show_title()
 
 func show_title() -> void:
+	Sfx.map_screen(false)
 	game.presentation.clear_banner()
 	get_tree().paused = false
 	battle_active = false
@@ -312,6 +314,7 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.custom_minimum_size = Vector2(130, 42)
 	if action.is_valid(): b.pressed.connect(action)
+	b.pressed.connect(Sfx.play.bind("choice_confirm"))
 	parent.add_child(b)
 	if text.begins_with("Confirm") or text.begins_with("Abandon") or text.begins_with("Destroy"):
 		b.theme_type_variation = "PrimaryButton"
@@ -321,6 +324,7 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 ## Hooks up a button that comes from a screen scene: its click action and hover feedback.
 func hook_button(b: Button, action: Callable) -> Button:
 	if action.is_valid(): b.pressed.connect(action)
+	b.pressed.connect(Sfx.play.bind("choice_confirm"))
 	game.presentation.button_feedback(b)
 	return b
 
@@ -1111,6 +1115,7 @@ func show_map() -> void:
 		show_versus_closed()
 		return
 	reset_panel("THE SCHOOL MAP", "", "map")
+	Sfx.map_screen(battle_active)
 	# The layout lives in ui_map.tscn; the room buttons are made here because the route changes each run.
 	unpack_screen(MapScene)
 	var map_scroll: ScrollContainer = content.get_node("RouteRow/MapScroll")
@@ -1240,6 +1245,7 @@ func visit(id: int) -> void:
 	if not reachable(id): return
 	current = id
 	encounter = rooms[id].kind
+	Sfx.play("map_room_select")
 	game.presentation.banner("ENTERING " + str(encounter).to_upper(), "Floor %d" % floor_number)
 	match encounter:
 		"battle", "elite", "boss":
@@ -1247,6 +1253,7 @@ func visit(id: int) -> void:
 			battle_active = true
 			modal.hide()
 			screen = ""
+			Sfx.play("encounter_door_open")
 			game.start_encounter(collection, encounter, floor_number, rng.randi_range(0, 3))
 		"rest": show_rest()
 		"upgrade": show_upgrade()
@@ -1275,6 +1282,7 @@ func healing_gain(amount: int) -> int:
 	return maxi(0, mini(amount, game.hero_max_hp() - game.player_hp))
 
 func rest() -> void:
+	Sfx.play("infirmary_treatment")
 	game.player_hp = mini(game.hero_max_hp(), game.player_hp + 7)
 	finish_room()
 
@@ -1294,6 +1302,7 @@ func battle_finished(won: bool) -> void:
 		if is_instance_valid(lan_title): lan_title.match_finished(versus_match.winner)
 		return
 	if not won:
+		Sfx.play("defeat")
 		run_active = false
 		persistence.discard()
 		reset_panel("TRAPPED AFTER MIDNIGHT", "Run ended on floor %d · %d cards in deck" % [floor_number, collection.size()],
@@ -1301,6 +1310,7 @@ func battle_finished(won: bool) -> void:
 		unpack_screen(ResultScene)
 		hook_button(content.get_node("ReturnButton"), return_title)
 		return
+	Sfx.play("victory")
 	var triage := healing_gain(3) if encounter == "battle" else 0
 	game.player_hp += triage
 	game._refresh_bars()
@@ -1348,6 +1358,7 @@ func _style_reward_choice(pick: Button, symbol: String) -> void:
 func select_contingency_reward(id: String) -> void:
 	if screen != "contingency_reward" or not buff_choices.any(func(tactic): return tactic.id == id): return
 	game.plans.unlock(id)
+	Sfx.play("contingency_unlocked")
 	finish_unlock_reward()
 
 func finish_unlock_reward() -> void:
@@ -1448,6 +1459,7 @@ func select_reward(index: int) -> void:
 	if reward_selection != index:
 		show_rewards(index)
 		return
+	Sfx.play("card_reward_select")
 	add_collection_card(reward_stock[index].duplicate(true))
 	finish_room()
 
@@ -1942,6 +1954,7 @@ func show_upgrade() -> void:
 func upgrade(index: int) -> void:
 	if index < 0 or index >= collection.size() or not can_upgrade(collection[index]): return
 	collection[index] = upgraded_definition(collection[index])
+	Sfx.play("upgrade_confirmed")
 	finish_room()
 
 func upgrade_level(card: Dictionary) -> int:
@@ -2027,15 +2040,24 @@ func show_shop() -> void: Shop.show_shop(self)
 
 func shop_price(card: Dictionary) -> int: return Shop.shop_price(card)
 
-func buy(card: Dictionary) -> void: Shop.buy(self, card)
+func buy(card: Dictionary) -> void:
+	var before := coins
+	Shop.buy(self, card)
+	if coins < before: Sfx.play("shop_purchase")
 
-func buy_heal() -> void: Shop.buy_heal(self)
+func buy_heal() -> void:
+	var before := coins
+	Shop.buy_heal(self)
+	if coins < before: Sfx.play("shop_purchase")
 
 func show_remove_cards(origin: String) -> void: Shop.show_remove_cards(self, origin)
 
 func preview_remove(index: int) -> void: Shop.preview_remove(self, index)
 
-func confirm_remove() -> void: Shop.confirm_remove(self)
+func confirm_remove() -> void:
+	var before := collection.size()
+	Shop.confirm_remove(self)
+	if collection.size() < before: Sfx.play("card_permanently_removed")
 
 func cancel_remove() -> void: Shop.cancel_remove(self)
 
@@ -2116,6 +2138,7 @@ func resolve_event(choice: String) -> void:
 		"risk":
 			game.player_hp -= 3
 			coins += 30
+			Sfx.play("supplies_gained")
 			add_collection_card(event_cards[0].duplicate(true))
 		"radio_buy":
 			coins -= 20
@@ -2129,7 +2152,9 @@ func resolve_event(choice: String) -> void:
 			game.player_hp = mini(game.hero_max_hp(), game.player_hp + 8)
 			add_collection_card({"id":"paperwork", "name":"Paperwork", "type":"response", "element":"clearance", "cost":1, "attack":0, "health":1, "utility":true, "effect":"delay"})
 		"rest": game.player_hp = mini(game.hero_max_hp(), game.player_hp + 3)
-		_: coins += 10
+		_:
+			coins += 10
+			Sfx.play("supplies_gained")
 	finish_room()
 
 func event_risk() -> void: resolve_event("risk")
@@ -2142,11 +2167,13 @@ func show_menu() -> void:
 		game.disaster_seat._cancel()
 	# Pressing Menu again closes it, like Resume.
 	if screen == "menu":
+		Sfx.play("menu_open_close")
 		close_modal()
 		return
 	if saved_content: return
 	if screen in DECISIONS: return
 	reset_panel("MIDNIGHT DRRILLS", "", "menu")
+	Sfx.play("menu_open_close")
 	# The layout lives in ui_menu.tscn; here we only fill in text and hook up buttons.
 	unpack_screen(MenuScene)
 	content.get_node("RulesScroll/Rules/Adaptations").text = "Adaptations: " + buff_summary(game.player_buffs)
@@ -2419,6 +2446,7 @@ func show_intel() -> void:
 	hook_button(content.get_node("ReturnButton"), close_modal)
 
 func show_buff_choices(restore_offers: bool = false) -> void:
+	Sfx.play("adaptation_offered")
 	if not restore_offers: buff_choices.clear()
 	var pool: Array = Rules.BUFFS.duplicate(true)
 	if not restore_offers:
@@ -2464,6 +2492,7 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 func select_buff(id: String) -> void:
 	if screen != "buff" or not buff_choices.any(func(buff): return buff.id == id): return
 	game.add_global_buff(true, id)
+	Sfx.play("adaptation_selected")
 	close_modal()
 	game.continue_round()
 
@@ -2486,6 +2515,7 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 func select_floor_buff(id: String) -> void:
 	if screen != "floor_buff" or not buff_choices.any(func(buff): return buff.id == id): return
 	game.add_global_buff(true, id, true)
+	Sfx.play("adaptation_selected")
 	next_floor()
 
 func buff_summary(buffs: Dictionary) -> String:

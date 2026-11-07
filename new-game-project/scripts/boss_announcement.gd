@@ -1,5 +1,6 @@
 extends Control
 ## Dismissal is presentation state only; the encounter remains authoritative.
+const Sfx = preload("res://scripts/sfx_call.gd")
 const MenuSkin = preload("res://scripts/suspended_menu.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 
@@ -20,6 +21,7 @@ func _dismiss() -> void:
 func update_intent(key: String, message: String, active: bool) -> void:
 	if key != announcement_key:
 		announcement_key = key
+		if active: Sfx.play("attack_warning")
 		dismissed = false
 	$IntentLabel.text = message
 	visible = active and not dismissed

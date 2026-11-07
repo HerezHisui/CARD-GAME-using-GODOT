@@ -1,5 +1,6 @@
 extends Node3D
 ## Presentation only. Particle amounts are bounded independently of damage and status stacks.
+const Sfx = preload("res://scripts/sfx_call.gd")
 const BURST := preload("res://scenes/vfx/pixel_burst.tscn")
 const TEXTURES := {
 	"flame": preload("res://assets/vfx/pixel_flame.svg"),
@@ -47,6 +48,7 @@ func attack_start(attacker: Node3D, target_position: Vector3) -> void:
 		material.spread = 24.0
 
 func impact(element: String, at_position: Vector3) -> void:
+	Sfx.play_element(element)
 	_burst(element, at_position + Vector3.UP * 0.12, 14)
 
 func sync_status(card: Node3D, application := true) -> void:
@@ -74,6 +76,7 @@ func sync_status(card: Node3D, application := true) -> void:
 
 func status_tick(card: Node3D, status: String) -> void:
 	if not _card_active(card) or not PROFILES.has(status): return
+	Sfx.play(status + "_tick")
 	_status_burst(card, status, 10)
 
 func _status_burst(card: Node3D, status: String, count: int) -> void:

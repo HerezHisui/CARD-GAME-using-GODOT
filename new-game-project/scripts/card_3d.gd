@@ -1,5 +1,6 @@
 @tool
 extends Area3D
+const Sfx = preload("res://scripts/sfx_call.gd")
 const BattleEngine = preload("res://scripts/battle_engine.gd")
 const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 ## A single playable card.
@@ -667,6 +668,7 @@ func _input(event: InputEvent) -> void:
 		_drop_card()
 
 func cancel_hand_drag() -> void:
+	Sfx.play("card_cancel_return")
 	is_dragging = false
 	_manager().end_hand_drag(self)
 	in_hand = true
@@ -723,6 +725,7 @@ func _drop_card() -> void:
 	if slot and "Response" in slot.name and not _slot_occupied(slot) and _manager().try_play_card(self):
 		if card_data.get("utility", false):
 			if _manager().try_utility(self, slot): return
+			Sfx.play("invalid_action")
 			in_hand = true
 			reparent(_manager().hand_parent(), true)
 			_manager().arrange_hand_centered()
@@ -731,6 +734,7 @@ func _drop_card() -> void:
 		_manager().preparedness_actions.place_unit(self, slot)
 	else:
 		# Return to hand
+		Sfx.play("invalid_action" if slot else "card_cancel_return")
 		in_hand = true
 		current_slot = null
 		reparent(_manager().hand_parent(), true)
@@ -838,11 +842,13 @@ func heal(amt: int) -> void:
 	var before: int = card_data.health
 	card_data.health = mini(max_health, card_data.health + amt)
 	if card_data.health > before: _manager().log_event("%s heals %d HP." % [card_data.name, card_data.health - before])
+	if card_data.health > before: Sfx.play("healing_1", -6.0)
 	_refresh_face()
 	spawn_popup("+%d HP" % amt, UI.RESPONSE)
 
 func sacrifice_dissolve() -> void:
 	if not _manager().can_sacrifice(self): return
+	Sfx.play("sacrifice")
 	_manager().vfx.clear_card(self)
 	_manager().sacrifice_reward(self)
 	_manager().record_graveyard(self, "Sacrificed")
@@ -1012,6 +1018,7 @@ func add_status(status: String, amount: int) -> void:
 	_refresh_face()
 	_manager().vfx.sync_status(self)
 	spawn_popup("%s +%d" % [status.to_upper(), amount], UI.DANGER if status != "strength" else UI.RESPONSE)
+	if status == "strength": Sfx.play("strength_gain")
 
 func status_upkeep() -> void:
 	if card_data.get("utility", false): return
@@ -1039,6 +1046,7 @@ func after_attack(round_number: int) -> void:
 
 func cleanse() -> void:
 	for status in ["burn", "poison", "bleed", "healing_reduced"]: statuses.erase(status)
+	Sfx.play("cleanse")
 	heal(3)
 	_refresh_face()
 	_manager().vfx.sync_status(self, false)
