@@ -50,6 +50,9 @@ func _capture_sides(state: RefCounted, game: Node) -> void:
 	}
 
 func _reference_id(state: RefCounted, reference: Variant) -> String:
+	# A freed card node has no id. Callers keep "" as the empty reference.
+	if typeof(reference) == TYPE_OBJECT and not is_instance_valid(reference):
+		return ""
 	for i in _references.size():
 		if is_same(_references[i], reference):
 			return _ids[i]
@@ -122,6 +125,9 @@ func _capture_plans(state: RefCounted, game: Node) -> void:
 		return
 	var targets: Array = []
 	for card in armed.targets:
+		# Skip a target card that was freed after the plan was armed. Keep the rest.
+		if typeof(card) == TYPE_OBJECT and not is_instance_valid(card):
+			continue
 		targets.append(_reference_id(state, card))
 	state.plans.armed = {
 		"kind": armed.kind, "triggered": armed.triggered, "targets": targets,

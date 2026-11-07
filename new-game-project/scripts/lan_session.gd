@@ -45,6 +45,7 @@ var prep_peer := 0  # host only: the client id that plays Preparedness, 0 when n
 var was_phase := -1  # host only: game.phase at the last frame, watched for a Preparedness client
 var lane_fingerprint := 0
 var was_waiting := false  # host only: game.disaster_waiting at the last frame
+var view_failed := false  # host only: send_view could not build a view, so _process tries again
 var lobby := false  # host only (D2-d): true during the coin, so no view and no action yet
 var panel: Control  # client only: lan_client_panel.gd, set by attach_panel
 var last_view: Dictionary = {}  # client only: the newest view from the host
@@ -92,10 +93,14 @@ func _process(_delta: float) -> void:
 		fingerprint = hash([fingerprint, game.evolution_choice.match_id, game.evolution_choice.offer_id,
 			game.evolution_choice.pending(), game.evolution_choice.held.size()])
 	if game.disaster_waiting != was_waiting or game.phase != was_phase or fingerprint != lane_fingerprint:
+		view_failed = false
+		send_view()
+		# Remember the state only after a real push, so a failed build is sent again next frame.
+		if view_failed:
+			return
 		was_waiting = game.disaster_waiting
 		was_phase = game.phase
 		lane_fingerprint = fingerprint
-		send_view()
 
 
 # Start listening. Returns OK or the ENet error.
@@ -187,9 +192,17 @@ func send_view() -> void:
 	if lobby:
 		return
 	if disaster_peer != 0:
-		push_view.rpc_id(disaster_peer, LanView.build(game))
+		_push_built_view(disaster_peer, LanView.build(game))
 	if prep_peer != 0:
-		push_view.rpc_id(prep_peer, LanView.build(game, "preparedness"))
+		_push_built_view(prep_peer, LanView.build(game, "preparedness"))
+
+
+# Host: push one built view. An empty or broken build is not pushed and sets view_failed.
+func _push_built_view(id: int, view: Variant) -> void:
+	if not (view is Dictionary) or view.is_empty():
+		view_failed = true
+		return
+	push_view.rpc_id(id, view)
 
 
 # Host: the seat of a network id, "disaster", "preparedness" or "" for nobody.
