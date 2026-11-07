@@ -1,0 +1,63 @@
+extends "res://tests/balance_synergy_smoke.gd"
+
+func hand_card(definition: Dictionary) -> Node:
+	game.add_card_to_hand(game.balance_card(definition))
+	return game.get_hand_cards().back()
+
+func run() -> void:
+	game = load("res://scenes/game_3d.tscn").instantiate()
+	root.add_child(game)
+	current_scene = game
+	reset()
+	game.phase = game.Phase.PLAYER_PLAY
+	game.preparedness = 30
+	game.energy_cap = 30
+	var prep: Dictionary = Decks.pool("preparedness")
+	var disaster: Dictionary = Decks.pool("disaster")
+	var needle := response_unit(prep.base.needle_team, 0)
+	var flood := unit(disaster.base.rising_tide, 0)
+	var quake := unit(disaster.base.tremor, 1)
+	expect(needle.card_data.element == "clearance", "Needle Team uses Clearance")
+	expect(game._calc_damage(needle, flood).mult == 2.0, "Needle Team strong against Flood")
+	expect(game._calc_damage(needle, quake).mult == 0.5, "Needle Team weak against Earthquake")
+	expect(needle.has_modifier("piercing") and needle.card_data.cost == 3, "Needle retains Piercing and cost")
+	var marshal: Dictionary = game.balance_card(prep.base.lane_marshal)
+	var crane: Dictionary = game.balance_card(prep.base.rescue_crane)
+	expect(marshal.attack == 2 and marshal.health == 3 and marshal.cost == 2, "Lane Marshal keeps other stats")
+	expect(crane.cost == 3 and crane.attack == 3 and crane.health == 5, "Rescue Crane discounted")
+	expect(game.definition_has_modifier(crane, "sluggish"), "Rescue Crane retains Sluggish")
+	for lane in range(1, 4): response_unit(prep.base.heavy_loader, lane)
+	var rally := hand_card(prep.base.rally)
+	var before: int = game.preparedness
+	expect(game.try_utility(rally, null), "Rally opens targeting with full allied board")
+	expect(game.pending_utility == rally, "Utility waits for target")
+	game.cancel_utility_choice()
+	expect(rally in game.get_hand_cards() and game.preparedness == before, "Cancel retains card and energy")
+	expect(game.try_utility(rally, null), "Canceled spell can be tried again")
+	game.complete_utility_choice(needle)
+	expect(needle.statuses.get("strength", 0) == 2, "Rally keeps two Strength payoff")
+	expect(game.preparedness == before - 1, "Rally keeps one-energy cost")
+	var forecast := hand_card(prep.base.scout)
+	expect(forecast.card_data.cost == 1 and game.try_utility(forecast, null), "Forecast casts for one on full board")
+	expect(game.run_director.intel_revealed, "Forecast enables inspection for encounter duration")
+	game.run_director.close_modal()
+	var evolution: Dictionary = disaster.evolutions.inferno.duplicate(true)
+	game.enemy_hand.assign([evolution, disaster.evolutions.worldbreaker.duplicate(true)])
+	expect(game.next_tax_cost(evolution) == 4, "Tax previews effective four-sacrifice requirement")
+	var tax := hand_card(prep.base.tax)
+	expect(game.try_utility(tax, null), "Tax opens targeting with full board")
+	expect(game.tax_targets().size() == 1, "Four-sacrifice evolution cannot be selected")
+	game.complete_utility_choice(evolution)
+	expect(evolution.cost == 4, "Tax cap applies")
+	expect(game.tax_targets().is_empty(), "Fully taxed evolutions cannot waste another spell")
+	game.turn = int(evolution.tax_until)
+	game.expire_tax(evolution)
+	expect(evolution.cost == 3 and not evolution.has("tax_original"), "Tax expires to original cost")
+	var base: Dictionary = disaster.base.ember.duplicate(true)
+	for i in 4: game.increase_cost(base)
+	expect(base.get("tension_cost", 1) == 3, "Base tension taxation retains two-cost stacking limit")
+	game.clear_battle()
+	game.queue_free()
+	await process_frame
+	print("balance_utility_smoke: %d checks, %d failures" % [checks, failures])
+	quit(1 if failures else 0)

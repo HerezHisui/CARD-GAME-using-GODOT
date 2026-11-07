@@ -5,7 +5,13 @@ const UI = preload("res://scripts/ui_theme.gd")
 const GlowShader = preload("res://assets/title/title_glow.gdshader")
 
 ## The background picture. Keep mipmaps on in its import tab so the glow stays soft.
-const BACKGROUND_PATH := "res://assets/title/title_bg_art.png"
+const BACKGROUND_PATH := "res://assets/title/title_bg_smoke.webp"
+## The Preparedness model on the right of the title. It is small and turns slowly.
+const MODEL_PATH := "res://assets/title/preparedness_model.glb"
+## Radians per second of the slow turn.
+const MODEL_SPIN := 0.35
+## The model is drawn at half size in its own small view to keep the title light.
+const MODEL_RENDER_SHRINK := 2
 ## Most pixels the background moves with the mouse.
 const BACKGROUND_PARALLAX := 6.0
 ## The sunrays move this much more than the background.
@@ -36,6 +42,7 @@ var selected: Button
 var cpu_dust: CPUParticles2D
 var marker_y := -1.0
 var game_logo: TextureRect
+var model_holder: Node3D
 
 @onready var backdrop: Control = %Backdrop
 @onready var rays: TextureRect = %Rays
@@ -53,6 +60,7 @@ func _ready() -> void:
 	build_background()
 	style_text()
 	build_logo()
+	# build_model()  # title model removed 7 Nov 2026
 	for item in menu.get_children():
 		if item is Button: style_menu_button(item)
 	markers.draw.connect(draw_markers)
@@ -117,6 +125,57 @@ func build_logo() -> void:
 	title_box.anchor_bottom = 0.5
 	title_box.modulate.a = 0.0
 	create_tween().tween_property(title_box, "modulate:a", 1.0, 0.35)
+
+## The Preparedness model in its own small 3D view on the right. No shadows, fixed camera and light.
+func build_model() -> void:
+	if not ResourceLoader.exists(MODEL_PATH): return
+	var scene := load(MODEL_PATH) as PackedScene
+	if scene == null: return
+	var box := SubViewportContainer.new()
+	box.name = "PreparednessModel"
+	box.stretch = true
+	box.stretch_shrink = MODEL_RENDER_SHRINK
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(box)
+	move_child(box, backdrop.get_index() + 1)
+	box.anchor_left = 0.66
+	box.anchor_right = 0.98
+	box.anchor_top = 0.3
+	box.anchor_bottom = 0.96
+	var view := SubViewport.new()
+	view.own_world_3d = true
+	view.transparent_bg = true
+	view.msaa_3d = Viewport.MSAA_DISABLED
+	view.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
+	box.add_child(view)
+	model_holder = Node3D.new()
+	view.add_child(model_holder)
+	var model := scene.instantiate() as Node3D
+	model_holder.add_child(model)
+	# Scale the model to a fixed height and center it on the turning point.
+	var bounds := AABB()
+	var first := true
+	for mesh in model.find_children("*", "MeshInstance3D", true, false):
+		var part := (mesh as MeshInstance3D).get_aabb()
+		bounds = part if first else bounds.merge(part)
+		first = false
+	if bounds.size.y > 0.0:
+		var fit := 1.6 / bounds.size.y
+		model.scale = Vector3.ONE * fit
+		model.position = -bounds.get_center() * fit
+	var camera := Camera3D.new()
+	camera.fov = 30.0
+	camera.position = Vector3(0, 0, 4.2)
+	var environment := Environment.new()
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color(0.55, 0.62, 0.75)
+	environment.ambient_light_energy = 0.7
+	camera.environment = environment
+	view.add_child(camera)
+	var light := DirectionalLight3D.new()
+	light.light_color = Color(1.0, 0.86, 0.62)
+	light.rotation_degrees = Vector3(-30, 35, 0)
+	view.add_child(light)
 
 ## The theme's heading font with extra space between letters.
 func spaced_face(spacing: int) -> FontVariation:
@@ -191,6 +250,7 @@ func _process(delta: float) -> void:
 		marker_y = lerpf(marker_y, marker_target(), weight)
 		markers.queue_redraw()
 	if not effects_enabled: return
+	if model_holder: model_holder.rotate_y(delta * MODEL_SPIN)
 	time += delta
 	var target := Vector2.ZERO
 	if parallax_on and size.x > 0.0 and size.y > 0.0:

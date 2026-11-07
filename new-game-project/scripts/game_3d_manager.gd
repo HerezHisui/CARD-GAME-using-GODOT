@@ -1,6 +1,8 @@
 extends Node3D
+const Sfx = preload("res://scripts/sfx_call.gd")
 const BattleEngine = preload("res://scripts/battle_engine.gd")
 const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
+const VersusBalance = preload("res://scripts/versus_balance.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 ## Main game manager: builds the creepy classroom, the pixel-art board,
 ## the gothic HUD, and controls the deck + fanned card hand.
@@ -20,7 +22,16 @@ var enemy_deck: Array[Dictionary] = []
 var enemy_evolution_deck: Array[Dictionary] = []
 var enemy_hand: Array[Dictionary] = []
 var disaster_relocation: RefCounted = preload("res://scripts/disaster_relocation.gd").new(self)
-var evolution_draw_choice_override := false
+# null follows the feature flag; local tests and play may explicitly choose either path.
+var evolution_draw_choice_override: Variant = null
+# null follows the LAN flag; only tests override the LAN evolution path.
+var lan_evolution_picks_override: Variant = null
+# null follows LAN_PREP_UTILITIES; only tests override it.
+var lan_prep_utilities_override: Variant = null
+# null follows BALANCE_PATCH; tests can select the local balance path.
+var balance_patch_override: Variant = null
+# null follows DISASTER_ENTRY_BARRIER_NERF; only tests override it.
+var entry_barrier_nerf_override: Variant = null
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}
@@ -28,6 +39,7 @@ var versus_master := {"preparedness": [], "disaster": []}
 var disaster_actions: RefCounted = preload("res://scripts/disaster_actions.gd").new(self)
 # Set by versus_match.gd at match start. True means a person plays the Disaster turn.
 var disaster_is_human := false
+var disaster_draw: RefCounted = preload("res://scripts/local_disaster_draw.gd").new(self)
 var disaster_waiting := false  # true only while a human Disaster turn waits for End
 # Set by versus_match.gd. True means the human Disaster plays from the far seat, not from the panel.
 var disaster_seat_view := false
@@ -208,7 +220,9 @@ func _ready() -> void:
 	add_child(run_director)
 
 func clear_battle(preserve_result: bool = false) -> void:
+	disaster_draw.cancel()
 	disaster_relocation.reset()
+	preparedness_actions.utility_choice.reset()
 	evolution_choice.reset()
 	encounter_serial += 1
 	versus_master = {"preparedness": [], "disaster": []}
@@ -294,6 +308,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	clear_battle()
 	encounter_kind = kind
 	boss_fog.set_active(kind == "boss")
+	Sfx.encounter_music(kind, floor_level)
 	run_director.intel_revealed = false
 	turn = 1
 	log_event("Encounter begins: %s, floor %d." % [kind.capitalize(), floor_level])
@@ -347,6 +362,7 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 		final_boss = preload("res://scripts/final_boss.gd").new()
 		add_child(final_boss)
 		final_boss.setup(self)
+		Sfx.warden_enter()
 		_enemy_hp_ui.get_node("Caption").text = "MIDNIGHT WARDEN"
 	_start_match()
 
@@ -368,11 +384,11 @@ func start_versus(prep_deck: Array[Dictionary], disaster_deck: Array[Dictionary]
 	enemy_max_hp = 20
 	enemy_hp = enemy_max_hp
 	_enemy_hp_ui.get_node("Caption").text = "DISASTER"
-	for definition in prep_deck: deck.append(definition.duplicate(true))
-	for definition in disaster_deck: enemy_deck.append(definition.duplicate(true))
-	for definition in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
-	versus_master = {"preparedness": prep_deck.duplicate(true),
-		"disaster": disaster_deck.duplicate(true) + evolutions.duplicate(true)}
+	for definition in prep_deck: deck.append(balance_card(definition))
+	for definition in disaster_deck: enemy_deck.append(balance_card(definition))
+	for definition in evolutions: enemy_evolution_deck.append(balance_card(definition))
+	versus_master = {"preparedness": deck.duplicate(true),
+		"disaster": enemy_deck.duplicate(true) + enemy_evolution_deck.duplicate(true)}
 	deck.shuffle()
 	enemy_deck.shuffle()
 	enemy_evolution_deck.shuffle()
@@ -686,7 +702,16 @@ func load_deck_from_json(path: String, target_deck: Array) -> void:
 				var card = def.duplicate()
 				card.erase("count")
 				preload("res://scripts/battle_rules.gd").remove_utility_stats(card)
-				target_deck.append(card)
+				target_deck.append(balance_card(card) if balance_enabled() else card)
+
+func balance_enabled() -> bool:
+	return VersusBalance.enabled(self)
+
+func balance_requested() -> bool:
+	return VersusBalance.requested(self)
+
+func balance_card(definition: Dictionary) -> Dictionary:
+	return VersusBalance.card(definition, balance_enabled())
 
 func hand_parent() -> Node3D:
 	return hand_container
@@ -795,6 +820,7 @@ func draw_cards(count: int) -> void:
 
 func add_card_to_hand(definition: Dictionary) -> void:
 	log_event("Response receives %s." % definition.get("name", "a card"))
+	Sfx.play("card_draw")
 	var card = Card3DScene.instantiate()
 	hand_container.add_child(card)
 	card.add_to_group("cards")
@@ -826,6 +852,7 @@ func seal_field_card(card: Node) -> void:
 	if card not in seal_targets(): return
 	# player_first is the actual alternating round order, independent of animation timing.
 	card.card_data.seal_round = turn if player_first else turn + 1
+	Sfx.play("card_seal")
 	card._refresh_face()
 	card.spawn_popup("SEALED" if player_first else "SEAL NEXT ROUND", UI.AMBER)
 	log_event("%s: %s" % [card.card_data.name, field_seal_text(card.card_data)])
@@ -934,12 +961,14 @@ func update_hand_hover(mouse: Vector2) -> void:
 	clear_hand_hover()
 	hovered_hand_card = picked
 	if picked: picked.set_hand_hover(true)
+	if picked: Sfx.play("card_hover")
 
 func begin_hand_drag(card: Node) -> bool:
 	if not board_input.action.is_empty() or not can_player_act() or is_instance_valid(dragged_hand_card): return false
 	dragged_hand_card = card
 	clear_hand_hover()
 	show_drop_targets(true)
+	Sfx.play("card_select")
 	return true
 
 func end_hand_drag(card: Node) -> void:
@@ -989,6 +1018,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		update_hand_hover(event.position)
 		if is_instance_valid(hovered_hand_card):
 			var picked := hovered_hand_card
+			if balance_enabled() and picked.card_data.get("utility", false):
+				try_utility(picked, null)
+				get_viewport().set_input_as_handled()
+				return
 			picked._start_drag()
 			run_director.begin_inspect_hold(picked, true)
 			get_viewport().set_input_as_handled()
@@ -1005,6 +1038,7 @@ func record_graveyard(card: Node, reason: String) -> void:
 	card.graveyard_recorded = true
 	log_event("%s: %s." % [reason, card.card_data.name])
 	if reason == "Destroyed" and is_instance_valid(final_boss): final_boss.on_card_destroyed(card)
+	if reason == "Destroyed" and card.card_data.get("boss_role", "") == "pillar": Sfx.play("pillar_destroyed")
 	if card.card_data.get("type", "response") != "response":
 		record_disaster_definition(card.card_data, reason)
 		return
@@ -1096,6 +1130,7 @@ func on_card_played(card: Node) -> void:
 	arrange_hand_centered()
 	if not card.card_data.get("utility", false) and card.card_data.get("effect", "") == "draw": draw_cards(int(card.card_data.get("draw_count", 1)))
 	if not card.card_data.get("utility", false):
+		Sfx.play("unit_deploy")
 		if int(card.card_data.get("on_play_draw", 0)) > 0: draw_cards(int(card.card_data.on_play_draw))
 		apply_formation_effect(card)
 		if card.card_data.get("effect", "") == "grave_guard": card.add_status("barrier", mini(2, destroyed_response_units().size()))
@@ -1134,11 +1169,24 @@ func complete_move_effect(slot: Node3D) -> void:
 		moving_ally.is_dragging = false
 		moving_ally.is_relocating = false
 		end_hand_drag(moving_ally)
-		moving_ally.place_on_slot(slot)
-		log_event("Relocated %s." % moving_ally.card_data.name)
-		if is_instance_valid(moving_source) and int(moving_source.card_data.get("move_heal", 0)) > 0: moving_ally.heal(int(moving_source.card_data.move_heal))
-		if is_instance_valid(moving_source) and moving_source.card_data.get("utility", false): consume_utility(moving_source)
+		apply_relocation(moving_ally, slot, moving_source)
 	cancel_move_effect()
+
+## Moves an ally to an empty lane, heals it when the source says so, and pays for a utility source.
+## The local pick and the LAN host both call this.
+func apply_relocation(ally: Node, slot: Node3D, source: Node) -> void:
+	if balance_enabled():
+		if slot not in _response_slots() or _get_card_in_slot(slot) != null: return
+		if ally.current_slot == null or ally.current_slot == slot: return
+	ally.place_on_slot(slot)
+	if balance_enabled() and int(ally.card_data.get("relocation_attack", 0)) > 0:
+		if int(ally.get_meta("dash_round", -1)) != turn:
+			ally.set_meta("dash_round", turn)
+			ally.set_meta("dash_attack", 1)
+			plans.preview_attack()
+	log_event("Relocated %s." % ally.card_data.name)
+	if is_instance_valid(source) and int(source.card_data.get("move_heal", 0)) > 0: ally.heal(int(source.card_data.move_heal))
+	if is_instance_valid(source) and source.card_data.get("utility", false): consume_utility(source)
 
 func cancel_move_effect() -> void:
 	if is_instance_valid(moving_ally) and moving_ally.is_dragging:
@@ -1157,9 +1205,11 @@ func cancel_move_effect() -> void:
 
 func try_utility(card: Node, slot: Node3D) -> bool:
 	if not try_play_card(card): return false
-	if slot not in _response_slots() or _get_card_in_slot(slot) != null: return false
+	if not balance_enabled():
+		if slot not in _response_slots() or _get_card_in_slot(slot) != null: return false
 	var effect: String = card.card_data.get("effect", "")
 	if effect == "move":
+		if balance_enabled() and _response_slots().all(func(s): return _get_card_in_slot(s) != null): return false
 		var allies := _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c != card and c.is_alive())
 		if allies.is_empty(): return false
 		pending_utility = card
@@ -1174,7 +1224,7 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 			"tutor": choices = deck.filter(func(c): return not is_sealed(c))
 			"recover": choices = recoverable_units()
 			"seal": choices = seal_targets() + held_evolution_targets()
-			"tax": choices = enemy_hand + held_evolution_targets()
+			"tax": choices = tax_targets()
 			"rally", "cleanse": choices = _response_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if choices.is_empty(): return false
 		pending_utility = card
@@ -1191,13 +1241,22 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 		elif effect == "tax": run_director.choose_enemy_hand(choices, complete_utility_choice, cancel_utility_choice)
 		else: run_director.choose_card("CHOOSE A TARGET · " + str(card.card_data.name).to_upper(), choices, complete_utility_choice, cancel_utility_choice)
 		return true
+	apply_simple_utility(card, effect)
+	return true
+
+## Pays for a utility that needs no pick and runs its effect. The local drag and the LAN host both end here.
+func apply_simple_utility(card: Node, effect: String) -> void:
 	if effect in ["blast", "barrier", "herb", "tablet"]: set_board_view(true)
 	consume_utility(card)
 	if effect == "draw": draw_cards(int(card.card_data.get("draw_count", 2)) + int(card.card_data.get("utility_power", 0)))
-	elif effect == "scout": run_director.show_intel()
+	elif effect == "scout":
+		# A remote Preparedness seat (LAN) has no modal on the host: the view carries the reveal instead.
+		if seat_prep == "remote": preparedness_actions.reveal_scout()
+		else: run_director.show_intel()
 	elif effect == "blast":
+		var damage := int(card.card_data.get("blast_damage", 2)) if balance_enabled() else 2
 		for target in _threat_slots().map(func(s): return _get_card_in_slot(s)):
-			if target: target.take_damage(2 + int(card.card_data.get("utility_power", 0)))
+			if target: target.take_damage(damage + int(card.card_data.get("utility_power", 0)))
 	elif effect == "barrier":
 		player_barrier = mini(3, player_barrier + 2 + int(card.card_data.get("utility_power", 0)))
 		for target in _response_slots().map(func(s): return _get_card_in_slot(s)):
@@ -1213,11 +1272,11 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 				target.statuses.erase("healing_reduced")
 				target.heal(2 + int(card.card_data.get("utility_power", 0)))
 	_check_game_over()
-	return true
 
 func consume_utility(card: Node) -> void:
 	if card.card_data.get("curse", false): _damage_side(true, 1, true)
 	record_graveyard(card, "Cast")
+	Sfx.play("utility_cast")
 	on_card_played(card)
 	preparedness = mini(energy_cap, preparedness + int(card.card_data.get("refund_energy", 0)))
 	_refresh_bars()
@@ -1234,11 +1293,24 @@ func complete_utility_choice(target: Variant) -> void:
 	if pending_effect == "seal" and target not in seal_targets() + held_evolution_targets():
 		cancel_utility_choice()
 		return
-	if pending_effect == "tax" and target not in enemy_hand + held_evolution_targets():
+	if pending_effect == "tax" and target not in tax_targets():
 		cancel_utility_choice()
 		return
-	var power := int(pending_utility.card_data.get("utility_power", 0))
-	match pending_effect:
+	apply_utility_pick(pending_effect, target, int(pending_utility.card_data.get("utility_power", 0)))
+	var tutoring := pending_effect in ["tutor", "recover"]
+	var received: Dictionary = recovered_definition(target) if pending_effect == "recover" else (target if pending_effect == "tutor" else {})
+	consume_utility(pending_utility)
+	pending_utility = null
+	pending_effect = ""
+	run_director.action_cancel = Callable()
+	run_director.close_modal()
+	if tutoring: add_card_to_hand(received)
+	_refresh_bars()
+
+## The effect of a utility that picked a target. The local pick and the LAN host both call this.
+## It does not pay for the card: the caller runs consume_utility and, for tutor and recover, adds the card.
+func apply_utility_pick(effect: String, target: Variant, power: int) -> void:
+	match effect:
 		"tutor":
 			deck.erase(target)
 		"recover": player_graveyard.erase(target)
@@ -1254,17 +1326,9 @@ func complete_utility_choice(target: Variant) -> void:
 		"cleanse":
 			target.cleanse()
 			if power > 0: target.heal(2 * power)
-	var tutoring := pending_effect in ["tutor", "recover"]
-	var received: Dictionary = recovered_definition(target) if pending_effect == "recover" else (target if pending_effect == "tutor" else {})
-	consume_utility(pending_utility)
-	pending_utility = null
-	pending_effect = ""
-	run_director.action_cancel = Callable()
-	run_director.close_modal()
-	if tutoring: add_card_to_hand(received)
-	_refresh_bars()
 
 func cancel_utility_choice() -> void:
+	Sfx.play("card_cancel_return")
 	board_input.clear()
 	pending_utility = null
 	pending_effect = ""
@@ -1273,17 +1337,44 @@ func cancel_utility_choice() -> void:
 	arrange_hand_centered()
 
 func held_evolution_targets() -> Array:
+	# LAN held tax and seal targeting belong to a separate goal.
+	if evolution_choice.lan_enabled(): return []
 	if not evolution_choice.enabled(): return []
 	return evolution_choice.held.map(func(entry): return {"zone": "held_evolutions", "id": entry.id})
 
 func increase_cost(definition: Dictionary) -> void:
+	if balance_enabled() and not tax_can_increase(definition): return
 	var key := "cost" if definition.get("type", "response") == "response" or int(definition.get("cost", 0)) > 0 else "tension_cost"
 	if not definition.has("tax_original"):
 		definition.tax_original = int(definition.get(key, 1))
 		definition.tax_key = key
 	# A tax adds at most 2 cost. Casting it again refreshes it instead of stacking.
 	definition[key] = mini(int(definition.tax_original) + 2, int(definition.get(key, 1)) + 1)
+	if balance_enabled() and key == "cost" and definition.get("type", "") == "disaster":
+		definition[key] = mini(4, int(definition[key]))
 	definition.tax_until = turn + 2
+	Sfx.play("cost_increase")
+
+func tax_definition(target: Dictionary) -> Dictionary:
+	if target.get("zone", "") == "held_evolutions": return evolution_choice.definition(str(target.id))
+	return target
+
+func next_tax_cost(definition: Dictionary) -> int:
+	var sacrifice: bool = definition.get("type", "") == "disaster" and int(definition.get("cost", 0)) > 0
+	var key := "cost" if sacrifice or definition.get("type", "response") == "response" else "tension_cost"
+	var next := mini(int(definition.get("tax_original", definition.get(key, 1))) + 2,
+		int(definition.get(key, 1)) + 1)
+	return mini(4, next) if sacrifice and balance_enabled() else next
+
+func tax_can_increase(definition: Dictionary) -> bool:
+	if definition.get("type", "") != "disaster" or int(definition.get("cost", 0)) <= 0: return true
+	return next_tax_cost(definition) > int(definition.cost)
+
+func tax_targets() -> Array:
+	var targets: Array = enemy_hand + held_evolution_targets()
+	if balance_enabled():
+		targets = targets.filter(func(target): return tax_can_increase(tax_definition(target)))
+	return targets
 
 func expire_tax(definition: Dictionary) -> void:
 	if definition.has("tax_original") and int(definition.get("tax_until", 0)) <= turn:
@@ -1428,7 +1519,8 @@ func _resume_versus_coin(serial: int) -> void:
 	# The side screen stays "coin" for the director, so its hotkeys and buttons stay off.
 	presentation.show_side_choice(toss_winner, versus_node)
 	# Player 2 takes the laptop before the side screen shows.
-	if toss_winner == 2 and disaster_is_human and not lan_remote_disaster:
+	if toss_winner == 2 and disaster_is_human and not lan_remote_disaster \
+			and not evolution_choice.lan_enabled():
 		run_director.show_privacy_cover("PLAYER 2, you won the toss")
 	var side: String = await versus_node.wait_for_side(coin_pick, coin_result)
 	if serial != encounter_serial: return
@@ -1488,8 +1580,8 @@ func redeal_versus_side(side: String, main: Array, evolutions: Array, tactics: A
 			card.queue_free()
 		hand.clear()
 		deck.clear()
-		versus_master[side] = main.duplicate(true)
-		for definition: Dictionary in main: deck.append(definition.duplicate(true))
+		versus_master[side] = main.map(func(definition): return balance_card(definition))
+		for definition: Dictionary in main: deck.append(balance_card(definition))
 		deck.shuffle()
 		plans.unlocked.assign(tactics)
 		draw_cards(STARTING_HAND)
@@ -1498,9 +1590,9 @@ func redeal_versus_side(side: String, main: Array, evolutions: Array, tactics: A
 		enemy_hand.clear()
 		enemy_deck.clear()
 		enemy_evolution_deck.clear()
-		versus_master[side] = main.duplicate(true) + evolutions.duplicate(true)
-		for definition: Dictionary in main: enemy_deck.append(definition.duplicate(true))
-		for definition: Dictionary in evolutions: enemy_evolution_deck.append(definition.duplicate(true))
+		versus_master[side] = (main + evolutions).map(func(definition): return balance_card(definition))
+		for definition: Dictionary in main: enemy_deck.append(balance_card(definition))
+		for definition: Dictionary in evolutions: enemy_evolution_deck.append(balance_card(definition))
 		enemy_deck.shuffle()
 		enemy_evolution_deck.shuffle()
 		enemy_draw_cards(STARTING_HAND)
@@ -1552,6 +1644,7 @@ func continue_round() -> void:
 	# Disaster tension refills to the cap (cap grows by 1 each round, starts at 3)
 	var bonus := buff_value(false, "energy")
 	tension_cap = clampi(TENSION_START + (turn - 1) * (1 + overclock_stacks(false)) + bonus, 1, maxi(1, TENSION_MAX + bonus))
+	if balance_enabled(): tension_cap = VersusBalance.tension_cap(turn)
 	tension = tension_cap
 	_refresh_bars()
 	player_hp = mini(hero_max_hp(), player_hp + buff_value(true, "hero_regen"))
@@ -1568,16 +1661,22 @@ func continue_round() -> void:
 
 	if is_instance_valid(final_boss):
 		final_boss.prepare_round()
+		Sfx.warden_prepare(final_boss)
 		if _check_game_over(): return
 		_begin_player_turn()
 	elif player_first:
 		_begin_player_turn()
 	else:
+		var round_serial := encounter_serial
+		var versus_round: bool = encounter_kind == "versus"
 		await _enemy_turn()
+		# A Versus match cleared during the Disaster turn: do not start a turn in the next match.
+		if versus_round and round_serial != encounter_serial: return
 		if phase != Phase.GAME_OVER:
 			_begin_player_turn()
 
 func _apply_round_modifiers() -> void:
+	if balance_enabled(): return
 	if encounter_kind == "battle" or is_instance_valid(final_boss): return
 	if turn >= 7:
 		var threats = _threat_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
@@ -1589,12 +1688,16 @@ func _apply_round_modifiers() -> void:
 				target.add_modifier(picked)
 
 func _begin_player_turn() -> void:
+	Sfx.play("turn_start")
 	if deck.is_empty() or get_hand_cards().size() >= HAND_SIZE_MAX:
 		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 	else:
 		_set_phase(Phase.PLAYER_DRAW, "Your turn - draw a card from the deck")
 
 func _on_draw_button_pressed() -> void:
+	if disaster_draw.waiting:
+		disaster_draw.draw()
+		return
 	if encounter_kind == "versus" and seat_prep != "local": return
 	if evolution_choice.pending(): return
 	if run_director and run_director.modal.visible: return
@@ -1642,13 +1745,19 @@ func end_prep_turn() -> void:
 	for c in get_hand_cards():
 		if c.is_dragging: return
 
-	plans.bank_unused_energy()
+	Sfx.play("end_turn_sfx")
+	if plans.bank_unused_energy(): Sfx.play("plan_saved")
+	var round_serial := encounter_serial
+	var versus_round: bool = encounter_kind == "versus"
 	if player_first:
 		# Player went first -> now the Disaster plays its card
 		await _enemy_turn()
 		if phase == Phase.GAME_OVER: return
+		# A Versus match cleared during the Disaster turn: the rest of this round belongs to the old match.
+		if versus_round and round_serial != encounter_serial: return
 	await _combat()
 	if phase == Phase.GAME_OVER: return
+	if versus_round and round_serial != encounter_serial: return
 
 	turn += 1
 	var bonus := buff_value(true, "energy")
@@ -1705,6 +1814,15 @@ func _present_enemy_card(definition: Dictionary, target := Vector3.ZERO) -> bool
 	return true
 
 func _enemy_turn() -> void:
+	var turn_serial := encounter_serial
+	# A Disaster turn left over from a finished Versus match must not run in the next match (LAN too).
+	var versus_turn: bool = encounter_kind == "versus"
+	# Keep opening Response faces hidden until the Disaster's first Ready cover closes.
+	if encounter_kind == "versus" and disaster_is_human and turn == 1 \
+			and not lan_remote_prep and not lan_remote_disaster:
+		hide_versus_hand()
+		# The opening evolution cover is a separate hand-over from the first turn.
+		run_director.privacy_last = ""
 	if is_instance_valid(final_boss):
 		_set_phase(Phase.ENEMY, "The Warden prepares its announced pattern")
 		await _wait(0.4)
@@ -1712,12 +1830,18 @@ func _enemy_turn() -> void:
 	_set_phase(Phase.ENEMY, "Disaster's turn...")
 	await _wait(0.5)
 
+	if (disaster_draw.enabled() or versus_turn) and turn_serial != encounter_serial: return
+
 	# --- Disaster Draw Phase ---
 	if not enemy_deck.is_empty() and enemy_hand.size() < 6:
-		enemy_draw_cards(maxi(0, 1 + buff_value(false, "draw")))
+		if disaster_draw.enabled():
+			if not await disaster_draw.resolve(): return
+		else:
+			enemy_draw_cards(maxi(0, 1 + buff_value(false, "draw")))
 		_set_phase(Phase.ENEMY, "Disaster draws a card...")
 		await _wait(0.4)
 
+	if (disaster_draw.enabled() or versus_turn) and turn_serial != encounter_serial: return
 	if turn % 2 == 0: enemy_draw_evolutions(1)
 
 	# A human Disaster plays through disaster_actions and ends the turn with end_turn().
@@ -1824,6 +1948,9 @@ func disaster_cast(definition: Dictionary, target: Node) -> bool:
 
 ## Sacrifice the given threats and put the evolution in slot.
 func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) -> bool:
+	var matching := matching_material_barrier(definition, sacrifices)
+	var lan_identity: String = evolution_choice.match_id if evolution_choice.lan_enabled() else ""
+	var lan_serial := encounter_serial
 	var sac_count: int = int(definition.get("cost", 1))
 	var evo_name = definition.get("name", "Apex Threat")
 	_set_phase(Phase.ENEMY, "Disaster sacrifices %d card(s) to evolve %s!" % [sacrifices.size(), evo_name])
@@ -1831,22 +1958,37 @@ func disaster_evolve(definition: Dictionary, sacrifices: Array, slot: Node3D) ->
 
 	for sac_card in sacrifices:
 		await sac_card.sacrifice_dissolve()
+		if not _lan_evolution_continues(lan_identity, lan_serial): return false
 
 	await _wait(0.3)
+	if not _lan_evolution_continues(lan_identity, lan_serial): return false
 	if not await _present_enemy_card(definition, slot.global_position): return false
+	if not _lan_evolution_continues(lan_identity, lan_serial): return false
 
 	var evo_card = Card3DScene.instantiate()
 	add_child(evo_card)
 	evo_card.add_to_group("cards")
 	evo_card.setup(definition)
 	await evo_card.enter_from_above(slot, opponent_hand.release_position())
+	if not _lan_evolution_continues(lan_identity, lan_serial): return false
 	_on_enemy_card_played(evo_card)
 	major_evolution_entry(evo_card, sac_count)
+	if matching > 0: evo_card.add_status("barrier", matching)
 	evo_card.spawn_popup("EVOLVED!", UI.AMBER)
+	Sfx.play("evolution_summoned")
 	shake_camera(0.12, 0.3)
 
 	_refresh_bars()
 	return true
+
+func matching_material_barrier(definition: Dictionary, sacrifices: Array) -> int:
+	if not balance_enabled(): return 0
+	var materials: Array = sacrifices.map(func(card): return card.card_data)
+	return VersusBalance.matching_barrier(definition, materials)
+
+func _lan_evolution_continues(identity: String, serial: int) -> bool:
+	if identity.is_empty(): return true
+	return identity == evolution_choice.match_id and serial == encounter_serial and phase == Phase.ENEMY
 
 ## Play a base threat into an empty threat slot.
 func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
@@ -1906,6 +2048,7 @@ func enemy_action_limit() -> int:
 
 func _on_enemy_card_played(card: Node) -> void:
 	log_event("Disaster plays %s." % card.card_data.name)
+	Sfx.play("unit_deploy")
 	if card.card_data.get("effect", "") == "draw": enemy_draw_cards(int(card.card_data.get("draw_count", 1)))
 	if int(card.card_data.get("on_play_draw", 0)) > 0: enemy_draw_cards(int(card.card_data.on_play_draw))
 	apply_formation_effect(card)
@@ -2046,6 +2189,7 @@ func relocate_enemy_ally(source: Node) -> void:
 				gain = value
 				best_ally = ally
 				best_slot = destination
+	if best_ally: Sfx.play("relocation")
 	if best_ally: best_ally.place_on_slot(best_slot)
 
 # ------------------------------------------------------------------- combat
@@ -2078,6 +2222,8 @@ func _combat() -> void:
 	set_hand_tucked(true)
 	log_event("Combat begins.")
 	plans.apply_combat()
+	if not plans.armed.is_empty(): Sfx.play("contingency_unlocked_and_activated")
+	if not plans.armed.is_empty(): Sfx.play_element(str(plans.armed.get("kind", "")))
 	_set_phase(Phase.COMBAT, "Combat Phase!")
 	await _wait(0.65)
 
@@ -2085,6 +2231,7 @@ func _combat() -> void:
 	if is_instance_valid(final_boss):
 		await _side_attacks(true)
 		if phase != Phase.GAME_OVER and is_instance_valid(final_boss):
+			Sfx.warden_intent(final_boss)
 			final_boss.resolve_intent()
 			if phase != Phase.GAME_OVER: await _side_attacks(false)
 	elif player_first:
@@ -2232,9 +2379,17 @@ func sacrifice_reward(card: Node) -> void:
 		log_event("Sacrificing %s releases 2 Burn in its opposing lane." % card.card_data.name)
 
 
+## True when a Versus Disaster evolution gets one Barrier less on entry. Singleplayer and the Warden never do.
+func entry_barrier_nerf_on() -> bool:
+	if encounter_kind != "versus": return false
+	if entry_barrier_nerf_override is bool: return entry_barrier_nerf_override
+	return preload("res://scripts/versus_match.gd").DISASTER_ENTRY_BARRIER_NERF
+
 func major_evolution_entry(card: Node, sacrifices: int) -> void:
 	if sacrifices < 3: return
-	card.add_status("barrier", 2 if sacrifices >= 4 else 1)
+	var entry_barrier := 2 if sacrifices >= 4 else 1
+	if entry_barrier_nerf_on(): entry_barrier -= 1
+	if entry_barrier > 0: card.add_status("barrier", entry_barrier)
 	enemy_draw_cards(1)
 	if sacrifices >= 4:
 		for lane in _response_slots():

@@ -1520,6 +1520,26 @@ func check_flip_screens(game: Node, director: Node) -> void:
 	check_flip_singleplayer_coin(game)
 	game.presentation.automated_choice = 0
 
+# Complete the mandatory opening choice before checking normal first-turn privacy.
+func pick_opening_evolution(game: Node, director: Node, check_cover: bool = false) -> void:
+	var cover: CanvasLayer = director.privacy_screen
+	await wait_until(func(): return cover.visible)
+	if check_cover:
+		expect(cover.visible and cover.get_node("%SideLine").text == "DISASTER, choose an evolution"
+			and game.phase == game.Phase.SETUP and not game.hand_container.visible,
+			"Flip UI: opening evolution cover appears first and hides the Preparedness hand")
+	if not cover.visible: return
+	await privacy_click(cover.get_node("%ReadyButton").get_global_rect().get_center())
+	if not await wait_until(func(): return director.screen == "evolution_offer"): return
+	# Restore the original first-turn fixture history after the separate choice cover.
+	director.privacy_last = ""
+	for button in director.content.find_children("*", "Button", true, false):
+		if button.text == "Choose" and button.is_visible_in_tree():
+			await privacy_click(button.get_global_rect().get_center())
+			break
+	await wait_until(func(): return not game.evolution_choice.pending() and game.phase != game.Phase.SETUP)
+	await privacy_frames()
+
 func check_flip_player2_prep(game: Node, director: Node) -> void:
 	var p: Node = game.presentation
 	var cover: CanvasLayer = director.privacy_screen
@@ -1555,6 +1575,7 @@ func check_flip_player2_prep(game: Node, director: Node) -> void:
 	expect(not versus_node.prematch_active and game.player_first and versus_node.player2_side == Decks.SIDE_PREP
 		and coin_logs(game) == 1 and game.turn == 1, "Flip UI: Player 2 picks Preparedness, it goes first")
 	expect(not is_instance_valid(p.side_root) and not p.blocking, "Flip UI: the side screen closes")
+	await pick_opening_evolution(game, director, true)
 	await privacy_frames()
 	expect(cover.visible and cover.get_node("%SideLine").text == "PLAYER 2 - PREPAREDNESS, it is your turn",
 		"Flip UI: the first-turn cover names Player 2")
@@ -1581,6 +1602,7 @@ func check_flip_player1_disaster(game: Node, director: Node) -> void:
 	await privacy_click(p.side_buttons[1].get_global_rect().get_center())
 	expect(not game.player_first and versus_node.player1_side == Decks.SIDE_DISASTER,
 		"Flip UI: Player 1 picks Disaster, it goes first")
+	await pick_opening_evolution(game, director)
 	expect(await wait_until(func(): return cover.visible), "Flip UI: the Disaster-first cover goes up")
 	expect(game.disaster_waiting and cover.get_node("%SideLine").text == "PLAYER 1 - DISASTER, it is your turn",
 		"Flip UI: the Disaster-first cover names Player 1")

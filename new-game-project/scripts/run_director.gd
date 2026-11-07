@@ -1,5 +1,6 @@
 extends CanvasLayer
 ## Owns the persistent run. Battle copies never mutate the collection.
+const Sfx = preload("res://scripts/sfx_call.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 const MenuSkin = preload("res://scripts/suspended_menu.gd")
 const RouteCanvas = preload("res://scripts/route_canvas.gd")
@@ -116,6 +117,7 @@ var action_cancel: Callable
 var buff_choices: Array = []
 var intel_revealed := false
 var idle_hint: Label
+var seal_tooltip: Label
 var boss_intent: Label
 var plans_button: Button
 var versus_hud: Node # Versus-only HUD look, see versus_hud.gd
@@ -171,6 +173,7 @@ func _ready() -> void:
 		show_title()
 
 func show_title() -> void:
+	Sfx.map_screen(false)
 	game.presentation.clear_banner()
 	get_tree().paused = false
 	battle_active = false
@@ -227,6 +230,9 @@ func _lan_menu_button(title_screen: Control, after: Button, button_name: String,
 
 ## Starts a Versus match. The match node is made once and never touches the save file.
 func start_versus_match() -> void:
+	if preload("res://scripts/versus_match.gd").DISASTER_IS_HUMAN and game.balance_requested():
+		game.encounter_kind = "versus"
+		game.disaster_is_human = true
 	if not is_instance_valid(versus_match):
 		versus_match = preload("res://scripts/versus_match.gd").new()
 		add_child(versus_match)
@@ -311,6 +317,7 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.custom_minimum_size = Vector2(130, 42)
 	if action.is_valid(): b.pressed.connect(action)
+	b.pressed.connect(Sfx.play.bind("choice_confirm"))
 	parent.add_child(b)
 	if text.begins_with("Confirm") or text.begins_with("Abandon") or text.begins_with("Destroy"):
 		b.theme_type_variation = "PrimaryButton"
@@ -320,6 +327,7 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 ## Hooks up a button that comes from a screen scene: its click action and hover feedback.
 func hook_button(b: Button, action: Callable) -> Button:
 	if action.is_valid(): b.pressed.connect(action)
+	b.pressed.connect(Sfx.play.bind("choice_confirm"))
 	game.presentation.button_feedback(b)
 	return b
 
@@ -387,6 +395,15 @@ func _build_ui() -> void:
 	idle_hint.add_theme_font_override("font", UI.font(false))
 	idle_hint.add_theme_font_size_override("font_size", 20)
 	idle_hint.add_theme_color_override("font_color", UI.RESPONSE)
+	seal_tooltip = Label.new()
+	seal_tooltip.name = "SealTooltip"
+	seal_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	seal_tooltip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	seal_tooltip.custom_minimum_size.x = 420
+	seal_tooltip.add_theme_font_size_override("font_size", 22)
+	seal_tooltip.add_theme_stylebox_override("normal", style(UI.PANEL, UI.GOLD))
+	seal_tooltip.hide()
+	root.add_child(seal_tooltip)
 	var intent_panel: Control = root.get_node("BossIntent")
 	boss_intent = intent_panel.get_node("%IntentLabel")
 	plans_button = scene_hud.get_node("PlansBox/PlansButton")
@@ -515,6 +532,7 @@ func _refresh_disaster_panel() -> void:
 	_set_label_text(disaster_panel.get_node("%Tension"), "Tension: %d / %d" % [game.tension, game.tension_cap])
 	_set_label_text(disaster_panel.get_node("%Evolutions"), "Evolutions: %d" % game.enemy_evolution_deck.size())
 	_set_label_text(disaster_panel.get_node("%Actions"), "Actions left: %d" % actions.actions_left())
+	disaster_panel.get_node("%Actions").visible = not game.balance_enabled()
 	var end_button: Button = disaster_panel.get_node("%EndButton")
 	var can_end: bool = game.disaster_waiting and not actions.busy
 	if end_button.disabled == can_end: end_button.disabled = not can_end
@@ -721,7 +739,9 @@ func _process(_delta: float) -> void:
 	graveyard_button.disabled = _dragging() or not game.board_input.action.is_empty()
 	_update_boss_intent()
 	_refresh_privacy_screen()
+	game.disaster_draw.refresh_button()
 	_refresh_disaster_panel()
+	_refresh_seal_tooltip()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
@@ -856,6 +876,23 @@ func _input(event: InputEvent) -> void:
 					show_menu()
 			_: return
 		get_viewport().set_input_as_handled()
+
+func _refresh_seal_tooltip() -> void:
+	seal_tooltip.hide()
+	if game.encounter_kind != "versus" or not battle_active or modal.visible or privacy_screen.visible: return
+	if _dragging() or game.presentation.blocking: return
+	var mouse := get_viewport().get_mouse_position()
+	var card: Node = game.hovered_hand_card
+	if game.disaster_seat.active: card = game.disaster_seat.hovered
+	if not is_instance_valid(card): card = game.card_at_board_position(mouse)
+	if not is_instance_valid(card): return
+	var hint := CardFace.seal_hint(card.card_data, game.turn)
+	if hint.is_empty(): return
+	seal_tooltip.text = hint
+	seal_tooltip.size = Vector2(420, 0)
+	var bounds := get_viewport().get_visible_rect().size - seal_tooltip.size - Vector2(8, 8)
+	seal_tooltip.position = (mouse + Vector2(18, 18)).clamp(Vector2(8, 8), bounds)
+	seal_tooltip.show()
 
 func _update_boss_intent() -> void:
 	var boss: Node = game.final_boss
@@ -1082,6 +1119,7 @@ func show_map() -> void:
 		show_versus_closed()
 		return
 	reset_panel("THE SCHOOL MAP", "", "map")
+	Sfx.map_screen(battle_active)
 	# The layout lives in ui_map.tscn; the room buttons are made here because the route changes each run.
 	unpack_screen(MapScene)
 	var map_scroll: ScrollContainer = content.get_node("RouteRow/MapScroll")
@@ -1211,6 +1249,7 @@ func visit(id: int) -> void:
 	if not reachable(id): return
 	current = id
 	encounter = rooms[id].kind
+	Sfx.play("map_room_select")
 	game.presentation.banner("ENTERING " + str(encounter).to_upper(), "Floor %d" % floor_number)
 	match encounter:
 		"battle", "elite", "boss":
@@ -1218,6 +1257,7 @@ func visit(id: int) -> void:
 			battle_active = true
 			modal.hide()
 			screen = ""
+			Sfx.play("encounter_door_open")
 			game.start_encounter(collection, encounter, floor_number, rng.randi_range(0, 3))
 		"rest": show_rest()
 		"upgrade": show_upgrade()
@@ -1246,6 +1286,7 @@ func healing_gain(amount: int) -> int:
 	return maxi(0, mini(amount, game.hero_max_hp() - game.player_hp))
 
 func rest() -> void:
+	Sfx.play("infirmary_treatment")
 	game.player_hp = mini(game.hero_max_hp(), game.player_hp + 7)
 	finish_room()
 
@@ -1265,6 +1306,7 @@ func battle_finished(won: bool) -> void:
 		if is_instance_valid(lan_title): lan_title.match_finished(versus_match.winner)
 		return
 	if not won:
+		Sfx.play("defeat")
 		run_active = false
 		persistence.discard()
 		reset_panel("TRAPPED AFTER MIDNIGHT", "Run ended on floor %d · %d cards in deck" % [floor_number, collection.size()],
@@ -1272,6 +1314,7 @@ func battle_finished(won: bool) -> void:
 		unpack_screen(ResultScene)
 		hook_button(content.get_node("ReturnButton"), return_title)
 		return
+	Sfx.play("victory")
 	var triage := healing_gain(3) if encounter == "battle" else 0
 	game.player_hp += triage
 	game._refresh_bars()
@@ -1319,6 +1362,7 @@ func _style_reward_choice(pick: Button, symbol: String) -> void:
 func select_contingency_reward(id: String) -> void:
 	if screen != "contingency_reward" or not buff_choices.any(func(tactic): return tactic.id == id): return
 	game.plans.unlock(id)
+	Sfx.play("contingency_unlocked")
 	finish_unlock_reward()
 
 func finish_unlock_reward() -> void:
@@ -1419,6 +1463,7 @@ func select_reward(index: int) -> void:
 	if reward_selection != index:
 		show_rewards(index)
 		return
+	Sfx.play("card_reward_select")
 	add_collection_card(reward_stock[index].duplicate(true))
 	finish_room()
 
@@ -1551,7 +1596,17 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 	if is_instance_valid(live_card):
 		if not game.field_seal_text(card).is_empty(): combat.append(game.field_seal_text(card))
 		if live_card.planned_guard > 0: combat.append("Plan protection: %d" % live_card.planned_guard)
-		if live_card.plan_attack_bonus > 0: combat.append("Plan attack: +%d" % live_card.plan_attack_bonus)
+		var movement: int = int(live_card.get_meta("dash_attack", 0)) if game.balance_enabled() else 0
+		if movement > 0: combat.append("Temporary movement attack: +%d" % movement)
+		if live_card.plan_attack_bonus > movement:
+			combat.append("Plan attack: +%d" % (live_card.plan_attack_bonus - movement))
+		if game.balance_enabled() and card.has("condition") and live_card.current_slot != null:
+			var mine: Array = game._response_slots() if card.type == "response" else game._threat_slots()
+			var theirs: Array = game._threat_slots() if card.type == "response" else game._response_slots()
+			var lane: int = mine.find(live_card.current_slot)
+			var target: Node = game._get_card_in_slot(theirs[lane]) if lane >= 0 else null
+			var active: bool = game.condition_met(card.condition, live_card, target)
+			combat.append("[b]Conditional ability: %s[/b]" % ("ACTIVE" if active else "inactive"))
 		if live_card.plan_ignore_taunt: combat.append("Ignore Taunt")
 		if game.buff_value(live_card.card_data.type == "response", "kill_or_die") > 0: combat.append("Blood Pact: defeat a card this turn or die")
 	if not combat.is_empty(): status_details += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
@@ -1805,11 +1860,17 @@ func live_definition(card: Node) -> Dictionary:
 	return definition
 
 func card_rules(card: Dictionary) -> String:
+	var seal_rules := CardFace.seal_hint(card, game.turn) if game.encounter_kind == "versus" else ""
+	if not seal_rules.is_empty(): seal_rules += "\n"
 	var effect: String = str(card.get("effect", ""))
 	if card.get("utility", false):
-		return Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
+		if game.balance_enabled():
+			return seal_rules + Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
+				+ "Click this utility to cast, even with a full allied board. Canceling a target keeps card and energy."
+		return seal_rules + Rules.utility_text(card) + "\n" + Rules.special_text(card) + "\n" \
 			+ "Choose an empty Response slot to cast. Cancel before choosing a target to keep the card and energy."
-	var rules := "Adjacent matching types: +1 attack.\n" + Rules.special_text(card) + "\n"
+	var special := Rules.special_text(card, game.entry_barrier_nerf_on())
+	var rules := seal_rules + "Adjacent matching types: +1 attack.\n" + special + "\n"
 	var pillar_details := preload("res://scripts/final_boss.gd").pillar_description(card)
 	if not pillar_details.is_empty(): rules += pillar_details + "\n"
 	if effect == "draw": rules += "On play: draw %d.\n" % int(card.get("draw_count", 1))
@@ -1911,6 +1972,7 @@ func show_upgrade() -> void:
 func upgrade(index: int) -> void:
 	if index < 0 or index >= collection.size() or not can_upgrade(collection[index]): return
 	collection[index] = upgraded_definition(collection[index])
+	Sfx.play("upgrade_confirmed")
 	finish_room()
 
 func upgrade_level(card: Dictionary) -> int:
@@ -1996,15 +2058,24 @@ func show_shop() -> void: Shop.show_shop(self)
 
 func shop_price(card: Dictionary) -> int: return Shop.shop_price(card)
 
-func buy(card: Dictionary) -> void: Shop.buy(self, card)
+func buy(card: Dictionary) -> void:
+	var before := coins
+	Shop.buy(self, card)
+	if coins < before: Sfx.play("shop_purchase")
 
-func buy_heal() -> void: Shop.buy_heal(self)
+func buy_heal() -> void:
+	var before := coins
+	Shop.buy_heal(self)
+	if coins < before: Sfx.play("shop_purchase")
 
 func show_remove_cards(origin: String) -> void: Shop.show_remove_cards(self, origin)
 
 func preview_remove(index: int) -> void: Shop.preview_remove(self, index)
 
-func confirm_remove() -> void: Shop.confirm_remove(self)
+func confirm_remove() -> void:
+	var before := collection.size()
+	Shop.confirm_remove(self)
+	if collection.size() < before: Sfx.play("card_permanently_removed")
 
 func cancel_remove() -> void: Shop.cancel_remove(self)
 
@@ -2085,6 +2156,7 @@ func resolve_event(choice: String) -> void:
 		"risk":
 			game.player_hp -= 3
 			coins += 30
+			Sfx.play("supplies_gained")
 			add_collection_card(event_cards[0].duplicate(true))
 		"radio_buy":
 			coins -= 20
@@ -2098,20 +2170,28 @@ func resolve_event(choice: String) -> void:
 			game.player_hp = mini(game.hero_max_hp(), game.player_hp + 8)
 			add_collection_card({"id":"paperwork", "name":"Paperwork", "type":"response", "element":"clearance", "cost":1, "attack":0, "health":1, "utility":true, "effect":"delay"})
 		"rest": game.player_hp = mini(game.hero_max_hp(), game.player_hp + 3)
-		_: coins += 10
+		_:
+			coins += 10
+			Sfx.play("supplies_gained")
 	finish_room()
 
 func event_risk() -> void: resolve_event("risk")
 
 func show_menu() -> void:
-	if _dragging(): return
+	if _dragging():
+		if game.encounter_kind != "versus": return
+		game.dragged_hand_card.cancel_hand_drag()
+	if game.encounter_kind == "versus" and game.disaster_seat_on:
+		game.disaster_seat._cancel()
 	# Pressing Menu again closes it, like Resume.
 	if screen == "menu":
+		Sfx.play("menu_open_close")
 		close_modal()
 		return
 	if saved_content: return
 	if screen in DECISIONS: return
 	reset_panel("MIDNIGHT DRRILLS", "", "menu")
+	Sfx.play("menu_open_close")
 	# The layout lives in ui_menu.tscn; here we only fill in text and hook up buttons.
 	unpack_screen(MenuScene)
 	content.get_node("RulesScroll/Rules/Adaptations").text = "Adaptations: " + buff_summary(game.player_buffs)
@@ -2119,6 +2199,16 @@ func show_menu() -> void:
 	var versus: bool = game.encounter_kind == "versus"
 	content.get_node("RulesScroll/Rules/Adaptations").visible = not versus
 	content.get_node("RulesScroll/Rules/Augmentations").visible = not versus
+	if game.balance_enabled():
+		var help: Label = content.get_node("RulesScroll/Rules/Adaptations")
+		help.visible = true
+		help.text = "Versus: adaptations, run buffs, and upgrades are unavailable. " \
+			+ "Tension refills to 3 in rounds 1–2, 4 in rounds 3–5, and 5 from round 6. " \
+			+ "No action limit. Evolutions spend sacrifices only, even at zero Tension. " \
+			+ "Evac: movement, draw, recovery. Douse: healing, cleansing, Burn. " \
+			+ "Clearance: Poison, Piercing, removal. Brace: armor, Barrier, Strength, Bleed."
+	if game.balance_enabled() and intel_revealed:
+		button("Inspect revealed Disaster hand", show_intel, content)
 	hook_button(content.get_node("ResumeButton"), close_modal)
 	var settings := button("Game Settings", show_settings, content)
 	content.move_child(settings, content.get_node("TitleButton").get_index())
@@ -2305,6 +2395,35 @@ func _dragging() -> bool:
 
 func restart_scene() -> void: return_title()
 
+signal balance_evolution_confirmed(accepted: bool)
+
+func confirm_balance_evolution(definition: Dictionary, sacrifices: Array) -> bool:
+	var serial: int = game.encounter_serial
+	var reply: Array[bool] = []
+	var receive: Callable = func(accepted: bool): reply.append(accepted)
+	balance_evolution_confirmed.connect(receive, CONNECT_ONE_SHOT)
+	var bonus: int = game.matching_material_barrier(definition, sacrifices)
+	var cost := int(definition.get("cost", 0))
+	var entry := 0 if cost < 3 else (2 if cost >= 4 else 1)
+	var preview := "Entry Barrier: %d. Matching materials: +%d. Total Barrier: %d / 3." \
+		% [entry, bonus, mini(3, entry + bonus)]
+	for card: Node in sacrifices:
+		if card.card_data.get("on_sacrifice", "") == "burn":
+			var lane: int = game._threat_slots().find(card.current_slot)
+			var target: Node = game._get_card_in_slot(game._response_slots()[lane])
+			var name: String = str(target.card_data.name) if target != null else "empty lane"
+			preview += " Cinder Cloud: 2 Burn to opposing lane %d (%s)." % [lane + 1, name]
+	choose_card("CONFIRM EVOLUTION", [definition], func(_card): balance_evolution_decision(true),
+		balance_evolution_decision.bind(false), preview, true)
+	while reply.is_empty() and serial == game.encounter_serial:
+		await get_tree().process_frame
+	if balance_evolution_confirmed.is_connected(receive): balance_evolution_confirmed.disconnect(receive)
+	return not reply.is_empty() and reply[0]
+
+func balance_evolution_decision(accepted: bool) -> void:
+	close_modal()
+	balance_evolution_confirmed.emit(accepted)
+
 func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable,
 		subtitle: String = "", show_names: bool = false) -> void:
 	card_picker = true
@@ -2334,11 +2453,14 @@ func choose_evolution_targets(cards: Array, callback: Callable, cancel: Callable
 		if entry is Node: text = str(entry.card_data.name)
 		elif entry.get("zone", "") == "held_evolutions": text = "Held evolution %d" % (i + 1)
 		else: text = str(entry.name) if intel_revealed else "Hand card %d" % (i + 1)
+		if game.balance_enabled() and game.pending_effect == "tax" and entry is Dictionary:
+			var definition: Dictionary = game.tax_definition(entry)
+			text += " · Resulting cost: %d" % game.next_tax_cost(definition)
 		button(text, callback.bind(entry), content)
 	button("Cancel", cancel, content)
 
 func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> void:
-	if game.evolution_choice.enabled():
+	if game.evolution_choice.enabled() or game.balance_enabled():
 		choose_evolution_targets(cards, callback, cancel)
 		return
 	if intel_revealed:
@@ -2384,6 +2506,7 @@ func show_intel() -> void:
 	hook_button(content.get_node("ReturnButton"), close_modal)
 
 func show_buff_choices(restore_offers: bool = false) -> void:
+	Sfx.play("adaptation_offered")
 	if not restore_offers: buff_choices.clear()
 	var pool: Array = Rules.BUFFS.duplicate(true)
 	if not restore_offers:
@@ -2429,6 +2552,7 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 func select_buff(id: String) -> void:
 	if screen != "buff" or not buff_choices.any(func(buff): return buff.id == id): return
 	game.add_global_buff(true, id)
+	Sfx.play("adaptation_selected")
 	close_modal()
 	game.continue_round()
 
@@ -2451,6 +2575,7 @@ func show_floor_buffs(restore_offers: bool = false) -> void:
 func select_floor_buff(id: String) -> void:
 	if screen != "floor_buff" or not buff_choices.any(func(buff): return buff.id == id): return
 	game.add_global_buff(true, id, true)
+	Sfx.play("adaptation_selected")
 	next_floor()
 
 func buff_summary(buffs: Dictionary) -> String:

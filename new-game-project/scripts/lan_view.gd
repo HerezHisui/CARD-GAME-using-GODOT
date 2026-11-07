@@ -43,6 +43,9 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 	var relocation: Dictionary = game.disaster_relocation.view()
 	if not relocation.is_empty(): view["relocation"] = relocation
 	_keep_cards(view, snapshot.cards, view.disaster_hand)
+	if game.evolution_choice.lan_enabled(): _disaster_evolutions(game, view)
+	# Flag on: the Disaster's own graveyard as a list. The Preparedness view keeps the count only.
+	if game.preparedness_actions.flag_on(): view["disaster_graveyard_list"] = _graveyard_list(game)
 	return view
 
 
@@ -78,7 +81,56 @@ static func build_prep(game: Node) -> Dictionary:
 		"hints": prep_hand_hints(game),
 	}
 	_keep_cards(view, snapshot.cards, view.prep_hand)
+	if game.evolution_choice.lan_enabled(): _evolution_counts(game, view)
+	# Flag on: the open utility pick. It goes to the Preparedness client only, never to the Disaster view.
+	if game.preparedness_actions.utilities_on():
+		view["pending_choice"] = game.preparedness_actions.utility_choice.view()
+		# Scout: the Disaster hand as it was at the cast, only while the reveal lasts. Never in the Disaster view.
+		if game.preparedness_actions.scout_active():
+			view["disaster_hand_revealed"] = game.preparedness_actions.scout_hand.duplicate(true)
 	return view
+
+
+# The Disaster's own graveyard cards: every one was played face up. Plain copies, oldest first.
+static func _graveyard_list(game: Node) -> Array:
+	var list: Array = []
+	for entry in game.disaster_graveyard:
+		list.append(entry.duplicate(true))
+	return list
+
+
+# Preparedness receives only these public additions. Private zones never enter its wire dictionary.
+static func _evolution_counts(game: Node, view: Dictionary) -> void:
+	view["evolution_waiting"] = game.evolution_choice.pending()
+	view.counts["disaster_held_evolutions"] = game.evolution_choice.held.size()
+
+
+# Build the owner's private payload on the host, separately from the Preparedness whitelist.
+static func _disaster_evolutions(game: Node, view: Dictionary) -> void:
+	var choice: RefCounted = game.evolution_choice
+	_evolution_counts(game, view)
+	view["match_id"] = choice.match_id
+	view["evolution_offer"] = {}
+	view["held_evolutions"] = []
+	if choice.pending():
+		var candidates: Array = []
+		for entry in choice.offer:
+			candidates.append({"id": entry.id, "card": entry.definition.duplicate(true)})
+		view.evolution_offer = {"match_id": choice.match_id, "offer_id": choice.offer_id, "candidates": candidates}
+	for entry in choice.held:
+		view.held_evolutions.append({"id": entry.id, "card": entry.definition.duplicate(true),
+			"hints": _held_hints(game, entry.definition)})
+
+
+static func _held_hints(game: Node, definition: Dictionary) -> Dictionary:
+	var actions: RefCounted = game.disaster_actions
+	var slots: Array = game._threat_slots()
+	var sacrifices: Array = []
+	for card in actions.legal_sacrifices(definition):
+		sacrifices.append(_lane_of(game, slots, card))
+	var can_use: bool = actions.can_use(definition)
+	return {"can_use": can_use, "problem": actions.card_problem(definition), "needs_target": false,
+		"sacrifices": sacrifices, "lanes": sacrifices.duplicate() if can_use else [], "targets": []}
 
 
 # Copy only the cards that sit in a lane or in the hand this view keeps.
@@ -133,11 +185,20 @@ static func prep_hand_hints(game: Node) -> Array:
 	var hints: Array = []
 	for index in game.get_hand_cards().size():
 		var lanes: Array = actions.legal_lanes(index)
-		hints.append({
+		var hint := {
 			"can_play": not lanes.is_empty(),
 			"problem": actions.hand_problem(index),
 			"lanes": lanes,
-		})
+		}
+		# Flag on: a utility is cast, not placed. It has no lanes; the effect tells the client what to send.
+		var card: Node = game.get_hand_cards()[index]
+		if actions.utilities_on() and card.card_data.get("utility", false):
+			hint["can_play"] = hint.problem == ""
+			hint["utility"] = true
+			hint["effect"] = str(card.card_data.get("effect", ""))
+			# The stage the host will ask for first: "" means the card runs at once.
+			hint["pick"] = actions.utility_choice.first_stage(hint.effect)
+		hints.append(hint)
 	return hints
 
 
@@ -152,14 +213,22 @@ static func tactic_hints(game: Node) -> Array:
 	var hints: Array = []
 	for id in game.plans.unlocked:
 		var tactic: Dictionary = game.plans.definition(id)
-		var available: bool = id not in actions.NOT_SUPPORTED_TACTICS and game.run_director.tactic_available(id)
-		hints.append({
+		# Flag on: Supply Line and Shelter are allowed, and they take no ally.
+		var no_ally: bool = actions.utilities_on() and id in actions.NO_ALLY_TACTICS
+		# Flag on: Emergency Extraction opens a pick (ally, then empty lane), so it has no lanes here.
+		var pick_first: bool = actions.utilities_on() and id == "extract"
+		var available: bool = (id not in actions.NOT_SUPPORTED_TACTICS or no_ally or pick_first) \
+			and game.run_director.tactic_available(id) and not actions.utility_choice.active()
+		var hint := {
 			"id": id,
 			"name": str(tactic.get("name", id)),
 			"cost": int(tactic.get("cost", 0)),
 			"available": available,
-			"lanes": ally_lanes.duplicate() if available else [],
-		})
+			"lanes": [] if no_ally or pick_first or not available else ally_lanes.duplicate(),
+		}
+		if no_ally: hint["no_ally"] = true
+		if pick_first: hint["pick"] = true
+		hints.append(hint)
 	return hints
 
 static func phase_name(game: Node) -> String:

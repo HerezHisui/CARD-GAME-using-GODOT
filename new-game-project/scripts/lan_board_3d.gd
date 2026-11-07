@@ -19,7 +19,10 @@ const NOTE_SECONDS := 2.6
 const HAND_SCALE_HOVER := 1.3
 const FOE_HAND_MAX := 10
 const BACK_CARD := {"name": "Card", "type": "response", "element": "evac", "cost": 0, "attack": 0, "health": 1}
-const REASONS := {"busy": "Wait, the host is still playing.", "not_supported": "Not available in LAN"}
+const REASONS := {"busy": "Wait, the host is still playing.", "not_supported": "Not available in LAN",
+	"choice_pending": "Finish or cancel the open choice first."}
+# Flag on: the lane stages of an open utility choice. The other stages pick from a list.
+const LANE_STAGES := ["ally", "field", "destination"]
 
 var game: Node
 var director: Node
@@ -40,7 +43,13 @@ var hovered := -1
 var held := -1
 var dragging := false
 var relocation_box: PanelContainer
+var choice_box: PanelContainer
+var forecast_box: PanelContainer
+var foe_lit := false
 var selected := -1
+var selected_held := ""
+var held_preview: Node3D
+var evolution_play_sent := false
 var selected_tactic := ""
 var chosen: Array = []
 var press_pos := Vector2.ZERO
@@ -83,6 +92,9 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 	director = owner_director
 	session = lan_session
 	panel = lan_panel
+	if panel.has_method("setup_evolutions"):
+		panel.setup_evolutions(director)
+		panel.held_pressed.connect(_on_held_pressed)
 	cover = cover_rect
 	side = seat
 	flipped = seat == "disaster"
@@ -94,6 +106,7 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 	session.view_received.connect(_on_view)
 	session.event_received.connect(_on_event)
 	session.match_over.connect(_on_match_over)
+	session.evolution_reset.connect(_reset_evolutions)
 	if not session.last_view.is_empty():
 		_on_view(session.last_view)
 
@@ -124,6 +137,9 @@ func _exit_tree() -> void:
 
 # ------------------------------------------------------------------- views
 func _on_view(new_view: Dictionary) -> void:
+	if new_view.has("match_id") and new_view.match_id != view.get("match_id"):
+		over = false
+		over_box.hide()
 	view = new_view
 	_cancel_pick(false)
 	if not shown:
@@ -133,6 +149,8 @@ func _on_view(new_view: Dictionary) -> void:
 	_sync_foe()
 	_refresh_hud()
 	_refresh_relocation()
+	_refresh_choice()
+	_refresh_forecast()
 
 
 ## The first view turns the table on: the 2D cover and panel go, the camera takes the seat.
@@ -178,6 +196,7 @@ func _on_match_over(winner: String) -> void:
 	held = -1
 	dragging = false
 	_cancel_pick(false)
+	_refresh_choice()
 	var won := winner == side
 	over_label.text = "VICTORY" if won else "DEFEAT"
 	over_label.add_theme_color_override("font_color", UI.GOLD if won else UI.DANGER)
@@ -190,7 +209,8 @@ func _own_side() -> String:
 
 
 func _my_turn() -> bool:
-	return not over and bool(view.get("is_prep_turn" if side == "preparedness" else "is_disaster_turn", false))
+	return not over and not view.get("evolution_waiting", false) \
+		and bool(view.get("is_prep_turn" if side == "preparedness" else "is_disaster_turn", false))
 
 
 func _slots(lane_side: String) -> Array:
@@ -207,7 +227,8 @@ func _make_card(definition: Dictionary, parent: Node) -> Node3D:
 	return card
 
 
-func _apply_runtime(card: Node3D, entry: Dictionary) -> void:
+func _apply_runtime(card: Node3D, entry: Dictionary, own_side: bool = true) -> void:
+	card.preview_seal_round = int(view.get("round", 1)) if own_side else -1
 	var runtime: Dictionary = entry.get("runtime", {})
 	card.card_data = entry.definition.duplicate(true)
 	card.max_health = int(runtime.get("max_health", card.max_health))
@@ -231,12 +252,12 @@ func _sync_lanes() -> void:
 				continue
 			var entry: Dictionary = view.cards[id]
 			if current != null and current.card_data.get("name") == entry.definition.get("name"):
-				_apply_runtime(current, entry)
+				_apply_runtime(current, entry, lane_side == _own_side())
 				continue
 			if current != null:
 				_remove_lane_card(lane_side, lane)
 			var card := _make_card(entry.definition, game)
-			_apply_runtime(card, entry)
+			_apply_runtime(card, entry, lane_side == _own_side())
 			lane_cards[lane_side][lane] = card
 			_land(card, slots[lane])
 
@@ -340,6 +361,8 @@ func _usable(index: int) -> bool:
 
 
 func _is_spell(index: int) -> bool:
+	# Flag on: a Preparedness utility is cast like a Disaster spell, not placed in a lane.
+	if side == "preparedness": return bool(_hint(index).get("utility", false))
 	return side == "disaster" and index >= 0 and index < hand_cards.size() \
 		and bool(hand_cards[index].card_data.get("utility", false))
 
@@ -348,7 +371,13 @@ func _is_spell(index: int) -> bool:
 func _open_lanes_for(index: int) -> Array:
 	if not _my_turn():
 		return []
+	# Flag on: an open utility choice lights exactly the lanes of its stage.
+	var open := _pending()
+	if not open.is_empty(): return open.handles.duplicate() if open.stage in LANE_STAGES else []
 	if side == "disaster" and not view.get("relocation", {}).is_empty(): return panel.relocation_lanes()
+	if not selected_held.is_empty():
+		if evolution_play_sent: return []
+		return _held_entry().get("hints", {}).get("sacrifices", []).filter(func(lane): return lane not in chosen)
 	var lanes: Array = []
 	if side == "preparedness":
 		if selected_tactic != "":
@@ -368,10 +397,21 @@ func _open_lanes() -> Array:
 	return _open_lanes_for(held if dragging else selected)
 
 
+## The open utility choice from the newest view, or {}. Only a Preparedness view has one.
+func _pending() -> Dictionary:
+	return view.get("pending_choice", {}) if side == "preparedness" and not over else {}
+
+
+## The row a lane press lands on. A Seal choice picks a Disaster card, everything else the player's own row.
+func _pick_row() -> String:
+	return "disaster" if _pending().get("stage", "") == "field" else ""
+
+
 # ------------------------------------------------------------------- mouse
 func _input(event: InputEvent) -> void:
 	if not shown or over:
 		return
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	# W and S would move the idle game's camera.
 	if event is InputEventKey and event.keycode in [KEY_W, KEY_S]:
 		get_viewport().set_input_as_handled()
@@ -383,8 +423,14 @@ func _input(event: InputEvent) -> void:
 			hand_cards[held].set_layer(100)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		_on_release(event.position)
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE \
+			and not _pending().is_empty():
+		# Esc closes the open choice first. It must not reach the leave-match menu.
+		get_viewport().set_input_as_handled()
+		_cancel_choice()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		_cancel_pick(true)
+		_cancel_choice()
 		held = -1
 		dragging = false
 		_arrange_hand()
@@ -393,6 +439,7 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not shown or over:
 		return
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_on_press(event.position)
 
@@ -408,7 +455,7 @@ func _on_press(point: Vector2) -> void:
 		dragging = false
 		press_pos = point
 		return
-	var lane := _lane_at(point)
+	var lane := _lane_at(point, _pick_row())
 	if lane >= 0:
 		click_lane(lane)
 
@@ -465,7 +512,7 @@ func _update_hover() -> void:
 
 func _update_lane_inspection() -> void:
 	var foe := "response" if side == "disaster" else "disaster"
-	var lane := _lane_at(mouse, foe) if not dragging and hovered < 0 and not over else -1
+	var lane := _lane_at(mouse, foe) if not dragging and hovered < 0 and not over and not _evolution_open() else -1
 	var card: Node3D = lane_cards[foe][lane] if lane >= 0 else null
 	if card == inspected_lane: return
 	inspected_lane = card
@@ -541,11 +588,22 @@ func _update_lanes() -> void:
 	var open := _open_lanes()
 	var slots := _slots(_own_side())
 	for lane in slots.size():
-		var lit := lane in open
+		var lit := lane in open and _pick_row() == ""
 		if slots[lane].visible == lit:
 			continue
 		slots[lane].visible = lit
 		slots[lane].material_override = _lane_look() if lit else null
+	# A Seal choice lights the Disaster row. That row is left alone at all other times.
+	var foe_slots := _slots("disaster" if _own_side() == "response" else "response")
+	var foe_open: bool = _pick_row() != "" and not open.is_empty()
+	if not foe_open and not foe_lit: return
+	for lane in foe_slots.size():
+		var lit := foe_open and lane in open
+		if foe_slots[lane].visible == lit:
+			continue
+		foe_slots[lane].visible = lit
+		foe_slots[lane].material_override = _lane_look() if lit else null
+	foe_lit = foe_open
 
 
 func _lane_look() -> StandardMaterial3D:
@@ -561,6 +619,7 @@ func _lane_look() -> StandardMaterial3D:
 # ------------------------------------------------------------------- actions
 ## Pick a hand card. A spell casts at once, a unit waits for a lane. Picking it again lets it go.
 func click_hand(index: int) -> void:
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	if over or index < 0 or index >= hand_cards.size():
 		return
 	if not _usable(index):
@@ -570,6 +629,7 @@ func click_hand(index: int) -> void:
 		_cancel_pick(true)
 		return
 	selected = index
+	_clear_held_preview()
 	selected_tactic = ""
 	chosen.clear()
 	_arrange_hand()
@@ -577,24 +637,50 @@ func click_hand(index: int) -> void:
 
 
 func click_lane(lane: int) -> void:
+	if _evolution_open() or view.get("evolution_waiting", false): return
 	if side == "disaster" and not view.get("relocation", {}).is_empty():
 		if over: return
 		panel.pick_relocation(lane)
 		_refresh_relocation()
 		return
-	if over or (selected < 0 and selected_tactic == ""):
+	var open := _pending()
+	if not open.is_empty() and open.stage in LANE_STAGES:
+		if lane not in open.handles:
+			show_note("Pick a lit lane", "")
+			return
+		panel.lane_pressed.emit(lane)
+		return
+	if over or (selected < 0 and selected_tactic == "" and selected_held.is_empty()):
 		return
 	if lane not in _open_lanes_for(selected):
 		show_note("Pick a lit lane", "")
 		return
 	chosen.append(lane)
+	if not selected_held.is_empty() and chosen.size() >= int(_held_entry().get("card", {}).get("cost", 1)):
+		evolution_play_sent = true
 	panel.lane_pressed.emit(lane)
+
+
+func _tactic_hint(id: String) -> Dictionary:
+	for tactic: Dictionary in view.get("tactics", []):
+		if str(tactic.id) == id: return tactic
+	return {}
+
+
+## Flag on: the host marks Supply Line, Shelter ("no_ally") and Extraction ("pick") as playable.
+func _tactic_unsupported(id: String) -> bool:
+	var hint := _tactic_hint(id)
+	if hint.has("no_ally") or hint.has("pick"): return false
+	return id in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS
 
 
 func click_tactic(id: String) -> void:
 	if over or not _my_turn():
 		return
-	if id in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS:
+	if not _pending().is_empty():
+		show_note("Can't do that", REASONS.choice_pending)
+		return
+	if _tactic_unsupported(id):
 		_on_event("reject", {"reason": "not_supported"})
 		return
 	selected = -1
@@ -605,15 +691,20 @@ func click_tactic(id: String) -> void:
 
 
 func click_end() -> void:
+	if _evolution_open(): return
 	if not view.get("relocation", {}).is_empty(): return
 	if over or not _my_turn():
+		return
+	if not _pending().is_empty():
+		show_note("Can't end the turn", REASONS.choice_pending)
 		return
 	_cancel_pick(false)
 	panel.end_turn_pressed.emit()
 
 
 func _cancel_pick(tell_session: bool) -> void:
-	var had := selected >= 0 or selected_tactic != ""
+	var had := selected >= 0 or selected_tactic != "" or not selected_held.is_empty()
+	_clear_held_preview()
 	selected = -1
 	selected_tactic = ""
 	chosen.clear()
@@ -839,9 +930,10 @@ func _refresh_hud() -> void:
 	var own_turn: bool = view.get("turn_side", side if _my_turn() else "") == side
 	turn_label.text = ("YOUR TURN" if own_turn else "OPPONENT'S TURN") + " · " + phase
 	turn_label.add_theme_color_override("font_color", UI.GOLD if own_turn else UI.MUTED)
-	end_button.disabled = not _my_turn() or not view.get("relocation", {}).is_empty()
+	end_button.disabled = not _my_turn() or not view.get("relocation", {}).is_empty() or not _pending().is_empty()
 	draw_button.visible = side == "preparedness"
 	draw_button.disabled = not own_turn or phase != "DRAW"
+	if view.get("evolution_waiting", false): draw_button.disabled = true
 	if side == "preparedness":
 		resource_label.text = "ENERGY"
 		_set_resource(resource_meter, int(view.get("energy", 0)), int(view.get("energy_cap", 0)))
@@ -861,6 +953,10 @@ func _refresh_hud() -> void:
 		_layout_hud()
 	if is_instance_valid(disaster_grave):
 		disaster_grave.get_node("CountLabel").text = str(counts.get("disaster_graveyard", 0))
+	if is_instance_valid(disaster_plans) and view.has("held_evolutions"):
+		disaster_plans.tooltip_text = "Evolution"
+		disaster_plans.get_node("CountLabel").text = str(view.held_evolutions.size())
+	if view.get("evolution_waiting", false): turn_label.text = "DISASTER CHOOSES AN EVOLUTION"
 	_fill_tactics()
 
 
@@ -882,7 +978,7 @@ func _fill_tactics() -> void:
 		var tactic_button: Button = director.button("%s (%d)" % [tactic.name, tactic.cost],
 			click_tactic.bind(str(tactic.id)), tactic_box)
 		tactic_button.name = "Tactic_" + str(tactic.id)
-		var unsupported: bool = str(tactic.id) in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS
+		var unsupported: bool = _tactic_unsupported(str(tactic.id))
 		tactic_button.disabled = (not bool(tactic.available) and not unsupported) or not _my_turn()
 		if unsupported: tactic_button.tooltip_text = REASONS.not_supported
 
@@ -930,7 +1026,9 @@ func _build_disaster_controls() -> void:
 	disaster_plans.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	disaster_plans.position = Vector2(hud.size.x - 116, hud.size.y - 72)
 	disaster_plans.size = Vector2(100, 56)
-	disaster_plans.pressed.connect(show_note.bind("Coming later", "Disaster plans are coming later."))
+	disaster_plans.pressed.connect(func() -> void:
+		if view.has("held_evolutions"): panel.show_held_evolutions()
+		else: show_note("Coming later", "Disaster plans are coming later."))
 	disaster_grave = director.graveyard_button.duplicate(0)
 	disaster_grave.name = "DisasterGraveyardButton"
 	disaster_grave.visible = true
@@ -958,10 +1056,34 @@ func show_disaster_graveyard() -> void:
 	grave_note.add_child(box)
 	_label(box, 26, UI.GOLD).text = "DISASTER GRAVEYARD"
 	var count := int(view.get("counts", {}).get("disaster_graveyard", 0))
-	_label(box, 20, UI.TEXT).text = "%d cards. Card list is unavailable on this client." % count
+	# Flag on: the host sends the list. Flag off: only the count.
+	if view.has("disaster_graveyard_list"):
+		_fill_grave_list(box, view.disaster_graveyard_list)
+	else:
+		_label(box, 20, UI.TEXT).text = "%d cards. Card list is unavailable on this client." % count
 	director.button("Close", func() -> void: grave_note.queue_free(), box)
 	grave_note.reset_size()
 	grave_note.position = (hud.size - grave_note.size) * 0.5
+
+
+# The Disaster graveyard cards in the order the host sent them, each with its reason and round.
+func _fill_grave_list(box: VBoxContainer, cards: Array) -> void:
+	if cards.is_empty():
+		_label(box, 20, UI.TEXT).text = "The graveyard is empty."
+		return
+	var scroll := ScrollContainer.new()
+	scroll.name = "GraveList"
+	scroll.custom_minimum_size = Vector2(minf(760, hud.size.x - 80), minf(420, hud.size.y - 220))
+	box.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	scroll.add_child(grid)
+	for entry: Dictionary in cards:
+		director._card_tile(entry, grid)
+		var reason := str(entry.get("graveyard_reason", "Destroyed"))
+		var caption := _label(grid.get_child(-1).get_node("Box"), 14, UI.MUTED)
+		caption.text = "%s · round %d" % [reason, int(entry.get("graveyard_round", 1))]
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
 func _refresh_relocation() -> void:
@@ -984,3 +1106,120 @@ func _refresh_relocation() -> void:
 	if panel.relocation_sent: prompt.text = "Waiting for the host..."
 	for lane in panel.relocation_lanes():
 		director.button("Lane %d" % (lane + 1), click_lane.bind(lane), box)
+
+
+## Flag on: the box for the open utility choice. A prompt, a button per lane or list entry, and Cancel.
+## Lane stages can also be picked on the lit table. Esc and right click cancel too.
+func _refresh_choice() -> void:
+	if is_instance_valid(choice_box):
+		choice_box.get_parent().remove_child(choice_box)
+		choice_box.queue_free()
+	choice_box = null
+	var open := _pending()
+	if open.is_empty(): return
+	choice_box = PanelContainer.new()
+	choice_box.name = "UtilityChoice"
+	choice_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
+	hud.add_child(choice_box)
+	_place(choice_box, Control.PRESET_CENTER_LEFT, Vector2(16, -80))
+	var box := VBoxContainer.new()
+	choice_box.add_child(box)
+	_label(box, 24, UI.GOLD).text = str(open.name).to_upper()
+	var prompt := _label(box, 18, UI.TEXT)
+	prompt.name = "ChoicePrompt"
+	prompt.text = str(open.prompt)
+	prompt.custom_minimum_size = Vector2(300, 0)
+	prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if open.stage in LANE_STAGES:
+		for lane: int in open.handles:
+			var named := ""
+			var lane_side := "disaster" if open.stage == "field" else "response"
+			var lane_card: Node3D = lane_cards[lane_side][lane]
+			if is_instance_valid(lane_card): named = " · " + str(lane_card.card_data.name)
+			var lane_button: Button = director.button("Lane %d%s" % [lane + 1, named], click_lane.bind(lane), box)
+			lane_button.name = "ChoiceLane%d" % lane
+	for entry: Dictionary in open.get("candidates", []):
+		var text := "Hidden card %d" % (int(entry.handle) + 1)
+		if entry.has("card"): text = str(entry.card.get("name", "?"))
+		var entry_button: Button = director.button(text, _pick_candidate.bind(int(entry.handle)), box)
+		entry_button.name = "ChoiceEntry%d" % int(entry.handle)
+	var cancel: Button = director.button("Cancel", _cancel_choice, box)
+	cancel.name = "ChoiceCancel"
+
+
+## Flag on, after Scout: the Disaster hand as it was when Hazard Forecast was cast. Preparedness view only.
+func _refresh_forecast() -> void:
+	if is_instance_valid(forecast_box):
+		forecast_box.get_parent().remove_child(forecast_box)
+		forecast_box.queue_free()
+	forecast_box = null
+	if side != "preparedness" or over or not view.has("disaster_hand_revealed"): return
+	forecast_box = PanelContainer.new()
+	forecast_box.name = "HazardForecast"
+	forecast_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
+	hud.add_child(forecast_box)
+	_place(forecast_box, Control.PRESET_CENTER_RIGHT, Vector2(-16, -80))
+	var box := VBoxContainer.new()
+	forecast_box.add_child(box)
+	_label(box, 24, UI.GOLD).text = "HAZARD FORECAST"
+	var cards: Array = view.disaster_hand_revealed
+	if cards.is_empty(): _label(box, 18, UI.TEXT).text = "The Disaster hand is empty."
+	for card: Dictionary in cards:
+		_label(box, 18, UI.TEXT).text = str(card.get("name", "?"))
+
+
+func _pick_candidate(handle: int) -> void:
+	if over or _pending().is_empty(): return
+	panel.choice_picked.emit(handle)
+
+
+func _cancel_choice() -> void:
+	if _pending().is_empty(): return
+	panel.choice_cancelled.emit()
+
+
+func _evolution_open() -> bool:
+	return is_instance_valid(panel) and panel.has_method("evolution_open") and panel.evolution_open()
+
+
+func _held_entry() -> Dictionary:
+	for entry in view.get("held_evolutions", []):
+		if entry.id == selected_held: return entry
+	return {}
+
+
+func _on_held_pressed(id: String) -> void:
+	if not _my_turn(): return
+	_cancel_pick(false)
+	selected_held = id
+	var entry := _held_entry()
+	if entry.is_empty():
+		selected_held = ""
+		return
+	held_preview = _make_card(entry.card, hand_root)
+	held_preview.transform = Transform3D(game.UPRIGHT.scaled(Vector3.ONE * game.HAND_SCALE),
+		Vector3(1.6, game.HAND_Y + 0.1, -game.HAND_DIST))
+	show_note(str(entry.card.name), "Choose %d sacrifice lanes." % int(entry.card.get("cost", 1)))
+	_arrange_hand()
+
+
+func _clear_held_preview() -> void:
+	if is_instance_valid(held_preview):
+		held_preview.hide()
+		held_preview.queue_free()
+	held_preview = null
+	selected_held = ""
+	evolution_play_sent = false
+
+
+func _reset_evolutions() -> void:
+	_cancel_pick(false)
+	held = -1
+	dragging = false
+	view = {}
+	end_button.disabled = true
+	draw_button.disabled = true
+	note.hide()
+	note_head.text = ""
+	note_body.text = ""
+	if is_instance_valid(disaster_plans): disaster_plans.get_node("CountLabel").text = ""

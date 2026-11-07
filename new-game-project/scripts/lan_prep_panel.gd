@@ -9,6 +9,9 @@ signal tactic_pressed(id: String)
 signal lane_pressed(lane: int)
 signal end_turn_pressed
 signal back_pressed
+# Flag on: a pick from the open utility choice (a list entry), or its cancel. Lane picks use lane_pressed.
+signal choice_picked(handle: int)
+signal choice_cancelled
 
 const LANE_COUNT := 4
 
@@ -26,6 +29,9 @@ var tactic_row: HBoxContainer
 var reject_label: Label
 var end_button: Button
 var back_button: Button
+var choice_label: Label
+var choice_row: HBoxContainer
+var choice_cancel: Button
 
 
 func _ready() -> void:
@@ -39,6 +45,16 @@ func _ready() -> void:
 	info = _add_label(box)
 	hand_row = _add_row(box)
 	tactic_row = _add_row(box)
+	# Flag on: the open utility choice. Hidden unless the host sends one, so the flag-off panel is unchanged.
+	choice_label = _add_label(box)
+	choice_label.visible = false
+	choice_row = _add_row(box)
+	choice_row.visible = false
+	choice_cancel = Button.new()
+	choice_cancel.text = "Cancel"
+	choice_cancel.visible = false
+	choice_cancel.pressed.connect(func() -> void: choice_cancelled.emit())
+	box.add_child(choice_cancel)
 	reject_label = _add_label(box)
 	end_button = Button.new()
 	end_button.text = "End Turn"
@@ -103,11 +119,16 @@ func _redraw() -> void:
 	info.text = "Their hand: %d | Your deck: %d | Plan tokens: %d | Armed: %s" % [
 		counts.disaster_hand, counts.response_draw, view.plan_tokens, armed,
 	]
-	_fill_lanes(disaster_row, "disaster", [])
+	# Flag on, after Scout: the Disaster hand as it was when Hazard Forecast was cast.
+	if view.has("disaster_hand_revealed"):
+		var names: Array = view.disaster_hand_revealed.map(func(card): return str(card.get("name", "?")))
+		info.text += " | Forecast: " + (", ".join(names) if not names.is_empty() else "empty hand")
+	_fill_lanes(disaster_row, "disaster", _field_lanes())
 	_fill_lanes(response_row, "response", _allowed_lanes())
 	_fill_hand()
 	_fill_tactics()
-	end_button.disabled = not view.is_prep_turn
+	_fill_choice()
+	end_button.disabled = not view.is_prep_turn or not view.get("pending_choice", {}).is_empty()
 	if over_text != "":
 		header.text = over_text
 		end_button.disabled = true
@@ -115,6 +136,8 @@ func _redraw() -> void:
 
 # Lanes the pick may use: free lanes for a unit, ally lanes for a tactic.
 func _allowed_lanes() -> Array:
+	var open: Dictionary = view.get("pending_choice", {})
+	if not open.is_empty(): return open.handles.duplicate() if open.stage in ["ally", "destination"] else []
 	if selected_tactic != "":
 		for tactic in view.tactics:
 			if tactic.id == selected_tactic:
@@ -125,13 +148,19 @@ func _allowed_lanes() -> Array:
 	return view.hints[selected].lanes
 
 
+# Flag on: a Seal choice lights the Disaster lanes it may pick. Otherwise the Disaster row stays dark.
+func _field_lanes() -> Array:
+	var open: Dictionary = view.get("pending_choice", {})
+	return open.handles.duplicate() if not open.is_empty() and open.stage == "field" else []
+
+
 func _fill_lanes(row: HBoxContainer, side: String, allowed: Array) -> void:
 	_clear(row)
 	for lane in LANE_COUNT:
 		var button := Button.new()
 		button.text = _card_text(view.lanes[side][lane])
 		button.custom_minimum_size = Vector2(140, 60)
-		button.disabled = side == "disaster" or lane not in allowed
+		button.disabled = lane not in allowed
 		button.pressed.connect(func() -> void: lane_pressed.emit(lane))
 		row.add_child(button)
 
@@ -157,7 +186,7 @@ func _fill_tactics() -> void:
 		var button := Button.new()
 		button.text = "%s (%d)" % [tactic.name, tactic.cost]
 		button.disabled = not tactic.available
-		if str(tactic.id) in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS:
+		if _tactic_unsupported(tactic):
 			button.text += " (Not available in LAN)"
 			button.tooltip_text = "Not available in LAN"
 		button.toggle_mode = true
@@ -176,14 +205,45 @@ func _on_hand_pressed(index: int) -> void:
 	_redraw()
 
 
+# Flag on: the host marks Supply Line, Shelter ("no_ally") and Extraction ("pick") as playable.
+func _tactic_unsupported(tactic: Dictionary) -> bool:
+	if tactic.has("no_ally") or tactic.has("pick"): return false
+	return str(tactic.id) in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS
+
+
 func _on_tactic_pressed(id: String) -> void:
-	if id in preload("res://scripts/preparedness_actions.gd").NOT_SUPPORTED_TACTICS:
-		show_reject("not_supported")
-		return
+	for tactic in view.tactics:
+		if tactic.id == id and _tactic_unsupported(tactic):
+			show_reject("not_supported")
+			return
 	selected = -1
 	selected_tactic = id
 	tactic_pressed.emit(id)
 	_redraw()
+
+
+# The open utility choice: its prompt, the list entries to pick from, and Cancel. All hidden when nothing is open.
+func _fill_choice() -> void:
+	var open: Dictionary = view.get("pending_choice", {})
+	choice_label.visible = not open.is_empty()
+	choice_row.visible = not open.is_empty()
+	choice_cancel.visible = not open.is_empty()
+	_clear(choice_row)
+	if open.is_empty(): return
+	choice_label.text = "%s: %s" % [open.name, open.prompt]
+	for entry in open.get("candidates", []):
+		var button := Button.new()
+		button.text = _candidate_text(entry)
+		button.pressed.connect(func() -> void: choice_picked.emit(int(entry.handle)))
+		choice_row.add_child(button)
+
+
+# A deck or graveyard entry shows its card. A Disaster hand entry is blind: the host sends no face.
+func _candidate_text(entry: Dictionary) -> String:
+	if not entry.has("card"): return "Hidden card %d" % (int(entry.handle) + 1)
+	var definition: Dictionary = entry.card
+	if definition.get("utility", false): return str(definition.get("name", "?"))
+	return "%s %d/%d" % [definition.get("name", "?"), definition.get("attack", 0), definition.get("health", 0)]
 
 
 # Name plus attack and health, or "-" for an empty lane.

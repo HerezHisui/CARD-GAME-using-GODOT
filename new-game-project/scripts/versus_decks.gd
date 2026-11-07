@@ -35,6 +35,23 @@ const DISASTER_PRESET_MAIN := [
 ]
 const DISASTER_PRESET_EVOLUTIONS := ["wildfire", "fissure", "flash_flood", "gale_force", "inferno", "tsunami"]
 
+const BALANCED_PREP_MAIN := [
+	"quick_dash", "lane_marshal", "steam_team", "heat_seeker", "shard_barrier", "last_responder",
+	"hazmat_team", "containment_lance", "rally", "momentum_team", "alarm_sweep", "needle_team",
+]
+const BALANCED_DISASTER_MAIN := [
+	"ember", "tremor", "rising_tide", "gust", "cinder_cloud", "glass_quake", "toxic_runoff",
+	"pressure_front", "crosswind", "fracture_hunter", "warm_front", "red_tape",
+]
+const BALANCED_EVOLUTIONS := ["wildfire", "ash_predator", "venom_surge", "aftershock", "pressure_break", "gale_force"]
+
+## The builder and match share the current local Versus context, without changing their callers.
+static func _balance_active() -> bool:
+	var loop: MainLoop = Engine.get_main_loop()
+	if not loop is SceneTree: return false
+	var game: Node = loop.current_scene
+	return is_instance_valid(game) and game.has_method("balance_enabled") and game.balance_enabled()
+
 # =================================================================== POOLS
 ## Read one card json file into a list of definitions (no count, utility stats removed).
 static func _load_file(path: String) -> Array[Dictionary]:
@@ -51,7 +68,7 @@ static func _load_file(path: String) -> Array[Dictionary]:
 ## Card definitions a side may use, as {"base": {id: def}, "evolutions": {id: def}, "spells": {id: def}}.
 ## Preparedness has only "base". Disaster splits the way start_encounter does: cost > 0 is an evolution,
 ## cost 0 is a base card, and a utility base card is a spell.
-static func pool(side: String) -> Dictionary:
+static func pool(side: String, active_override: Variant = null) -> Dictionary:
 	var result := {"base": {}, "evolutions": {}, "spells": {}}
 	if side == SIDE_PREP:
 		for path: String in PREP_FILES:
@@ -63,6 +80,11 @@ static func pool(side: String) -> Dictionary:
 				if int(card.get("cost", 0)) > 0: result.evolutions[card.id] = card
 				elif card.get("utility", false): result.spells[card.id] = card
 				else: result.base[card.id] = card
+	var active: bool = _balance_active() if active_override == null else bool(active_override)
+	if active:
+		var balance: GDScript = load("res://scripts/versus_balance.gd")
+		for pile: Dictionary in result.values():
+			for id: String in pile: pile[id] = balance.card(pile[id], true)
 	return result
 
 # =================================================================== RULES
@@ -120,6 +142,12 @@ static func validate(side: String, deck: Dictionary) -> Dictionary:
 ## One legal deck per side. Passes validate().
 static func preset(side: String) -> Dictionary:
 	var main: Array[String] = []
+	if _balance_active():
+		var ids: Array = BALANCED_PREP_MAIN if side == SIDE_PREP else BALANCED_DISASTER_MAIN
+		if side not in [SIDE_PREP, SIDE_DISASTER]: return {}
+		for id: String in ids: main.append_array([id, id])
+		return {"main": main, "evolutions": BALANCED_EVOLUTIONS.duplicate() if side == SIDE_DISASTER else [],
+			"tactics": ["brace", "coordinate", "medicine"] if side == SIDE_PREP else []}
 	if side == SIDE_PREP:
 		for id: String in PREP_PRESET_MAIN: main.append_array([id, id])
 		main.append_array(PREP_PRESET_EXTRA)
