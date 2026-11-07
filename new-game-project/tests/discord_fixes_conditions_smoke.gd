@@ -1,5 +1,5 @@
-# Covers: Toxin Hunter's looser Versus condition (Discord fix, item 5). The change lives only in the
-# versus_balance.gd override layer behind BALANCE_PATCH. data/*.json keeps the old threshold.
+# Covers: Toxin Hunter's looser condition (threshold 2). It is in data/response_expansion.json, so it holds in
+# every mode. The versus_balance.gd override layer also sets 2, so Versus stays the same.
 extends SceneTree
 
 const VersusBalance = preload("res://scripts/versus_balance.gd")
@@ -26,13 +26,13 @@ func source_card(id: String) -> Dictionary:
 func run() -> void:
 	var toxin := source_card("toxin_hunter")
 	expect(not toxin.is_empty(), "Toxin Hunter is in the data")
-	expect(int(toxin.condition.threshold) == 3, "data keeps the old threshold of 3")
+	expect(int(toxin.condition.threshold) == 2, "data has the lowered threshold of 2 in all modes")
 	var patched: Dictionary = VersusBalance.card(toxin, true)
 	expect(int(patched.condition.threshold) == 2, "Versus balance patch lowers the threshold to 2")
 	expect(int(patched.condition.get("strikes", 1)) == 2, "the reward stays attack twice")
 	expect(str(patched.condition.status) == "any", "the status stays any of Burn, Poison or Bleed")
-	expect(int(VersusBalance.card(toxin, false).condition.threshold) == 3, "patch off keeps 3")
-	expect(int(toxin.condition.threshold) == 3, "the source dictionary is not changed")
+	expect(int(VersusBalance.card(toxin, false).condition.threshold) == 2, "patch off keeps 2")
+	expect(int(toxin.condition.threshold) == 2, "the source dictionary is not changed")
 	var momentum := source_card("momentum_team")
 	expect(int(VersusBalance.card(momentum, true).condition.threshold) == 2, "Momentum Team is unchanged")
 	if failures > 0:

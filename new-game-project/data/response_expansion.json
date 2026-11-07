@@ -220,7 +220,7 @@
     "condition": {
       "subject": "target",
       "status": "any",
-      "threshold": 3,
+      "threshold": 2,
       "strikes": 2
     }
   },

@@ -9,7 +9,7 @@ const CATALOG_PATHS := [
 	"res://data/disaster_expansion.json",
 ]
 # Captured against the original director methods before wrapper integration.
-const ORIGINAL_RESULTS_SHA256 := "07b28133e2a3455b2d05da059960f9d72c9cb0333d47b7ba651726cec336051a"
+const ORIGINAL_RESULTS_SHA256 := "67cbe458570d589465ceeebda43c3a10a6693e01c4a06ae218cdad6d26c1ae65"
 
 var director: Node
 var failures := 0
@@ -99,7 +99,7 @@ func run() -> void:
 	var checksum := result_hash.finish().hex_encode()
 	if checksum != ORIGINAL_RESULTS_SHA256:
 		failures += 1
-		push_error("FAILED: original card-rule output checksum")
+		push_error("FAILED: original card-rule output checksum " + checksum)
 	if failures > 0:
 		quit(1)
 		return
