@@ -17,7 +17,7 @@ const LIST_UTILITIES := ["tutor", "recover", "tax"]
 const LIST_STAGES := ["deck", "grave", "hand"]
 
 var game: Node
-var kind := ""  # "utility" (a hand card) or "tactic" (Emergency Extraction), "" when nothing is pending
+var kind := ""  # "utility" (a hand card), "tactic" (Emergency Extraction) or "relocation" (a played unit), "" = none
 var effect := ""  # the utility effect, or the tactic id
 var source: Node  # utility only: the hand card that is not paid for yet
 var encounter := -1  # game.encounter_serial when the choice began
@@ -91,6 +91,8 @@ func active() -> bool:
 		and game.encounter_kind == "versus" and game.seat_prep == "remote"
 	if valid and kind == "utility": valid = is_instance_valid(source) and source in game.get_hand_cards()
 	if valid and kind == "tactic": valid = effect in game.plans.unlocked
+	if valid and kind == "relocation":
+		valid = is_instance_valid(source) and source.is_alive() and source.current_slot != null and not source.in_hand
 	if not valid: reset()
 	return valid
 
@@ -100,6 +102,15 @@ func begin_utility(card: Node, effect_id: String) -> void:
 	effect = effect_id
 	source = card
 	_start(first_stage(effect_id))
+
+## A played unit with "On play: move another ally" (Lane Marshal). The unit is already on the board and paid for.
+## The move is optional: cancel keeps the unit where it is.
+func begin_relocation(card: Node) -> void:
+	reset()
+	kind = "relocation"
+	effect = "move"
+	source = card
+	_start("ally")
 
 func begin_tactic(id: String) -> void:
 	reset()
@@ -116,9 +127,15 @@ func _set_stage(stage_name: String) -> void:
 	stage = stage_name
 	entries = list_entries(stage_name)
 	handles = range(entries.size()) if stage_name in LIST_STAGES else handles_for(stage_name)
+	# A relocation moves another ally, never the unit that was just played, and the ally must be eligible.
+	if kind == "relocation" and stage_name == "ally":
+		handles = handles.filter(func(lane: int) -> bool:
+			var ally := _ally_in(lane)
+			return ally != source and game.plans.eligible(ally))
 
 func _prompt() -> String:
 	if stage == "destination": return "Choose an empty lane."
+	if kind == "relocation": return "Choose another ally to move, or cancel."
 	if stage == "field": return "Choose a Disaster card on the field."
 	if stage == "deck": return "Choose a card from your deck."
 	if stage == "grave": return "Choose a unit from your graveyard."
@@ -138,7 +155,7 @@ func _candidates() -> Array:
 ## What the Preparedness client may know about the open choice. {} when nothing is open.
 func view() -> Dictionary:
 	if not active(): return {}
-	var title: String = str(source.card_data.get("name", effect)) if kind == "utility" \
+	var title: String = str(source.card_data.get("name", effect)) if kind in ["utility", "relocation"] \
 		else str(game.plans.definition(effect).get("name", effect))
 	var out := {"choice": choice, "encounter": encounter, "kind": kind, "effect": effect, "name": title,
 		"source": game.get_hand_cards().find(source) if kind == "utility" else -1,
@@ -182,6 +199,7 @@ func pick(msg: Dictionary) -> Dictionary:
 			return _refuse("stale_choice")
 	elif msg.handle not in handles_for(stage): return _refuse("bad_handle")
 	if kind == "tactic": return _pick_tactic(msg.handle)
+	if kind == "relocation": return _pick_relocation(msg.handle)
 	var problem_now: String = game.preparedness_actions.utility_problem(source)
 	if not problem_now.is_empty():
 		reset()
@@ -203,6 +221,20 @@ func _pick_tactic(handle: int) -> Dictionary:
 	reset()
 	if ally == null or not ally.is_alive(): return _refuse("stale_choice")
 	if not game.preparedness_actions.arm_tactic_on(id, [ally], slot): return _refuse("tactic_unavailable")
+	return {"ok": true, "reason": ""}
+
+# Played unit: the ally, then the empty lane. The unit was paid for when it was played, so nothing else is spent.
+func _pick_relocation(handle: int) -> Dictionary:
+	if stage == "ally":
+		ally_lane = handle
+		_set_stage("destination")
+		return {"ok": true, "reason": ""}
+	var ally := _ally_in(ally_lane)
+	var slot: Node3D = game._response_slots()[handle]
+	var unit := source
+	reset()
+	if ally == null or not ally.is_alive() or not game.plans.eligible(ally): return _refuse("stale_choice")
+	game.apply_relocation(ally, slot, unit)
 	return {"ok": true, "reason": ""}
 
 func _pick_utility(handle: int) -> Dictionary:

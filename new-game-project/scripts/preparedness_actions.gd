@@ -66,8 +66,11 @@ func play_card(hand_index, lane) -> Dictionary:
 	if problem.is_empty() and game._get_card_in_slot(slots[lane]) != null: problem = "lane_full"
 	if not problem.is_empty(): return _result(false, problem)
 	place_unit(card, slots[lane])
-	# LAN: a remote player has no relocation picker yet, so the optional move after play is skipped.
-	if game.seat_prep != "local" and not game.board_input.action.is_empty(): game.cancel_move_effect()
+	# LAN: the local board prompt is closed. A remote player moves an ally through a host pick (flag on).
+	# Flag off: the optional move after play is skipped, as before.
+	if game.seat_prep != "local" and not game.board_input.action.is_empty():
+		game.cancel_move_effect()
+		if utilities_on() and card.card_data.get("effect", "") == "move_ally": utility_choice.begin_relocation(card)
 	return _result(true)
 
 ## The reason this hand card cannot be played now, or "".
