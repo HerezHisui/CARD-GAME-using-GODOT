@@ -331,6 +331,27 @@ func _refresh_evolutions() -> void:
 			if child is Node3D and child.get("preview_only") == true:
 				child.preview_seal_round = int(view.get("round", 1))
 				child._refresh_face()
+	if not evolution_browser: _center_offer(screen)
+
+
+## Same look as the local offer: one centered row, Choose at the bottom of each tile.
+func _center_offer(screen: Control) -> void:
+	var scroll: Control = screen.get_node("Cards")
+	var row: HBoxContainer = evolution_choices
+	scroll.remove_child(row)
+	screen.add_child(row)
+	screen.move_child(row, scroll.get_index())
+	scroll.queue_free()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 28)
+	for tile: PanelContainer in row.get_children():
+		tile.custom_minimum_size.x = 260
+		tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tile.get_node("Box/Center").size_flags_vertical = Control.SIZE_EXPAND_FILL
+		tile.get_node("Box/ActionButton").size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
 func _choose_evolution(id: String, match_id: String, offer_id: int) -> void:

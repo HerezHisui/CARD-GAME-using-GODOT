@@ -1159,6 +1159,11 @@ func _refresh_relocation() -> void:
 	relocation_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
 	hud.add_child(relocation_box)
 	_place(relocation_box, Control.PRESET_CENTER_LEFT, Vector2(16, -80))
+	if VersusMatch.SIDE_BY_SIDE_HUD and is_instance_valid(resource_plate):
+		# Start below the Tension plate and grow down, so it never covers it.
+		var below := VersusHud.health_rect(get_viewport().get_visible_rect().size.x, true).end.y
+		below += 6.0 + resource_plate.get_combined_minimum_size().y + 12.0
+		_place(relocation_box, Control.PRESET_TOP_LEFT, Vector2(16, below))
 	var box := VBoxContainer.new()
 	relocation_box.add_child(box)
 	var title := _label(box, 24, UI.GOLD)
