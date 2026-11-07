@@ -7,6 +7,7 @@ var pillars_spawned := false
 var pulse_resolved := false
 var last_resolved_round := -1
 var last_prepared_round := -1
+var responses_played := 0
 
 func setup(manager: Node) -> void:
 	game = manager
@@ -27,7 +28,8 @@ func spawn(title: String, role: String, lane: int, attack: int, health: int, cou
 	var card = game.Card3DScene.instantiate()
 	game.add_child(card)
 	card.add_to_group("cards")
-	var element := "typhoon" if counter == "brace" else "earthquake"
+	# Brace beats Earthquake and Evac beats Typhoon, so Night Watch is Earthquake and Hall Monitor is Typhoon.
+	var element := "earthquake" if counter == "brace" else "typhoon"
 	card.setup({"id":role + str(lane), "name":title, "type":"disaster", "element":element, "cost_type":"sacrifice", "cost":0, "attack":attack, "health":health, "boss_role":role})
 	card.in_hand = false
 	card.current_slot = slot
@@ -35,6 +37,25 @@ func spawn(title: String, role: String, lane: int, attack: int, health: int, cou
 	card._set_overlay(false)
 	card._refresh_face()
 	return card
+
+# A living guard by name hits the Response tile across from it for 1.
+func guard_hit(guard_name: String) -> void:
+	for slot in game._threat_slots():
+		var guard = game._get_card_in_slot(slot)
+		if guard == null or not guard.is_alive() or guard.card_data.get("name", "") != guard_name: continue
+		var target = game._get_card_in_slot(game._response_slots()[game._threat_slots().find(slot)])
+		if target != null and target.is_alive():
+			game.log_event("%s strikes %s for 1." % [guard_name, target.card_data.name])
+			target.take_damage(1)
+
+# Night Watch: the player damaged the Janitor.
+func on_janitor_damaged() -> void:
+	guard_hit("Night Watch")
+
+# Hall Monitor: every second Response card the player plays.
+func on_response_played() -> void:
+	responses_played += 1
+	if responses_played % 2 == 0: guard_hit("Hall Monitor")
 
 func accept_damage(amount: int) -> int:
 	if stage == 2: return 0

@@ -558,6 +558,7 @@ func _damage_side(player_side: bool, amt: int, bypass_barrier: bool = false) -> 
 	else:
 		enemy_hp = maxi(0, enemy_hp - amt)
 		log_event("Disaster loses %d health (%d/%d)." % [amt, enemy_hp, enemy_max_hp])
+		if is_instance_valid(final_boss): final_boss.on_janitor_damaged()
 		_set_health(ui, enemy_hp, enemy_max_hp, true)
 	shake_camera(0.12 + amt * 0.02, 0.3)
 
@@ -1139,6 +1140,7 @@ func try_play_card(card: Node) -> bool:
 
 func on_card_played(card: Node) -> void:
 	log_event("Response plays %s." % card.card_data.name)
+	if is_instance_valid(final_boss): final_boss.on_response_played()
 	hand.erase(card)
 	preparedness = maxi(0, preparedness - int(card.card_data.get("cost", 0)))
 	_refresh_bars()
