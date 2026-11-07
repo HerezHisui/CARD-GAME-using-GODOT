@@ -202,10 +202,11 @@
     "cost": 3,
     "attack": 2,
     "health": 4,
+    "on_hit": {"burn": 2},
     "condition": {
       "subject": "target",
       "status": "burn",
-      "threshold": 3,
+      "threshold": 1,
       "bonus": 3
     }
   },
@@ -247,10 +248,11 @@
     "cost": 2,
     "attack": 2,
     "health": 3,
+    "on_hit": {"bleed": 2},
     "condition": {
       "subject": "target",
       "status": "bleed",
-      "threshold": 2,
+      "threshold": 1,
       "bonus": 2
     }
   },
@@ -299,10 +301,11 @@
     "attack": 2,
     "health": 4,
     "ignore_taunt": true,
+    "on_hit": {"poison": 3},
     "condition": {
       "subject": "target",
       "status": "any",
-      "threshold": 3,
+      "threshold": 2,
       "bonus": 2
     }
   },

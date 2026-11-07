@@ -9,7 +9,7 @@ const CATALOG_PATHS := [
 	"res://data/disaster_expansion.json",
 ]
 # Captured against the original director methods before wrapper integration.
-const ORIGINAL_RESULTS_SHA256 := "67cbe458570d589465ceeebda43c3a10a6693e01c4a06ae218cdad6d26c1ae65"
+const ORIGINAL_RESULTS_SHA256 := "f6b1e0a948ccb9cc01c7591aebcb3ab834c21e0d2384e4ac4ee63affe6b29618"
 
 var director: Node
 var failures := 0

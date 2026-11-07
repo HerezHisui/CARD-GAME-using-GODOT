@@ -68,10 +68,10 @@ func status_synergy() -> void:
 	fixture()
 	var attacker := unit("response", 0, director.catalog_card("containment_lance"))
 	var blocker := unit("disaster", 0)
-	blocker.statuses = {"burn":1, "poison":1, "strength":8}
+	blocker.statuses = {"burn":1, "strength":8}
 	check(game.conditional_attack_bonus(attacker, blocker) == 0, "positive statuses do not count toward threshold")
 	blocker.statuses.bleed = 1
-	check(game.conditional_attack_bonus(attacker, blocker) == 2, "three mixed negative stacks grant bonus")
+	check(game.conditional_attack_bonus(attacker, blocker) == 2, "two mixed negative stacks grant bonus")
 	check(game.conditional_attack_bonus(attacker, null) == 0, "status synergy does not buff hero damage on open lanes")
 	attacker.card_data = director.catalog_card("last_responder")
 	blocker.statuses = {"bleed":2}
