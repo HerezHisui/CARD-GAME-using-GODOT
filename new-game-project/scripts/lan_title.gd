@@ -16,6 +16,9 @@ const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusDecks = preload("res://scripts/versus_decks.gd")
 const DeckBuilder = preload("res://scripts/deck_builder.gd")
 const UI = preload("res://scripts/ui_theme.gd")
+# p2-parity Part 2: the client menu uses the host's menu layout and its cream skin.
+const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
+const MenuSkin = preload("res://scripts/suspended_menu.gd")
 
 var director: Node
 var game: Node
@@ -484,8 +487,10 @@ func _show_client_panel() -> void:
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	client_layer.add_child(background)
 	client_cover = background
+	_add_waiting_text(background)
 	client_panel = LanClientPanel.new()
 	client_layer.add_child(client_panel)
+	_hide_old_panel()
 	client_panel.setup_evolutions(director)
 	client_panel.back_pressed.connect(back_to_title)
 	session.attach_panel(client_panel)
@@ -494,6 +499,32 @@ func _show_client_panel() -> void:
 
 
 # LAN_BOARD_3D: the 3D table takes over once the first view arrives. The 2D panel stays under it, hidden.
+## p2-parity Part 2: before the first view the cover says what it waits for, in the game's own style.
+func _add_waiting_text(cover: Control) -> void:
+	cover.theme = director.root.theme
+	var center := CenterContainer.new()
+	center.name = "WaitingCenter"
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cover.add_child(center)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 16)
+	center.add_child(box)
+	var title: Label = director.label("WAITING FOR THE HOST", 34, UI.GOLD)
+	title.name = "WaitingTitle"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var hint: Label = director.label("Player 1 starts the match. Esc opens the menu.", 19, UI.MUTED)
+	hint.name = "WaitingHint"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint)
+
+
+## With the 3D board on, the old 2D panel is only its controller. It stays hidden, also before the first view.
+func _hide_old_panel() -> void:
+	if VersusMatch.LAN_BOARD_3D and is_instance_valid(client_panel): client_panel.visible = false
+
+
 func _mount_board_3d(side: String) -> void:
 	_free_board_3d()
 	if not VersusMatch.LAN_BOARD_3D:
@@ -537,21 +568,67 @@ func toggle_esc_menu() -> void:
 		esc_menu.queue_free()
 		esc_menu = null
 		return
+	# p2-parity Part 2: the host's menu (run_director.show_menu) from the same ui_menu.tscn and skin.
+	# Game Settings and Debug are left out: they open director screens, which the client hides.
 	esc_menu = PanelContainer.new()
 	esc_menu.name = "EscMenu"
+	esc_menu.theme = director.root.theme
+	esc_menu.set_meta("suspended_menu", true)
+	var viewport := get_viewport().get_visible_rect().size
+	esc_menu.custom_minimum_size = Vector2(minf(560, viewport.x - 32), minf(560, viewport.y - 48))
 	esc_menu.set_anchors_preset(Control.PRESET_CENTER)
+	esc_menu.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	esc_menu.grow_vertical = Control.GROW_DIRECTION_BOTH
 	client_layer.add_child(esc_menu)
 	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
 	esc_menu.add_child(box)
-	box.add_child(director.label("MENU", 22, UI.GOLD))
-	director.button("Leave match", leave_match, box).name = "LeaveButton"
-	director.button("Keep playing", toggle_esc_menu, box).name = "KeepButton"
+	box.add_child(director.label("MIDNIGHT DRRILLS", 24, UI.GOLD, true))
+	var layout := MenuScene.instantiate()
+	# The nodes leave the scene, so they should not keep it as their owner (like run_director.unpack_screen).
+	for node in layout.find_children("*", "", true, false): node.owner = null
+	for child in layout.get_children():
+		layout.remove_child(child)
+		box.add_child(child)
+	layout.free()
+	box.get_node("RulesScroll/Rules/Augmentations").visible = false
+	var help: Label = box.get_node("RulesScroll/Rules/Adaptations")
+	help.visible = game.balance_enabled()
+	help.text = "Versus: adaptations, run buffs, and upgrades are unavailable. " \
+		+ "Tension refills to 3 in rounds 1–2, 4 in rounds 3–5, and 5 from round 6. " \
+		+ "No action limit. Evolutions spend sacrifices only, even at zero Tension. " \
+		+ "Evac: movement, draw, recovery. Douse: healing, cleansing, Burn. " \
+		+ "Clearance: Poison, Piercing, removal. Brace: armor, Barrier, Strength, Bleed."
+	box.get_node("DebugButton").free()
+	# The old names stay, so Resume is KeepButton and the title button is LeaveButton.
+	var resume: Button = box.get_node("ResumeButton")
+	resume.name = "KeepButton"
+	director.hook_button(resume, toggle_esc_menu)
+	var leave: Button = box.get_node("TitleButton")
+	leave.name = "LeaveButton"
+	leave.text = "Return to starting screen"
+	director.hook_button(leave, leave_match)
+	director.hook_button(box.get_node("QuitButton"), quit_from_menu)
+	MenuSkin.apply_skin(esc_menu, box)
+	# The straps above the frame, like the host's menu. Top level, so the panel does not lay it out.
+	var straps := MenuSkin.new()
+	straps.name = "SuspendedFrame"
+	straps.top_level = true
+	straps.panel = esc_menu
+	esc_menu.add_child(straps)
 
 
 func leave_match() -> void:
 	ended = true
 	await session.leave()
 	back_to_title()
+
+
+# Quit game in the client menu: tell the host, then close the game.
+func quit_from_menu() -> void:
+	ended = true
+	await session.leave()
+	get_tree().quit()
 
 
 func back_to_title() -> void:
@@ -632,6 +709,8 @@ func _show_coin_page(data: Dictionary) -> void:
 	coin_page = ColorRect.new()
 	coin_page.name = "CoinPage"
 	coin_page.color = UI.BACKGROUND
+	# p2-parity Part 2: the side buttons use the game theme, not Godot's default.
+	coin_page.theme = director.root.theme
 	coin_page.set_anchors_preset(Control.PRESET_FULL_RECT)
 	client_layer.add_child(coin_page)
 	# The Esc menu stays on top.
@@ -803,6 +882,7 @@ func _on_seat(side: String) -> void:
 		client_panel.queue_free()
 	client_panel = LanPrepPanel.new()
 	client_layer.add_child(client_panel)
+	_hide_old_panel()
 	if is_instance_valid(esc_menu):
 		client_layer.move_child(esc_menu, -1)
 	client_panel.back_pressed.connect(back_to_title)
