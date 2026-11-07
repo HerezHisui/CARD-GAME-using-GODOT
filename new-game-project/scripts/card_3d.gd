@@ -747,6 +747,9 @@ func _drop_card() -> void:
 func place_on_slot(slot: Node3D) -> void:
 	in_hand = false
 	current_slot = slot
+	# A LAN play skips the drag, so the card can still sit in the hand container.
+	# Leave it, or the card hides with the hand (host plays the Disaster) and moves with the hand tuck.
+	if get_parent() == _manager().hand_parent(): reparent(_manager(), true)
 	if not preview_only and is_instance_valid(_manager().vfx): _manager().vfx.sync_status(self, false)
 	_set_overlay(false)
 	set_layer(0)
