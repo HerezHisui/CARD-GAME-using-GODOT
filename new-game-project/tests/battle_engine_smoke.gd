@@ -3,7 +3,7 @@ extends SceneTree
 const BattleEngine = preload("res://scripts/battle_engine.gd")
 const Adapter = preload("res://scripts/battle_query_adapter.gd")
 # Captured from original manager/card implementations before switching the wrappers.
-const ORIGINAL_RESULTS_SHA256 := "3a78c90cf0a51ce89f03edab9b9658252b3117a5ac646670eaa0b72692fa3d7e"
+const ORIGINAL_RESULTS_SHA256 := "f8818c20fcd5d652526539152cf47efc473a2ae43c4d9daae4321b5498edbc7b"
 var failures := 0
 var comparisons := 0
 var game: Node

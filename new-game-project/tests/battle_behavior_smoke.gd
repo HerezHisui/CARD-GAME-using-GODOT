@@ -15,7 +15,7 @@ func check(value: bool, message: String) -> void:
 
 func definition(id: String, side: String = "response", attack: int = 2, health: int = 20) -> Dictionary:
 	return {
-		"id": id, "name": id, "type": side, "element": "evac" if side == "response" else "earthquake",
+		"id": id, "name": id, "type": side, "element": "evac" if side == "response" else "typhoon",
 		"cost": 1 if side == "response" else 0, "attack": attack, "health": health,
 	}
 
@@ -61,9 +61,9 @@ func damage_fixture() -> void:
 	var attacker: Node = unit(definition("attacker", "response", 3), 0)
 	var defender: Node = unit(definition("defender", "disaster"), 0)
 	check(game._calc_damage(attacker, defender).dmg == 6, "advantage multiplies attack before defenses")
-	defender.card_data.element = "flood"
-	check(game._calc_damage(attacker, defender).dmg == 1, "resisted odd attack rounds down")
 	defender.card_data.element = "earthquake"
+	check(game._calc_damage(attacker, defender).dmg == 1, "resisted odd attack rounds down")
+	defender.card_data.element = "typhoon"
 	defender.add_modifier("armored")
 	defender.add_modifier("fragile")
 	defender.planned_guard = 2
