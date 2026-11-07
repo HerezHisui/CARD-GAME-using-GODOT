@@ -60,7 +60,7 @@ func _ready() -> void:
 	build_background()
 	style_text()
 	build_logo()
-	build_model()
+	# build_model()  # title model removed 7 Nov 2026
 	for item in menu.get_children():
 		if item is Button: style_menu_button(item)
 	markers.draw.connect(draw_markers)
