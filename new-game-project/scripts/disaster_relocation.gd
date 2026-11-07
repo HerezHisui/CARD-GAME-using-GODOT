@@ -77,11 +77,13 @@ func pick(msg: Dictionary) -> Dictionary:
 	return {"ok": true, "reason": ""}
 
 func refresh_local() -> void:
+	# Hot-seat: the Disaster seat takes the move by drag, so no panel opens.
+	if game.disaster_seat_on: return
 	if not pending() or game.lan_remote_disaster or game.disaster_actions.busy: return
 	if game.run_director.screen == "": show_local()
 
 func show_local(ally: int = -1) -> void:
-	if not pending() or game.lan_remote_disaster: return
+	if not pending() or game.lan_remote_disaster or game.disaster_seat_on: return
 	var director: Node = game.run_director
 	if ally not in _allies(): ally = -1
 	var title := "CROSSWIND: CHOOSE AN ALLY" if ally < 0 else "CROSSWIND: CHOOSE AN EMPTY LANE"

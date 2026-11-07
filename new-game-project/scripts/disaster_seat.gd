@@ -32,6 +32,7 @@ var evo := {}  # an evolution waiting for sacrifices: card, definition, slot, ch
 var mouse := Vector2.ZERO
 var lane_material: StandardMaterial3D
 var sacrifice_label: Label
+var cross_ally := -1  # Crosswind: the lane of the ally being dragged, -1 = none
 
 func setup(manager: Node) -> void:
 	game = manager
@@ -257,6 +258,11 @@ func _drop_slot(card: Node3D, point: Vector2) -> Node3D:
 
 ## Returns true when the press was used.
 func _on_press(point: Vector2) -> bool:
+	# Crosswind: press an ally, drag it, and let go on an empty lane.
+	if game.disaster_relocation.pending():
+		var lane: int = game._threat_slots().find(_lane_at(point))
+		cross_ally = lane if lane in game.disaster_relocation._allies() else -1
+		return true
 	# While sacrifices are picked, a click on a threat lane is the only thing that counts.
 	if not evo.is_empty():
 		_pick_sacrifice(point)
@@ -286,6 +292,9 @@ func _maybe_start_drag() -> void:
 	held.quaternion = game.UPRIGHT.get_rotation_quaternion()
 
 func _on_release(point: Vector2) -> void:
+	if cross_ally >= 0:
+		_drop_crosswind(point)
+		return
 	if held == null: return
 	var card := held
 	held = null
@@ -298,6 +307,17 @@ func _on_release(point: Vector2) -> void:
 	var slot := _drop_slot(card, point)
 	if slot != null and _can_use(): _try_play(card, slot)
 	else: _arrange()
+
+## Crosswind: the dragged ally lands on the empty lane under the mouse. Anywhere else, nothing moves.
+func _drop_crosswind(point: Vector2) -> void:
+	var relocation: RefCounted = game.disaster_relocation
+	var ally := cross_ally
+	cross_ally = -1
+	var lane: int = game._threat_slots().find(_lane_at(point))
+	if not relocation.pending() or lane not in relocation._destinations(): return
+	var result: Dictionary = relocation.pick({"ally": ally, "lane": lane, "choice": relocation.choice,
+		"encounter": relocation.encounter})
+	if not result.ok: game.run_director.versus_hud.show_note("Cannot move there", "")
 
 ## Right click, Esc or a popup: put everything back in the hand. An evolution that waits is given back.
 func _cancel() -> void:
@@ -476,7 +496,11 @@ func _refuse(card: Node3D, text: String) -> void:
 func _update_lanes() -> void:
 	var card := held if dragging else selected
 	var open: Array = []
-	if active and not evo.is_empty():
+	if active and game.disaster_relocation.pending():
+		var relocation: RefCounted = game.disaster_relocation
+		var lanes: Array = relocation._destinations() if cross_ally >= 0 else relocation._allies()
+		open = lanes.map(func(lane: int) -> Node3D: return game._threat_slots()[lane])
+	elif active and not evo.is_empty():
 		open = _sacrifice_lanes(evo.definition, evo.chosen)
 	elif active and is_instance_valid(card):
 		var definition: Dictionary = card.get_meta("seat_def")
