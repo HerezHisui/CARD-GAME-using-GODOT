@@ -1,5 +1,6 @@
 extends RefCounted
 ## Local human Versus evolution ownership. IDs identify physical copies, including duplicate definitions.
+const UI = preload("res://scripts/ui_theme.gd")
 var game: Node
 var held: Array[Dictionary] = []
 var offer: Array[Dictionary] = []
@@ -135,8 +136,38 @@ func show_offer() -> void:
 	director.choose_card("CHOOSE AN EVOLUTION", cards, choose, Callable(),
 		"Choose 1. The other cards stay in the deck.", true)
 	director.content.get_node("CancelButton").hide()
+	_style_offer(director)
 	director.screen = "evolution_offer"
 	game.get_tree().paused = false
+
+## The offer is one centered row of equal cards. Choose sits on one line at the bottom of each card, and
+## a card glows when the mouse is over it. The row has no scroll area, so no dead space is left under it.
+func _style_offer(director: Node) -> void:
+	var scroll: Control = director.content.get_node("Cards")
+	var row: HBoxContainer = scroll.get_node("Row")
+	scroll.remove_child(row)
+	director.content.add_child(row)
+	director.content.move_child(row, scroll.get_index())
+	scroll.queue_free()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 28)
+	for tile: PanelContainer in row.get_children():
+		tile.custom_minimum_size.x = 260
+		tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tile.mouse_filter = Control.MOUSE_FILTER_STOP
+		tile.get_node("Box/Center").size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var button: Button = tile.get_node("Box/ActionButton")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var plain: StyleBox = tile.get_theme_stylebox("panel")
+		var glow: StyleBoxFlat = director.style(UI.PANEL, UI.GOLD)
+		glow.set_border_width_all(3)
+		glow.shadow_color = Color(UI.GOLD, 0.45)
+		glow.shadow_size = 10
+		tile.mouse_entered.connect(func(): tile.add_theme_stylebox_override("panel", glow))
+		tile.mouse_exited.connect(func(): tile.add_theme_stylebox_override("panel", plain))
 
 func _choose_lan(value: Dictionary, expected_offer: int, expected_serial: int, expected_match: String) -> void:
 	for entry in offer:
