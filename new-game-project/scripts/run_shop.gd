@@ -5,7 +5,6 @@ const UI = preload("res://scripts/ui_theme.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
 ## Screen layouts. Edit them in the editor; the card tiles are still made in code.
 const ShopScene = preload("res://scenes/ui/ui_shop.tscn")
-const COIN_ICON = preload("res://assets/ui/svg/icon-coin.svg")
 const RemoveScene = preload("res://scenes/ui/ui_remove_cards.tscn")
 const RemoveConfirmScene = preload("res://scenes/ui/ui_remove_confirm.tscn")
 

@@ -18,8 +18,6 @@ const SEAT_HAND_DROP := 0.26
 const DRAG_START_PIXELS := 8.0
 const NOTE_SECONDS := 2.6
 const HAND_SCALE_HOVER := 1.3
-const FOE_HAND_MAX := 10
-const BACK_CARD := {"name": "Card", "type": "response", "element": "evac", "cost": 0, "attack": 0, "health": 1}
 const REASONS := {"busy": "Wait, the host is still playing.", "not_supported": "Not available in LAN",
 	"choice_pending": "Finish or cancel the open choice first.", "draw_first": "DRAW A CARD FIRST"}
 # Flag on: the lane stages of an open utility choice. The other stages pick from a list.
@@ -313,6 +311,12 @@ func _sync_hand() -> void:
 	for card in pool:
 		card.queue_free()
 	hand_cards = next
+	# Own hand cards show the seal banner for the host's round, like the local seat.
+	var view_round := int(view.get("round", 1))
+	for card in hand_cards:
+		if card.preview_seal_round != view_round:
+			card.preview_seal_round = view_round
+			card._refresh_face()
 	hovered = -1
 	held = -1
 	dragging = false
@@ -1144,11 +1148,27 @@ func _refresh_choice() -> void:
 			if is_instance_valid(lane_card): named = " · " + str(lane_card.card_data.name)
 			var lane_button: Button = director.button("Lane %d%s" % [lane + 1, named], click_lane.bind(lane), box)
 			lane_button.name = "ChoiceLane%d" % lane
-	for entry: Dictionary in open.get("candidates", []):
-		var text := "Hidden card %d" % (int(entry.handle) + 1)
-		if entry.has("card"): text = str(entry.card.get("name", "?"))
-		var entry_button: Button = director.button(text, _pick_candidate.bind(int(entry.handle)), box)
-		entry_button.name = "ChoiceEntry%d" % int(entry.handle)
+	var candidates: Array = open.get("candidates", [])
+	if not candidates.is_empty():
+		# Long lists scroll inside the viewport. The panel grows both ways from the center.
+		var scroll := ScrollContainer.new()
+		scroll.name = "ChoiceScroll"
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		box.add_child(scroll)
+		var entries := VBoxContainer.new()
+		entries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(entries)
+		choice_box.grow_vertical = Control.GROW_DIRECTION_BOTH
+		choice_box.offset_top = 0
+		choice_box.offset_bottom = 0
+		for entry: Dictionary in candidates:
+			var text := "Hidden card %d" % (int(entry.handle) + 1)
+			if entry.has("card"): text = str(entry.card.get("name", "?"))
+			var entry_button: Button = director.button(text, _pick_candidate.bind(int(entry.handle)), entries)
+			entry_button.name = "ChoiceEntry%d" % int(entry.handle)
+		# Room for the title, prompt and Cancel stays outside the list.
+		var row: float = entries.get_child(0).get_combined_minimum_size().y + 6.0
+		scroll.custom_minimum_size.y = minf(row * candidates.size(), maxf(120.0, hud.size.y - 300.0))
 	var cancel: Button = director.button("Cancel", _cancel_choice, box)
 	cancel.name = "ChoiceCancel"
 

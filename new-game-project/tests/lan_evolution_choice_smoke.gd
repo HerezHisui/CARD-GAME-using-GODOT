@@ -30,7 +30,9 @@ func run() -> void:
 	game.encounter_kind = "versus"
 	game.disaster_is_human = true
 	game.set_seats("local", "remote")
-	expect(not game.evolution_choice.enabled(), "Default-off LAN keeps legacy draws")
+	# Legacy fixture: the picks flag is switched off explicitly. Flag-on defaults: lan_flag_defaults_smoke.
+	game.set("lan_evolution_picks_override", false)
+	expect(not game.evolution_choice.enabled(), "Flag-off LAN keeps legacy draws")
 	game.set("lan_evolution_picks_override", true)
 	expect(game.evolution_choice.enabled(), "Test override enables authoritative LAN evolution choices")
 	if game.evolution_choice.enabled():
@@ -355,8 +357,8 @@ func check_network() -> void:
 	host.action_done.connect(func(value): results.append(value))
 	client.event_received.connect(func(kind, value):
 		if kind == "reject": rejects.append(value))
-	expect(Session.PROTOCOL == 3, "Default production protocol stays 3")
-	expect(Session.build_string().begins_with("3|"), "Default build signature stays protocol 3")
+	expect(Session.PROTOCOL == 6, "Default production protocol is 6 with the current flag defaults")
+	expect(Session.build_string().begins_with("6|"), "Default build signature is protocol 6")
 	expect(host.host_game(24719) == OK, "Evolution host starts")
 	expect(client.join_game("127.0.0.1", 24719) == OK, "Evolution client connects")
 	expect(await wait_until(func(): return host.disaster_peer != 0), "Network assigns remote seat")

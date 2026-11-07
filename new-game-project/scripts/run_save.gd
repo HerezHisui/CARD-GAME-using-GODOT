@@ -31,7 +31,11 @@ func read_save() -> Dictionary:
 	if not FileAccess.file_exists(save_path()): return {}
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(save_path()))
 	if not parsed is Dictionary or int(parsed.get("version", 0)) != 1: return {}
-	if not parsed.get("director", {}).get("collection", []) is Array or parsed.director.collection.size() < 5: return {}
+	# Check the types before reading nested fields (a null director used to crash here).
+	var saved_director: Variant = parsed.get("director", {})
+	if not saved_director is Dictionary: return {}
+	var saved_collection: Variant = saved_director.get("collection", [])
+	if not saved_collection is Array or saved_collection.size() < 5: return {}
 	return normalize(parsed)
 
 func has_run() -> bool: return not read_save().is_empty()

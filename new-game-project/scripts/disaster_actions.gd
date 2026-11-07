@@ -10,6 +10,7 @@ var actions_used := 0
 var evolution_actions := 0
 var action_limit := 0
 var busy := false
+var turn_closed := false  # set when End Turn is accepted, cleared in begin_turn
 
 func _init(owner_game: Node) -> void:
 	game = owner_game
@@ -23,6 +24,7 @@ func begin_turn() -> void:
 	evolution_actions = 0
 	action_limit = game.enemy_action_limit()
 	busy = false
+	turn_closed = false
 
 func actions_left() -> int:
 	return maxi(0, action_limit - actions_used + evolution_actions)
@@ -31,6 +33,8 @@ func actions_left() -> int:
 func _common_problem(definition: Dictionary, held_id: String = "") -> String:
 	if game.evolution_choice.pending() or game.disaster_relocation.pending(): return "busy"
 	if game.phase != game.Phase.ENEMY: return "not_disaster_turn"
+	# End Turn was accepted: nothing more this turn.
+	if turn_closed: return "turn_ended"
 	# Draw button on: nothing is played before this turn's draw.
 	if game.disaster_draw.waiting: return "draw_first"
 	if busy: return "busy"
@@ -166,7 +170,9 @@ func can_use(definition: Dictionary) -> bool:
 func end_turn() -> Dictionary:
 	if game.evolution_choice.pending() or game.disaster_relocation.pending(): return _result(false, "busy")
 	if game.phase != game.Phase.ENEMY: return _result(false, "not_disaster_turn")
+	if turn_closed: return _result(false, "turn_ended")
 	if busy: return _result(false, "busy")
+	turn_closed = true
 	turn_ended.emit()
 	return _result(true)
 

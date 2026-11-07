@@ -103,8 +103,9 @@ func check_views() -> void:
 	var off: Dictionary = LanView.build(game, "disaster")
 	expect(not off.has("disaster_graveyard_list"), "flag off: no list")
 	expect(int(off.counts.disaster_graveyard) == 3, "flag off: the count stays")
+	# The production default is flag on, so the list is there. The flag-off case is above.
 	game.lan_prep_utilities_override = null
-	expect(not LanView.build(game, "disaster").has("disaster_graveyard_list"), "default flag: no list")
+	expect(LanView.build(game, "disaster").has("disaster_graveyard_list"), "default flag: the list is sent")
 
 
 func check_table(flag: bool) -> void:

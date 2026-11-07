@@ -316,6 +316,8 @@ func check_messages() -> void:
 
 
 func check_bad_messages() -> void:
+	# Legacy fixture: LAN utilities off, so a utility message is not supported.
+	game.lan_prep_utilities_override = false
 	var cases: Array = [
 		[5, "bad_message"],
 		[{"kind": "fly"}, "bad_message"],

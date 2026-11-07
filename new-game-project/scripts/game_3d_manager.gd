@@ -2401,10 +2401,16 @@ func entry_barrier_nerf_on() -> bool:
 	if entry_barrier_nerf_override is bool: return entry_barrier_nerf_override
 	return preload("res://scripts/versus_match.gd").DISASTER_ENTRY_BARRIER_NERF
 
-func major_evolution_entry(card: Node, sacrifices: int) -> void:
-	if sacrifices < 3: return
+## Entry Barrier for an evolution paid with this many sacrifices. The preview and the real entry both use it.
+func entry_barrier_amount(sacrifices: int) -> int:
+	if sacrifices < 3: return 0
 	var entry_barrier := 2 if sacrifices >= 4 else 1
 	if entry_barrier_nerf_on(): entry_barrier -= 1
+	return entry_barrier
+
+func major_evolution_entry(card: Node, sacrifices: int) -> void:
+	if sacrifices < 3: return
+	var entry_barrier := entry_barrier_amount(sacrifices)
 	if entry_barrier > 0: card.add_status("barrier", entry_barrier)
 	enemy_draw_cards(1)
 	if sacrifices >= 4:

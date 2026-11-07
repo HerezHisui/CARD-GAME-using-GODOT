@@ -156,9 +156,9 @@ func pick_request() -> Dictionary:
 
 func check_default_gates() -> void:
 	fixture()
-	game.lan_evolution_picks_override = null
-	expect(game.get("lan_evolution_picks_override") == null and Session.PROTOCOL == 3,
-		"Null override and production protocol stay unchanged")
+	# Legacy fixture: the flag is switched off explicitly. The flag-on defaults are in lan_flag_defaults_smoke.
+	game.lan_evolution_picks_override = false
+	expect(game.get("lan_evolution_picks_override") == false, "Legacy fixture runs with the picks flag off")
 	for side in ["disaster", "preparedness"]:
 		var view: Dictionary = View.build(game, side)
 		expect(not view.has("evolution_offer") and not view.has("held_evolutions")
