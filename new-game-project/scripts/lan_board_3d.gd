@@ -83,6 +83,7 @@ var resource_meter: Dictionary
 var end_button: Button
 var draw_button: Button
 var tactic_box: VBoxContainer
+var tactic_signature := 0
 var note: PanelContainer
 var note_head: Label
 var note_body: Label
@@ -247,6 +248,10 @@ func _make_card(definition: Dictionary, parent: Node) -> Node3D:
 
 
 func _apply_runtime(card: Node3D, entry: Dictionary, own_side: bool = true) -> void:
+	# A1/A8: a card whose data did not change keeps its face. Only a changed card repaints.
+	var signature: int = hash([entry, own_side, int(view.get("round", 1)) if own_side else -1])
+	if card.has_meta("lan_signature") and card.get_meta("lan_signature") == signature: return
+	card.set_meta("lan_signature", signature)
 	card.preview_seal_round = int(view.get("round", 1)) if own_side else -1
 	var runtime: Dictionary = entry.get("runtime", {})
 	card.card_data = entry.definition.duplicate(true)
@@ -1022,6 +1027,10 @@ func _set_plate(plate: Dictionary, data: Dictionary, title: String) -> void:
 
 
 func _fill_tactics() -> void:
+	# A8: the buttons are made again only when the tactics, the turn or the seat changed.
+	var signature: int = hash([view.get("tactics", []), _my_turn(), side])
+	if signature == tactic_signature: return
+	tactic_signature = signature
 	for child in tactic_box.get_children():
 		tactic_box.remove_child(child)
 		child.queue_free()
