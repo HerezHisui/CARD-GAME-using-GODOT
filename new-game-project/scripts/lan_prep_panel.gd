@@ -119,6 +119,10 @@ func _redraw() -> void:
 	info.text = "Their hand: %d | Your deck: %d | Plan tokens: %d | Armed: %s" % [
 		counts.disaster_hand, counts.response_draw, view.plan_tokens, armed,
 	]
+	# Flag on, after Scout: the Disaster hand as it was when Hazard Forecast was cast.
+	if view.has("disaster_hand_revealed"):
+		var names: Array = view.disaster_hand_revealed.map(func(card): return str(card.get("name", "?")))
+		info.text += " | Forecast: " + (", ".join(names) if not names.is_empty() else "empty hand")
 	_fill_lanes(disaster_row, "disaster", _field_lanes())
 	_fill_lanes(response_row, "response", _allowed_lanes())
 	_fill_hand()

@@ -45,7 +45,7 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 	_keep_cards(view, snapshot.cards, view.disaster_hand)
 	if game.evolution_choice.lan_enabled(): _disaster_evolutions(game, view)
 	# Flag on: the Disaster's own graveyard as a list. The Preparedness view keeps the count only.
-	if game.preparedness_actions.utilities_on(): view["disaster_graveyard_list"] = _graveyard_list(game)
+	if game.preparedness_actions.flag_on(): view["disaster_graveyard_list"] = _graveyard_list(game)
 	return view
 
 
@@ -85,6 +85,9 @@ static func build_prep(game: Node) -> Dictionary:
 	# Flag on: the open utility pick. It goes to the Preparedness client only, never to the Disaster view.
 	if game.preparedness_actions.utilities_on():
 		view["pending_choice"] = game.preparedness_actions.utility_choice.view()
+		# Scout: the Disaster hand as it was at the cast, only while the reveal lasts. Never in the Disaster view.
+		if game.preparedness_actions.scout_active():
+			view["disaster_hand_revealed"] = game.preparedness_actions.scout_hand.duplicate(true)
 	return view
 
 

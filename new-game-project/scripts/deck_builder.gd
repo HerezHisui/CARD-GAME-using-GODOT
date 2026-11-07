@@ -253,7 +253,9 @@ static func effect_text(card: Dictionary) -> String:
 	if on_hit is Dictionary:
 		for status in on_hit:
 			parts.append("On hit: %d %s." % [int(on_hit[status]), str(status).capitalize()])
-	var special := BattleRules.special_text(card)
+	# The deck builder is a Versus screen, so it shows the Versus entry Barrier.
+	var nerf: bool = preload("res://scripts/versus_match.gd").DISASTER_ENTRY_BARRIER_NERF
+	var special := BattleRules.special_text(card, nerf)
 	if special != "": parts.append(special.replace("\n", " "))
 	return " ".join(parts)
 

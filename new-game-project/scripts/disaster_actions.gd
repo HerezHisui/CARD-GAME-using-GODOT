@@ -37,8 +37,9 @@ func _common_problem(definition: Dictionary, held_id: String = "") -> String:
 	elif not game.evolution_choice.enabled() or game.evolution_choice.id_for(definition) != held_id:
 		return "not_in_hand"
 	if game.is_sealed(definition): return "sealed"
-	if actions_left() <= 0: return "action_limit"
-	if game.tension <= 0: return "no_tension"
+	if not game.balance_enabled():
+		if actions_left() <= 0: return "action_limit"
+		if game.tension <= 0: return "no_tension"
 	return ""
 
 ## Play a base threat (cost 0) into an empty threat lane.
@@ -59,6 +60,14 @@ func evolve(definition: Dictionary, sacrifices: Array, slot: Node3D, held_id: St
 		elif sacrifices.size() != cost: problem = "bad_sacrifice"
 		else: problem = _sacrifice_problem(sacrifices, slot)
 	if not problem.is_empty(): return _result(false, problem)
+	if game.balance_enabled():
+		var serial: int = game.encounter_serial
+		if not await game.run_director.confirm_balance_evolution(definition, sacrifices):
+			return _result(false, "cancelled")
+		if serial != game.encounter_serial: return _result(false, "battle_over")
+		problem = _common_problem(definition, held_id)
+		if problem.is_empty(): problem = _sacrifice_problem(sacrifices, slot)
+		if not problem.is_empty(): return _result(false, problem)
 	if held_id.is_empty(): game.enemy_hand.erase(definition)
 	else: game.evolution_choice.consume(held_id)
 	busy = true
@@ -114,7 +123,9 @@ func _cast_problem(definition: Dictionary, target) -> String:
 func card_problem(definition: Dictionary) -> String:
 	var held_id: String = game.evolution_choice.id_for(definition) if game.evolution_choice.enabled() else ""
 	var problem := _common_problem(definition, held_id)
-	if problem.is_empty() and int(definition.get("tension_cost", 1)) > game.tension: problem = "no_tension"
+	var evolution: bool = not definition.get("utility", false) and int(definition.get("cost", 0)) > 0
+	if not (game.balance_enabled() and evolution):
+		if problem.is_empty() and int(definition.get("tension_cost", 1)) > game.tension: problem = "no_tension"
 	return problem
 
 ## True for a spell that needs a Response hand card as target.

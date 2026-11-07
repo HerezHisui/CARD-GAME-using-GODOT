@@ -10,9 +10,12 @@ const NOT_SUPPORTED_TACTICS := ["extract", "supply", "shelter"]
 # Flag on: these two are delayed tactics with no ally to pick.
 const NO_ALLY_TACTICS := ["supply", "shelter"]
 # Flag on: utility effects that run at once, with no pick.
-const SIMPLE_UTILITIES := ["draw", "blast", "barrier", "herb", "tablet"]
+const SIMPLE_UTILITIES := ["draw", "blast", "barrier", "herb", "tablet", "scout"]
 
 var game: Node
+# Flag on: Scout (Hazard Forecast). A copy of the Disaster hand taken at the cast, for the Preparedness view only.
+var scout_hand: Array = []
+var scout_encounter := -1
 # Flag on: the open pick of a remote utility card or Emergency Extraction. Empty when the flag is off.
 var utility_choice: RefCounted
 
@@ -104,9 +107,26 @@ func place_unit(card: Node, slot: Node3D) -> void:
 ## True when LAN utility cards and the delayed tactics are on: the flag, or a test override.
 ## Only a remote Preparedness seat in Versus counts, so singleplayer and hot-seat never change.
 func utilities_on() -> bool:
-	if game.encounter_kind != "versus" or game.seat_prep != "remote": return false
+	if game.seat_prep != "remote": return false
+	return flag_on()
+
+## The LAN_PREP_UTILITIES flag in a Versus match, whoever sits remote. The Disaster graveyard list uses this one:
+## a remote Disaster client plays against a local Preparedness seat, so utilities_on() is false there.
+func flag_on() -> bool:
+	if game.encounter_kind != "versus": return false
 	if game.lan_prep_utilities_override is bool: return game.lan_prep_utilities_override
 	return preload("res://scripts/versus_match.gd").LAN_PREP_UTILITIES
+
+## Scout over LAN: no host modal. Sets the same local flag and keeps a copy of the Disaster hand.
+func reveal_scout() -> void:
+	game.run_director.intel_revealed = true
+	scout_hand = game.enemy_hand.map(func(entry): return entry.duplicate(true))
+	scout_encounter = game.encounter_serial
+
+## True while a Scout reveal lasts. It ends with the local intel_revealed flag, or with the encounter.
+func scout_active() -> bool:
+	if not utilities_on() or scout_encounter != game.encounter_serial: return false
+	return game.run_director.intel_revealed
 
 ## Why this utility card cannot be cast now, or "". Flag off: every utility is not_supported.
 func utility_problem(card: Node) -> String:

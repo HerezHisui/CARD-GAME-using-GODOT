@@ -90,7 +90,7 @@ static func utility_text(card: Dictionary) -> String:
 		return EFFECTS.seal
 	var power := int(card.get("utility_power", 0))
 	var amounts := {
-		"blast":2 + power, "barrier":2 + power, "herb":1 + power, "tablet":2 + power,
+		"blast":int(card.get("blast_damage", 2)) + power, "barrier":2 + power, "herb":1 + power, "tablet":2 + power,
 		"draw":int(card.get("draw_count", 2)) + power, "seal":2 + power, "tax":1 + power,
 		"rally":2 + power, "cleanse":3 + 2 * power
 	}
@@ -116,14 +116,17 @@ static func modifier_text(card: Dictionary, modifier: String) -> String:
 	}
 	return str(descriptions.get(modifier, modifier.capitalize()))
 
-static func special_text(card: Dictionary) -> String:
+static func special_text(card: Dictionary, entry_nerf: bool = false) -> String:
 	var parts: PackedStringArray = []
 	if int(card.get("strength", 0)) > 0: parts.append("Starts with %d Strength." % int(card.strength))
 	if card.get("recovered", false): parts.append("Recovered: this unit cannot be recovered again this battle.")
 	if card.get("on_sacrifice", "") == "draw": parts.append("When sacrificed: draw 1 Disaster card.")
 	if card.get("on_sacrifice", "") == "burn": parts.append("When sacrificed: apply 2 Burn to the opposing lane card.")
 	if card.get("type", "response") == "disaster" and int(card.get("cost", 0)) >= 3:
-		parts.append("On evolution: gain %d Barrier and draw 1." % (2 if int(card.cost) >= 4 else 1))
+		# Versus nerf: one Barrier less, so 3 sacrifices gain none.
+		var entry_barrier := (2 if int(card.cost) >= 4 else 1) - (1 if entry_nerf else 0)
+		if entry_barrier > 0: parts.append("On evolution: gain %d Barrier and draw 1." % entry_barrier)
+		else: parts.append("On evolution: draw 1.")
 		if int(card.cost) >= 4: parts.append("On evolution: deal 1 fixed damage to each enemy unit.")
 	if int(card.get("move_heal", 0)) > 0: parts.append("Relocated ally heals %d." % int(card.move_heal))
 	if card.get("ignore_taunt", false): parts.append("Ignore Taunt: strike your lane target through a guardian.")
@@ -140,4 +143,6 @@ static func special_text(card: Dictionary) -> String:
 		var status := "Burn/Poison/Bleed" if trigger.get("status", "any") == "any" else str(trigger.status).capitalize()
 		var reward := "attack twice" if int(trigger.get("strikes", 1)) > 1 else "+%d attack" % int(trigger.get("bonus", 0))
 		parts.append("%s has %d+ %s stacks: %s." % [who, int(trigger.get("threshold", 3)), status, reward])
+	if int(card.get("relocation_attack", 0)) > 0:
+		parts.append("First successful relocation each round: +1 attack this combat. This is not Strength.")
 	return "\n".join(parts)

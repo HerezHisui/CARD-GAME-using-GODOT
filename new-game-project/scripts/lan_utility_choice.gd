@@ -4,7 +4,8 @@ extends RefCounted
 ## Nothing is spent until the last pick works. Old encounters, old choices and wrong stages are refused.
 ## A handle is a lane (ally, field, destination), never a snapshot id.
 ## The private lists (deck, graveyard, Disaster hand) use a position in this choice's own list as the handle.
-## Their candidates go only to the Preparedness view while the choice is open. The Disaster hand is sent blind.
+## Their candidates go only to the Preparedness view while the choice is open. The Disaster hand is sent blind,
+## unless a Scout reveal is on (then the Tax cards are named).
 ## Messages (Preparedness client to host), all checked here:
 ##   {kind:"utility_pick", encounter:i, choice:i, stage:"ally", handle:i}
 ##   {kind:"utility_cancel", encounter:i, choice:i}
@@ -125,10 +126,12 @@ func _prompt() -> String:
 	return "Choose a deployed ally."
 
 # Candidates for a list stage. The deck and the graveyard are the owner's own cards. The Disaster hand is blind.
+# While a Scout reveal lasts, the hand cards are named, as in the local Tax pick.
 func _candidates() -> Array:
 	var list: Array = []
+	var named: bool = game.preparedness_actions.scout_active()
 	for handle in entries.size():
-		if stage == "hand": list.append({"handle": handle})
+		if stage == "hand" and not named: list.append({"handle": handle})
 		else: list.append({"handle": handle, "card": entries[handle].duplicate(true)})
 	return list
 

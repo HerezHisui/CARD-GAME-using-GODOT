@@ -236,7 +236,7 @@ func check_refusals() -> void:
 		[{"kind": "utility", "hand": 0, "id": 5}, "stale_hand"],
 		[{"kind": "utility", "hand": 1}, "no_energy"],
 		[{"kind": "utility", "hand": 2}, "sealed"],
-		[{"kind": "utility", "hand": 3}, "not_supported"],
+		[{"kind": "utility", "hand": 3, "target": 0}, "bad_target"],
 	]
 	for case in cases:
 		var result: Dictionary = await send(case[0])
@@ -321,7 +321,7 @@ func check_views() -> void:
 	var prep: Dictionary = LanView.build(game, "preparedness")
 	expect(prep.hints[0].can_play and prep.hints[0].utility and prep.hints[0].effect == "draw", "view: draw is castable")
 	expect(prep.hints[0].lanes.is_empty() and prep.hints[0].problem == "", "view: a utility has no lanes")
-	expect(not prep.hints[1].can_play and prep.hints[1].problem == "not_supported", "view: scout stays unavailable")
+	expect(prep.hints[1].can_play and prep.hints[1].problem == "", "view: scout is castable")
 	expect(not prep.hints[2].has("utility") and prep.hints[2].can_play, "view: units keep their lane hint")
 	var supply: Dictionary = prep.tactics[2]
 	expect(supply.id == "supply" and supply.available and supply.no_ally and supply.lanes.is_empty(),

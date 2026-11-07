@@ -5,6 +5,14 @@ extends Node
 
 const VersusDecks = preload("res://scripts/versus_decks.gd")
 
+# Local human Versus balance experiment. Existing rules remain the default.
+const BALANCE_PATCH := true
+
+# Versus Disaster side only: entry Barrier on a major evolution is one lower (3 sacrifices 0, 4 or more 1).
+# false = today's numbers (1 and 2). The draw and the 1-damage shock stay either way.
+# Off for now: tests/balance_synergy_smoke.gd line 54 expects 3 Barrier (4 sacrifices + matching). Simple decides.
+const DISASTER_ENTRY_BARRIER_NERF := true
+
 # Who plays the Disaster in Versus. true = a human uses the Disaster panel, false = the existing AI.
 const DISASTER_IS_HUMAN := true
 # Optional local human draw step. LAN always keeps automatic Disaster draws.
@@ -12,9 +20,9 @@ const DISASTER_DRAW_BUTTON := true
 # Local human Versus uses evolution choices; LAN retains legacy evolution draws.
 const EVOLUTION_DRAW_CHOICE := true
 # Opt-in LAN offer and held-copy transport. False preserves protocol 3 and legacy draws.
-const LAN_EVOLUTION_PICKS := false
+const LAN_EVOLUTION_PICKS := true
 # Opt-in LAN Preparedness utility cards and the delayed contingency tactics. False keeps "not_supported".
-const LAN_PREP_UTILITIES := false
+const LAN_PREP_UTILITIES := true
 # true = the human Disaster plays from the far seat with real cards. false = the Disaster panel.
 const DISASTER_SEAT_VIEW := true
 # true = Player 1 calls the coin and the toss winner picks a side. false = the old one-call coin.

@@ -44,6 +44,7 @@ var held := -1
 var dragging := false
 var relocation_box: PanelContainer
 var choice_box: PanelContainer
+var forecast_box: PanelContainer
 var foe_lit := false
 var selected := -1
 var selected_held := ""
@@ -149,6 +150,7 @@ func _on_view(new_view: Dictionary) -> void:
 	_refresh_hud()
 	_refresh_relocation()
 	_refresh_choice()
+	_refresh_forecast()
 
 
 ## The first view turns the table on: the 2D cover and panel go, the camera takes the seat.
@@ -1143,6 +1145,27 @@ func _refresh_choice() -> void:
 		entry_button.name = "ChoiceEntry%d" % int(entry.handle)
 	var cancel: Button = director.button("Cancel", _cancel_choice, box)
 	cancel.name = "ChoiceCancel"
+
+
+## Flag on, after Scout: the Disaster hand as it was when Hazard Forecast was cast. Preparedness view only.
+func _refresh_forecast() -> void:
+	if is_instance_valid(forecast_box):
+		forecast_box.get_parent().remove_child(forecast_box)
+		forecast_box.queue_free()
+	forecast_box = null
+	if side != "preparedness" or over or not view.has("disaster_hand_revealed"): return
+	forecast_box = PanelContainer.new()
+	forecast_box.name = "HazardForecast"
+	forecast_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
+	hud.add_child(forecast_box)
+	_place(forecast_box, Control.PRESET_CENTER_RIGHT, Vector2(-16, -80))
+	var box := VBoxContainer.new()
+	forecast_box.add_child(box)
+	_label(box, 24, UI.GOLD).text = "HAZARD FORECAST"
+	var cards: Array = view.disaster_hand_revealed
+	if cards.is_empty(): _label(box, 18, UI.TEXT).text = "The Disaster hand is empty."
+	for card: Dictionary in cards:
+		_label(box, 18, UI.TEXT).text = str(card.get("name", "?"))
 
 
 func _pick_candidate(handle: int) -> void:

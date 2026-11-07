@@ -102,6 +102,7 @@ func preview_attack() -> void:
 			bonus[targets[0]] = 2
 	for card in game.get_tree().get_nodes_in_group("cards"):
 		var amount: int = bonus.get(card, 0)
+		if game.balance_enabled(): amount += int(card.get_meta("dash_attack", 0))
 		if card.plan_attack_bonus != amount: card.set_plan_attack_bonus(amount)
 
 func try_extract(card: Node, damage: int) -> bool:
@@ -111,6 +112,11 @@ func try_extract(card: Node, damage: int) -> bool:
 	if not is_instance_valid(slot) or game._get_card_in_slot(slot) != null: return false
 	armed.triggered = true
 	card.place_on_slot(slot)
+	if game.balance_enabled():
+		if int(card.card_data.get("relocation_attack", 0)) > 0 and int(card.get_meta("dash_round", -1)) != game.turn:
+			card.set_meta("dash_round", game.turn)
+			card.set_meta("dash_attack", 1)
+			card.set_plan_attack_bonus(card.plan_attack_bonus + 1)
 	card.last_evaded_hit = true
 	game.log_event("Emergency Extraction saves %s from a lethal attack." % card.card_data.name)
 	card.spawn_popup("EXTRACTED", UI.RESPONSE)
@@ -125,7 +131,8 @@ func apply_combat() -> void:
 		game.log_event("Brace protects %s against its next attack this combat." % targets[0].card_data.name)
 	elif armed.kind == "coordinate" and not targets.is_empty() and eligible(targets[0]):
 		for card in coordination_targets(targets[0]):
-			card.set_plan_attack_bonus(1)
+			var movement: int = int(card.get_meta("dash_attack", 0)) if game.balance_enabled() else 0
+			card.set_plan_attack_bonus(1 + movement)
 		game.log_event("Coordinated Response grants the chosen ally and its nearest neighbors +1 attack for this combat.")
 	elif armed.kind == "medicine" and eligible(targets[0]):
 		targets[0].statuses.erase("bleed")
@@ -134,7 +141,8 @@ func apply_combat() -> void:
 		targets[0].plan_ignore_taunt = true
 		targets[0]._refresh_face()
 	elif armed.kind == "precision" and eligible(targets[0]):
-		targets[0].set_plan_attack_bonus(2)
+		var movement: int = int(targets[0].get_meta("dash_attack", 0)) if game.balance_enabled() else 0
+		targets[0].set_plan_attack_bonus(2 + movement)
 	elif armed.kind == "supply": game.draw_cards(1)
 	elif armed.kind == "shelter": game.plan_hero_barrier = 3
 	elif armed.kind == "extract": pass
@@ -142,6 +150,7 @@ func apply_combat() -> void:
 
 func finish_combat() -> void:
 	for card in game.get_tree().get_nodes_in_group("cards"):
+		if card.has_meta("dash_attack"): card.remove_meta("dash_attack")
 		if card.planned_guard > 0 or card.plan_attack_bonus > 0 or card.plan_ignore_taunt:
 			card.planned_guard = 0
 			card.set_plan_attack_bonus(0)
