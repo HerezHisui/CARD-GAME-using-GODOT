@@ -83,8 +83,9 @@ func run() -> void:
 
 
 func check_protocol_const() -> void:
-	expect(LanSession.PROTOCOL == 3, "protocol: PROTOCOL is 3")
-	expect(LanSession.build_string().begins_with("3|"), "protocol: the build string starts with 3")
+	# PROTOCOL is a const from the flags: 3 + 1 (evolution picks) + 2 (prep utilities) with the defaults on.
+	expect(LanSession.PROTOCOL == 6, "protocol: PROTOCOL is 6 with the current flag defaults")
+	expect(LanSession.build_string().begins_with("6|"), "protocol: the build string starts with 6")
 
 
 # The shape check runs before validate, so a bad payload cannot crash the host handler.
@@ -149,6 +150,9 @@ func check_host_standard() -> void:
 func check_host_custom(client_side: String) -> void:
 	var name := "host custom " + client_side
 	var host_side := other_side_of(client_side)
+	# Legacy fixture: no evolution draw choice (local or LAN), so the 21 / 5 piles are counted as before.
+	game.evolution_draw_choice_override = false
+	game.lan_evolution_picks_override = false
 	# The host plays its own saved custom deck. It must never reach the client.
 	Decks.save_custom(host_side, custom_deck(host_side))
 	var versus: Node = await host_to_deck_step(name, host_side, "custom")

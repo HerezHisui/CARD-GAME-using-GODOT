@@ -10,6 +10,13 @@ const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusHud = preload("res://scripts/versus_hud.gd")
 const Janitor = preload("res://scripts/janitor_character.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
+const Sfx = preload("res://scripts/sfx_call.gd")
+# p2-parity Part 1: the host's catalog inspect overlay, with the same dossier and card face.
+const InspectionScene = preload("res://scenes/ui/ui_catalog_inspection.tscn")
+const HOLD_MOVE_PIXELS := 12.0  # same as the host's hold check
+# p2-parity Part 3: the host's result notice and seal tooltip helpers.
+const RoomMenuStyle = preload("res://scripts/room_menu_style.gd")
+const CardScript = preload("res://scripts/card_3d.gd")
 
 # DESK_VIEW seen from the far side of the table, the Disaster seat.
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
@@ -17,10 +24,8 @@ const SEAT_HAND_DROP := 0.26
 const DRAG_START_PIXELS := 8.0
 const NOTE_SECONDS := 2.6
 const HAND_SCALE_HOVER := 1.3
-const FOE_HAND_MAX := 10
-const BACK_CARD := {"name": "Card", "type": "response", "element": "evac", "cost": 0, "attack": 0, "health": 1}
 const REASONS := {"busy": "Wait, the host is still playing.", "not_supported": "Not available in LAN",
-	"choice_pending": "Finish or cancel the open choice first."}
+	"choice_pending": "Finish or cancel the open choice first.", "draw_first": "DRAW A CARD FIRST"}
 # Flag on: the lane stages of an open utility choice. The other stages pick from a list.
 const LANE_STAGES := ["ally", "field", "destination"]
 
@@ -84,6 +89,16 @@ var note_body: Label
 var note_tween: Tween
 var over_box: PanelContainer
 var over_label: Label
+var over_note: Label  # p2-parity Part 3: the host's result subtitle
+var seal_tooltip: Label  # p2-parity Part 3: the host's seal hint on hover
+# p2-parity Part 1: hold or right click opens this. Only cards the view already has can be inspected.
+var inspection: Control
+var inspection_dossier: Control
+var inspection_card = null  # the Card3D the overlay shows, or null for a choice entry
+var inspect_target = null  # a Card3D or a card Dictionary that a held press may inspect
+var inspect_since := 0
+var inspect_origin := Vector2.ZERO
+var suppress_release := false
 
 
 func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Control, seat: String,
@@ -151,6 +166,8 @@ func _on_view(new_view: Dictionary) -> void:
 	_refresh_relocation()
 	_refresh_choice()
 	_refresh_forecast()
+	# The boxes above are made again each view. The inspect overlay stays on top of them.
+	if is_instance_valid(inspection): hud.move_child(inspection, -1)
 
 
 ## The first view turns the table on: the 2D cover and panel go, the camera takes the seat.
@@ -192,14 +209,16 @@ func _on_event(kind: String, data: Dictionary) -> void:
 
 func _on_match_over(winner: String) -> void:
 	over = true
+	close_inspection()
 	_refresh_relocation()
 	held = -1
 	dragging = false
 	_cancel_pick(false)
 	_refresh_choice()
-	var won := winner == side
-	over_label.text = "VICTORY" if won else "DEFEAT"
-	over_label.add_theme_color_override("font_color", UI.GOLD if won else UI.DANGER)
+	# p2-parity Part 3: the host's words (versus_match.finish), the same on both seats.
+	var prep_won := winner == "preparedness"
+	over_label.text = "PREPAREDNESS WINS" if prep_won else "DISASTER WINS"
+	over_note.text = "The school is safe." if prep_won else "The school was lost."
 	over_box.visible = true
 	end_button.disabled = true
 
@@ -312,6 +331,12 @@ func _sync_hand() -> void:
 	for card in pool:
 		card.queue_free()
 	hand_cards = next
+	# Own hand cards show the seal banner for the host's round, like the local seat.
+	var view_round := int(view.get("round", 1))
+	for card in hand_cards:
+		if card.preview_seal_round != view_round:
+			card.preview_seal_round = view_round
+			card._refresh_face()
 	hovered = -1
 	held = -1
 	dragging = false
@@ -411,6 +436,7 @@ func _pick_row() -> String:
 func _input(event: InputEvent) -> void:
 	if not shown or over:
 		return
+	if _inspect_input(event): return
 	if _evolution_open() or view.get("evolution_waiting", false): return
 	# W and S would move the idle game's camera.
 	if event is InputEventKey and event.keycode in [KEY_W, KEY_S]:
@@ -429,6 +455,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		_cancel_choice()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		# With nothing to cancel, a right click on a card inspects it.
+		if held < 0 and not _picking() and _right_click_inspect(event.position): return
 		_cancel_pick(true)
 		_cancel_choice()
 		held = -1
@@ -440,6 +468,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not shown or over:
 		return
 	if _evolution_open() or view.get("evolution_waiting", false): return
+	if is_instance_valid(inspection): return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_on_press(event.position)
 
@@ -448,6 +477,8 @@ func _on_press(point: Vector2) -> void:
 	mouse = point
 	var index := _hand_at(point)
 	if index >= 0:
+		# Own hand cards can always be inspected, also on the other player's turn.
+		_start_inspect_hold(hand_cards[index], point)
 		if not _usable(index):
 			_explain(index)
 			return
@@ -455,6 +486,10 @@ func _on_press(point: Vector2) -> void:
 		dragging = false
 		press_pos = point
 		return
+	# Nothing picked: a press on a lane card may become a hold that inspects it, like the host.
+	if not _picking():
+		var lane_card: Node3D = _lane_card_at(point)
+		if lane_card != null: _start_inspect_hold(lane_card, point)
 	var lane := _lane_at(point, _pick_row())
 	if lane >= 0:
 		click_lane(lane)
@@ -494,16 +529,18 @@ func _process(delta: float) -> void:
 	else:
 		mouse = get_viewport().get_mouse_position()
 		_update_hover()
+	_check_inspect_hold()
 	for i in hand_cards.size():
 		var grow := HAND_SCALE_HOVER if i == hovered or i == selected else 1.0
 		var target: Vector3 = Vector3.ONE * game.HAND_SCALE * grow
 		hand_cards[i].scale = hand_cards[i].scale.lerp(target, 1.0 - exp(-16.0 * delta))
 	_update_lanes()
 	_update_lane_inspection()
+	_update_seal_tooltip()
 
 
 func _update_hover() -> void:
-	var index := _hand_at(mouse) if not over else -1
+	var index := _hand_at(mouse) if not over and not is_instance_valid(inspection) else -1
 	if index == hovered:
 		return
 	hovered = index
@@ -512,7 +549,9 @@ func _update_hover() -> void:
 
 func _update_lane_inspection() -> void:
 	var foe := "response" if side == "disaster" else "disaster"
-	var lane := _lane_at(mouse, foe) if not dragging and hovered < 0 and not over and not _evolution_open() else -1
+	var free := not dragging and hovered < 0 and not over and not _evolution_open() \
+		and not is_instance_valid(inspection)
+	var lane := _lane_at(mouse, foe) if free else -1
 	var card: Node3D = lane_cards[foe][lane] if lane >= 0 else null
 	if card == inspected_lane: return
 	inspected_lane = card
@@ -715,6 +754,11 @@ func _cancel_pick(tell_session: bool) -> void:
 
 
 func _explain(index: int) -> void:
+	# The Preparedness draw comes first. The host refuses a play then with the same text.
+	if side == "preparedness" and str(view.get("phase", "")) == "draw" and not over:
+		Sfx.play("invalid_action")
+		show_note(REASONS.draw_first, "")
+		return
 	if not _my_turn():
 		show_note("Not your turn", "")
 		return
@@ -786,6 +830,7 @@ func _build_hud() -> void:
 	_place(tactic_box, Control.PRESET_CENTER_RIGHT, Vector2(-206, -60))
 	_build_note()
 	_build_over()
+	_build_seal_tooltip()
 	_build_disaster_controls()
 
 
@@ -880,7 +925,9 @@ func _build_over() -> void:
 	over_box.set_anchors_preset(Control.PRESET_CENTER)
 	over_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	over_box.grow_vertical = Control.GROW_DIRECTION_BOTH
-	over_box.custom_minimum_size = Vector2(420, 0)
+	# p2-parity Part 3: the host's result size (run_director._panel_layout).
+	var screen := get_viewport().get_visible_rect().size
+	over_box.custom_minimum_size = Vector2(minf(760, screen.x - 48), minf(460, screen.y - 100))
 	over_box.visible = false
 	hud.add_child(over_box)
 	var box := VBoxContainer.new()
@@ -888,9 +935,15 @@ func _build_over() -> void:
 	over_box.add_child(box)
 	over_label = _label(box, 64, UI.GOLD)
 	over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	over_note = director.label("", 16, UI.MUTED, true)
+	over_note.name = "ResultNote"
+	box.add_child(over_note)
 	var back: Button = director.button("Back to title", func() -> void: panel.back_pressed.emit(), box)
 	back.name = "BackButton"
 	back.custom_minimum_size = Vector2(200, 52)
+	# The host's cream result notice: icon, ink title and the same button style.
+	box.set_meta("style_kind", "result")
+	RoomMenuStyle.result(over_box, box, "result")
 
 
 func show_note(head: String, body: String) -> void:
@@ -1138,13 +1191,114 @@ func _refresh_choice() -> void:
 			if is_instance_valid(lane_card): named = " · " + str(lane_card.card_data.name)
 			var lane_button: Button = director.button("Lane %d%s" % [lane + 1, named], click_lane.bind(lane), box)
 			lane_button.name = "ChoiceLane%d" % lane
-	for entry: Dictionary in open.get("candidates", []):
-		var text := "Hidden card %d" % (int(entry.handle) + 1)
-		if entry.has("card"): text = str(entry.card.get("name", "?"))
-		var entry_button: Button = director.button(text, _pick_candidate.bind(int(entry.handle)), box)
-		entry_button.name = "ChoiceEntry%d" % int(entry.handle)
+	var candidates: Array = open.get("candidates", [])
+	if VersusMatch.UI_CARD_PICKER and not candidates.is_empty():
+		_build_card_picker(box, candidates)
+		candidates = []
+	if not candidates.is_empty():
+		# Long lists scroll inside the viewport. The panel grows both ways from the center.
+		var scroll := ScrollContainer.new()
+		scroll.name = "ChoiceScroll"
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		box.add_child(scroll)
+		var entries := VBoxContainer.new()
+		entries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(entries)
+		choice_box.grow_vertical = Control.GROW_DIRECTION_BOTH
+		choice_box.offset_top = 0
+		choice_box.offset_bottom = 0
+		for entry: Dictionary in candidates:
+			var text := "Hidden card %d" % (int(entry.handle) + 1)
+			if entry.has("card"): text = str(entry.card.get("name", "?"))
+			var entry_button: Button = director.button(text, _pick_candidate.bind(int(entry.handle)), entries)
+			entry_button.name = "ChoiceEntry%d" % int(entry.handle)
+			# A hidden card has no "card" here, so it cannot be inspected.
+			if entry.has("card"): _hook_entry_inspect(entry_button, entry.card)
+		# Room for the title, prompt and Cancel stays outside the list.
+		var row: float = entries.get_child(0).get_combined_minimum_size().y + 6.0
+		scroll.custom_minimum_size.y = minf(row * candidates.size(), maxf(120.0, hud.size.y - 300.0))
 	var cancel: Button = director.button("Cancel", _cancel_choice, box)
 	cancel.name = "ChoiceCancel"
+
+
+## UI_CARD_PICKER: the candidates as a grid of real card tiles instead of a list of text buttons. The panel is only as
+## large as the cards need and scrolls when they do not fit. Hidden entries show a card back. Handles are unchanged.
+func _build_card_picker(box: VBoxContainer, candidates: Array) -> void:
+	var cards_per_row := clampi(int(hud.size.x * 0.8 / 232.0), 1, 6)
+	var scroll := ScrollContainer.new()
+	scroll.name = "ChoiceScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = mini(cards_per_row, candidates.size())
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	scroll.add_child(grid)
+	for entry: Dictionary in candidates:
+		var handle := int(entry.handle)
+		var tile_index := grid.get_child_count()
+		if entry.has("card"):
+			var data := {"type": "response", "element": "evac", "cost": 0, "attack": 0, "health": 1}
+			data.merge(entry.card, true)
+			director._card_tile(data, grid, _pick_candidate.bind(handle), "Pick", false)
+		else:
+			_hidden_tile(grid, handle)
+		var tile: Control = grid.get_child(tile_index)
+		# Deck-viewer look: bare cards, no plate and no name above (the card face already has its name).
+		tile.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		var action: Button = tile.find_child("ActionButton", true, false)
+		if action != null:
+			action.name = "ChoiceEntry%d" % handle
+			action.text = str(entry.card.get("name", "?")) if entry.has("card") else "Hidden card %d" % (handle + 1)
+			_click_overlay(tile, action)
+			# A hidden card has no "card" here, so it cannot be inspected.
+			if entry.has("card"): _hook_entry_inspect(action, entry.card)
+	_fit_card_picker.call_deferred(scroll, grid)
+	_place(choice_box, Control.PRESET_CENTER, Vector2.ZERO)
+	choice_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	choice_box.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+
+## After one layout pass the grid knows its real size: the panel takes it, up to what the screen allows.
+func _fit_card_picker(scroll: ScrollContainer, grid: GridContainer) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(scroll) or not is_instance_valid(grid): return
+	var wide: float = minf(grid.size.x + 14.0, hud.size.x * 0.92)
+	var tall: float = minf(grid.size.y + 4.0, maxf(180.0, hud.size.y - 280.0))
+	scroll.custom_minimum_size = Vector2(wide, tall)
+
+
+## The whole card is the button: a click on the card picks it. The button covers the tile and shows an outline on hover.
+func _click_overlay(tile: Control, button: Button) -> void:
+	if button.get_parent() != tile: button.reparent(tile)
+	# The text stays (the card name, or Hidden card N) so tools and tests can read it; it is drawn invisible.
+	for color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+		button.add_theme_color_override(color, Color(0, 0, 0, 0))
+	button.flat = true
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, empty)
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(1, 1, 1, 0.07)
+	hover.border_color = UI.GOLD
+	hover.set_border_width_all(3)
+	hover.set_corner_radius_all(8)
+	button.add_theme_stylebox_override("hover", hover)
+
+
+## A card the player cannot see: the card back and a Pick button. Same size as a card tile.
+func _hidden_tile(parent: Node, handle: int) -> void:
+	var tile := PanelContainer.new()
+	tile.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	parent.add_child(tile)
+	var column := VBoxContainer.new()
+	tile.add_child(column)
+	director.card_image(preload("res://scripts/card_3d.gd")._card_back(), column, 180)
+	var pick: Button = director.button("Hidden card %d" % (handle + 1), _pick_candidate.bind(handle), tile)
+	pick.name = "ActionButton"
+	_click_overlay(tile, pick)
 
 
 ## Flag on, after Scout: the Disaster hand as it was when Hazard Forecast was cast. Preparedness view only.
@@ -1213,6 +1367,7 @@ func _clear_held_preview() -> void:
 
 
 func _reset_evolutions() -> void:
+	close_inspection()
 	_cancel_pick(false)
 	held = -1
 	dragging = false
@@ -1223,3 +1378,167 @@ func _reset_evolutions() -> void:
 	note_head.text = ""
 	note_body.text = ""
 	if is_instance_valid(disaster_plans): disaster_plans.get_node("CountLabel").text = ""
+
+
+# ------------------------------------------------------------------- inspect (p2-parity Part 1)
+## True while a press on the table is an action: a picked card, tactic or evolution, an open choice or Crosswind.
+func _picking() -> bool:
+	return selected >= 0 or selected_tactic != "" or not selected_held.is_empty() or not _pending().is_empty() \
+		or not view.get("relocation", {}).is_empty()
+
+
+## The lane card on either row under a screen point, or null.
+func _lane_card_at(point: Vector2) -> Node3D:
+	for lane_side: String in ["response", "disaster"]:
+		var lane := _lane_at(point, lane_side)
+		if lane >= 0 and is_instance_valid(lane_cards[lane_side][lane]): return lane_cards[lane_side][lane]
+	return null
+
+
+func _has_inspect_target() -> bool:
+	return inspect_target is Dictionary or is_instance_valid(inspect_target)
+
+
+func _start_inspect_hold(target, point: Vector2) -> void:
+	inspect_target = target
+	inspect_since = Time.get_ticks_msec()
+	inspect_origin = point
+
+
+## A press that stays still for the host's hold time opens the inspect panel.
+func _check_inspect_hold() -> void:
+	if is_instance_valid(inspection) and inspection_card != null and not is_instance_valid(inspection_card):
+		close_inspection()
+	if not _has_inspect_target() or dragging or is_instance_valid(inspection): return
+	if Time.get_ticks_msec() - inspect_since < int(director.INSPECT_HOLD_SECONDS * 1000.0): return
+	var target = inspect_target
+	inspect_target = null
+	# A held hand card goes back to the fan, so the release does not play it.
+	held = -1
+	_arrange_hand()
+	open_inspection(target)
+
+
+func _right_click_inspect(point: Vector2) -> bool:
+	var index := _hand_at(point)
+	var card: Node3D = hand_cards[index] if index >= 0 else _lane_card_at(point)
+	if card == null: return false
+	get_viewport().set_input_as_handled()
+	open_inspection(card)
+	return true
+
+
+## A choice entry with a visible card opens the same inspect panel on hold or right click.
+func _hook_entry_inspect(entry_button: Button, card: Dictionary) -> void:
+	entry_button.gui_input.connect(func(event: InputEvent) -> void:
+		if not event is InputEventMouseButton or not event.pressed: return
+		if event.button_index == MOUSE_BUTTON_RIGHT: open_inspection(card)
+		elif event.button_index == MOUSE_BUTTON_LEFT: _start_inspect_hold(card, event.global_position))
+
+
+## Esc or a left click outside the dossier closes the panel, like the host.
+## Returns true when the board must not use the event.
+func _inspect_input(event: InputEvent) -> bool:
+	var left: bool = event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT
+	if left and not event.pressed:
+		inspect_target = null
+		if suppress_release or is_instance_valid(inspection):
+			suppress_release = false
+			get_viewport().set_input_as_handled()
+			return true
+	if not is_instance_valid(inspection):
+		if event is InputEventMouseMotion and _has_inspect_target() \
+				and event.position.distance_to(inspect_origin) > HOLD_MOVE_PIXELS:
+			inspect_target = null
+		return false
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		close_inspection()
+		get_viewport().set_input_as_handled()
+	elif left and event.pressed and not inspection_dossier.get_global_rect().has_point(event.position):
+		close_inspection()
+		suppress_release = true
+		get_viewport().set_input_as_handled()
+	return true
+
+
+## The host's inspect panel: the same dossier and card face, built only from the view.
+## target is a Card3D of this board (lane or own hand) or a card Dictionary from a choice entry.
+func open_inspection(target) -> void:
+	if over or is_instance_valid(inspection): return
+	var card: Node3D = target if target is Node3D and is_instance_valid(target) else null
+	if card == null and not target is Dictionary: return
+	var definition: Dictionary = director.live_definition(card) if card != null else target.duplicate(true)
+	inspection = InspectionScene.instantiate()
+	inspection.name = "LanInspection"
+	hud.add_child(inspection)
+	var row: Control = inspection.get_node("Center/Row")
+	director.add_dossier(row, definition, _combat_text(card) if card != null else "")
+	inspection_dossier = row.get_child(0)
+	inspection_card = card
+	var face_card := card
+	if face_card == null:
+		face_card = _make_card(definition, inspection)
+		face_card.hide()
+	else:
+		face_card._refresh_face()
+	director.card_image(face_card._vp.get_texture(), row, 330)
+	if is_instance_valid(lane_inspection): lane_inspection.queue_free()
+	inspected_lane = null
+	# A held choice button keeps the mouse. Building the list again lets it go, so no pick happens.
+	if card == null: _refresh_choice()
+	hud.move_child(inspection, -1)
+
+
+func close_inspection() -> void:
+	inspect_target = null
+	if is_instance_valid(inspection):
+		inspection.hide()
+		inspection.queue_free()
+	inspection = null
+	inspection_dossier = null
+	inspection_card = null
+
+
+## The THIS COMBAT lines the view carries, in the host's words: seal, plan protection, plan attack, Ignore Taunt.
+## The conditional ability and Blood Pact lines need host state, so they are left out.
+func _combat_text(card: Node3D) -> String:
+	var lines: PackedStringArray = []
+	# Only the field seal here, like the host's field_seal_text. The card script words it.
+	var seal_only := {"seal_round": card.card_data.get("seal_round", -1)}
+	var seal_text := CardScript.seal_hint(seal_only, int(view.get("round", 1)))
+	if not seal_text.is_empty(): lines.append(seal_text)
+	if card.planned_guard > 0: lines.append("Plan protection: %d" % card.planned_guard)
+	if card.plan_attack_bonus > 0: lines.append("Plan attack: +%d" % card.plan_attack_bonus)
+	if card.plan_ignore_taunt: lines.append("Ignore Taunt")
+	return "" if lines.is_empty() else "[b]THIS COMBAT[/b]\n" + "\n".join(lines) + "\n"
+
+
+# ------------------------------------------------------------------- seal tooltip (p2-parity Part 3)
+## The host's seal tooltip (run_director._refresh_seal_tooltip): same label style, same text.
+func _build_seal_tooltip() -> void:
+	seal_tooltip = Label.new()
+	seal_tooltip.name = "SealTooltip"
+	seal_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	seal_tooltip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	seal_tooltip.custom_minimum_size.x = 420
+	seal_tooltip.add_theme_font_size_override("font_size", 22)
+	seal_tooltip.add_theme_stylebox_override("normal", director.style(UI.PANEL, UI.GOLD))
+	seal_tooltip.hide()
+	hud.add_child(seal_tooltip)
+
+
+## A hovered hand or lane card with a seal shows the hint next to the mouse. The round is the host's.
+func _update_seal_tooltip() -> void:
+	var card: Node3D = null
+	var quiet := over or dragging or _evolution_open() or is_instance_valid(inspection)
+	if not quiet: card = hand_cards[hovered] if hovered >= 0 and hovered < hand_cards.size() else _lane_card_at(mouse)
+	var hint := CardScript.seal_hint(card.card_data, int(view.get("round", 1))) if card != null else ""
+	if hint.is_empty():
+		seal_tooltip.hide()
+		return
+	if seal_tooltip.text != hint: seal_tooltip.text = hint
+	seal_tooltip.size = Vector2(420, 0)
+	var bounds := get_viewport().get_visible_rect().size - seal_tooltip.size - Vector2(8, 8)
+	seal_tooltip.position = (mouse + Vector2(18, 18)).clamp(Vector2(8, 8), bounds)
+	seal_tooltip.show()
+	if seal_tooltip.get_index() != hud.get_child_count() - 1: hud.move_child(seal_tooltip, -1)

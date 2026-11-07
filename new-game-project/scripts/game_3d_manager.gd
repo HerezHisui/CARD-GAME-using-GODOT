@@ -1014,6 +1014,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if not board_input.click_card(board_card): run_director.begin_inspect_hold(board_card)
 			get_viewport().set_input_as_handled()
 			return
+		if warn_draw_first(event.position): return
 		if not board_input.action.is_empty() or not can_player_act(): return
 		update_hand_hover(event.position)
 		if is_instance_valid(hovered_hand_card):
@@ -1025,6 +1026,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			picked._start_drag()
 			run_director.begin_inspect_hold(picked, true)
 			get_viewport().set_input_as_handled()
+
+## Versus only: a hand card pressed before this turn's draw shows DRAW A CARD FIRST and is not played.
+## Singleplayer keeps its old silent refusal.
+func warn_draw_first(mouse: Vector2) -> bool:
+	if encounter_kind != "versus" or seat_prep != "local" or phase != Phase.PLAYER_DRAW: return false
+	if evolution_choice.pending() or not board_input.action.is_empty(): return false
+	if run_director and run_director.privacy_screen.visible: return false
+	var card := card_at_hand_position(mouse)
+	if card == null: return false
+	Sfx.play("invalid_action")
+	card.spawn_popup("DRAW A CARD FIRST", UI.AMBER)
+	get_viewport().set_input_as_handled()
+	return true
 
 func card_at_board_position(mouse: Vector2) -> Node:
 	for slot in _response_slots() + _threat_slots():
@@ -1175,8 +1189,10 @@ func complete_move_effect(slot: Node3D) -> void:
 ## Moves an ally to an empty lane, heals it when the source says so, and pays for a utility source.
 ## The local pick and the LAN host both call this.
 func apply_relocation(ally: Node, slot: Node3D, source: Node) -> void:
+	# Crosswind uses this too, so the lanes are the ally's own side (Response or threat).
+	var lanes: Array = _threat_slots() if ally.current_slot in _threat_slots() else _response_slots()
 	if balance_enabled():
-		if slot not in _response_slots() or _get_card_in_slot(slot) != null: return
+		if slot not in lanes or _get_card_in_slot(slot) != null: return
 		if ally.current_slot == null or ally.current_slot == slot: return
 	ally.place_on_slot(slot)
 	if balance_enabled() and int(ally.card_data.get("relocation_attack", 0)) > 0:
@@ -2385,10 +2401,16 @@ func entry_barrier_nerf_on() -> bool:
 	if entry_barrier_nerf_override is bool: return entry_barrier_nerf_override
 	return preload("res://scripts/versus_match.gd").DISASTER_ENTRY_BARRIER_NERF
 
-func major_evolution_entry(card: Node, sacrifices: int) -> void:
-	if sacrifices < 3: return
+## Entry Barrier for an evolution paid with this many sacrifices. The preview and the real entry both use it.
+func entry_barrier_amount(sacrifices: int) -> int:
+	if sacrifices < 3: return 0
 	var entry_barrier := 2 if sacrifices >= 4 else 1
 	if entry_barrier_nerf_on(): entry_barrier -= 1
+	return entry_barrier
+
+func major_evolution_entry(card: Node, sacrifices: int) -> void:
+	if sacrifices < 3: return
+	var entry_barrier := entry_barrier_amount(sacrifices)
 	if entry_barrier > 0: card.add_status("barrier", entry_barrier)
 	enemy_draw_cards(1)
 	if sacrifices >= 4:

@@ -511,6 +511,7 @@ const DISASTER_REASONS := {
 	"action_limit": "Action limit reached. End your turn.",
 	"sealed": "That card is sealed.",
 	"busy": "Wait for the last action.",
+	"draw_first": "DRAW A CARD FIRST",
 	"not_in_hand": "That card is not in the hand.",
 	"battle_over": "",
 }
@@ -1773,7 +1774,7 @@ func begin_tactic(id: String) -> void:
 	close_modal()
 	if id == "coordinate":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
-		game.board_input.pick("Click one ally. It and the nearest ally on each side gain +1 attack this combat.",
+		game.board_input.pick("Click one ally. It and the adjacent ally on each side gain +1 attack this combat.",
 			allies, arm_target_tactic.bind("coordinate"), Callable(), "coordinate")
 	elif id == "extract":
 		var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
@@ -1836,19 +1837,6 @@ func refresh_graveyard() -> void:
 	if cards.is_empty():
 		list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-func deck_hand() -> void:
-	var cards: Array[Dictionary] = []
-	for card in game.get_hand_cards(): cards.append(live_definition(card))
-	deck_cards(cards)
-
-func deck_board() -> void:
-	var cards: Array[Dictionary] = []
-	for slot in game._response_slots():
-		var card = game._get_card_in_slot(slot)
-		if card:
-			cards.append(live_definition(card))
-	deck_cards(cards)
-
 func live_definition(card: Node) -> Dictionary:
 	var definition: Dictionary = card.card_data.duplicate(true)
 	if not definition.get("utility", false):
@@ -1909,12 +1897,6 @@ func deck_cards(cards: Array[Dictionary]) -> void:
 
 func sorted_indices(cards: Array, key_index: int, descending: bool) -> Array:
 	return CardRules.sorted_indices(cards, key_index, descending)
-
-## Adds a sort row from ui_sort_row.tscn to the end of content.
-func add_sort_controls(workshop: bool) -> void:
-	var row: Control = SortRowScene.instantiate()
-	content.add_child(row)
-	setup_sort_controls(row, workshop)
 
 ## Fills a sort row: the picker items, the current sort and the order button.
 func setup_sort_controls(row: Control, workshop: bool) -> void:
@@ -2388,8 +2370,6 @@ func return_title() -> void:
 	start_after_reload = false
 	get_tree().call_deferred("reload_current_scene")
 
-func confirm_restart() -> void: confirm_title()
-
 func _dragging() -> bool:
 	return is_instance_valid(game.dragged_hand_card) and game.dragged_hand_card.is_dragging
 
@@ -2404,7 +2384,7 @@ func confirm_balance_evolution(definition: Dictionary, sacrifices: Array) -> boo
 	balance_evolution_confirmed.connect(receive, CONNECT_ONE_SHOT)
 	var bonus: int = game.matching_material_barrier(definition, sacrifices)
 	var cost := int(definition.get("cost", 0))
-	var entry := 0 if cost < 3 else (2 if cost >= 4 else 1)
+	var entry: int = game.entry_barrier_amount(cost)
 	var preview := "Entry Barrier: %d. Matching materials: +%d. Total Barrier: %d / 3." \
 		% [entry, bonus, mini(3, entry + bonus)]
 	for card: Node in sacrifices:
