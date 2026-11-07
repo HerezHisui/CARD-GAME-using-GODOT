@@ -47,7 +47,6 @@ var lane_cards := {"response": [null, null, null, null], "disaster": [null, null
 var hovered := -1
 var held := -1
 var dragging := false
-var relocation_box: PanelContainer
 var choice_box: PanelContainer
 # Crosswind, Lane Marshal and Evacuation Route: the ally is dragged onto an empty lane, as in hot-seat.
 var move_ally := -1  # the lane of the ally being dragged, -1 = none
@@ -169,7 +168,6 @@ func _on_view(new_view: Dictionary) -> void:
 	_sync_hand()
 	_sync_foe()
 	_refresh_hud()
-	_refresh_relocation()
 	_refresh_choice()
 	_refresh_forecast()
 	_send_queued_move()
@@ -218,7 +216,6 @@ func _on_event(kind: String, data: Dictionary) -> void:
 func _on_match_over(winner: String) -> void:
 	over = true
 	close_inspection()
-	_refresh_relocation()
 	held = -1
 	dragging = false
 	_cancel_pick(false)
@@ -423,7 +420,8 @@ func _open_lanes_for(index: int) -> Array:
 	# Flag on: an open utility choice lights exactly the lanes of its stage.
 	var open := _pending()
 	if not open.is_empty(): return open.handles.duplicate() if open.stage in LANE_STAGES else []
-	if side == "disaster" and not view.get("relocation", {}).is_empty(): return panel.relocation_lanes()
+	# A Crosswind that cannot be dragged now (match over) lights nothing.
+	if side == "disaster" and not view.get("relocation", {}).is_empty(): return []
 	if not selected_held.is_empty():
 		if evolution_play_sent: return []
 		return _held_entry().get("hints", {}).get("sacrifices", []).filter(func(lane): return lane not in chosen)
@@ -713,11 +711,8 @@ func click_hand(index: int) -> void:
 
 func click_lane(lane: int) -> void:
 	if _evolution_open() or view.get("evolution_waiting", false): return
-	if side == "disaster" and not view.get("relocation", {}).is_empty():
-		if over: return
-		panel.pick_relocation(lane)
-		_refresh_relocation()
-		return
+	# Crosswind is a drag (_drop_move). A lane click alone does nothing.
+	if side == "disaster" and not view.get("relocation", {}).is_empty(): return
 	var open := _pending()
 	if not open.is_empty() and open.stage in LANE_STAGES:
 		if lane not in open.handles:
@@ -1177,34 +1172,6 @@ func _fill_grave_list(box: VBoxContainer, cards: Array) -> void:
 		var caption := _label(grid.get_child(-1).get_node("Box"), 14, UI.MUTED)
 		caption.text = "%s · round %d" % [reason, int(entry.get("graveyard_round", 1))]
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-
-func _refresh_relocation() -> void:
-	if is_instance_valid(relocation_box):
-		relocation_box.get_parent().remove_child(relocation_box)
-		relocation_box.queue_free()
-	relocation_box = null
-	# Crosswind is a drag now (_drop_move), so no picker box opens.
-	if _move_open() or side != "disaster" or over or view.get("relocation", {}).is_empty(): return
-	relocation_box = PanelContainer.new()
-	relocation_box.name = "CrosswindChoice"
-	relocation_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
-	hud.add_child(relocation_box)
-	_place(relocation_box, Control.PRESET_CENTER_LEFT, Vector2(16, -80))
-	if VersusMatch.SIDE_BY_SIDE_HUD and is_instance_valid(resource_plate):
-		# Start below the Tension plate and grow down, so it never covers it.
-		var below := VersusHud.health_rect(get_viewport().get_visible_rect().size.x, true).end.y
-		below += 6.0 + resource_plate.get_combined_minimum_size().y + 12.0
-		_place(relocation_box, Control.PRESET_TOP_LEFT, Vector2(16, below))
-	var box := VBoxContainer.new()
-	relocation_box.add_child(box)
-	var title := _label(box, 24, UI.GOLD)
-	title.text = "CROSSWIND"
-	var prompt := _label(box, 18, UI.TEXT)
-	prompt.text = "Choose an ally lane" if panel.relocation_ally < 0 else "Choose an empty lane"
-	if panel.relocation_sent: prompt.text = "Waiting for the host..."
-	for lane in panel.relocation_lanes():
-		director.button("Lane %d" % (lane + 1), click_lane.bind(lane), box)
 
 
 ## Flag on: the box for the open utility choice. A prompt, a button per lane or list entry, and Cancel.
