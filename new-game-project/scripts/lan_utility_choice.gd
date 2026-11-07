@@ -167,8 +167,7 @@ func _refuse(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason}
 
 func _only_fields(msg: Dictionary, fields: Array) -> bool:
-	if msg.size() != fields.size(): return false
-	return fields.all(func(field): return msg.has(field))
+	return preload("res://scripts/lan_validators.gd").only_fields(msg, fields)
 
 ## Checks the ids every message carries. Returns "" when the message belongs to the open choice.
 func _problem(msg: Dictionary, fields: Array) -> String:

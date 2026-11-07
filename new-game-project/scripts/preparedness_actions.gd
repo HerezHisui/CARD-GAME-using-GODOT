@@ -28,7 +28,7 @@ func _result(ok: bool, reason: String = "") -> Dictionary:
 
 # True for a whole number from 0 to size - 1. A float or a string is refused.
 func _is_index(value, size: int) -> bool:
-	return typeof(value) == TYPE_INT and value >= 0 and value < size
+	return preload("res://scripts/lan_validators.gd").is_index(value, size)
 
 ## Checks shared by every action in the play phase. Returns the reason, or "" when it may go ahead.
 func _common_problem() -> String:

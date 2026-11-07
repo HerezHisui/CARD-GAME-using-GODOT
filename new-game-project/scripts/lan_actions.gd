@@ -131,8 +131,7 @@ static func _active_evolution_match(game: Node, msg: Dictionary) -> bool:
 
 
 static func _only_fields(msg: Dictionary, fields: Array) -> bool:
-	if msg.size() != fields.size(): return false
-	return fields.all(func(field): return msg.has(field))
+	return preload("res://scripts/lan_validators.gd").only_fields(msg, fields)
 
 
 static func _apply_cast(game: Node, msg: Dictionary) -> Dictionary:
@@ -151,7 +150,7 @@ static func _apply_cast(game: Node, msg: Dictionary) -> Dictionary:
 
 # True for a whole number from 0 to size - 1. A float or a string is refused.
 static func _is_index(value, size: int) -> bool:
-	return typeof(value) == TYPE_INT and value >= 0 and value < size
+	return preload("res://scripts/lan_validators.gd").is_index(value, size)
 
 
 static func _refuse(reason: String) -> Dictionary:
