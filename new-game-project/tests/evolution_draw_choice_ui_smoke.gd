@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Decks = preload("res://scripts/versus_decks.gd")
+const PickInput = preload("res://tests/card_pick_input.gd")
 var checks := 0
 var failures := 0
 var render := false
@@ -91,13 +92,10 @@ func run() -> void:
 	await click(director.menu_button)
 	expect(director.screen == "evolution_offer", "Mouse Menu cannot replace mandatory offer")
 	await capture("evolution-offer")
-	var pick: Button
-	for button in buttons(director.content):
-		if button.text == "Choose":
-			pick = button
-			break
-	expect(pick != null, "Offer has real pick buttons")
-	if pick != null: await click(pick)
+	# The offer has no Choose button: a real double click on a card chooses it.
+	var pick: Control = PickInput.tile(director.content)
+	expect(pick != null, "Offer has real pickable cards")
+	if pick != null: PickInput.double_click(root, pick)
 	await frames()
 	expect(choice.held.size() == 1 and not choice.pending(), "Real click accepts one physical card")
 	expect(not director.modal.visible and game.enemy_hand.is_empty(), "Pick closes offer and leaves main hand empty")

@@ -4,6 +4,7 @@ extends SceneTree
 
 const Decks = preload("res://scripts/versus_decks.gd")
 const VersusMatch = preload("res://scripts/versus_match.gd")
+const PickInput = preload("res://tests/card_pick_input.gd")
 
 var failures := 0
 var checks := 0
@@ -886,7 +887,7 @@ func check_disaster_seat_spells(game: Node, director: Node) -> void:
 	await process_frame
 	expect(director.disaster_pick.is_empty() and not director.modal.visible and game.enemy_hand.size() == 1
 		and game.disaster_actions.actions_used == 2, "Disaster seat: Cancel in the popup changes nothing")
-	# Again, and press the real Choose button.
+	# Again, and choose the card with a real double click (the picker has no Choose button).
 	await seat_mouse(card_point, "move")
 	await seat_mouse(card_point, "down")
 	await seat_mouse(card_point, "up")
@@ -897,7 +898,7 @@ func check_disaster_seat_spells(game: Node, director: Node) -> void:
 	await process_frame
 	var tiles: Array = director.content.get_node("Cards/Row").get_children()
 	expect(tiles.size() == 1 and director.modal.visible, "Disaster seat: the popup lists the Response hand card")
-	tiles[0].get_node("Box/ActionButton").pressed.emit()
+	PickInput.double_click(root, tiles[0])
 	await create_timer(0.8, false).timeout
 	expect(game.is_sealed(target.card_data) and game.enemy_hand.is_empty() and game.disaster_actions.actions_used == 3,
 		"Disaster seat: the chosen target is sealed and the action is counted")
@@ -1301,10 +1302,10 @@ func check_disaster_target_pick(game: Node, director: Node) -> void:
 	hand_rows(director)[0].pressed.emit()
 	await process_frame
 	await process_frame
-	# Press the real Choose button on the popup tile, the same path a player uses.
+	# Double-click the popup tile, the same path a player uses (the picker has no Choose button).
 	var tiles: Array = director.content.get_node("Cards/Row").get_children()
 	expect(tiles.size() == 1, "Disaster picking: the popup lists the Response hand card")
-	tiles[0].get_node("Box/ActionButton").pressed.emit()
+	PickInput.double_click(root, tiles[0])
 	await create_timer(0.5, false).timeout
 	expect(game.is_sealed(target.card_data) and game.enemy_hand.is_empty(), "Disaster picking: target is sealed")
 	game.disaster_actions.end_turn()
@@ -1536,10 +1537,11 @@ func pick_opening_evolution(game: Node, director: Node, check_cover: bool = fals
 	if not await wait_until(func(): return director.screen == "evolution_offer"): return
 	# Restore the original first-turn fixture history after the separate choice cover.
 	director.privacy_last = ""
-	for button in director.content.find_children("*", "Button", true, false):
-		if button.text == "Choose" and button.is_visible_in_tree():
-			await privacy_click(button.get_global_rect().get_center())
-			break
+	# The offer has no Choose button: a real double click on the first card chooses it.
+	var pick_tile: Control = PickInput.tile(director.content)
+	if pick_tile != null:
+		PickInput.double_click(root, pick_tile)
+		await privacy_frames()
 	await wait_until(func(): return not game.evolution_choice.pending() and game.phase != game.Phase.SETUP)
 	await privacy_frames()
 

@@ -5,6 +5,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 const MenuSkin = preload("res://scripts/suspended_menu.gd")
 const RouteCanvas = preload("res://scripts/route_canvas.gd")
 const CardFace = preload("res://scripts/card_3d.gd")
+const CardPick = preload("res://scripts/card_pick.gd")
 const Rules = preload("res://scripts/battle_rules.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
 const Routes = preload("res://scripts/run_routes.gd")
@@ -1524,7 +1525,7 @@ func _card_tile(card: Dictionary, parent: Node, action: Callable = Callable(),
 		action_text: String = "", show_name: bool = false) -> void:
 	# The tile layout lives in ui_card_tile.tscn; the card face is made here.
 	var panel: Control = CardTileScene.instantiate()
-	panel.add_theme_stylebox_override("panel", style(UI.PANEL, UI.BRONZE))
+	panel.add_theme_stylebox_override("panel", UI.sharp_panel(UI.PANEL, UI.GOLD.darkened(0.3)))
 	parent.add_child(panel)
 	var box: Control = panel.get_node("Box")
 	if show_name:
@@ -2422,7 +2423,11 @@ func balance_evolution_decision(accepted: bool) -> void:
 func choose_card(title: String, cards: Array, callback: Callable, cancel: Callable,
 		subtitle: String = "", show_names: bool = false) -> void:
 	card_picker = true
-	reset_panel(title, subtitle, "choice")
+	# No Choose button: one click selects a card, a double click chooses it. The line under the title says so.
+	var line_width := minf(CARD_PICKER_WIDTH, get_viewport().get_visible_rect().size.x - 32) - 60
+	reset_panel(title, CardPick.subtitle(subtitle, line_width), "choice")
+	var hint: Node = content.get_child(content.get_child_count() - 1)
+	if hint is Label and hint.text == CardPick.HINT: hint.set_meta("pick_hint", true)
 	action_cancel = cancel
 	# The layout lives in ui_choose_cards.tscn: one row of cards that scrolls sideways.
 	unpack_screen(ChooseCardsScene)
@@ -2435,7 +2440,8 @@ func choose_card(title: String, cards: Array, callback: Callable, cancel: Callab
 	)
 	for entry in sorted:
 		var definition: Dictionary = live_definition(entry) if entry is Node else entry
-		_card_tile(definition, row, callback.bind(entry), "Choose", show_names)
+		_card_tile(definition, row, Callable(), "", show_names)
+		CardPick.make_pickable(row.get_child(-1), str(definition.name), callback.bind(entry))
 	hook_button(content.get_node("CancelButton"), cancel)
 
 func choose_evolution_targets(cards: Array, callback: Callable, cancel: Callable) -> void:

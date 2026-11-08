@@ -140,7 +140,7 @@ func show_offer() -> void:
 	director.screen = "evolution_offer"
 	game.get_tree().paused = false
 
-## The offer is one centered row of equal cards. Choose sits on one line at the bottom of each card, and
+## The offer is one centered row of equal cards. A double click on a card chooses it (no Choose button), and
 ## a card glows when the mouse is over it. The row has no scroll area, so no dead space is left under it.
 func _style_offer(director: Node) -> void:
 	var scroll: Control = director.content.get_node("Cards")
@@ -159,8 +159,6 @@ func _style_offer(director: Node) -> void:
 		tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		tile.mouse_filter = Control.MOUSE_FILTER_STOP
 		tile.get_node("Box/Center").size_flags_vertical = Control.SIZE_EXPAND_FILL
-		var button: Button = tile.get_node("Box/ActionButton")
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var plain: StyleBox = tile.get_theme_stylebox("panel")
 		var glow: StyleBoxFlat = director.style(UI.PANEL, UI.GOLD)
 		glow.set_border_width_all(3)

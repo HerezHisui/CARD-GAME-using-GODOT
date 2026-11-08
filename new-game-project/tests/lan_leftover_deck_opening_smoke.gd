@@ -8,6 +8,7 @@ extends SceneTree
 
 const LanSession = preload("res://scripts/lan_session.gd")
 const Decks = preload("res://scripts/versus_decks.gd")
+const PickInput = preload("res://tests/card_pick_input.gd")
 
 # Not the game port and not a port of another LAN suite.
 const TEST_PORT := 24760
@@ -234,15 +235,16 @@ func pick_over_the_wire(name: String) -> void:
 
 # The host is the Disaster: it picks on its own screen with a real click on the first Choose button.
 func pick_on_host(name: String) -> void:
-	var button: Button = null
+	var button: Control = null
 	for i in 600:
 		button = find_choose_button()
 		if button != null: break
 		await process_frame
-	expect(button != null, name + ": the host offer screen shows a Choose button")
+	expect(button != null, name + ": the host offer screen shows a pickable card")
 	if button == null: return
 	await frames(3)
-	await click(button)
+	# No Choose button any more: a real double click on the card chooses it.
+	PickInput.double_click(root, button)
 	expect(await wait_until(func() -> bool: return game.evolution_choice.held.size() == 1),
 		name + ": the host click takes the pick")
 	var count := views.size()
@@ -262,10 +264,9 @@ func prep_stopped_waiting(old_count: int) -> bool:
 	return not views[-1].get("evolution_waiting", true)
 
 
-func find_choose_button() -> Button:
-	for node in director.find_children("*", "Button", true, false):
-		if node.text == "Choose" and node.is_visible_in_tree(): return node
-	return null
+## The first card tile of the picker (the tiles replaced the Choose button).
+func find_choose_button() -> Control:
+	return PickInput.tile(director)
 
 
 # --- helpers, same as lan_deck_smoke.gd ---

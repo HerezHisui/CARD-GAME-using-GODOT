@@ -3,6 +3,7 @@ extends RefCounted
 
 const UI = preload("res://scripts/ui_theme.gd")
 const CardRules = preload("res://scripts/run_card_rules.gd")
+const CardPick = preload("res://scripts/card_pick.gd")
 ## Screen layouts. Edit them in the editor; the card tiles are still made in code.
 const ShopScene = preload("res://scenes/ui/ui_shop.tscn")
 const RemoveScene = preload("res://scenes/ui/ui_remove_cards.tscn")
@@ -76,14 +77,15 @@ static func show_remove_cards(director: Node, origin: String) -> void:
 	director.reset_panel("REMOVE A CARD", "Choose the exact copy to retire. Keep at least 5 cards. "
 		+ ("Removal costs 30 supplies; the shop stays open." if origin == "shop"
 		else ("This replaces healing or training at this rest node." if origin == "rest"
-		else "Trade one card for 25 supplies.")), "remove")
+		else "Trade one card for 25 supplies.")) + " Double-click a card to choose it.", "remove")
 	director.unpack_screen(RemoveScene)
 	var scroll: ScrollContainer = director.content.get_node("Cards")
 	var grid: GridContainer = scroll.get_node("Grid")
 	director.fit_card_grid(grid, scroll)
 	for i in director.sorted_indices(director.collection, director.deck_sort, director.deck_descending):
-		director._card_tile(director.collection[i], grid, Callable(director, "preview_remove").bind(i),
-			"Choose this copy")
+		director._card_tile(director.collection[i], grid)
+		CardPick.make_pickable(grid.get_child(-1), str(director.collection[i].name),
+			Callable(director, "preview_remove").bind(i))
 	director.hook_button(director.content.get_node("CancelButton"), Callable(director, "cancel_remove"))
 
 static func preview_remove(director: Node, index: int) -> void:

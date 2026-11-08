@@ -75,18 +75,17 @@ func check_row(director: Node, label: String) -> void:
 	expect(absf(gap_a - gap_b) <= 1.0 and gap_a > 0.0, label + ": equal gaps (%.1f, %.1f)" % [gap_a, gap_b])
 	var width: float = first.size.x
 	var bottoms: Array = []
+	# The Choose button is gone: a double click on the card chooses it.
 	for tile in tiles:
-		var button: Button = tile.get_node("Box/ActionButton")
 		expect(absf(tile.get_global_rect().size.x - width) <= 1.0, label + ": tiles are equal width")
-		expect(absf(button.get_global_rect().size.x - tiles[0].get_node("Box/ActionButton").get_global_rect().size.x) <= 1.0,
-			label + ": Choose buttons are equal width")
-		expect(absf(button.get_global_rect().end.y - tile.get_global_rect().end.y) <= 24.0,
-			label + ": Choose button sits at the bottom of its card")
-		bottoms.append(button.get_global_rect().end.y)
+		expect(not tile.has_node("Box/ActionButton"), label + ": cards have no Choose button")
+		expect(tile.has_meta("pick_name") and tile.focus_mode == Control.FOCUS_ALL,
+			label + ": card is pickable by double click and focus")
+		bottoms.append(tile.get_global_rect().end.y)
 	var glow_before: StyleBox = tiles[0].get_theme_stylebox("panel")
 	tiles[0].mouse_entered.emit()
 	expect(tiles[0].get_theme_stylebox("panel") != glow_before, label + ": hover glows the card")
 	tiles[0].mouse_exited.emit()
 	expect(tiles[0].get_theme_stylebox("panel") == glow_before, label + ": glow ends when the mouse leaves")
 	expect(absf(bottoms[0] - bottoms[1]) <= 1.0 and absf(bottoms[1] - bottoms[2]) <= 1.0,
-		label + ": Choose buttons share one line")
+		label + ": cards share one bottom line")

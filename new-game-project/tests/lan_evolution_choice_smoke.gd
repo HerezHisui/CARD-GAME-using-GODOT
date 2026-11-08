@@ -6,6 +6,7 @@ var game: Node
 const Actions = preload("res://scripts/lan_actions.gd")
 const Session = preload("res://scripts/lan_session.gd")
 const Decks = preload("res://scripts/versus_decks.gd")
+const PickInput = preload("res://tests/card_pick_input.gd")
 
 func _initialize() -> void:
 	call_deferred("run")
@@ -240,12 +241,9 @@ func capture(label: String) -> void:
 	expect(root.get_texture().get_image().save_png(folder.path_join(label + ".png")) == OK,
 		"Rendered local host " + label)
 
-func choose_button(node: Node) -> Button:
-	if node is Button and node.text == "Choose": return node
-	for child in node.get_children():
-		var found := choose_button(child)
-		if found != null: return found
-	return null
+## The first card tile of the picker (the tiles replaced the Choose button).
+func choose_button(node: Node) -> Control:
+	return PickInput.tile(node)
 
 func click(button: Button) -> void:
 	var point := button.get_global_rect().get_center()
@@ -287,7 +285,9 @@ func check_opening() -> void:
 			expect(game.lan_remote_prep == host_disaster, "Coin preserves both host roles")
 			if host_disaster:
 				var button := choose_button(game.run_director.content)
-				if button != null: await click(button)
+				if button != null:
+					PickInput.double_click(root, button)
+					await frames()
 			else:
 				await Actions.apply(game, request())
 			expect(await wait_until(func(): return game.phase != game.Phase.SETUP), "Real opening resumes")
@@ -318,8 +318,10 @@ func check_turns() -> void:
 			if host_disaster:
 				await capture("local-host-offer")
 				var button := choose_button(game.run_director.content)
-				expect(button != null, "Local host uses existing Choose button")
-				if button != null: await click(button)
+				expect(button != null, "Local host uses the existing picker card")
+				if button != null:
+					PickInput.double_click(root, button)
+					await frames()
 			else:
 				await Actions.apply(game, request())
 			expect(await wait_until(func(): return not done.is_empty()), "Opening resumes after pick")

@@ -1,4 +1,5 @@
 extends SceneTree
+const PickInput = preload("res://tests/card_pick_input.gd")
 var failures := 0
 var game: Node
 var director: Node
@@ -199,15 +200,21 @@ func input_playtest() -> void:
 	var selected := []
 	director.choose_card("TEST UTILITY PICK", [definition], func(value): selected.append(value); director.close_modal(), director.close_modal)
 	await create_timer(0.3).timeout
-	var choose: Button = director.content.find_children("*", "Button", true, false).filter(func(b): return b.text == "Choose")[0]
-	# Scroll the compact picker so the real button receives the click.
+	# The picker has no Choose button: one click selects a card, a double click chooses it.
+	check(director.content.find_children("*", "Button", true, false).all(func(b): return b.text != "Choose"),
+		"picker cards have no Choose button")
+	var choose: Control = PickInput.tile(director.content, str(definition.name))
+	# Scroll the compact picker so the real tile receives the click.
 	choose.grab_focus()
 	await create_timer(0.2).timeout
 	var rect := choose.get_global_rect()
 	mouse(true, rect.get_center())
 	mouse(false, rect.get_center())
 	await process_frame
-	check(selected.size() == 1 and not director.modal.visible, "utility selection receives one actual click")
+	check(selected.is_empty() and choose.get_node("SelectMark").visible, "one click on a picker card only selects it")
+	PickInput.double_click(root, choose)
+	await process_frame
+	check(selected.size() == 1 and not director.modal.visible, "utility selection receives one actual double click")
 	click_key(KEY_F3)
 	check(director.screen == "debug_password", "F3 requires authentication every time")
 	click_key(KEY_ESCAPE)
