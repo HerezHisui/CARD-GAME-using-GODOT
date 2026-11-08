@@ -390,6 +390,9 @@ func _build_ui() -> void:
 		if modal.visible:
 			_panel_layout(screen)
 			_skin_menu()
+			# Dark panels that fit their content are measured again for the new size.
+			var room_style := preload("res://scripts/room_menu_style.gd")
+			if screen in room_style.FIT_KINDS: room_style.fit_height.call_deferred(modal, content, screen)
 	)
 	# Same font, size and color that label() gives.
 	idle_hint = root.get_node("IdleHint")
