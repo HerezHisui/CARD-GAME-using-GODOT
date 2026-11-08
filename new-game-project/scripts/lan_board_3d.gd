@@ -18,6 +18,7 @@ const HOLD_MOVE_PIXELS := 12.0  # same as the host's hold check
 # p2-parity Part 3: the host's result notice and seal tooltip helpers.
 const RoomMenuStyle = preload("res://scripts/room_menu_style.gd")
 const CardScript = preload("res://scripts/card_3d.gd")
+const BoardDrag = preload("res://scripts/board_drag.gd")
 
 # DESK_VIEW seen from the far side of the table, the Disaster seat.
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
@@ -577,7 +578,7 @@ func _process(delta: float) -> void:
 	game.visible = true
 	_layout_hud()
 	if dragging and held >= 0 and held < hand_cards.size():
-		_follow_mouse(hand_cards[held], delta)
+		BoardDrag.follow_mouse(game, mouse, hand_cards[held], delta)
 	else:
 		mouse = get_viewport().get_mouse_position()
 		_update_hover()
@@ -621,14 +622,6 @@ func _update_lane_inspection() -> void:
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	lane_inspection.add_child(face)
 	lane_inspection.position = Vector2(hud.size.x - 250, 220)
-
-
-func _follow_mouse(card: Node3D, delta: float) -> void:
-	var origin: Vector3 = game.camera.project_ray_origin(mouse)
-	var hit: Variant = Plane(Vector3.UP, 1.6).intersects_ray(origin, game.camera.project_ray_normal(mouse))
-	if hit != null:
-		card.global_position = card.global_position.lerp(game.clamp_drag_position(hit), 1.0 - exp(-20.0 * delta))
-	card.global_position = game.clamp_drag_position(card.global_position)
 
 
 ## The screen outline of a hand card. A raised card uses where it is now, the others where they rest.
@@ -698,12 +691,7 @@ func _update_lanes() -> void:
 
 
 func _lane_look() -> StandardMaterial3D:
-	if lane_material == null:
-		lane_material = StandardMaterial3D.new()
-		lane_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		lane_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		lane_material.albedo_color = Color(UI.GOLD, 0.35)
-		game.blink_tween(self, lane_material, "albedo_color", Color(UI.GOLD, 0.6), Color(UI.GOLD, 0.15))
+	if lane_material == null: lane_material = BoardDrag.new_lane_material(game, self)
 	return lane_material
 
 

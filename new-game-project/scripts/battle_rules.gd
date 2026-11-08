@@ -88,15 +88,26 @@ static func utility_text(card: Dictionary) -> String:
 		if card.get("type", "response") == "disaster":
 			return "Seal one Response hand card for two rounds, including this one. It cannot be played."
 		return EFFECTS.seal
-	var power := int(card.get("utility_power", 0))
-	var amounts := {
-		"blast":int(card.get("blast_damage", 2)) + power, "barrier":2 + power, "herb":1 + power, "tablet":2 + power,
-		"draw":int(card.get("draw_count", 2)) + power, "seal":2 + power, "tax":1 + power,
-		"rally":2 + power, "cleanse":3 + 2 * power
-	}
 	var text := str(EFFECTS.get(effect, effect))
-	if effect == "draw" and int(amounts.draw) == 1: return (text % 1).replace("1 cards", "1 card")
-	return text % int(amounts[effect]) if effect in amounts else text
+	if effect not in AMOUNT_EFFECTS: return text
+	var amount := utility_amount(card, effect)
+	if effect == "draw" and amount == 1: return (text % 1).replace("1 cards", "1 card")
+	return text % amount
+
+# Utilities whose text and effect use a number from utility_amount.
+const AMOUNT_EFFECTS := ["blast", "barrier", "herb", "tablet", "draw", "tax", "rally", "cleanse"]
+
+## The one source for a utility's number: its base plus utility_power.
+## The card text and game_3d_manager both read it. Cleanse 3 is the heal inside card_3d.cleanse().
+static func utility_amount(card: Dictionary, effect: String) -> int:
+	var power := int(card.get("utility_power", 0))
+	match effect:
+		"blast": return int(card.get("blast_damage", 2)) + power
+		"draw": return int(card.get("draw_count", 2)) + power
+		"barrier", "tablet", "rally": return 2 + power
+		"herb", "tax": return 1 + power
+		"cleanse": return 3 + 2 * power
+	return power
 
 static func remove_utility_stats(card: Dictionary) -> void:
 	if not card.get("utility", false): return

@@ -14,6 +14,7 @@ signal choice_picked(handle: int)
 signal choice_cancelled
 
 const LANE_COUNT := 4
+const LanCardText = preload("res://scripts/lan_card_text.gd")
 
 var view: Dictionary = {}
 var selected := -1  # picked hand card, or -1
@@ -158,7 +159,7 @@ func _fill_lanes(row: HBoxContainer, side: String, allowed: Array) -> void:
 	_clear(row)
 	for lane in LANE_COUNT:
 		var button := Button.new()
-		button.text = _card_text(view.lanes[side][lane])
+		button.text = LanCardText.card_text(view, view.lanes[side][lane])
 		button.custom_minimum_size = Vector2(140, 60)
 		button.disabled = lane not in allowed
 		button.pressed.connect(func() -> void: lane_pressed.emit(lane))
@@ -169,7 +170,7 @@ func _fill_hand() -> void:
 	_clear(hand_row)
 	for index in view.prep_hand.size():
 		var button := Button.new()
-		button.text = _card_text(view.prep_hand[index])
+		button.text = LanCardText.card_text(view, view.prep_hand[index])
 		button.disabled = not view.hints[index].can_play
 		if view.hints[index].get("problem", "") == "not_supported":
 			button.text += " (Not available in LAN)"
@@ -243,16 +244,6 @@ func _candidate_text(entry: Dictionary) -> String:
 	if not entry.has("card"): return "Hidden card %d" % (int(entry.handle) + 1)
 	var definition: Dictionary = entry.card
 	if definition.get("utility", false): return str(definition.get("name", "?"))
-	return "%s %d/%d" % [definition.get("name", "?"), definition.get("attack", 0), definition.get("health", 0)]
-
-
-# Name plus attack and health, or "-" for an empty lane.
-func _card_text(id: String) -> String:
-	if id == "" or not view.cards.has(id):
-		return "-"
-	var definition: Dictionary = view.cards[id].definition
-	if definition.get("utility", false):
-		return str(definition.get("name", "?"))
 	return "%s %d/%d" % [definition.get("name", "?"), definition.get("attack", 0), definition.get("health", 0)]
 
 

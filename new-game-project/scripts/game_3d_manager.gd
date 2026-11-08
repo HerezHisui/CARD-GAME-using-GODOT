@@ -3,6 +3,7 @@ const Sfx = preload("res://scripts/sfx_call.gd")
 const BattleEngine = preload("res://scripts/battle_engine.gd")
 const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 const VersusBalance = preload("res://scripts/versus_balance.gd")
+const BattleRules = preload("res://scripts/battle_rules.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 ## Main game manager: builds the creepy classroom, the pixel-art board,
 ## the gothic HUD, and controls the deck + fanned card hand.
@@ -1277,29 +1278,33 @@ func try_utility(card: Node, slot: Node3D) -> bool:
 func apply_simple_utility(card: Node, effect: String) -> void:
 	if effect in ["blast", "barrier", "herb", "tablet"]: set_board_view(true)
 	consume_utility(card)
-	if effect == "draw": draw_cards(int(card.card_data.get("draw_count", 2)) + int(card.card_data.get("utility_power", 0)))
+	# Every number below comes from BattleRules.utility_amount, the same as the card text.
+	if effect == "draw": draw_cards(BattleRules.utility_amount(card.card_data, "draw"))
 	elif effect == "scout":
 		# A remote Preparedness seat (LAN) has no modal on the host: the view carries the reveal instead.
 		if seat_prep == "remote": preparedness_actions.reveal_scout()
 		else: run_director.show_intel()
 	elif effect == "blast":
-		var damage := int(card.card_data.get("blast_damage", 2)) if balance_enabled() else 2
+		var damage := BattleRules.utility_amount(card.card_data, "blast")
+		# Balance off: a left-over blast_damage is ignored, as before.
+		if not balance_enabled(): damage = 2 + int(card.card_data.get("utility_power", 0))
 		for target in _threat_slots().map(func(s): return _get_card_in_slot(s)):
-			if target: target.take_damage(damage + int(card.card_data.get("utility_power", 0)))
+			if target: target.take_damage(damage)
 	elif effect == "barrier":
-		player_barrier = mini(3, player_barrier + 2 + int(card.card_data.get("utility_power", 0)))
+		var shield := BattleRules.utility_amount(card.card_data, "barrier")
+		player_barrier = mini(3, player_barrier + shield)
 		for target in _response_slots().map(func(s): return _get_card_in_slot(s)):
-			if target: target.add_status("barrier", 2 + int(card.card_data.get("utility_power", 0)))
+			if target: target.add_status("barrier", shield)
 	elif effect == "herb":
 		for target in _response_slots().map(func(s): return _get_card_in_slot(s)):
 			if target:
 				target.statuses.erase("bleed")
-				target.heal(1 + int(card.card_data.get("utility_power", 0)))
+				target.heal(BattleRules.utility_amount(card.card_data, "herb"))
 	elif effect == "tablet":
 		for target in _response_slots().map(func(s): return _get_card_in_slot(s)):
 			if target:
 				target.statuses.erase("healing_reduced")
-				target.heal(2 + int(card.card_data.get("utility_power", 0)))
+				target.heal(BattleRules.utility_amount(card.card_data, "tablet"))
 	_check_game_over()
 
 func consume_utility(card: Node) -> void:
@@ -1339,6 +1344,7 @@ func complete_utility_choice(target: Variant) -> void:
 ## The effect of a utility that picked a target. The local pick and the LAN host both call this.
 ## It does not pay for the card: the caller runs consume_utility and, for tutor and recover, adds the card.
 func apply_utility_pick(effect: String, target: Variant, power: int) -> void:
+	var amount := BattleRules.utility_amount({"utility_power": power}, effect)
 	match effect:
 		"tutor":
 			deck.erase(target)
@@ -1350,11 +1356,12 @@ func apply_utility_pick(effect: String, target: Variant, power: int) -> void:
 		"tax":
 			var value: Dictionary = (evolution_choice.definition(str(target.id))
 				if target is Dictionary and target.get("zone", "") == "held_evolutions" else target)
-			for i in range(1 + power): increase_cost(value)
-		"rally": target.add_status("strength", 2 + power)
+			for i in range(amount): increase_cost(value)
+		"rally": target.add_status("strength", amount)
 		"cleanse":
 			target.cleanse()
-			if power > 0: target.heal(2 * power)
+			# cleanse() heals the base 3; utility_power adds the rest.
+			if power > 0: target.heal(amount - 3)
 
 func cancel_utility_choice() -> void:
 	Sfx.play("card_cancel_return")
