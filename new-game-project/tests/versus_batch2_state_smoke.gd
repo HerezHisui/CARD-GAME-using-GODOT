@@ -31,9 +31,12 @@ func run() -> void:
 	game.evolution_draw_choice_override = default_override
 	expect(choice.enabled(), "Null override follows enabled constant")
 	game.evolution_draw_choice_override = true
+	# LAN follows its own flag (LAN_EVOLUTION_PICKS, ships true). Switch it off to check the local override is ignored.
+	game.lan_evolution_picks_override = false
 	for seats in [["local", "remote"], ["remote", "local"]]:
 		game.set_seats(seats[0], seats[1])
 		expect(not choice.enabled(), "LAN retains legacy even with true override")
+	game.lan_evolution_picks_override = null
 	game.set_seats("local", "local")
 	game.encounter_kind = "battle"
 	expect(not choice.enabled(), "Override does not affect singleplayer")
@@ -66,8 +69,11 @@ func run() -> void:
 		choice.held[0].definition.health = 99
 		expect(int(data.cards[data.zones.disaster.held_evolutions[0]].definition.health) == 4,
 			"Restored definitions are detached from saved snapshot")
+		# Restore follows evolution_choice.enabled(). With LAN picks on, LAN may restore; check the flag-off path.
+		game.lan_evolution_picks_override = false
 		game.set_seats("local", "remote")
 		expect(not adapter.restore_evolutions(game, data), "Snapshot restore rejects LAN")
+		game.lan_evolution_picks_override = null
 		game.set_seats("local", "local")
 	await check_seals(game)
 	game.clear_battle()
