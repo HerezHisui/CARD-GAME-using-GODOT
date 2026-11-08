@@ -109,7 +109,8 @@ func check_clients() -> void:
 		var mine: int = 2 if seat == "preparedness" else 4
 		var cap: int = 5 if seat == "preparedness" else 7
 		expect(board.resource_meter.value.text == "%d / %d" % [mine, cap], "LAN own bar shows current/max")
-		expect(is_equal_approx(board.resource_meter.fill.anchor_right, float(mine) / cap), "LAN own fill ratio correct")
+		expect(is_equal_approx(board.resource_meter.bar.value / board.resource_meter.bar.max_value, float(mine) / cap),
+			"LAN own fill ratio correct")
 		expect(board.foe_meter.value.text == ("4 / 7" if seat == "preparedness" else "2 / 5"),
 			"LAN opponent bar shows current/max")
 		expect(not board.resource_plate.tooltip_text.is_empty(), "LAN resource tooltip remains available")
@@ -120,7 +121,7 @@ func check_clients() -> void:
 		view.energy = 0
 		session.view_received.emit(view)
 		await frames()
-		expect(board.resource_meter.fill.anchor_right == 0 and board.foe_meter.fill.anchor_right == 0,
+		expect(board.resource_meter.bar.value == 0 and board.foe_meter.bar.value == 0,
 			"Both LAN bars update to empty")
 		view.sides.response.resource_cap = 0
 		view.sides.disaster.resource_cap = 0

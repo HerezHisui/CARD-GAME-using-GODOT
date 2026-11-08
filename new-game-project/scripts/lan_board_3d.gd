@@ -69,7 +69,7 @@ var disaster_plans: Button
 var disaster_grave: Button
 var grave_note: PanelContainer
 var janitor: Node3D
-var foe_resource: PanelContainer
+var foe_resource: Control
 var foe_resource_label: Label
 var foe_meter: Dictionary
 var hud: Control
@@ -80,12 +80,14 @@ var round_label: Label
 var turn_label: Label
 var lane_inspection: PanelContainer
 var inspected_lane: Node3D
-var resource_plate: PanelContainer
+var resource_plate: Control
 var resource_label: Label
 var resource_meter: Dictionary
 var end_button: Button
 var draw_button: Button
 var tactic_box: VBoxContainer
+var plans_toggle: Button  # Preparedness: the host's Plans icon box, opens the tactic list
+var prep_grave: Button  # Preparedness: the host's graveyard counter
 var tactic_signature := 0
 var note: PanelContainer
 var note_head: Label
@@ -228,12 +230,13 @@ func _on_match_over(winner: String) -> void:
 	end_button.disabled = true
 	# The last view can be stale (old health, "OPPONENT'S TURN"), so the match HUD hides behind the result.
 	for part in _play_hud(): part.visible = false
+	tactic_box.visible = false
 
 
 ## The HUD parts that show the running match: health, Energy or Tension, the turn plate and the buttons.
 func _play_hud() -> Array:
-	var parts: Array = [turn_plate, me_plate.box, foe_plate.box, resource_plate, end_button, draw_button, tactic_box]
-	for part in [foe_resource, disaster_plans, disaster_grave]:
+	var parts: Array = [turn_plate, me_plate.box, foe_plate.box, resource_plate, end_button, draw_button]
+	for part in [foe_resource, disaster_plans, disaster_grave, plans_toggle, prep_grave]:
 		if is_instance_valid(part): parts.append(part)
 	return parts
 
@@ -593,7 +596,7 @@ func _update_lane_inspection() -> void:
 	if not is_instance_valid(card): return
 	lane_inspection = PanelContainer.new()
 	lane_inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lane_inspection.add_theme_stylebox_override("panel", _plate_style(UI.GOLD))
+	lane_inspection.add_theme_stylebox_override("panel", VersusHud._plate_style(UI.GOLD))
 	hud.add_child(lane_inspection)
 	var face := TextureRect.new()
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -758,6 +761,8 @@ func click_tactic(id: String) -> void:
 	chosen.clear()
 	_arrange_hand()
 	panel.tactic_pressed.emit(id)
+	# The list closes once a tactic is picked, like the host Plans screen.
+	tactic_box.visible = false
 
 
 func click_end() -> void:
@@ -813,56 +818,84 @@ func _build_hud() -> void:
 		top.offset_bottom = 52.0
 		top.add_theme_stylebox_override("panel", game.get_node("HUD/TopBar").get_theme_stylebox("panel"))
 		hud.add_child(top)
-	foe_plate = _hp_plate(UI.CRIMSON)
-	me_plate = _hp_plate(UI.ACTION)
+	# The host's HUD pieces (versus_hud.gd): HP, Energy and Tension are all the host HP widget.
+	# Preparedness bars are gold, Disaster bars crimson, whichever seat this is.
+	var own_disaster := side == "disaster"
+	foe_plate = _meter("FoeHealth", not own_disaster)
+	me_plate = _meter("OwnHealth", own_disaster)
 	_place(foe_plate.box, Control.PRESET_TOP_LEFT, Vector2(16, 12))
-	_place(me_plate.box, Control.PRESET_BOTTOM_LEFT, Vector2(16, -92))
-	# Round and turn, top centre.
-	turn_plate = PanelContainer.new()
-	turn_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	turn_plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
-	turn_plate.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	turn_plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	turn_plate.offset_top = 8
-	hud.add_child(turn_plate)
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 14)
-	turn_plate.add_child(row)
-	round_label = _label(row, 18, UI.MUTED)
-	turn_label = _label(row, 20, UI.GOLD)
-	# Energy or Tension uses the same plate, fill and centered numbers as HP.
-	resource_meter = _hp_plate(UI.ACTION)
+	# Round and turn, top centre, the same plate as the host.
+	var turn: Dictionary = VersusHud.make_turn_plate(hud)
+	turn_plate = turn.plate
+	round_label = turn.round
+	turn_label = turn.side
+	resource_meter = _meter("OwnResource", own_disaster)
 	resource_plate = resource_meter.box
-	resource_plate.mouse_filter = Control.MOUSE_FILTER_PASS
-	resource_meter.small.hide()
 	resource_label = resource_meter.title
 	_place(me_plate.box, Control.PRESET_BOTTOM_LEFT, Vector2(16, -156))
 	_place(resource_plate, Control.PRESET_BOTTOM_LEFT, Vector2(16, -80))
 	if VersusMatch.SIDE_BY_SIDE_HUD:
-		foe_meter = _hp_plate(UI.CRIMSON)
+		foe_meter = _meter("FoeResource", not own_disaster)
 		foe_resource = foe_meter.box
-		foe_resource.mouse_filter = Control.MOUSE_FILTER_PASS
-		foe_meter.small.hide()
 		foe_resource_label = foe_meter.title
-	# End turn, bottom right. The tactic list sits above it for a Preparedness player.
-	end_button = director.button("END TURN", click_end, hud)
+	# End turn and the deck counter: copies of the host buttons, in the host's places (hud.tscn).
+	end_button = game._end_turn_btn.duplicate(0)
 	end_button.name = "EndTurnButton"
-	end_button.add_theme_font_size_override("font_size", 22)
-	end_button.custom_minimum_size = Vector2(190, 58)
-	_place(end_button, Control.PRESET_BOTTOM_RIGHT, Vector2(-206, -76))
-	draw_button = director.button("DRAW", _draw_pressed, hud)
+	hud.add_child(end_button)
+	end_button.pressed.connect(click_end)
+	draw_button = game.get_node("HUD/Root/DeckDrawButton").duplicate(0)
 	draw_button.name = "ClientDrawButton"
-	draw_button.custom_minimum_size = Vector2(190, 58)
-	_place(draw_button, Control.PRESET_BOTTOM_RIGHT, Vector2(-206, -146))
+	hud.add_child(draw_button)
+	draw_button.pressed.connect(_draw_pressed)
+	# Preparedness tactics: a list above the deck counter, opened from the Plans icon box like the host.
 	tactic_box = VBoxContainer.new()
+	tactic_box.name = "TacticList"
 	tactic_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tactic_box.visible = false
 	hud.add_child(tactic_box)
-	_place(tactic_box, Control.PRESET_CENTER_RIGHT, Vector2(-206, -60))
+	_place(tactic_box, Control.PRESET_BOTTOM_RIGHT, Vector2(-16, -142))
 	_build_note()
 	_build_over()
 	_build_seal_tooltip()
 	_build_disaster_controls()
+	_build_prep_controls()
+
+
+## One HUD meter (HP, Energy or Tension): the host widget from versus_hud.make_meter.
+func _meter(meter_name: String, disaster: bool) -> Dictionary:
+	var box: Control = VersusHud.make_meter(game, hud, meter_name, "", disaster)
+	var bar: ProgressBar = box.get_node("Bar")
+	return {"box": box, "title": box.get_node("Caption"), "bar": bar, "value": bar.get_node("Value"),
+		"mark": box.get_node("HealthMark")}
+
+
+## Preparedness: the host's Plans icon box (tokens) opens the tactic list; the graveyard counter sits bottom left.
+func _build_prep_controls() -> void:
+	if side != "preparedness": return
+	plans_toggle = director.plans_button.duplicate(0)
+	plans_toggle.name = "ClientPlansButton"
+	plans_toggle.disabled = false
+	plans_toggle.visible = true
+	hud.add_child(plans_toggle)
+	_place_icon_box(plans_toggle, Control.PRESET_BOTTOM_RIGHT, Vector2(-116, -72))
+	plans_toggle.pressed.connect(func() -> void: tactic_box.visible = not tactic_box.visible)
+	prep_grave = director.graveyard_button.duplicate(0)
+	prep_grave.name = "ClientGraveyardButton"
+	prep_grave.disabled = false
+	prep_grave.visible = true
+	hud.add_child(prep_grave)
+	_place_icon_box(prep_grave, Control.PRESET_BOTTOM_LEFT, Vector2(16, -72))
+	prep_grave.pressed.connect(func() -> void:
+		show_note("Graveyard", "%d cards" % int(view.get("counts", {}).get("response_graveyard", 0))))
+
+
+## A 100 x 56 icon box in a corner, like the host's Plans and Graveyard boxes.
+func _place_icon_box(button: Button, preset: int, top_left: Vector2) -> void:
+	button.set_anchors_preset(preset)
+	button.offset_left = top_left.x
+	button.offset_top = top_left.y
+	button.offset_right = top_left.x + 100
+	button.offset_bottom = top_left.y + 56
 
 
 func _place(control: Control, preset: int, offset: Vector2) -> void:
@@ -875,65 +908,12 @@ func _place(control: Control, preset: int, offset: Vector2) -> void:
 	control.offset_bottom = offset.y
 
 
-func _plate_style(border: Color, width: int = 1, margin: int = 8) -> StyleBoxFlat:
-	var frame := UI.panel(UI.PANEL, border, 0)
-	frame.set_corner_radius_all(3)
-	frame.set_border_width_all(width)
-	frame.content_margin_left = margin + 2
-	frame.content_margin_right = margin + 2
-	frame.content_margin_top = maxi(margin - 4, 2)
-	frame.content_margin_bottom = maxi(margin - 4, 2)
-	return frame
-
-
-func _label(parent: Control, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_override("font", UI.font(size >= 22))
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	parent.add_child(label)
-	return label
-
-
-## A plate with a name, an HP bar and one line of small print.
-func _hp_plate(fill_color: Color) -> Dictionary:
-	var plate := PanelContainer.new()
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
-	plate.custom_minimum_size = Vector2(300, 0)
-	hud.add_child(plate)
-	var box := VBoxContainer.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 2)
-	plate.add_child(box)
-	var title := _label(box, 18, UI.GOLD)
-	var bar := Control.new()
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.custom_minimum_size = Vector2(0, 24)
-	box.add_child(bar)
-	var back := ColorRect.new()
-	back.color = UI.INSET
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar.add_child(back)
-	var fill := ColorRect.new()
-	fill.color = fill_color
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar.add_child(fill)
-	var value := _label(bar, 18, UI.TEXT)
-	value.set_anchors_preset(Control.PRESET_FULL_RECT)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var small := _label(box, 15, UI.MUTED)
-	return {"box": plate, "title": title, "fill": fill, "value": value, "small": small}
 
 
 func _build_note() -> void:
 	note = PanelContainer.new()
 	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	note.add_theme_stylebox_override("panel", _plate_style(UI.ACTION, 2, 14))
+	note.add_theme_stylebox_override("panel", VersusHud._plate_style(UI.ACTION, 2, 14))
 	note.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	note.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	note.offset_top = 70
@@ -944,15 +924,15 @@ func _build_note() -> void:
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	note.add_child(box)
-	note_head = _label(box, 30, UI.DANGER)
-	note_body = _label(box, 18, UI.TEXT)
+	note_head = VersusHud._label(box, 30, UI.DANGER)
+	note_body = VersusHud._label(box, 18, UI.TEXT)
 	note_head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
 func _build_over() -> void:
 	over_box = PanelContainer.new()
-	over_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 3, 24))
+	over_box.add_theme_stylebox_override("panel", VersusHud._plate_style(UI.GOLD, 3, 24))
 	over_box.set_anchors_preset(Control.PRESET_CENTER)
 	over_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	over_box.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -964,7 +944,7 @@ func _build_over() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
 	over_box.add_child(box)
-	over_label = _label(box, 64, UI.GOLD)
+	over_label = VersusHud._label(box, 64, UI.GOLD)
 	over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	over_note = director.label("", 16, UI.MUTED, true)
 	over_note.name = "ResultNote"
@@ -1001,23 +981,31 @@ func _refresh_hud() -> void:
 	var mine := _own_side()
 	var foe := "disaster" if mine == "response" else "response"
 	var counts: Dictionary = view.get("counts", {})
-	_set_plate(me_plate, sides[mine], "YOU - " + side.to_upper())
-	_set_plate(foe_plate, sides[foe], ("DISASTER" if foe == "disaster" else "PREPAREDNESS"))
+	# The host's captions and P1 / P2 tags. Over LAN the host is always Player 1, this client Player 2.
+	_set_plate(me_plate, sides[mine], side.to_upper(), "P2")
+	_set_plate(foe_plate, sides[foe], ("DISASTER" if foe == "disaster" else "PREPAREDNESS"), "P1")
 	var foe_hand := int(counts.get("disaster_hand" if side == "preparedness" else "response_hand", 0))
 	var foe_deck := int(counts.get("disaster_draw" if side == "preparedness" else "response_draw", 0))
-	foe_plate.small.text = "Hand %d   Deck %d" % [foe_hand, foe_deck]
+	foe_plate.box.tooltip_text = "Hand %d   Deck %d" % [foe_hand, foe_deck]
 	var barrier := int(sides[mine].get("barrier", 0))
-	me_plate.small.text = ("Barrier %d" % barrier) if barrier > 0 else ""
-	me_plate.small.visible = barrier > 0
+	me_plate.box.tooltip_text = ("Barrier %d" % barrier) if barrier > 0 else ""
 	round_label.text = "ROUND %d" % int(view.get("round", 1))
 	var phase := str(view.get("phase", "play" if _my_turn() else "end")).to_upper()
-	var own_turn: bool = view.get("turn_side", side if _my_turn() else "") == side
-	turn_label.text = ("YOUR TURN" if own_turn else "OPPONENT'S TURN") + " · " + phase
-	turn_label.add_theme_color_override("font_color", UI.GOLD if own_turn else UI.MUTED)
+	var turn_side := str(view.get("turn_side", side if _my_turn() else ""))
+	var own_turn: bool = turn_side == side
+	turn_plate.visible = not turn_side.is_empty() and not over
+	if turn_plate.visible: VersusHud.set_turn_text(turn_label, turn_side, "P2" if own_turn else "P1")
 	end_button.disabled = not _my_turn() or not view.get("relocation", {}).is_empty() or not _pending().is_empty()
-	draw_button.visible = side == "preparedness" and not over
-	draw_button.disabled = not own_turn or phase != "DRAW"
+	# The deck counter is the host's: the own draw pile, and the draw button on a Preparedness draw.
+	draw_button.visible = not over
+	var own_draw := "response_draw" if side == "preparedness" else "disaster_draw"
+	draw_button.get_node("DeckCountLabel").text = str(int(counts.get(own_draw, 0)))
+	draw_button.disabled = side != "preparedness" or not own_turn or phase != "DRAW"
 	if view.get("evolution_waiting", false): draw_button.disabled = true
+	if is_instance_valid(plans_toggle):
+		plans_toggle.get_node("CountLabel").text = "%d/2" % int(view.get("plan_tokens", 0))
+	if is_instance_valid(prep_grave):
+		prep_grave.get_node("CountLabel").text = str(int(counts.get("response_graveyard", 0)))
 	if side == "preparedness":
 		resource_label.text = "ENERGY"
 		_set_resource(resource_meter, int(view.get("energy", 0)), int(view.get("energy_cap", 0)))
@@ -1028,13 +1016,10 @@ func _refresh_hud() -> void:
 		foe_resource_label.text = "TENSION" if side == "preparedness" else "ENERGY"
 		var foe_data: Dictionary = sides.disaster if side == "preparedness" else sides.response
 		_set_resource(foe_meter, int(foe_data.resource), int(foe_data.resource_cap))
-		foe_plate.title.add_theme_font_size_override("font_size", 14)
-		foe_plate.title.text += "   Hand %d   Deck %d" % [foe_hand, foe_deck]
-		foe_plate.box.tooltip_text = foe_plate.small.text
-		me_plate.box.tooltip_text = me_plate.small.text
-		me_plate.small.visible = false
-		foe_plate.small.visible = false
 		_layout_hud()
+	# The side that is not playing is dimmed, as on the host.
+	resource_plate.modulate.a = 0.5 if not turn_side.is_empty() and not own_turn else 1.0
+	if is_instance_valid(foe_resource): foe_resource.modulate.a = 0.5 if own_turn else 1.0
 	if is_instance_valid(disaster_grave):
 		disaster_grave.get_node("CountLabel").text = str(counts.get("disaster_graveyard", 0))
 	if is_instance_valid(disaster_plans) and view.has("held_evolutions"):
@@ -1044,11 +1029,13 @@ func _refresh_hud() -> void:
 	_fill_tactics()
 
 
-func _set_plate(plate: Dictionary, data: Dictionary, title: String) -> void:
+func _set_plate(plate: Dictionary, data: Dictionary, title: String, tag: String) -> void:
 	var hp := maxi(int(data.hp), 0)
 	var max_hp := maxi(int(data.max_hp), 1)
 	plate.title.text = title
-	plate.fill.anchor_right = clampf(float(hp) / max_hp, 0.0, 1.0)
+	plate.mark.text = tag
+	plate.bar.max_value = max_hp
+	plate.bar.value = hp
 	plate.value.text = "%d / %d" % [hp, max_hp]
 
 
@@ -1071,12 +1058,12 @@ func _fill_tactics() -> void:
 		if unsupported: tactic_button.tooltip_text = REASONS.not_supported
 
 
-## One pip per point of the cap. Full = crimson with a gold rim, spent = dark. Energy pips are squares,
-## Tension pips are diamonds.
+## Energy or Tension as current / cap on the host's bar. The bar is empty at cap 0.
 func _set_resource(meter: Dictionary, current: int, cap: int) -> void:
 	current = maxi(current, 0)
 	cap = maxi(cap, 0)
-	meter.fill.anchor_right = clampf(float(current) / cap, 0.0, 1.0) if cap > 0 else 0.0
+	meter.bar.max_value = maxi(cap, 1)
+	meter.bar.value = current if cap > 0 else 0
 	meter.value.text = "%d / %d" % [current, cap]
 	meter.box.tooltip_text = "%s: %d / %d" % [str(meter.title.text).capitalize(), current, cap]
 
@@ -1092,9 +1079,9 @@ func _layout_hud() -> void:
 		plate.custom_minimum_size = rect.size
 		plate.size = rect.size
 		plate.position = rect.position
+		# Same size as the HP plate, so every bar has the same height (as on the host).
 		resource.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		resource.custom_minimum_size = Vector2(rect.size.x, 0)
-		resource.size = Vector2(rect.size.x, resource.get_combined_minimum_size().y)
+		resource.size = rect.size
 		resource.position = rect.position + Vector2(0, rect.size.y + 6)
 
 
@@ -1111,9 +1098,7 @@ func _build_disaster_controls() -> void:
 	disaster_plans.disabled = false
 	disaster_plans.visible = true
 	hud.add_child(disaster_plans)
-	disaster_plans.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	disaster_plans.position = Vector2(hud.size.x - 116, hud.size.y - 72)
-	disaster_plans.size = Vector2(100, 56)
+	_place_icon_box(disaster_plans, Control.PRESET_BOTTOM_RIGHT, Vector2(-116, -72))
 	disaster_plans.pressed.connect(func() -> void:
 		if view.has("held_evolutions"): panel.show_held_evolutions()
 		else: show_note("Coming later", "Disaster plans are coming later."))
@@ -1122,33 +1107,24 @@ func _build_disaster_controls() -> void:
 	disaster_grave.visible = true
 	disaster_grave.disabled = false
 	hud.add_child(disaster_grave)
-	disaster_grave.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	disaster_grave.position = Vector2(16, hud.size.y - 72)
-	disaster_grave.size = Vector2(100, 56)
+	_place_icon_box(disaster_grave, Control.PRESET_BOTTOM_LEFT, Vector2(16, -72))
 	disaster_grave.pressed.connect(show_disaster_graveyard)
-	end_button.custom_minimum_size = Vector2(120, 56)
-	end_button.size = Vector2(120, 56)
-	end_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	end_button.offset_left = -244
-	end_button.offset_right = -124
-	end_button.offset_top = -72
-	end_button.offset_bottom = -16
 
 func show_disaster_graveyard() -> void:
 	if is_instance_valid(grave_note): grave_note.queue_free()
 	grave_note = PanelContainer.new()
 	grave_note.name = "DisasterGraveyardNotice"
-	grave_note.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 16))
+	grave_note.add_theme_stylebox_override("panel", VersusHud._plate_style(UI.GOLD, 2, 16))
 	hud.add_child(grave_note)
 	var box := VBoxContainer.new()
 	grave_note.add_child(box)
-	_label(box, 26, UI.GOLD).text = "DISASTER GRAVEYARD"
+	VersusHud._label(box, 26, UI.GOLD).text = "DISASTER GRAVEYARD"
 	var count := int(view.get("counts", {}).get("disaster_graveyard", 0))
 	# Flag on: the host sends the list. Flag off: only the count.
 	if view.has("disaster_graveyard_list"):
 		_fill_grave_list(box, view.disaster_graveyard_list)
 	else:
-		_label(box, 20, UI.TEXT).text = "%d cards. Card list is unavailable on this client." % count
+		VersusHud._label(box, 20, UI.TEXT).text = "%d cards. Card list is unavailable on this client." % count
 	director.button("Close", func() -> void: grave_note.queue_free(), box)
 	grave_note.reset_size()
 	grave_note.position = (hud.size - grave_note.size) * 0.5
@@ -1157,7 +1133,7 @@ func show_disaster_graveyard() -> void:
 # The Disaster graveyard cards in the order the host sent them, each with its reason and round.
 func _fill_grave_list(box: VBoxContainer, cards: Array) -> void:
 	if cards.is_empty():
-		_label(box, 20, UI.TEXT).text = "The graveyard is empty."
+		VersusHud._label(box, 20, UI.TEXT).text = "The graveyard is empty."
 		return
 	var scroll := ScrollContainer.new()
 	scroll.name = "GraveList"
@@ -1169,7 +1145,7 @@ func _fill_grave_list(box: VBoxContainer, cards: Array) -> void:
 	for entry: Dictionary in cards:
 		director._card_tile(entry, grid)
 		var reason := str(entry.get("graveyard_reason", "Destroyed"))
-		var caption := _label(grid.get_child(-1).get_node("Box"), 14, UI.MUTED)
+		var caption := VersusHud._label(grid.get_child(-1).get_node("Box"), 14, UI.MUTED)
 		caption.text = "%s · round %d" % [reason, int(entry.get("graveyard_round", 1))]
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
@@ -1186,13 +1162,13 @@ func _refresh_choice() -> void:
 	if open.is_empty() or _move_open(): return
 	choice_box = PanelContainer.new()
 	choice_box.name = "UtilityChoice"
-	choice_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
+	choice_box.add_theme_stylebox_override("panel", VersusHud._plate_style(UI.GOLD, 2, 12))
 	hud.add_child(choice_box)
 	_place(choice_box, Control.PRESET_CENTER_LEFT, Vector2(16, -80))
 	var box := VBoxContainer.new()
 	choice_box.add_child(box)
-	_label(box, 24, UI.GOLD).text = str(open.name).to_upper()
-	var prompt := _label(box, 18, UI.TEXT)
+	VersusHud._label(box, 24, UI.GOLD).text = str(open.name).to_upper()
+	var prompt := VersusHud._label(box, 18, UI.TEXT)
 	prompt.name = "ChoicePrompt"
 	prompt.text = str(open.prompt)
 	prompt.custom_minimum_size = Vector2(300, 0)
@@ -1324,16 +1300,16 @@ func _refresh_forecast() -> void:
 	if side != "preparedness" or over or not view.has("disaster_hand_revealed"): return
 	forecast_box = PanelContainer.new()
 	forecast_box.name = "HazardForecast"
-	forecast_box.add_theme_stylebox_override("panel", _plate_style(UI.GOLD, 2, 12))
+	forecast_box.add_theme_stylebox_override("panel", VersusHud._plate_style(UI.GOLD, 2, 12))
 	hud.add_child(forecast_box)
 	_place(forecast_box, Control.PRESET_CENTER_RIGHT, Vector2(-16, -80))
 	var box := VBoxContainer.new()
 	forecast_box.add_child(box)
-	_label(box, 24, UI.GOLD).text = "HAZARD FORECAST"
+	VersusHud._label(box, 24, UI.GOLD).text = "HAZARD FORECAST"
 	var cards: Array = view.disaster_hand_revealed
-	if cards.is_empty(): _label(box, 18, UI.TEXT).text = "The Disaster hand is empty."
+	if cards.is_empty(): VersusHud._label(box, 18, UI.TEXT).text = "The Disaster hand is empty."
 	for card: Dictionary in cards:
-		_label(box, 18, UI.TEXT).text = str(card.get("name", "?"))
+		VersusHud._label(box, 18, UI.TEXT).text = str(card.get("name", "?"))
 
 
 func _pick_candidate(handle: int) -> void:

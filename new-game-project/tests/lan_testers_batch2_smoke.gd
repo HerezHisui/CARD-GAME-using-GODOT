@@ -82,8 +82,10 @@ func run() -> void:
 		game._set_phase(game.Phase.PLAYER_DRAW)
 		link.send_view()
 		await frames()
-		var expected := "YOUR TURN" if seat == "preparedness" else "OPPONENT'S TURN"
-		expect(board.turn_label.text == expected + " · DRAW", seat + " draw owner and phase")
+		# The host turn plate: the player tag and the side whose turn it is. The client is Player 2.
+		var expected := "P2  PREPAREDNESS" if seat == "preparedness" else "P1  PREPAREDNESS"
+		expect(board.turn_label.text == expected, seat + " draw owner")
+		expect(board.draw_button.disabled == (seat != "preparedness"), seat + " draw button on only for the drawer")
 		var foe := "disaster" if seat == "preparedness" else "response"
 		var slots: Array = game._threat_slots() if foe == "disaster" else game._response_slots()
 		var unit: Node = game.Card3DScene.instantiate()

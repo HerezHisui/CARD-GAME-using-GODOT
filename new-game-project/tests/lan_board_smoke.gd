@@ -159,8 +159,9 @@ func check_seat(seat: String) -> void:
 	expect(names == ["Hand Zero", "Hand One", "Hand Two"], label + "hand order")
 	expect(board.foe_cards.is_empty(), label + "no opponent hand backs")
 	var foe_count := 4 if seat == "preparedness" else 5
-	expect(("Hand %d" % foe_count) in board.foe_plate.title.text and "Deck 9" in board.foe_plate.title.text,
-		label + "enemy plate keeps visible hand and deck counts")
+	# The host HUD caption is only the side name. The counts sit in the plate tooltip.
+	expect(("Hand %d" % foe_count) in board.foe_plate.box.tooltip_text and "Deck 9" in board.foe_plate.box.tooltip_text,
+		label + "enemy plate keeps the hand and deck counts")
 	check_safe_cards(board, label)
 	# In place update: same card, lower health.
 	var before: Node3D = board.lane_cards.response[0]

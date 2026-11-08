@@ -23,9 +23,9 @@ var built := false
 var turn_plate: PanelContainer
 var round_label: Label
 var side_label: Label
-var energy_plate: PanelContainer
+var energy_plate: Control
 var energy_bar: ProgressBar
-var tension_plate: PanelContainer
+var tension_plate: Control
 var tension_bar: ProgressBar
 var note: PanelContainer
 var note_head: Label
@@ -75,27 +75,18 @@ func _build() -> void:
 	var top_bar: Control = game.get_node("HUD/TopBar")
 	var hud_root: Control = game.get_node("HUD/Root")
 	# Turn plate, top centre.
-	turn_plate = PanelContainer.new()
-	turn_plate.name = "VersusTurnPlate"
-	turn_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	turn_plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
-	turn_plate.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	turn_plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	turn_plate.offset_top = 7
-	turn_plate.custom_minimum_size = Vector2(300, 34)
-	top_bar.add_child(turn_plate)
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	turn_plate.add_child(row)
-	round_label = _label(row, 18, UI.MUTED)
-	side_label = _label(row, 20, UI.GOLD)
-	# Energy (Preparedness) and Tension (Disaster) sit under the two HP plates.
-	energy_plate = _resource_plate(hud_root, "VersusEnergy", "ENERGY")
-	energy_bar = energy_plate.get_meta("bar")
-	tension_plate = _resource_plate(hud_root, "VersusTension", "TENSION")
-	tension_bar = tension_plate.get_meta("bar")
+	var turn := make_turn_plate(top_bar)
+	turn_plate = turn.plate
+	round_label = turn.round
+	side_label = turn.side
+	# Energy (Preparedness) and Tension (Disaster) sit under the two HP plates. They are the HP widget itself,
+	# so all four bars share one style, height and font.
+	energy_plate = make_meter(game, hud_root, "VersusEnergy", "ENERGY", false)
+	energy_bar = energy_plate.get_node("Bar")
+	energy_plate.visible = false
+	tension_plate = make_meter(game, hud_root, "VersusTension", "TENSION", true)
+	tension_bar = tension_plate.get_node("Bar")
+	tension_plate.visible = false
 	# The note for a refused action.
 	note = PanelContainer.new()
 	note.name = "VersusNote"
@@ -116,7 +107,31 @@ func _build() -> void:
 	note_head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-func _plate_style(border: Color, width: int = 1, margin: int = 8) -> StyleBoxFlat:
+## The round and turn plate, top centre: "ROUND 2   P1  PREPAREDNESS". The LAN client builds the same one.
+static func make_turn_plate(parent: Control) -> Dictionary:
+	var plate := PanelContainer.new()
+	plate.name = "VersusTurnPlate"
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
+	plate.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	plate.offset_top = 7
+	plate.custom_minimum_size = Vector2(300, 34)
+	parent.add_child(plate)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	plate.add_child(row)
+	return {"plate": plate, "round": _label(row, 18, UI.MUTED), "side": _label(row, 20, UI.GOLD)}
+
+## The turn plate text and colour for a side ("preparedness" or "disaster") and its P1 / P2 tag.
+static func set_turn_text(side_label: Label, side: String, tag: String) -> void:
+	var who := side.to_upper()
+	side_label.text = who if tag.is_empty() else "%s  %s" % [tag, who]
+	side_label.add_theme_color_override("font_color", UI.DANGER if side == "disaster" else UI.GOLD)
+
+static func _plate_style(border: Color, width: int = 1, margin: int = 8) -> StyleBoxFlat:
 	var frame := UI.panel(UI.PANEL, border, 0)
 	frame.set_corner_radius_all(3)
 	frame.set_border_width_all(width)
@@ -126,7 +141,7 @@ func _plate_style(border: Color, width: int = 1, margin: int = 8) -> StyleBoxFla
 	frame.content_margin_bottom = maxi(margin - 4, 2)
 	return frame
 
-func _label(parent: Control, size: int, color: Color) -> Label:
+static func _label(parent: Control, size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_override("font", UI.font(size >= 22))
@@ -136,30 +151,42 @@ func _label(parent: Control, size: int, color: Color) -> Label:
 	parent.add_child(label)
 	return label
 
-func _resource_plate(parent: Control, plate_name: String, title: String) -> PanelContainer:
-	var plate := PanelContainer.new()
-	plate.name = plate_name
-	plate.mouse_filter = Control.MOUSE_FILTER_PASS
-	plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
-	plate.visible = false
-	parent.add_child(plate)
-	var box := VBoxContainer.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 2)
-	plate.add_child(box)
-	var heading := _label(box, 18, UI.GOLD)
-	heading.text = title
-	var bar := ProgressBar.new()
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.custom_minimum_size = Vector2(0, 24)
-	bar.show_percentage = false
-	box.add_child(bar)
-	var value := _label(bar, 18, UI.TEXT)
-	value.name = "Value"
+## One HUD meter: a copy of the Preparedness HP widget (plate, caption, bar, value, P1/P2 mark).
+## HP, Energy and Tension on the host and on the LAN client all use it, so they share one style, height and font.
+## disaster = the crimson Disaster fill instead of the gold Preparedness fill.
+static func make_meter(owner_game: Node, parent: Control, meter_name: String, caption: String,
+		disaster: bool) -> Control:
+	var template: Control = owner_game._player_hp_ui
+	var meter: Control = template.duplicate(0)
+	meter.name = meter_name
+	meter.visible = true
+	meter.mouse_filter = Control.MOUSE_FILTER_PASS
+	parent.add_child(meter)
+	# The fonts come from the HUD theme. Copy them, so the meter reads the same under any parent.
+	for part in ["Caption", "Value", "HealthMark"]:
+		var label: Label = meter.get_node(part)
+		label.add_theme_font_override("font", template.get_node(part).get_theme_font("font"))
+	meter.get_node("Caption").text = caption
+	meter.get_node("HealthMark").text = ""
+	meter.get_node("LagBar").visible = false
+	var bar: ProgressBar = meter.get_node("Bar")
+	# The number sits inside the bar (Bar/Value), where the old resource bars kept it.
+	var value: Label = meter.get_node("Value")
+	meter.remove_child(value)
+	bar.add_child(value)
 	value.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	plate.set_meta("bar", bar)
-	return plate
+	if disaster: bar.add_theme_stylebox_override("fill", disaster_fill())
+	return meter
+
+## The crimson Disaster bar fill, so the two sides read apart at a glance.
+static func disaster_fill() -> StyleBoxFlat:
+	var fill := UI.bar(UI.ACTION.darkened(0.15))
+	fill.set_corner_radius_all(0)
+	fill.set_border_width_all(0)
+	fill.set_expand_margin_all(-2)
+	fill.content_margin_left = 5
+	fill.content_margin_right = 5
+	return fill
 
 # ------------------------------------------------------------------- update
 func update() -> void:
@@ -194,11 +221,6 @@ func _set_active(on: bool) -> void:
 	if is_instance_valid(disaster_plans): disaster_plans.visible = false
 	if is_instance_valid(disaster_grave): disaster_grave.visible = false
 	_style_hp_fills(on)
-	if on:
-		for pair in [[energy_bar, game._player_hp_ui], [tension_bar, game._enemy_hp_ui]]:
-			var hp: ProgressBar = pair[1].get_node("Bar")
-			for part in ["background", "fill"]:
-				pair[0].add_theme_stylebox_override(part, hp.get_theme_stylebox(part))
 	_move_graveyard(on)
 	if on:
 		last_side = ""
@@ -228,13 +250,7 @@ func _style_hp_fills(on: bool) -> void:
 	var bar: ProgressBar = game._enemy_hp_ui.get_node("Bar")
 	if on:
 		saved_fills["fill"] = bar.get_theme_stylebox("fill")
-		var fill := UI.bar(UI.ACTION.darkened(0.15))
-		fill.set_corner_radius_all(0)
-		fill.set_border_width_all(0)
-		fill.set_expand_margin_all(-2)
-		fill.content_margin_left = 5
-		fill.content_margin_right = 5
-		bar.add_theme_stylebox_override("fill", fill)
+		bar.add_theme_stylebox_override("fill", disaster_fill())
 	elif saved_fills.has("fill"):
 		bar.add_theme_stylebox_override("fill", saved_fills["fill"])
 		saved_fills.erase("fill")
@@ -287,16 +303,13 @@ func _refresh() -> void:
 	turn_plate.visible = not side.is_empty()
 	if turn_plate.visible:
 		round_label.text = "ROUND %d" % game.turn
-		var who := side.to_upper()
-		var tag := player_tag(side)
-		side_label.text = who if tag.is_empty() else "%s  %s" % [tag, who]
-		side_label.add_theme_color_override("font_color", UI.DANGER if side == "disaster" else UI.GOLD)
+		set_turn_text(side_label, side, player_tag(side))
 	# Energy and Tension plates sit under the HP plates; the side that is not playing is dimmed.
 	var left: Control = game._player_hp_ui.get_node("Plate")
 	var right: Control = game._enemy_hp_ui.get_node("Plate")
 	var top := maxf(left.global_position.y + left.size.y, right.global_position.y + right.size.y) + 6.0
-	_place(energy_plate, left.global_position.x, top, left.size.x)
-	_place(tension_plate, right.global_position.x, top, right.size.x)
+	_place(energy_plate, left.global_position.x, top, left.size)
+	_place(tension_plate, right.global_position.x, top, right.size)
 	energy_plate.visible = true
 	tension_plate.visible = true
 	energy_plate.modulate.a = 0.5 if side == "disaster" else 1.0
@@ -312,12 +325,12 @@ func _refresh() -> void:
 	if spent: _start_pulse()
 	else: _stop_pulse()
 
-func _place(plate: PanelContainer, x: float, y: float, width: float) -> void:
-	plate.custom_minimum_size = Vector2(width, 0)
-	plate.size = Vector2(width, plate.get_combined_minimum_size().y)
+## A meter takes the size of the HP plate above it, so every bar has the same height.
+func _place(plate: Control, x: float, y: float, plate_size: Vector2) -> void:
+	plate.size = plate_size
 	plate.global_position = Vector2(x, y)
 
-func _update_resource(plate: PanelContainer, bar: ProgressBar, current: int, cap: int, title: String) -> void:
+func _update_resource(plate: Control, bar: ProgressBar, current: int, cap: int, title: String) -> void:
 	current = maxi(current, 0)
 	cap = maxi(cap, 0)
 	bar.max_value = maxi(cap, 1)

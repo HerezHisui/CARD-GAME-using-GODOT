@@ -77,7 +77,10 @@ func run() -> void:
 	var before := JSON.stringify(preload("res://scripts/lan_view.gd").build(game, "preparedness"))
 	board.click_hand(0)
 	expect(board.note_body.text == "Not available in LAN" and board.note.visible, "3D utility refusal is clear")
+	# Tactics open from the Plans icon box, as on the host.
+	await click(board.plans_toggle)
 	for id in ["supply", "shelter", "extract"]:
+		if not board.tactic_box.visible: await click(board.plans_toggle)
 		await click(board.tactic_box.get_node("Tactic_" + id))
 		expect(board.note.visible and board.note_body.text == "Not available in LAN", "Real tactic click: " + id)
 	expect(sent == 0 and board.selected_tactic.is_empty(), "Unsupported 3D clicks do not select or send")
@@ -90,6 +93,7 @@ func run() -> void:
 		await RenderingServer.frame_post_draw
 		var path := "C:/Users/0stef/Downloads/evolution-stage1-checks/lan-not-available.png"
 		expect(root.get_texture().get_image().save_png(path) == OK, "Rendered refusal screenshot")
+	if not board.tactic_box.visible: await click(board.plans_toggle)
 	await click(board.tactic_box.get_node("Tactic_brace"))
 	expect(sent == 1 and board.selected_tactic == "brace", "Supported Brace selection remains unchanged")
 	board.queue_free()
