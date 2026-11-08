@@ -167,6 +167,12 @@ func check_host_starts_match() -> void:
 	expect(game.lan_remote_disaster and game.disaster_is_human, "host: the Disaster is remote and human")
 	expect(await wait_until(func() -> bool: return other_views > 0), "host: the client got a view")
 	var prep_turn := [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]
+	# LAN evolution picks ship on: the remote Disaster first picks its opening evolution, over the wire.
+	var has_offer := func() -> bool: return not other.last_view.get("evolution_offer", {}).is_empty()
+	if await wait_until(func() -> bool: return has_offer.call() or game.phase in prep_turn) and has_offer.call():
+		var offer: Dictionary = other.last_view.evolution_offer
+		other.request_action({"kind": "evolution_pick", "match_id": offer.match_id, "offer_id": offer.offer_id,
+			"id": offer.candidates[0].id})
 	expect(await wait_until(func() -> bool: return game.phase in prep_turn),
 		"host: after the coin, the Preparedness turn starts")
 	expect(game.player_first, "host: Preparedness goes first")
