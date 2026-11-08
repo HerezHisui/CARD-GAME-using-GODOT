@@ -28,14 +28,14 @@ Type effectiveness applies to the unit hit. A strong matchup doubles damage; a w
 
 | Attacker | Strong against | Weak against |
 | --- | --- | --- |
-| Evac | Earthquake | Flood |
-| Douse | Fire | Typhoon |
-| Clearance | Flood | Earthquake |
-| Brace | Typhoon | Fire |
-| Earthquake | Clearance | Evac |
+| Evac | Typhoon | Earthquake |
+| Douse | Fire | Flood |
+| Clearance | Flood | Typhoon |
+| Brace | Earthquake | Fire |
+| Earthquake | Evac | Brace |
 | Fire | Brace | Douse |
-| Flood | Evac | Clearance |
-| Typhoon | Douse | Brace |
+| Flood | Douse | Clearance |
+| Typhoon | Clearance | Evac |
 
 A matching adjacent ally gives a unit 1 extra attack. Matching on both sides does not double that base bonus. Adaptations can change formation bonuses. Strength adds attack before effectiveness. Attack cannot fall below zero; damage prevention and minimum-hit rules are handled separately.
 
@@ -63,7 +63,7 @@ Unused energy can buy a delayed answer instead of another card. Automatic bankin
 
 Coordination picks one ally and the nearest deployed ally on either side. Types can differ and empty lanes do not interrupt the search. An intervening ally ends that direction's search. Other tactics offer healing, drawing, temporary attack, Taunt avoidance, hero protection or a one-use extraction from lethal damage.
 
-Battle adaptations appear every fifth round and expire at encounter end. Permanent floor rewards last the run. Overclock increases capacity and growth but raises incoming damage by 50%, rounded up. Blood Pact gives 2 Strength, then destroys deployed units that did not kill a card during combat. Hero hits and resting do not qualify.
+Battle adaptations appear every fifth round and expire at encounter end. Permanent floor rewards last the run. Overclock increases capacity and growth but raises incoming damage by 50%, rounded up. Blood Pact gives 1 Strength, then destroys deployed units that did not kill a card during combat. Hero hits and resting do not qualify.
 
 ## Run progression
 
@@ -75,7 +75,7 @@ Shops offer fixed stock and repeatable healing. Shop removal costs 30 supplies. 
 
 Each copy can upgrade twice. Sorting and previews do not change the collection. Confirmation must preserve the selected duplicate's identity.
 
-Normal enemies use less precise placement and tighter evolution restrictions than elites and bosses. First-floor normal encounters limit the Janitor to one action through round 3, then two. Early base piles limit special-effect cards. Elite decks share one element. Sacrifice choices consider the resulting formation rather than judging the new unit alone.
+Normal enemies use less precise placement and tighter evolution restrictions than elites and bosses. The Janitor acts as long as it has Tension; there is no fixed action cap. Early base piles limit special-effect cards. Elite decks share one element. Sacrifice choices consider the resulting formation rather than judging the new unit alone.
 
 ## Saving and ownership
 
@@ -95,7 +95,7 @@ The twelve-card starter has eleven 1-cost cards and one 2-cost Evacuation Route.
 
 An adaptation that reduces unit HP leaves already deployed units unchanged by all its unit effects. Held cards and later deployments receive it. These exemptions stack and survive Continue.
 
-Containment Lance gains 2 attack against a target with 3 combined Burn, Poison and Bleed stacks. Last Responder gains 2 against a target with 2 Bleed. Hazmat Team costs 2. Venom Surge gains 2 against 3 Poison. These target conditions do not apply to open lanes.
+Containment Lance applies 3 Poison on hit and gains 2 attack against a target with 2 combined Burn, Poison and Bleed stacks. Last Responder applies 2 Bleed and gains 2 against a target with 1 Bleed. Heat Seeker applies 2 Burn and gains 3 against 1 Burn. Toxin Hunter strikes twice against 2 combined stacks. Hazmat Team costs 2. Venom Surge gains 2 against 3 Poison. These target conditions do not apply to open lanes.
 
 Elite reserves share one Disaster element, repeating cards where needed to keep their reserve sizes. Basic unit upgrades add stats first and new draw, Burn, Poison or Armor effects at tier two. An existing ability can improve at tier one.
 
@@ -113,6 +113,6 @@ Balance needs repeated playtests across routes, encounter tiers and buff combina
 
 Evac rescue, Douse control, Clearance threat removal and Brace defense are design directions, not enforced card-pool restrictions. Changing access to Burn, Poison or Piercing needs a separate balance decision.
 
-Player and Janitor models are unfinished, and character positions use empty markers. The title screen is a parallax scene. Keep the supplied classroom's [asset notes](../new-game-project/assets/supplied_classroom/README.md) with its resources.
+The Janitor has a rigged model. A light Preparedness figure stands at PlayerPosition in Versus, seen only from the Disaster seat; singleplayer never shows it. The title screen is a parallax scene. Keep the supplied classroom's [asset notes](../new-game-project/assets/supplied_classroom/README.md) with its resources.
 
 Extra characters and multiplayer need separate work. The encounter icon needs its reference before replacement. The singleplayer game does not implement multiplayer balance, reconnects or hidden-information security.

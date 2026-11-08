@@ -4,7 +4,9 @@
 
 Choose Versus on the title screen to start a single Preparedness versus Disaster battle.
 With human Disaster, both players share one computer. The pass-the-laptop privacy cover names the next player;
-pass the computer, then choose "I am ready". The side-by-side HUD shows Energy and Tension bars.
+pass the computer, then choose "I am ready". One Versus HUD shows HP, Energy and Tension bars of one height.
+The LAN client builds the same HUD pieces as the host. A Preparedness figure stands at the player's seat;
+only the Disaster seat sees it (hot-seat Disaster turn, or the Disaster side on LAN).
 Matches stay separate from singleplayer saves, rewards and progression. Stored singleplayer state is restored
 when the match ends.
 
@@ -18,16 +20,21 @@ The current flags in `new-game-project/scripts/versus_match.gd` include:
   False uses the Disaster panel.
 - `PREMATCH_COIN_FLIP := true`: the toss winner chooses a side before round 1.
 - `SIDE_BY_SIDE_HUD := true`: both HP plates and resource bars share the top of the screen.
-- `EVOLUTION_DRAW_CHOICE := false`: the optional offer and held-evolution zone are disabled by default.
-  This feature is local human Versus only. LAN retains the existing evolution draw behavior even if enabled.
+- `EVOLUTION_DRAW_CHOICE := true`: local human Versus offers an evolution draw choice and a held-evolution zone.
+- `DISASTER_DRAW_BUTTON := true`: the hot-seat Disaster draws with the deck button. LAN Disaster draws stay automatic.
+- `LAN_EVOLUTION_PICKS := true`: LAN evolution draws use the pick offer and held copies.
+- `LAN_PREP_UTILITIES := true`: remote Preparedness plays utility cards and the delayed tactics on LAN.
+- `UI_CARD_PICKER := true`: deck search, Scout and graveyard choices show card tiles.
+- `BALANCE_PATCH := true` and `DISASTER_ENTRY_BARRIER_NERF := true`: the Versus balance patch and one less
+  entry Barrier on a major evolution.
 
 ### Disaster controls
 
 - Drag a Base card onto an empty Disaster lane, or click the card and then its lane.
 - Play a spell onto the board. Spells that need a target open a target popup.
 - Play an evolution onto a deployed Disaster, then click any further required sacrifices.
-- For human Crosswind play, choose another Disaster ally and then an empty destination lane.
-- Choose End turn when finished. Disaster turn draws remain automatic.
+- For Crosswind, drag another Disaster ally onto an empty lane. No panel opens.
+- Draw with the deck button, then choose End turn when finished.
 - Esc or right-click cancels a picked, held or dragged card or a pending sacrifice choice.
   Use Cancel in a spell target popup to keep the spell in hand.
 
@@ -43,8 +50,8 @@ These deck rules and balance values still need playtesting with sides and first 
 
 ZeL and Tssy tested LAN Versus over the network on an earlier build.
 The final build passed all automated suites and a localhost run; its network re-test is pending.
-It uses ENet over UDP port 24680 and protocol 3. Both peers need the same game build and Godot version;
-the connection handshake also checks the Crosswind build marker.
+It uses ENet over UDP port 24680 and protocol 6 (3, plus 1 for evolution picks, plus 2 for utilities).
+Both peers need the same game build and Godot version; the handshake also checks the build markers.
 
 Connect both computers to the same local network or the same Radmin VPN network.
 On the title screen, choose LAN Versus. One player hosts; the other joins using the host's displayed
@@ -57,13 +64,18 @@ Use the trusted network profile rather than opening the port on unrelated public
 The client uses the 3D table, a round/turn/phase indicator, live lane cards and read-only opponent lane previews.
 Remote Preparedness presses Draw during its own draw phase. The host validates ownership and phase;
 opponent-turn and repeated draw requests are refused. Disaster draws remain automatic.
-Human Crosswind has an ally-and-destination chooser on the host and remote Disaster client.
+Moves are drags on the host and the client: Crosswind, Lane Marshal, Evacuation Route and Extraction take the
+ally and drop it on an empty lane. The host still checks every step. Esc skips an optional move.
+
+Player 2 opens lists on request: L for the battle log, D for its own deck, G or the graveyard button for its
+own graveyard. The host answers with the asking seat's own cards only. Log lines that name the other seat's
+private cards (Preparedness hand, Plan unlocks, saved tokens, armed Plans) show public words instead.
 
 ### LAN limits
 
-- Remote Preparedness utilities are unavailable. Supply Line, Emergency Shelter and Emergency Extraction
-  are also unavailable. The client shows "Not available in LAN"; supported one-ally tactics remain available.
-- Evolution draw choice is local only and off by default. LAN keeps the legacy shared-hand evolution draws.
+- LAN Disaster draws stay automatic. The manual draw step is hot-seat only.
+- With `LAN_PREP_UTILITIES` off, utilities and Supply Line, Emergency Shelter and Emergency Extraction show
+  "Not available in LAN". With it on (the default) they all work.
 - Hidden hands and draw piles are redacted from the opponent's view. A player-hosted match cannot protect
   private information from the host itself.
 - Disconnect ends the match. Do not assume reconnection or mid-match recovery is supported.
@@ -72,7 +84,7 @@ Human Crosswind has an ally-and-destination chooser on the host and remote Disas
 
 ## Validation notes
 
-The repo has 75 smoke suites. No suites were run for this documentation update.
+The repo has 134 smoke suites. No suites were run for this documentation update.
 Some tests intentionally read malformed save/config files, including `deck_builder_smoke.gd` and
 `lan_room_smoke.gd`. Their expected parse-error diagnostics are fixture behavior, not proof of a gameplay fault.
 Check each suite's result and unexpected errors; an exit code alone does not establish a clean run.

@@ -4,15 +4,15 @@ Open `project.godot` in Godot 4.7 and run the main scene. Choose Singleplayer, t
 The other characters are not playable yet. A saved run offers Continue or Abandon.
 Choose Versus on the title screen for a single Preparedness versus Disaster battle.
 Human Disaster uses hot-seat play with a pass-the-laptop privacy cover. `DISASTER_IS_HUMAN` selects human or AI
-Disaster. The toss winner chooses a side, which plays first. The HUD shows side-by-side Energy and Tension bars.
-Matches start from preset decks. Human Crosswind play asks for another ally and an empty destination lane.
+Disaster. The toss winner chooses a side, which plays first. One Versus HUD shows HP, Energy and Tension bars.
+Matches start from preset decks. Crosswind is a drag: take another ally and drop it on an empty lane.
+The hot-seat Disaster draws with the deck button. From the Disaster seat you see the Preparedness figure.
 See the [multiplayer guide](../docs/multiplayer.md) for controls and limits.
 
 ## LAN Versus
 
-LAN Versus uses ENet UDP 24680, protocol 3, over the same network or Radmin VPN.
-ZeL and Tssy tested LAN Versus over the network on an earlier build.
-The final build passed all automated suites and a localhost run; its network re-test is pending.
+LAN Versus uses ENet UDP 24680, protocol 6, over the same network or Radmin VPN.
+ZeL and Tssy tested LAN Versus over the network on an earlier build. The network re-test of this build is pending.
 Choose LAN Versus, then host or join using the host's displayed network address. Both peers need the same build.
 The LAN deck step supports Standard presets and saved custom decks.
 
@@ -21,12 +21,11 @@ If an inbound port rule is needed, allow UDP 24680 on the host for that trusted 
 
 Remote Preparedness uses Draw only in its own draw phase. Disaster draws remain automatic.
 The client shows the turn and phase, updates lane cards, and allows read-only inspection of opponent lanes.
-Remote Preparedness utilities, Supply Line, Emergency Shelter and Emergency Extraction show
-"Not available in LAN". Supported one-ally contingencies remain available.
-Evolution draw choice is local human Versus only and off by default (`EVOLUTION_DRAW_CHOICE := false`).
-LAN keeps the existing shared-hand evolution draws. Disconnect ends the match.
+Remote Preparedness plays its utility cards and every tactic. Moves (Lane Marshal, Evacuation Route,
+Extraction) are drags onto an empty lane. LAN evolution draws use the pick offer.
+Player 2 presses L for the battle log, D for its own deck and G for its own graveyard. Disconnect ends the match.
 
-The repo has 75 smoke suites. No suites were run for this documentation update.
+The repo has 134 smoke suites. No suites were run for this documentation update.
 The remaining sections describe singleplayer unless stated otherwise.
 
 ## Starting a run
@@ -61,7 +60,8 @@ The Janitor uses Tension for base cards and spells. Evolutions use deployed alli
 
 ## Combat and effects
 
-Evac counters Earthquake, Douse counters Fire, Clearance counters Flood and Brace counters Typhoon for double damage. Weak matchups deal half damage. Matching adjacent allies give a unit 1 extra attack; having matches on both sides does not double that base bonus.
+Evac counters Typhoon, Douse counters Fire, Clearance counters Flood and Brace counters Earthquake for double damage.
+Disaster attacks: Earthquake counters Evac, Fire counters Brace, Flood counters Douse and Typhoon counters Clearance. Weak matchups deal half damage. Matching adjacent allies give a unit 1 extra attack; having matches on both sides does not double that base bonus.
 
 Ordinary attacks never spill excess damage from a blocker into the hero. Piercing also hits the hero, but an Armored blocker prevents that hero hit even if it dies. Piercing bypasses armor reduction against the blocker. Barrier and Plan protection still apply. An open lane receives one hero hit, not two.
 
@@ -69,7 +69,7 @@ Strength adds attack before type effectiveness. Armored reduces ordinary incomin
 
 Burn deals its stacks at round start, then halves them, rounding down. Poison deals its stacks at round start, then loses 1. Bleed deals its stacks after the card attacks, then loses 1. Skipped attacks do not trigger Bleed. These status hits bypass Armored and Fragile. On-hit statuses require a surviving blocker.
 
-Conditional attacks use the named subject and stack threshold. Venom Surge gains 2 attack against 3+ Poison on its target. Last Responder gains 2 against a target with 2+ Bleed. A double strike checks eligibility once, but each strike resolves its own damage, effects and Bleed. If the blocker dies, the follow-up can hit the open lane.
+Conditional attacks use the named subject and stack threshold. Venom Surge gains 2 attack against 3+ Poison on its target. Last Responder applies 2 Bleed on hit and gains 2 against a target with 1+ Bleed. A double strike checks eligibility once, but each strike resolves its own damage, effects and Bleed. If the blocker dies, the follow-up can hit the open lane.
 
 ## Plans and utilities
 
@@ -89,7 +89,7 @@ Shops keep fixed stock and allow several purchases before leaving. Each offered 
 
 Each copy can upgrade twice. Previewing is free; confirmation changes only that copy. Basic units gain stats first and new draw, Burn, Poison or Armor at tier two. Existing abilities may improve at tier one. Utilities can become cheaper or improve their effect.
 
-Battle adaptations are offered every fifth round and expire after the encounter. Permanent floor rewards carry through the run. Both are player-only. Overclock trades more capacity for increased incoming damage. Blood Pact gives 2 Strength, but deployed units that fail to kill a card die at combat end. Hero hits and resting do not count.
+Battle adaptations are offered every fifth round and expire after the encounter. Permanent floor rewards carry through the run. Both are player-only. Overclock trades more capacity for increased incoming damage. Blood Pact gives 1 Strength, but deployed units that fail to kill a card die at combat end. Hero hits and resting do not count.
 
 The floor-three Midnight Warden uses announced patterns instead of the usual random deck. Its middle phase shields the boss behind pillars and a guardian. Read the intent and plan around the targeted lanes.
 
