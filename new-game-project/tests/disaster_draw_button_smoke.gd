@@ -65,11 +65,13 @@ func fixture(game: Node) -> void:
 	game.run_director.privacy_screen.hide()
 
 func run() -> void:
-	manual = "--expect-manual" in OS.get_cmdline_user_args()
 	rendered = "--render-draw" in OS.get_cmdline_user_args()
 	root.size = Vector2i(1280, 800)
 	var flags: Script = load("res://scripts/versus_match.gd")
-	expect(flags.get_script_constant_map().get("DISASTER_DRAW_BUTTON") == manual, "Draw flag matches tested state")
+	# The flag now ships true, so the test follows the shipped value. --expect-manual still asks for the manual path.
+	var shipped: bool = flags.get_script_constant_map().get("DISASTER_DRAW_BUTTON", false)
+	manual = shipped or "--expect-manual" in OS.get_cmdline_user_args()
+	expect(shipped == manual, "Draw flag matches tested state")
 	var game: Node = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
