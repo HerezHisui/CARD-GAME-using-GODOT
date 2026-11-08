@@ -4,7 +4,7 @@ const BUFF_INTERVAL := 5
 const BUFFS := [
 	{"id":"strength", "name":"Stronger Together", "description":"All your units gain +1 attack for this battle."},
 	{"id":"health", "name":"Reinforced Formation", "description":"All your units gain +1 maximum health and heal 1. Future units also benefit."},
-	{"id":"energy", "name":"Resource Surge", "description":"Response: extra energy cap and growth. Disaster: extra tension and one extra action (max 5)."},
+	{"id":"energy", "name":"Resource Surge", "description":"Response: extra energy cap and growth. Disaster: extra tension cap."},
 	{"id":"burn", "name":"Fuel the Flames", "description":"Your cards apply 2 extra Burn stacks whenever they inflict Burn."},
 	{"id":"poison", "name":"Toxic Pressure", "description":"Your cards apply 1 extra Poison stack whenever they inflict Poison."},
 	{"id":"bleed", "name":"Deep Cuts", "description":"Your cards apply 1 extra Bleed stack whenever they inflict Bleed."},
