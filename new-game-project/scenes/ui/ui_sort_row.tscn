@@ -8,7 +8,7 @@ theme_override_constants/separation = 12
 
 [node name="SortLabel" type="Label" parent="."]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 18
 text = "Sort by"
 
 [node name="Picker" type="OptionButton" parent="."]

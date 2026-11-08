@@ -11,7 +11,7 @@ func point(room: Dictionary) -> Vector2:
 
 func _draw() -> void:
 	if rooms.is_empty(): return
-	draw_rect(Rect2(Vector2.ZERO, size), Color("14110d"))
+	draw_rect(Rect2(Vector2.ZERO, size), UI.INSET)
 	# Quiet contour bands suggest terrain without competing with the route graph.
 	for band in range(18):
 		var contour := PackedVector2Array()
@@ -19,7 +19,7 @@ func _draw() -> void:
 			var x := float(step) * size.x / 32
 			var y := band * 100.0 + sin(x * .012 + band * .7) * 28 + sin(x * .025 + band) * 12
 			contour.append(Vector2(x, y))
-		draw_polyline(contour, Color(.64, .36, .12, .13), 1.0, true)
+		draw_polyline(contour, Color(UI.GOLD, 0.07), 1.0, true)
 	for room in rooms:
 		if int(room.lane) == 0:
 			var p := point(room)
@@ -30,10 +30,10 @@ func _draw() -> void:
 			var start := point(room)
 			var finish := point(next)
 			var available: bool = int(room.id) == current and current in cleared
-			var color := Color("6b4825")
-			if visited: color = Color("bd9654")
-			if available: color = Color("ffae42")
-			draw_line(start, finish, Color(.65, .34, .08, .12), 12, true)
+			var color := UI.MUTED.darkened(0.35)
+			if visited: color = UI.GOLD.darkened(0.3)
+			if available: color = UI.GOLD
+			draw_line(start, finish, Color(UI.GOLD, 0.08), 12, true)
 			draw_line(start, finish, color, 4 if available else 2, true)
 			var middle := start.lerp(finish, .5)
 			var direction := (finish - start).normalized()

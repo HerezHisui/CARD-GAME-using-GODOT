@@ -33,7 +33,8 @@ static func node(button: Button, kind: String, current: bool, cleared: bool) -> 
 	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	button.expand_icon = true
 	button.add_theme_constant_override("icon_max_width", 30)
-	button.add_theme_font_size_override("font_size", 17)
+	# 18 in the 1440x900 layout shows as 16 px at 1280x800.
+	button.add_theme_font_size_override("font_size", 18)
 	button.add_theme_color_override("icon_normal_color", UI.GOLD)
 	button.add_theme_color_override("icon_disabled_color", UI.GOLD if cleared or current else UI.MUTED.darkened(0.2))
 	button.add_theme_color_override("font_disabled_color", UI.TEXT if cleared or current else UI.MUTED)
@@ -84,6 +85,6 @@ static func screen(content: Control, floor_number: int) -> void:
 		description.add_child(label)
 		var purpose := Label.new()
 		purpose.text = PURPOSE[kind]
-		purpose.add_theme_font_size_override("font_size", 15)
+		purpose.add_theme_font_size_override("font_size", 18)
 		purpose.modulate = UI.MUTED.lightened(0.2)
 		description.add_child(purpose)
