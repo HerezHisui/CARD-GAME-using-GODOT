@@ -275,6 +275,8 @@ func _layout_health() -> void:
 	var far_seat: bool = game.disaster_seat_on or game.lan_disaster_view()
 	game.opponent_hand.visible = not director.modal.visible and not far_seat
 	game.opponent_hand.character.holding.visible = not far_seat
+	# The Preparedness figure is the mirror: seen only from the Disaster seat.
+	game.opponent_hand.figure.visible = not director.modal.visible and far_seat
 
 func _restore_health() -> void:
 	for health: Control in saved_health:
@@ -285,6 +287,7 @@ func _restore_health() -> void:
 		health.offset_bottom = offsets[3]
 	saved_health.clear()
 	game.opponent_hand.character.holding.visible = true
+	game.opponent_hand.figure.visible = false
 
 func _refresh() -> void:
 	_layout_health()

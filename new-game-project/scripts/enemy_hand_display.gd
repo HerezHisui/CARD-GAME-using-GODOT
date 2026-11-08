@@ -2,6 +2,7 @@ extends Node3D
 var game: Node
 var signature := -1 # run_save invalidates this when restoring an encounter.
 var character: Node3D
+var figure: Node3D
 
 func setup(manager: Node) -> void:
 	game = manager
@@ -12,6 +13,11 @@ func setup(manager: Node) -> void:
 	# Supplied mesh faces +Z already; the existing anchor faces imported -Z-forward characters.
 	character.scale = Vector3.ONE * 2.65
 	character.position.y += 0.25
+	# The Preparedness figure on the other seat. Hidden unless the camera is at the Disaster seat.
+	# It hangs off the game, not this node, because this node is hidden at the Disaster seat.
+	figure = preload("res://scripts/preparedness_figure.gd").new()
+	game.add_child(figure)
+	figure.place_at(game.find_child("PlayerPosition", true, false))
 
 func refresh() -> void:
 	var count: int = game.enemy_hand.size()

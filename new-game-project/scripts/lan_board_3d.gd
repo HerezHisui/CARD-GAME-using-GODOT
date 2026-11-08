@@ -9,6 +9,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusHud = preload("res://scripts/versus_hud.gd")
 const Janitor = preload("res://scripts/janitor_character.gd")
+const PrepFigure = preload("res://scripts/preparedness_figure.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
 const Sfx = preload("res://scripts/sfx_call.gd")
 # p2-parity Part 1: the host's catalog inspect overlay, with the same dossier and card face.
@@ -69,6 +70,7 @@ var disaster_plans: Button
 var disaster_grave: Button
 var grave_note: PanelContainer
 var janitor: Node3D
+var prep_figure: Node3D
 var foe_resource: Control
 var foe_resource_label: Label
 var foe_meter: Dictionary
@@ -134,6 +136,7 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 
 func _exit_tree() -> void:
 	if is_instance_valid(janitor): janitor.queue_free()
+	if is_instance_valid(prep_figure): prep_figure.queue_free()
 	if is_instance_valid(hand_root):
 		hand_root.queue_free()
 	if is_instance_valid(foe_root):
@@ -206,6 +209,12 @@ func _reveal() -> void:
 		janitor.transform = game.opponent_hand.character.global_transform
 		janitor.set_fixed_pose(true)
 		janitor.set_encounter(true)
+	# The Disaster seat sees the Preparedness figure across the table, like the host's Disaster seat.
+	if flipped:
+		prep_figure = PrepFigure.new()
+		game.add_child(prep_figure)
+		prep_figure.transform = game.opponent_hand.figure.global_transform
+		prep_figure.show()
 
 
 func _on_event(kind: String, data: Dictionary) -> void:
