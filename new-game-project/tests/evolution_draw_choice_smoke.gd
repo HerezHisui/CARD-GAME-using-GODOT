@@ -56,10 +56,13 @@ func run() -> void:
 	expect(game.is_sealed(value), "Held seal uses existing expiry")
 	game.turn += 2
 	expect(not game.is_sealed(value), "Held seal expires")
+	# LAN now follows LAN_EVOLUTION_PICKS (ships true). Switch it off to check the legacy path.
+	game.lan_evolution_picks_override = false
 	game.set_seats("remote", "local")
 	expect(not choice.enabled(), "LAN host Disaster uses legacy behavior")
 	game.set_seats("local", "remote")
 	expect(not choice.enabled(), "LAN remote Disaster uses legacy behavior")
+	game.lan_evolution_picks_override = null
 	game.set_seats("local", "local")
 	game.clear_battle()
 	expect(choice.held.is_empty() and choice.offer.is_empty(), "Reset clears private zones")
