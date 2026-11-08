@@ -39,6 +39,8 @@ func run() -> void:
 	game.run_director.battle_active = true
 	game.run_director.close_modal()
 	game.set_seats("remote", "local")
+	# LAN_PREP_UTILITIES ships on now. This suite checks the flag-off fallback, so switch it off.
+	game.lan_prep_utilities_override = false
 	game._set_phase(game.Phase.PLAYER_PLAY)
 	game.preparedness = 3
 	game.plans.tokens = 2
