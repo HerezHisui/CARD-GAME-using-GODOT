@@ -424,14 +424,6 @@ func limit_early_specials(floor_level: int) -> void:
 	while selected.size() < enemy_deck.size(): selected.append(basic.pick_random().duplicate(true))
 	enemy_deck.assign(selected)
 
-func _load_tex(path: String) -> Texture2D:
-	var tex = load(path)
-	if tex: return tex
-	var img := Image.new()
-	if img.load(ProjectSettings.globalize_path(path)) == OK:
-		return ImageTexture.create_from_image(img)
-	return null
-
 # =================================================================== ENVIRONMENT
 func _build_environment() -> void:
 	var school := preload("res://scripts/supplied_classroom.gd").new()
