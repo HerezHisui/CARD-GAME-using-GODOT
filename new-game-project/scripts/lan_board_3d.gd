@@ -1143,7 +1143,7 @@ func _fill_grave_list(box: VBoxContainer, cards: Array) -> void:
 	scroll.custom_minimum_size = Vector2(minf(760, hud.size.x - 80), minf(420, hud.size.y - 220))
 	box.add_child(scroll)
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 3
 	scroll.add_child(grid)
 	for entry: Dictionary in cards:
 		director._card_tile(entry, grid)
@@ -1667,7 +1667,7 @@ func _on_list(kind: String, items: Array) -> void:
 		box.add_child(scroll)
 		var grid := GridContainer.new()
 		grid.name = "ListGrid"
-		grid.columns = 4
+		grid.columns = 3
 		scroll.add_child(grid)
 		for entry: Dictionary in items:
 			director._card_tile(entry, grid)
