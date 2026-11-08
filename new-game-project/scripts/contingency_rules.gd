@@ -33,7 +33,8 @@ func reset_run() -> void:
 func unlock(id: String) -> bool:
 	if definition(id).is_empty() or id in unlocked: return false
 	unlocked.append(id)
-	game.log_event("Unlocked contingency: " + str(definition(id).name))
+	game.log_event("Unlocked contingency: " + str(definition(id).name), "preparedness",
+		"Preparedness unlocks a contingency.")
 	return true
 
 func reset() -> void:
@@ -47,7 +48,8 @@ func bank_unused_energy() -> bool:
 	game.preparedness -= 2
 	tokens += 1
 	saved_round = game.turn
-	game.log_event("Saved 2 energy for a Plan token (%d/2)." % tokens)
+	game.log_event("Saved 2 energy for a Plan token (%d/2)." % tokens, "preparedness",
+		"Preparedness saves 2 energy.")
 	game._refresh_bars()
 	return true
 
@@ -84,7 +86,7 @@ func arm(kind: String, cards: Array, destination: Node3D = null) -> bool:
 	tokens -= int(tactic.cost)
 	committed_round = game.turn
 	armed = {"kind":kind, "targets":cards.duplicate(), "destination":destination, "triggered":false}
-	game.log_event("Armed %s for this combat." % tactic.name)
+	game.log_event("Armed %s for this combat." % tactic.name, "preparedness", "Preparedness arms a Plan.")
 	preview_attack()
 	return true
 

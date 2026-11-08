@@ -36,6 +36,8 @@ signal evolution_reset
 signal side_requested(side: String)
 # Host (deck builder Part 3): the client sent its deck. Untyped, lan_title.gd checks the shape.
 signal deck_requested(deck)
+# Client (P2 lists): the host answered a list request. kind is "log", "deck" or "grave".
+signal list_received(kind: String, items: Array)
 
 var is_host := false
 var peer: ENetMultiplayerPeer
@@ -64,7 +66,8 @@ var build := build_string()  # sent with the join; a test may change it to check
 # Protocol number plus the Godot version, for example "1|4.7.2-stable (official)".
 static func build_string() -> String:
 	# Refuse protocol-3 builds that cannot resolve the mandatory Crosswind choice.
-	return "%d|%s|crosswind1" % [PROTOCOL, Engine.get_version_info().string]
+	# "lists1": the client may ask for its own log, deck and graveyard lists (ask_list).
+	return "%d|%s|crosswind1|lists1" % [PROTOCOL, Engine.get_version_info().string]
 
 
 func _ready() -> void:
@@ -364,6 +367,33 @@ func pick_deck(deck) -> void:
 	if seat_of(multiplayer.get_remote_sender_id()) == "":
 		return
 	deck_requested.emit(deck)
+
+
+# --- P2 lists: the log, the deck list and the graveyard, sent only when asked ---
+
+# Client: ask the host for one list of this seat. The answer comes back as list_received.
+func request_list(kind: String) -> void:
+	if peer == null or is_host:
+		return
+	ask_list.rpc_id(1, kind)
+
+
+# Host: a list request. The seat comes from the network id, so a client only ever gets its own cards.
+# Untyped on purpose, like send_action: an odd kind gets an empty list.
+@rpc("any_peer", "reliable")
+func ask_list(kind) -> void:
+	if not is_host or lobby or game == null or not is_instance_valid(game):
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	var side := seat_of(sender)
+	if side == "":
+		return
+	push_list.rpc_id(sender, str(kind), LanView.seat_list(game, side, str(kind)))
+
+
+@rpc("authority", "reliable")
+func push_list(kind: String, items: Array) -> void:
+	list_received.emit(kind, items)
 
 
 # Host: give the refusal a few frames to arrive, then drop the client.

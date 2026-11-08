@@ -44,6 +44,7 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 	if not relocation.is_empty(): view["relocation"] = relocation
 	_keep_cards(view, snapshot.cards, view.disaster_hand)
 	if game.evolution_choice.lan_enabled(): _disaster_evolutions(game, view)
+	view["lane_notes"] = lane_notes(game)
 	# Flag on: the Disaster's own graveyard as a list. The Preparedness view keeps the count only.
 	if game.preparedness_actions.flag_on(): view["disaster_graveyard_list"] = _graveyard_list(game)
 	return view
@@ -81,6 +82,7 @@ static func build_prep(game: Node) -> Dictionary:
 		"hints": prep_hand_hints(game),
 	}
 	_keep_cards(view, snapshot.cards, view.prep_hand)
+	view["lane_notes"] = lane_notes(game)
 	if game.evolution_choice.lan_enabled(): _evolution_counts(game, view)
 	# Flag on: the open utility pick. It goes to the Preparedness client only, never to the Disaster view.
 	if game.preparedness_actions.utilities_on():
@@ -89,6 +91,71 @@ static func build_prep(game: Node) -> Dictionary:
 		if game.preparedness_actions.scout_active():
 			view["disaster_hand_revealed"] = game.preparedness_actions.scout_hand.duplicate(true)
 	return view
+
+
+# --- P2 lists: sent only when a seat asks (lan_session.ask_list), never inside a view ---
+
+# What one seat may see of a list. kind is "log", "deck" or "grave". Only the asking seat's own cards.
+static func seat_list(game: Node, side: String, kind: String) -> Array:
+	if side not in ["disaster", "preparedness"]: return []
+	if kind == "log": return seat_log(game, side)
+	if kind == "deck": return _deck_list(game, side)
+	if kind == "grave":
+		var cards: Array = game.disaster_graveyard if side == "disaster" else game.player_graveyard
+		var list: Array = []
+		for entry in cards:
+			list.append(entry.duplicate(true))
+		return list
+	return []
+
+
+# The battle log for one seat. A line that names the other seat's private card is swapped for its public words.
+# Lines with no tag (restored from a save or a snapshot) are left out, so nothing unchecked goes out.
+static func seat_log(game: Node, side: String) -> Array:
+	var lines: Array = []
+	var tags: Array = game.log_private
+	var offset: int = game.battle_log.size() - tags.size()
+	for index in game.battle_log.size():
+		if index < offset: continue
+		var tag: Dictionary = tags[index - offset]
+		if tag.is_empty() or str(tag.side) == side:
+			lines.append(game.battle_log[index])
+		else:
+			lines.append(str(tag.public))
+	return lines
+
+
+# The seat's own deck list, the one the host's D key shows for that seat (versus_hud.deck_cards).
+static func _deck_list(game: Node, side: String) -> Array:
+	var list: Array = []
+	for entry in game.versus_master.get(side, []):
+		list.append((entry as Dictionary).duplicate(true))
+	return list
+
+
+# The inspect lines that need host state, for every lane card. Lane cards are public, so both seats get this.
+# {"response": [note, ...], "disaster": [note, ...]}; a note is {} or holds condition, movement, blood_pact.
+static func lane_notes(game: Node) -> Dictionary:
+	var notes := {"response": [], "disaster": []}
+	var mine := {"response": game._response_slots(), "disaster": game._threat_slots()}
+	for lane_side in ["response", "disaster"]:
+		var theirs: Array = mine.disaster if lane_side == "response" else mine.response
+		for lane in mine[lane_side].size():
+			var card: Node = game._get_card_in_slot(mine[lane_side][lane])
+			var note := {}
+			if is_instance_valid(card):
+				# The same checks as run_director's THIS COMBAT lines.
+				var data: Dictionary = card.card_data
+				if game.balance_enabled():
+					var movement := int(card.get_meta("dash_attack", 0))
+					if movement > 0: note["movement"] = movement
+					if data.has("condition"):
+						var target: Node = game._get_card_in_slot(theirs[lane])
+						note["condition"] = game.condition_met(data.condition, card, target)
+				if game.buff_value(data.get("type", "response") == "response", "kill_or_die") > 0:
+					note["blood_pact"] = true
+			notes[lane_side].append(note)
+	return notes
 
 
 # The Disaster's own graveyard cards: every one was played face up. Plain copies, oldest first.

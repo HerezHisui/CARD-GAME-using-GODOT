@@ -91,6 +91,8 @@ var final_boss: Node
 var player_barrier := 0
 var plans: Node
 var battle_log: Array[String] = []
+# One tag per battle_log line, for the LAN seat logs (lan_view.seat_log). {} = a public line. Not saved.
+var log_private: Array[Dictionary] = []
 var moving_source: Node
 var board_input: Node
 var opponent_hand: Node3D
@@ -236,7 +238,9 @@ func clear_battle(preserve_result: bool = false) -> void:
 	reveal_versus_hand()
 	if is_instance_valid(board_input): board_input.clear()
 	if is_instance_valid(plans): plans.reset()
-	if not preserve_result: battle_log.clear()
+	if not preserve_result:
+		battle_log.clear()
+		log_private.clear()
 	moving_source = null
 	if is_instance_valid(final_boss): final_boss.queue_free()
 	final_boss = null
@@ -264,9 +268,15 @@ func clear_battle(preserve_result: bool = false) -> void:
 	enemy_hand.clear()
 	enemy_evolution_deck.clear()
 
-func log_event(message: String) -> void:
+## private_side names the seat that may read the full line (a hand card, a Plan). The other LAN seat
+## gets public_message instead. Local play still shows the full line (battle_log is unchanged).
+func log_event(message: String, private_side: String = "", public_message: String = "") -> void:
 	battle_log.append("Round %d | %s" % [turn, message])
+	var tag := {}
+	if private_side != "": tag = {"side": private_side, "public": "Round %d | %s" % [turn, public_message]}
+	log_private.append(tag)
 	if battle_log.size() > 300: battle_log.pop_front()
+	while log_private.size() > battle_log.size(): log_private.pop_front()
 
 func set_visual_setting(key: String, enabled: bool) -> void:
 	if key not in ["effects_enabled", "boss_fog_enabled"]: return
@@ -813,7 +823,7 @@ func draw_cards(count: int) -> void:
 	arrange_hand_centered()
 
 func add_card_to_hand(definition: Dictionary) -> void:
-	log_event("Response receives %s." % definition.get("name", "a card"))
+	log_event("Response receives %s." % definition.get("name", "a card"), "preparedness", "Response draws a card.")
 	Sfx.play("card_draw")
 	var card = Card3DScene.instantiate()
 	hand_container.add_child(card)

@@ -107,6 +107,9 @@ var inspect_target = null  # a Card3D or a card Dictionary that a held press may
 var inspect_since := 0
 var inspect_origin := Vector2.ZERO
 var suppress_release := false
+# P2 lists: L (log), D (deck) and G (graveyard) ask the host; the answer opens this box.
+var list_overlay: PanelContainer
+var list_wanted := ""  # the list asked for and not answered yet, "" = none
 
 
 func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Control, seat: String,
@@ -130,6 +133,7 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 	session.event_received.connect(_on_event)
 	session.match_over.connect(_on_match_over)
 	session.evolution_reset.connect(_reset_evolutions)
+	session.list_received.connect(_on_list)
 	if not session.last_view.is_empty():
 		_on_view(session.last_view)
 
@@ -227,6 +231,7 @@ func _on_event(kind: String, data: Dictionary) -> void:
 func _on_match_over(winner: String) -> void:
 	over = true
 	close_inspection()
+	close_list()
 	held = -1
 	dragging = false
 	_cancel_pick(false)
@@ -471,6 +476,7 @@ func _input(event: InputEvent) -> void:
 	if not shown or over:
 		return
 	if _inspect_input(event): return
+	if _list_input(event): return
 	if _evolution_open() or view.get("evolution_waiting", false): return
 	# W and S would move the idle game's camera.
 	if event is InputEventKey and event.keycode in [KEY_W, KEY_S]:
@@ -894,8 +900,8 @@ func _build_prep_controls() -> void:
 	prep_grave.visible = true
 	hud.add_child(prep_grave)
 	_place_icon_box(prep_grave, Control.PRESET_BOTTOM_LEFT, Vector2(16, -72))
-	prep_grave.pressed.connect(func() -> void:
-		show_note("Graveyard", "%d cards" % int(view.get("counts", {}).get("response_graveyard", 0))))
+	# P2 lists: the host sends the graveyard cards when asked, like G.
+	prep_grave.pressed.connect(toggle_list.bind("grave"))
 
 
 ## A 100 x 56 icon box in a corner, like the host's Plans and Graveyard boxes.
@@ -1581,17 +1587,113 @@ func close_inspection() -> void:
 
 
 ## The THIS COMBAT lines the view carries, in the host's words: seal, plan protection, plan attack, Ignore Taunt.
-## The conditional ability and Blood Pact lines need host state, so they are left out.
+## The movement, conditional ability and Blood Pact lines come from the host's lane_notes (lan_view.gd).
 func _combat_text(card: Node3D) -> String:
 	var lines: PackedStringArray = []
+	var note := _lane_note(card)
 	# Only the field seal here, like the host's field_seal_text. The card script words it.
 	var seal_only := {"seal_round": card.card_data.get("seal_round", -1)}
 	var seal_text := CardScript.seal_hint(seal_only, int(view.get("round", 1)))
 	if not seal_text.is_empty(): lines.append(seal_text)
 	if card.planned_guard > 0: lines.append("Plan protection: %d" % card.planned_guard)
-	if card.plan_attack_bonus > 0: lines.append("Plan attack: +%d" % card.plan_attack_bonus)
+	var movement := int(note.get("movement", 0))
+	if movement > 0: lines.append("Temporary movement attack: +%d" % movement)
+	if card.plan_attack_bonus > movement: lines.append("Plan attack: +%d" % (card.plan_attack_bonus - movement))
+	if note.has("condition"):
+		lines.append("[b]Conditional ability: %s[/b]" % ("ACTIVE" if note.condition else "inactive"))
 	if card.plan_ignore_taunt: lines.append("Ignore Taunt")
+	if note.get("blood_pact", false): lines.append("Blood Pact: defeat a card this turn or die")
 	return "" if lines.is_empty() else "[b]THIS COMBAT[/b]\n" + "\n".join(lines) + "\n"
+
+
+## The host's note for a lane card, or {} for a hand card or an older view without notes.
+func _lane_note(card: Node3D) -> Dictionary:
+	var notes: Dictionary = view.get("lane_notes", {})
+	for lane_side in lane_cards:
+		var lane: int = lane_cards[lane_side].find(card)
+		if lane >= 0 and lane < notes.get(lane_side, []).size():
+			return notes[lane_side][lane]
+	return {}
+
+
+# ------------------------------------------------------------------- lists (P2 lists)
+## L, D and G open the log, the own deck and the own graveyard; the same key or Esc closes it.
+## Returns true when the event was used.
+func _list_input(event: InputEvent) -> bool:
+	if not event is InputEventKey or not event.pressed or event.echo: return false
+	var kinds := {KEY_L: "log", KEY_D: "deck", KEY_G: "grave"}
+	if event.keycode == KEY_ESCAPE and (is_instance_valid(list_overlay) or list_wanted != ""):
+		close_list()
+	elif kinds.has(event.keycode):
+		toggle_list(kinds[event.keycode])
+	else:
+		return false
+	get_viewport().set_input_as_handled()
+	return true
+
+
+## Opens one list, or closes it when it is already open. The host sends the cards (lan_session.ask_list).
+func toggle_list(kind: String) -> void:
+	var open_kind := str(list_overlay.get_meta("kind", "")) if is_instance_valid(list_overlay) else ""
+	if open_kind == kind or list_wanted == kind:
+		close_list()
+		return
+	list_wanted = kind
+	session.request_list(kind)
+
+
+func close_list() -> void:
+	list_wanted = ""
+	if is_instance_valid(list_overlay): list_overlay.queue_free()
+	list_overlay = null
+
+
+## The host's answer. Only the list still wanted opens, so a late answer after Esc is dropped.
+func _on_list(kind: String, items: Array) -> void:
+	if over or kind != list_wanted: return
+	list_wanted = ""
+	if is_instance_valid(list_overlay): list_overlay.queue_free()
+	list_overlay = PanelContainer.new()
+	list_overlay.name = "List_" + kind
+	list_overlay.set_meta("kind", kind)
+	list_overlay.add_theme_stylebox_override("panel", VersusHud._plate_style(UI.GOLD, 2, 16))
+	hud.add_child(list_overlay)
+	var box := VBoxContainer.new()
+	list_overlay.add_child(box)
+	var own := "DISASTER" if side == "disaster" else "PREPAREDNESS"
+	var titles := {"log": "BATTLE LOG", "deck": own + " DECK", "grave": own + " GRAVEYARD"}
+	VersusHud._label(box, 26, UI.GOLD).text = titles.get(kind, kind.to_upper())
+	var list_size := Vector2(minf(760, hud.size.x - 80), minf(420, hud.size.y - 220))
+	if kind == "log":
+		var text := RichTextLabel.new()
+		text.name = "LogText"
+		text.custom_minimum_size = list_size
+		text.scroll_following = true
+		text.text = "\n".join(items) if not items.is_empty() else "No battle events yet."
+		box.add_child(text)
+	elif items.is_empty():
+		VersusHud._label(box, 20, UI.TEXT).text = "No cards here yet." if kind == "deck" else "The graveyard is empty."
+	else:
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = list_size
+		box.add_child(scroll)
+		var grid := GridContainer.new()
+		grid.name = "ListGrid"
+		grid.columns = 4
+		scroll.add_child(grid)
+		for entry: Dictionary in items:
+			director._card_tile(entry, grid)
+			if kind != "grave": continue
+			# The graveyard reason and round under the card, like the host's graveyard.
+			var caption := VersusHud._label(grid.get_child(-1).get_node("Box"), 14, UI.MUTED)
+			caption.text = "%s · round %d" % [str(entry.get("graveyard_reason", "Destroyed")),
+				int(entry.get("graveyard_round", 1))]
+			caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	director.button("Close", close_list, box)
+	list_overlay.reset_size()
+	list_overlay.position = (hud.size - list_overlay.size) * 0.5
+	# The inspect overlay stays on top.
+	if is_instance_valid(inspection): hud.move_child(inspection, -1)
 
 
 # ------------------------------------------------------------------- seal tooltip (p2-parity Part 3)
