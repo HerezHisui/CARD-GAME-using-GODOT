@@ -151,11 +151,13 @@ var _frame_is_selected := false
 var face_signature := 0
 const FACE_CHECK_INTERVAL := 0.1
 var face_check_elapsed := 0.0
-var popup_stack := 0
+# Popups from spawn_popup that may still be on screen (untyped: they free themselves).
+var _live_popups: Array = []
+const POPUP_GAP := 0.22
+const POPUP_MAX_LIFT := 1.1
 var sacrifice_mark := ""
 var _sacrifice_outline: Sprite3D
 var _sacrifice_tag: Label3D
-var last_popup_msec := -1000
 
 @onready var art_sprite: Sprite3D = $Art
 @onready var mesh: MeshInstance3D = $Mesh
@@ -965,9 +967,18 @@ func _die() -> void:
 
 ## Floating text that rises and fades above this card.
 func spawn_popup(text: String, col: Color) -> void:
-	var now := Time.get_ticks_msec()
-	popup_stack = (popup_stack + 1) % 4 if now - last_popup_msec < 250 else 0
-	last_popup_msec = now
+	# Start above every popup still rising here, so labels do not stack on top of each other.
+	# The newer one starts higher and the older one slows down, so they never cross.
+	var base_y := global_position.y + 0.3
+	var start_y := base_y
+	var alive: Array = []
+	for p in _live_popups:
+		if is_instance_valid(p):
+			alive.append(p)
+			start_y = maxf(start_y, p.global_position.y + POPUP_GAP)
+	_live_popups = alive
+	# Keep a long burst on screen. Past this height labels may overlap again.
+	start_y = minf(start_y, base_y + POPUP_MAX_LIFT)
 	var l := Label3D.new()
 	l.font = UI.font(true)
 	l.text = text
@@ -981,7 +992,8 @@ func spawn_popup(text: String, col: Color) -> void:
 	l.render_priority = 120
 	l.outline_render_priority = 119
 	_manager().add_child(l)
-	l.global_position = global_position + Vector3(0, 0.3 + popup_stack * 0.22, 0)
+	l.global_position = Vector3(global_position.x, start_y, global_position.z)
+	_live_popups.append(l)
 	l.scale = Vector3.ONE * 0.4
 	var t := l.create_tween()
 	t.set_parallel(true)
