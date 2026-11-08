@@ -26,7 +26,12 @@ func capture(name: String) -> void:
 
 func check_names(director: Node, expected: Array) -> void:
 	var names: Array = []
-	for tile in director.content.get_node("Cards/Row").get_children():
+	# The offer screen moves Row out of the Cards scroll (evolution_choice._style_offer). The held browser keeps it.
+	var row: Node = director.content.get_node_or_null("Cards/Row")
+	if row == null: row = director.content.get_node_or_null("Row")
+	expect(row != null, "Evolution picker has a card row")
+	if row == null: return
+	for tile in row.get_children():
 		var title: Label = tile.get_node_or_null("Box/CardName")
 		if title != null: names.append(title.text)
 	names.sort()
@@ -93,7 +98,12 @@ func run() -> void:
 	game._set_phase(game.Phase.ENEMY)
 	await frames()
 	director.show_menu()
-	expect(not director.content.get_node("RulesScroll/Rules/Adaptations").visible, "Versus hides Adaptations")
+	# With the balance patch on, the Adaptations label shows the Versus rules help instead of the adaptations.
+	var adaptations: Label = director.content.get_node("RulesScroll/Rules/Adaptations")
+	if game.balance_enabled():
+		expect(adaptations.visible and adaptations.text.begins_with("Versus:"), "Versus shows rules help, not Adaptations")
+	else:
+		expect(not adaptations.visible, "Versus hides Adaptations")
 	expect(not director.content.get_node("RulesScroll/Rules/Augmentations").visible, "Versus hides Augmentations")
 	var debug: Node = director.content.get_node_or_null("DebugButton")
 	expect(debug == null or not debug.visible, "Versus hides Debug values")
@@ -122,6 +132,9 @@ func run() -> void:
 	director.close_modal()
 	choice.reset()
 	game.evolution_draw_choice_override = false
+	# The allowance rules below are the balance-off Versus path. BALANCE_PATCH ships on and its evolve waits for
+	# a confirm click, so pin it off here. The balance_* suites cover the balance-on rules.
+	game.balance_patch_override = false
 	var base: Dictionary = pool.base.ember.duplicate(true)
 	var evolution: Dictionary = pool.evolutions.wildfire.duplicate(true)
 	evolution.cost = 1
