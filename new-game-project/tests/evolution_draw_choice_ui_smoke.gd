@@ -63,6 +63,8 @@ func run() -> void:
 	game.disaster_is_human = true
 	game.disaster_seat_view = true
 	game.evolution_draw_choice_override = true
+	# BALANCE_PATCH ships on and asks a human to confirm each evolution. This suite tests the held choice, not that.
+	game.balance_patch_override = false
 	game.presentation.automated_choice = 0
 	var director: Node = game.run_director
 	director.battle_active = true
