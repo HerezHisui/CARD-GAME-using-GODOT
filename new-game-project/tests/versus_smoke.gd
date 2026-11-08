@@ -103,6 +103,9 @@ func check_versus_match() -> void:
 	check_run_state_restored("win", game, director)
 	play_versus(game, director, false, save_path, save_text)
 	check_run_state_restored("loss", game, director)
+	# These checks test the balance-off Versus rules. BALANCE_PATCH ships on: with a human Disaster its evolve
+	# opens a confirm popup, the tree pauses and create_timer(x, false) never fires. Pin it off here.
+	game.balance_patch_override = false
 	await check_disaster_actions(game, director)
 	await check_disaster_choices(game, director)
 	await check_evolution_choices(game, director)
