@@ -121,8 +121,9 @@ func threat_card(lane: int) -> Node:
 
 
 func check_flag_constants() -> void:
-	expect(VersusMatch.LAN_PREP_UTILITIES == false, "flag: LAN_PREP_UTILITIES ships false")
-	expect(LanSession.PROTOCOL == 3 + (1 if VersusMatch.LAN_EVOLUTION_PICKS else 0), "flag: PROTOCOL unchanged while off")
+	# The flag now ships true (lan_flag_defaults_smoke checks the shipped values). PROTOCOL adds 2 for it.
+	var expected := 3 + (1 if VersusMatch.LAN_EVOLUTION_PICKS else 0) + (2 if VersusMatch.LAN_PREP_UTILITIES else 0)
+	expect(LanSession.PROTOCOL == expected, "flag: PROTOCOL counts the utilities flag")
 	expect(game.lan_prep_utilities_override == null, "flag: override is null by default")
 
 
