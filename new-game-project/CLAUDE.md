@@ -1,14 +1,18 @@
 # Midnight DRRills (Godot 4.7.2) - standing rules for Claude Code
 
+Core rule: fit Claude, Claude Code and the work. Be fast, never skip a check: run the suites, report every changed test with a reason, never push.
+
 Cowork writes the prompt files in `prompts/` and reviews your diff. Read the prompt file you are told to read and follow it.
-These rules apply to every task. A prompt file can add to them, but it cannot remove the commit rule.
+These rules apply to every task. A prompt file can add to them.
 
 ## Hard rules
-- Never run `git commit`, `git push`, `git add` or `git stash`. Simple commits after Cowork reviews the diff.
-- Work on the branch you start on (now `lan-prototype`). Do not switch branches.
+- Commit locally on your work branch with named paths (never `git add -A`), one commit per part. Never `git push`.
+  Simple pushes through the export script. Never commit docs/notes, prompts, Claude outputs or export_presets.cfg.
+- Work on the branch the prompt names. You may create branches. Do not delete branches.
 - Do not `cd`. You start in the project folder (`new-game-project`).
 - Keep CRLF in files that use CRLF. Keep lines at most 120 characters.
-- Do not edit existing tests to make them pass. Add tests, or stop and report.
+- Tests may be edited, fixed or retired when the test is stale or wrong. List every changed test and why in the report.
+  Never weaken a test to hide a real code bug: fix the code instead.
 - Do not touch the nested old copy of the docs. Docs live in `github-publish/docs/`.
 - Singleplayer must not change. New multiplayer behaviour stays behind its flag
   (for example `game.disaster_seat_on`).
@@ -35,6 +39,7 @@ These rules apply to every task. A prompt file can add to them, but it cannot re
 - Godot: `C:/Users/0stef/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe`
 - One suite: `godot --headless --path . -s tests/<name>_smoke.gd`, with a 200 second time limit.
 - For the full run, use batches of 8 suites, each with timeout 200.
+- Test baseline (2026-11-09, branch bloat2): 135 suites, 135 pass, 0 fail, 0 timeouts.
 - Report exit codes, and any of: SCRIPT ERROR, FAILED, Parse Error, null instance, Index, ERROR, WARNING.
   Ignore "Unreferenced static string". It only appears when a timeout kills the run.
 - Exit 124 means a hang. A runtime error in a signal handler, or a paused tree, hangs a suite.
