@@ -39,6 +39,18 @@ static func _fit_again(modal, content_node, kind: String) -> void:
 	if scroll:
 		scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
 
+## Thin gold line under a dark panel title. It ends in a small diamond on the right.
+static func title_rule(content: Control, heading_index: int) -> void:
+	if content.has_node("TitleRule"): return
+	var rule := HSeparator.new()
+	rule.name = "TitleRule"
+	rule.add_theme_constant_override("separation", 12)
+	var line = load("res://scripts/ui_title_rule.gd").new()
+	line.color = UI.GOLD
+	rule.add_theme_stylebox_override("separator", line)
+	content.add_child(rule)
+	content.move_child(rule, heading_index + 1)
+
 ## Gold title of a dark panel: one size everywhere (rule 4).
 static func title_size(heading: Label) -> void:
 	heading.add_theme_font_size_override("font_size", UI.HEADING_SIZE)
@@ -72,9 +84,7 @@ static func apply(modal: Control, content_node, kind: String) -> void:
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_size(heading)
 	readable_notes(content)
-	var rule := HSeparator.new()
-	content.add_child(rule)
-	content.move_child(rule, 1)
+	title_rule(content, 0)
 	var panel := dark_plate()
 	panel.content_margin_left = 28
 	panel.content_margin_right = 28
@@ -140,6 +150,7 @@ static func catalog(modal: Control, content_node, kind: String) -> void:
 		var toolbar := content.get_node_or_null(toolbar_name) as BoxContainer
 		if toolbar: toolbar.add_theme_constant_override("separation", 12)
 	readable_notes(content)
+	title_rule(content, 0)
 	style_actions(content)
 	for footer in ["LeaveButton", "BackButton", "BeginButton"]:
 		var action := content.get_node_or_null(footer) as Button
@@ -167,6 +178,8 @@ static func readable_notes(content: Control) -> void:
 	if content.get_child_count() < 2: return
 	var note := content.get_child(1) as Label
 	if note == null: return
+	# The card picker hint stays small and muted.
+	if note.has_meta("pick_hint"): return
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	note.add_theme_font_size_override("font_size", 19)
 	note.add_theme_color_override("font_color", UI.TEXT.darkened(0.2))
@@ -184,6 +197,7 @@ static func compact(modal: Control, content_node, kind: String) -> void:
 	if heading and heading.get_theme_color("font_color") == UI.GOLD: title_size(heading)
 	# Log lines are the content itself, not a note.
 	if kind != "log": readable_notes(content)
+	if heading and heading.get_theme_color("font_color") == UI.GOLD: title_rule(content, 0)
 	style_actions(content)
 	fit_height(modal, content_node, kind)
 	# Keyboard and controller start on the safe answer of a confirmation.

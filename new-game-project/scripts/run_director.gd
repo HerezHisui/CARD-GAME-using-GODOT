@@ -925,6 +925,9 @@ func _panel_layout(kind: String) -> void:
 	var suspended := kind in ["plans", "menu", "settings", "buff", "reward", "contingency_reward", "floor_buff"]
 	modal.set_meta("suspended_menu", suspended)
 	modal.get_node("IndustrialTrim").visible = not suspended
+	# Dark game screens get corner brackets and a faint hatch; the cream result notices do not.
+	modal.get_node("IndustrialTrim").chrome = not suspended and kind not in ["victory", "result"]
+	modal.get_node("IndustrialTrim").queue_redraw()
 	compact_layout = suspended or kind in ["confirm", "debug_password", "debug", "log", "choice", "remove_confirm"]
 	modal.custom_minimum_size = Vector2.ZERO
 	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
