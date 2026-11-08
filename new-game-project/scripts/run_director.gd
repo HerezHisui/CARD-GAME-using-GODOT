@@ -92,6 +92,10 @@ var inspected_face: TextureRect
 const INSPECT_HOLD_SECONDS := 0.28
 var inspect_hold_serial := 0
 var inspect_hold_pending := false
+# Last energy cap and energy the pips were drawn with, so they redraw only on change.
+var _pips_drawn := Vector2i(-1, -1)
+# Last HP and max HP written to the top bar outside battle; reset in battle so the first frame after writes.
+var _top_hp_written := Vector2i(-1, -1)
 var inspect_hold_origin := Vector2.ZERO
 var suppress_inspect_release := false
 var inspection_dossier: Control
@@ -749,7 +753,10 @@ func _process(_delta: float) -> void:
 	threat.get_parent().get_node("Value").text = "%d / %d" % [game.tension, game.tension_cap]
 	game.get_node("HUD/Root").visible = battle_active and not modal.visible
 	game.get_node("HUD/Root/DeckDrawButton/DeckCountLabel").text = str(game.deck.size())
-	game.get_node("HUD/Root/EnergyPips").queue_redraw()
+	var pips_now := Vector2i(game.energy_cap, game.preparedness)
+	if pips_now != _pips_drawn:
+		_pips_drawn = pips_now
+		game.get_node("HUD/Root/EnergyPips").queue_redraw()
 	game.get_node("HUD/TopBar/SuppliesLabel").text = "%d" % coins
 	graveyard_button.get_node("CountLabel").text = str(game.player_graveyard.size())
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]
@@ -759,8 +766,13 @@ func _process(_delta: float) -> void:
 	if battle_active: top_bar.visible = true
 	else: top_bar.visible = run_active and root.get_child(0).visible and screen != "reward"
 	# Outside battle nothing else updates the HP bar, so keep it current here.
+	var top_hp := Vector2i(game.player_hp, game.hero_max_hp())
 	if top_bar.visible and not battle_active:
-		game._set_health(game._player_hp_ui, game.player_hp, game.hero_max_hp(), false)
+		if top_hp != _top_hp_written:
+			_top_hp_written = top_hp
+			game._set_health(game._player_hp_ui, game.player_hp, game.hero_max_hp(), false)
+	else:
+		_top_hp_written = Vector2i(-1, -1)
 	map_button.disabled = saved_content != null or screen in DECISIONS or not game.board_input.action.is_empty()
 	menu_button.disabled = map_button.disabled
 	idle_hint.visible = false
