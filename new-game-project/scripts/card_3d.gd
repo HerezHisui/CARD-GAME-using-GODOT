@@ -323,7 +323,8 @@ func _build_face() -> void:
 	frame.add_child(affinity_line)
 	_status_row = GridContainer.new()
 	_status_row.name = "Symbols"
-	_status_row.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# The symbols are smooth vector glyphs now, so they use linear filtering (was nearest for pixel masks).
+	_status_row.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_status_row.add_theme_constant_override("h_separation", 2)
 	_status_row.add_theme_constant_override("v_separation", 2)
 	frame.add_child(_status_row)

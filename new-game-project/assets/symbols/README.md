@@ -1,5 +1,13 @@
 # Card and control symbols
 
+Update 2026-11-09: the glyphs are now sharp vector shapes on a 24 x 24 grid, written by hand in
+`tools/author_glyphs.py` (run `python tools/author_glyphs.py`). They are still white masks with the
+same 53 names, so `UI.icon(kind, color)` tinting is unchanged. The card symbol row now uses linear
+filtering. `tools/author_symbols.py` is kept as the source of the old pixel versions below; a glyph
+listed in `KEEP_PIXEL` in `author_glyphs.py` is written from it. The text below describes those
+old pixel masks. `assets/ui_icons/*.png` (theme check, radio and arrow icons) are tinted renders of
+the new glyphs.
+
 These are imported 24 x 24 SVG pixel masks, authored on a 12 x 12 cell grid.
 Every visible cell is a white 2 x 2 rectangle. The transparent background and
 single foreground color give a crisp, limited palette. Card symbol controls use

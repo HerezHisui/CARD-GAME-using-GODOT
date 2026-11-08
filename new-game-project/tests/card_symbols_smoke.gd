@@ -1,4 +1,4 @@
-# Covers: Imported pixel symbols, tint caching, all card effect layouts, and seal timing labels.
+# Covers: Imported vector symbols, tint caching, all card effect layouts, and seal timing labels.
 extends SceneTree
 const UI = preload("res://scripts/ui_theme.gd")
 var failures := 0
@@ -33,13 +33,17 @@ func run() -> void:
 	check(tinted == UI.icon("burn", Color(0.2, 0.4, 0.6, 0.5)), "tinted masks are cached")
 	var image := tinted.get_image()
 	var opaque_found := false
+	var core_found := false
 	for y in 24:
 		for x in 24:
 			var pixel := image.get_pixel(x, y)
 			if pixel.a > 0.1:
 				opaque_found = true
-				check(absf(pixel.r - 0.2) < 0.01 and absf(pixel.a - 0.5) < 0.01, "arbitrary tint and alpha")
+				# Smooth vector glyphs have soft edges: the tint keeps the colour and scales the alpha.
+				check(absf(pixel.r - 0.2) < 0.01 and pixel.a <= 0.51, "arbitrary tint and alpha")
+				if absf(pixel.a - 0.5) < 0.01: core_found = true
 	check(opaque_found, "mask contains visible pixels")
+	check(core_found, "solid glyph core keeps the full tint alpha")
 	check(UI.icon("on", UI.GOLD) != UI.icon("on", UI.DISABLED), "theme states retain separate tints")
 	var game = load("res://scenes/game_3d.tscn").instantiate()
 	root.add_child(game)
