@@ -319,9 +319,15 @@ func check_custom_disaster() -> void:
 	var want_evolutions: Array = deck.evolutions.duplicate()
 	want_evolutions.sort()
 	expect(main_ids == want_main and evolution_ids == want_evolutions, "Custom Disaster: the new 24 and 6 piles")
-	expect(game.enemy_deck.size() == 21 and game.enemy_evolution_deck.size() == 5,
-		"Custom Disaster: 3 main cards and 1 evolution drawn")
-	expect(game.enemy_hand.size() == 4, "Custom Disaster: a 3-card hand plus 1 evolution")
+	if game.evolution_choice.enabled():
+		# LAN evolution picks (on by default): the opening evolution is an offer. Nothing leaves the pile until a pick.
+		expect(game.enemy_deck.size() == 21 and game.enemy_evolution_deck.size() == 6
+			and game.evolution_choice.pending(), "Custom Disaster: 3 main cards drawn, evolution offered")
+		expect(game.enemy_hand.size() == 3, "Custom Disaster: a 3-card hand while the evolution is offered")
+	else:
+		expect(game.enemy_deck.size() == 21 and game.enemy_evolution_deck.size() == 5,
+			"Custom Disaster: 3 main cards and 1 evolution drawn")
+		expect(game.enemy_hand.size() == 4, "Custom Disaster: a 3-card hand plus 1 evolution")
 	expect(hand_ids() == old_hand and ids(game.deck) == old_deck, "Custom Disaster: Preparedness unchanged")
 	expect(not game.hand_container.visible, "Custom Disaster: the Disaster host never sees the Preparedness hand")
 	end_match()
