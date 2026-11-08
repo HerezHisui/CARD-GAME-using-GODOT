@@ -35,17 +35,17 @@ static func node(button: Button, kind: String, current: bool, cleared: bool) -> 
 	button.add_theme_constant_override("icon_max_width", 30)
 	button.add_theme_font_size_override("font_size", 17)
 	button.add_theme_color_override("icon_normal_color", UI.GOLD)
-	button.add_theme_color_override("icon_disabled_color", UI.GOLD if cleared or current else Color("665744"))
-	button.add_theme_color_override("font_disabled_color", UI.TEXT if cleared or current else Color("8c8170"))
-	button.add_theme_stylebox_override("normal", plate(Color("302416"), Color("e7a63c")))
-	button.add_theme_stylebox_override("hover", plate(Color("52371d"), Color("ffd27b")))
-	button.add_theme_stylebox_override("pressed", plate(Color("71502a"), UI.TEXT))
+	button.add_theme_color_override("icon_disabled_color", UI.GOLD if cleared or current else UI.MUTED.darkened(0.2))
+	button.add_theme_color_override("font_disabled_color", UI.TEXT if cleared or current else UI.MUTED)
+	button.add_theme_stylebox_override("normal", plate(UI.PANEL, UI.GOLD))
+	button.add_theme_stylebox_override("hover", plate(UI.PANEL.lerp(UI.TEXT, 0.07), UI.GOLD.lightened(0.3)))
+	button.add_theme_stylebox_override("pressed", plate(UI.CRIMSON, UI.TEXT))
 	button.add_theme_stylebox_override("focus", plate(Color(0, 0, 0, 0), UI.TEXT))
-	var edge := Color("655039")
-	if cleared: edge = Color("a58348")
-	if current: edge = Color("f5d88b")
-	if kind == "boss" and not cleared: edge = Color("ba5238")
-	button.add_theme_stylebox_override("disabled", plate(Color("1c1915"), edge))
+	var edge := UI.MUTED.darkened(0.35)
+	if cleared: edge = UI.GOLD.darkened(0.3)
+	if current: edge = UI.GOLD.lightened(0.3)
+	if kind == "boss" and not cleared: edge = UI.ACTION
+	button.add_theme_stylebox_override("disabled", plate(UI.INSET, edge))
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.tooltip_text += "\n" + str(PURPOSE[kind])
 	button.tooltip_text += "\n" + ("Current room" if current else "Cleared" if cleared
@@ -56,7 +56,7 @@ static func screen(content: Control, floor_number: int) -> void:
 	row.add_theme_constant_override("separation", 18)
 	var dossier: PanelContainer = row.get_node("Dossier")
 	dossier.custom_minimum_size.x = 230
-	dossier.add_theme_stylebox_override("panel", plate(Color("191714"), Color("a47937")))
+	dossier.add_theme_stylebox_override("panel", plate(UI.INSET, UI.GOLD.darkened(0.2)))
 	var text: VBoxContainer = dossier.get_node("DossierText")
 	text.add_theme_constant_override("separation", 14)
 	text.get_node("FloorLabel").text = "FLOOR %d" % floor_number
@@ -69,7 +69,7 @@ static func screen(content: Control, floor_number: int) -> void:
 		legend.add_child(entry)
 		var mark := TextureRect.new()
 		mark.texture = icon(kind)
-		mark.modulate = Color("e7a63c")
+		mark.modulate = UI.GOLD
 		mark.custom_minimum_size = Vector2(22, 22)
 		mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -85,5 +85,5 @@ static func screen(content: Control, floor_number: int) -> void:
 		var purpose := Label.new()
 		purpose.text = PURPOSE[kind]
 		purpose.add_theme_font_size_override("font_size", 15)
-		purpose.modulate = Color("afa28b")
+		purpose.modulate = UI.MUTED.lightened(0.2)
 		description.add_child(purpose)

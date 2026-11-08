@@ -75,7 +75,7 @@ static func apply(modal: Control, content_node, kind: String) -> void:
 	var rule := HSeparator.new()
 	content.add_child(rule)
 	content.move_child(rule, 1)
-	var panel := Route.plate(dark_fill(), dark_rim())
+	var panel := dark_plate()
 	panel.content_margin_left = 28
 	panel.content_margin_right = 28
 	panel.content_margin_top = 24
@@ -94,31 +94,21 @@ static func style_actions(parent: Node) -> void:
 static func style_button(button: Button) -> void:
 	button.custom_minimum_size.y = 54
 	button.add_theme_font_size_override("font_size", 21)
-	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-		# Focus keeps the normal rim, so a focused button looks like its siblings.
-		var fill := Color.TRANSPARENT if state == "focus" else button_fill(state)
-		button.add_theme_stylebox_override(state, Route.plate(fill, dark_rim()))
-	var light := UI.GOLD.lightened(0.5)
-	button.add_theme_color_override("font_color", UI.TEXT)
-	button.add_theme_color_override("font_hover_color", light)
-	button.add_theme_color_override("font_pressed_color", light)
-	button.add_theme_color_override("font_hover_pressed_color", light)
-	button.add_theme_color_override("font_focus_color", UI.TEXT)
-	button.add_theme_color_override("font_disabled_color", UI.MUTED)
+	# The look itself comes from the shared builder in ui_theme.gd (charcoal, gold line, cut corners).
+	var danger := button.text.begins_with("Abandon") or button.text.begins_with("Destroy")
+	UI.style_button(button, danger)
 
 ## Dark family colours, all made from the ui_theme palette (rule 3).
+## Neutral charcoal, no warm brown.
 static func dark_fill() -> Color:
 	return UI.PANEL.darkened(0.15)
 
 static func dark_rim() -> Color:
-	return UI.BRONZE.darkened(0.17)
+	return UI.GOLD
 
-## Button fill: dark bronze at rest, lighter on hover and press, darkest when disabled.
-static func button_fill(state: String) -> Color:
-	if state == "hover": return UI.PANEL.lerp(UI.BRONZE, 0.35)
-	if state in ["pressed", "hover_pressed"]: return UI.PANEL.lerp(UI.BRONZE, 0.5)
-	if state == "disabled": return UI.PANEL.lerp(UI.BRONZE, 0.04)
-	return UI.PANEL.lerp(UI.BRONZE, 0.12)
+## The dark panel plate: charcoal, crisp gold line, cut corners.
+static func dark_plate() -> StyleBoxFlat:
+	return UI.sharp_panel(dark_fill(), dark_rim(), 14)
 
 static func catalog(modal: Control, content_node, kind: String) -> void:
 	if not current(content_node, kind): return
@@ -139,7 +129,7 @@ static func catalog(modal: Control, content_node, kind: String) -> void:
 		old.queue_free()
 	content.add_child(heading)
 	content.move_child(heading, 0)
-	var panel := Route.plate(dark_fill(), dark_rim())
+	var panel := dark_plate()
 	panel.content_margin_left = 28
 	panel.content_margin_right = 28
 	# Same margins as the room panels, so the titles sit in the same place.
@@ -181,11 +171,11 @@ static func readable_notes(content: Control) -> void:
 	note.add_theme_font_size_override("font_size", 19)
 	note.add_theme_color_override("font_color", UI.TEXT.darkened(0.2))
 
-## Confirmations, pickers and the battle log: the same bronze plate as the rooms, smaller.
+## Confirmations, pickers and the battle log: the same charcoal plate as the rooms, smaller.
 static func compact(modal: Control, content_node, kind: String) -> void:
 	if not current(content_node, kind): return
 	var content: Control = content_node
-	var panel := Route.plate(dark_fill(), dark_rim())
+	var panel := dark_plate()
 	panel.set_content_margin_all(22)
 	modal.add_theme_stylebox_override("panel", panel)
 	# The gold title made by reset_panel() is the first child.

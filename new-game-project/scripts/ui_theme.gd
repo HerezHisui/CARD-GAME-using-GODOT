@@ -94,6 +94,53 @@ static func panel(fill: Color = PANEL, border: Color = BRONZE, inset: int = 16) 
 	box.set_content_margin_all(inset)
 	return box
 
+## Dark family panel: neutral charcoal fill, crisp 2 px gold line, 45 degree cut corners.
+static func sharp_panel(fill: Color = PANEL, border: Color = GOLD, inset: int = 16) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = fill
+	box.border_color = border
+	box.set_border_width_all(2)
+	# One segment per corner draws a straight 45 degree cut instead of a curve.
+	box.set_corner_radius_all(10)
+	box.corner_detail = 1
+	box.set_content_margin_all(inset)
+	return box
+
+## One state of the shared button. Same margins as the old room plate, so sizes do not move.
+static func button_box(state: String, danger: bool = false) -> StyleBoxFlat:
+	var rim := ACTION if danger else GOLD.darkened(0.3)
+	var box := sharp_panel(PANEL, rim, 14)
+	box.set_corner_radius_all(8)
+	box.content_margin_top = 10
+	box.content_margin_bottom = 10
+	if state == "hover":
+		# Brighter line and a slight light fill.
+		box.bg_color = PANEL.lerp(TEXT, 0.07)
+		box.border_color = ACTION.lightened(0.25) if danger else GOLD
+	elif state in ["pressed", "hover_pressed"]:
+		box.bg_color = CRIMSON
+		box.border_color = GOLD
+	elif state == "disabled":
+		box.bg_color = PANEL.darkened(0.3)
+		box.border_color = MUTED.darkened(0.45)
+	return box
+
+## The one shared button look for dark screens. Danger actions (Abandon, Destroy) get a crimson line.
+## Focus draws a second gold line and a small triangle, so keyboard and controller can see it.
+static func style_button(button: Button, danger: bool = false) -> void:
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		button.add_theme_stylebox_override(state, button_box(state, danger))
+	var focus = load("res://scripts/ui_focus_box.gd").new()
+	focus.color = GOLD.lightened(0.2)
+	button.add_theme_stylebox_override("focus", focus)
+	var light := GOLD.lightened(0.5)
+	button.add_theme_color_override("font_color", TEXT)
+	button.add_theme_color_override("font_hover_color", light)
+	button.add_theme_color_override("font_pressed_color", light)
+	button.add_theme_color_override("font_hover_pressed_color", light)
+	button.add_theme_color_override("font_focus_color", TEXT)
+	button.add_theme_color_override("font_disabled_color", MUTED)
+
 static func bar(color: Color) -> StyleBoxFlat:
 	var box := panel(color, BRONZE.darkened(0.5), 0)
 	box.set_corner_radius_all(3)
