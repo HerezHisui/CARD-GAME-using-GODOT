@@ -1008,7 +1008,8 @@ func reset_panel(title: String, subtitle: String, kind: String) -> void:
 	if modal.get_meta("suspended_menu", false): _skin_menu.call_deferred()
 	modal.show()
 	if not title.is_empty(): content.add_child(label(title, 24 if compact_layout else 30, UI.GOLD, compact_layout))
-	if not subtitle.is_empty(): content.add_child(label(subtitle, 16, UI.MUTED, true))
+	# Body text 18 in the 1440x900 layout shows as 16 px at 1280x800.
+	if not subtitle.is_empty(): content.add_child(label(subtitle, 18, UI.MUTED, true))
 	game.presentation.reveal(content)
 	# The style hooks run next frame; they skip if another screen replaced this one first.
 	content.set_meta("style_kind", kind)
