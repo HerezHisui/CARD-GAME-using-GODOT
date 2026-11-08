@@ -29,6 +29,8 @@ func run() -> void:
 	reset()
 	for id: String in Balance.THRESHOLDS:
 		var source: Dictionary = disaster.base.get(id, disaster.evolutions.get(id, prep.base.get(id, {})))
+		# Some source thresholds now match the balance value, so check balance_card does not write to the source.
+		var source_threshold := int(source.condition.threshold)
 		var definition: Dictionary = game.balance_card(source)
 		var condition: Dictionary = definition.condition
 		var status := str(condition.status)
@@ -37,7 +39,8 @@ func run() -> void:
 		var enough := {status: int(condition.threshold)}
 		expect(not game.condition_met(condition, {}, below), "Below threshold " + id)
 		expect(game.condition_met(condition, {}, enough), "Exact threshold " + id)
-		expect(source.condition.threshold != definition.condition.threshold, "Source data unchanged " + id)
+		expect(int(source.condition.threshold) == source_threshold, "Source data unchanged " + id)
+		expect(int(definition.condition.threshold) == int(Balance.THRESHOLDS[id]), "Balance threshold used " + id)
 	for pair: Array in [["ember", "wildfire"], ["tremor", "fissure"],
 			["rising_tide", "flash_flood"], ["gust", "gale_force"]]:
 		var base: Dictionary = disaster.base[pair[0]]
@@ -48,6 +51,8 @@ func run() -> void:
 	var materials: Array = []
 	for lane in 4: materials.append(unit(disaster.base.tremor, lane))
 	var worldbreaker: Dictionary = disaster.evolutions.worldbreaker
+	# The entry Barrier nerf (on by default) gives 1 less. The old rule is needed to reach the cap of three.
+	game.entry_barrier_nerf_override = false
 	expect(game.matching_material_barrier(worldbreaker, materials) == 1, "Bonus awarded once")
 	expect(await game.disaster_evolve(worldbreaker, materials, game._threat_slots()[0]), "Worldbreaker evolves")
 	var evolved: Node = game._get_card_in_slot(game._threat_slots()[0])
