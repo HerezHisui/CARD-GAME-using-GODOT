@@ -13,12 +13,6 @@ theme_override_constants/separation = 14
 [node name="Tabs" type="HBoxContainer" parent="."]
 layout_mode = 2
 
-[node name="CloseButton" type="Button" parent="Tabs"]
-custom_minimum_size = Vector2(100, 42)
-layout_mode = 2
-mouse_default_cursor_shape = 2
-text = "Close"
-
 [node name="Sort" type="OptionButton" parent="Tabs"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
@@ -56,3 +50,10 @@ theme_override_colors/font_color = Color(0.54901963, 0.5254902, 0.49411765, 1)
 theme_override_font_sizes/font_size = 16
 text = "Destroyed units and spent utilities appear here."
 horizontal_alignment = 1
+
+[node name="CloseButton" type="Button" parent="."]
+custom_minimum_size = Vector2(220, 54)
+layout_mode = 2
+size_flags_horizontal = 8
+mouse_default_cursor_shape = 2
+text = "Close"

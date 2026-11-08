@@ -19,8 +19,9 @@ fit_content = true
 scroll_following = true
 
 [node name="CloseButton" type="Button" parent="."]
-custom_minimum_size = Vector2(130, 42)
+custom_minimum_size = Vector2(220, 54)
 layout_mode = 2
+size_flags_horizontal = 8
 mouse_default_cursor_shape = 2
 text = "Close"
 clip_text = true

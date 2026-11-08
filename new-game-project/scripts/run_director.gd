@@ -267,6 +267,8 @@ func show_characters() -> void:
 		pick.disabled = not character.available
 		preload("res://scripts/room_menu_style.gd").identity(pick.get_parent().get_parent(), character.available)
 	hook_button(box.get_node("BackButton"), show_title)
+	# Back sits on the dark backdrop, so it uses the dark button style like every other Back.
+	preload("res://scripts/room_menu_style.gd").style_button(box.get_node("BackButton"))
 
 func character_deck(index: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -1682,7 +1684,7 @@ func show_deck() -> void:
 	var deck_button: Button = content.get_node("Tabs/DeckButton")
 	deck_button.text = "Cards (%d)" % shown.size()
 	hook_button(deck_button, deck_cards.bind(shown))
-	hook_button(content.get_node("Tabs/CloseButton"), close_modal)
+	hook_button(content.get_node("CloseButton"), close_modal)
 	setup_sort_controls(content.get_node("SortRow"), false)
 	deck_cards(shown)
 
@@ -1820,7 +1822,7 @@ func refresh_graveyard() -> void:
 	# The layout lives in ui_graveyard.tscn; the card tiles are made here, like the Deck view.
 	unpack_screen(GraveyardScene)
 	var tabs: Control = content.get_node("Tabs")
-	hook_button(tabs.get_node("CloseButton"), close_modal)
+	hook_button(content.get_node("CloseButton"), close_modal)
 	var sort: OptionButton = tabs.get_node("Sort")
 	for key in SORT_KEYS: sort.add_item("Recently added" if key == "acquired" else str(key).capitalize())
 	sort.select(deck_sort)

@@ -27,7 +27,8 @@ theme_override_constants/v_separation = 18
 columns = 2
 
 [node name="BackButton" type="Button" parent="Center/Box"]
-custom_minimum_size = Vector2(130, 42)
+custom_minimum_size = Vector2(220, 54)
 layout_mode = 2
+size_flags_horizontal = 8
 mouse_default_cursor_shape = 2
 text = "Back"

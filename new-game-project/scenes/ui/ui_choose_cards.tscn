@@ -21,8 +21,9 @@ size_flags_vertical = 3
 theme_override_constants/separation = 16
 
 [node name="CancelButton" type="Button" parent="."]
-custom_minimum_size = Vector2(130, 42)
+custom_minimum_size = Vector2(220, 54)
 layout_mode = 2
+size_flags_horizontal = 8
 mouse_default_cursor_shape = 2
 text = "Cancel"
 clip_text = true
