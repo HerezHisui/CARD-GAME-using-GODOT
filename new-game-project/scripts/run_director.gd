@@ -712,12 +712,12 @@ func _make_gauge(box_name: String, title: String, color: Color, variation: Strin
 ## One square pip per energy point. Full = crimson with a gold rim, spent = dark and empty.
 func _draw_energy_pips(pips: Control) -> void:
 	var full := StyleBoxFlat.new()
-	full.bg_color = Color("b3261e")
-	full.border_color = Color("e0a93b")
+	full.bg_color = UI.CRIMSON
+	full.border_color = UI.GOLD
 	full.set_border_width_all(2)
 	var spent := StyleBoxFlat.new()
-	spent.bg_color = Color("1a1415")
-	spent.border_color = Color("3a3032")
+	spent.bg_color = UI.INSET
+	spent.border_color = UI.MUTED.darkened(0.45)
 	spent.set_border_width_all(2)
 	for i in game.energy_cap:
 		var box := full if i < game.preparedness else spent
@@ -763,6 +763,10 @@ func _process(_delta: float) -> void:
 	if pips_now != _pips_drawn:
 		_pips_drawn = pips_now
 		game.get_node("HUD/Root/EnergyPips").queue_redraw()
+		# At 0 energy the numbers go grey, so the empty gauge reads as empty.
+		var energy_color := UI.MUTED if game.preparedness <= 0 else UI.TEXT
+		for gauge_label in ["Value", "Title"]:
+			prep.get_parent().get_node(gauge_label).add_theme_color_override("font_color", energy_color)
 	game.get_node("HUD/TopBar/SuppliesLabel").text = "%d" % coins
 	graveyard_button.get_node("CountLabel").text = str(game.player_graveyard.size())
 	root.get_child(0).visible = screen not in ["title", "title_help", "characters", "character_preview"]

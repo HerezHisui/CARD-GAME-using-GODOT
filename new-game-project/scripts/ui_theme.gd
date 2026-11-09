@@ -146,9 +146,9 @@ static func bar(color: Color) -> StyleBoxFlat:
 	box.set_corner_radius_all(3)
 	return box
 
-## Muted bronze fill stays inside the gold rim.
+## Muted gold fill stays inside the gold rim.
 static func tension_fill() -> StyleBoxFlat:
-	var box := bar(BRONZE.darkened(0.28))
+	var box := bar(GOLD.darkened(0.2))
 	box.set_corner_radius_all(0)
 	box.set_border_width_all(0)
 	box.set_expand_margin_all(-2)
@@ -156,7 +156,7 @@ static func tension_fill() -> StyleBoxFlat:
 
 ## Tension track: dark, square, 2px gold rim.
 static func tension_track() -> StyleBoxFlat:
-	var box := panel(INSET, BRONZE.darkened(0.2), 0)
+	var box := panel(INSET, GOLD.darkened(0.3), 0)
 	box.set_corner_radius_all(0)
 	box.set_border_width_all(2)
 	return box
@@ -238,7 +238,7 @@ static func build_theme() -> Theme:
 	for type in ["Button", "OptionButton", "MenuButton", "CheckBox", "CheckButton"]:
 		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 			var fill := BACKGROUND
-			var border := GOLD if state in ["hover", "pressed", "hover_pressed", "focus"] else BRONZE.darkened(0.35)
+			var border := GOLD if state in ["hover", "pressed", "hover_pressed", "focus"] else GOLD.darkened(0.3)
 			if state == "disabled": border = MUTED.darkened(0.55)
 			if state == "focus": fill = Color.TRANSPARENT
 			var box := panel(fill, border, 12)
@@ -255,7 +255,7 @@ static func build_theme() -> Theme:
 			var fill := BACKGROUND
 			if state == "disabled": fill = PANEL
 			if state == "focus": fill = Color.TRANSPARENT
-			var box := panel(fill, GOLD if state in ["hover", "focus"] else BRONZE, 20)
+			var box := panel(fill, GOLD if state in ["hover", "focus"] else GOLD.darkened(0.3), 20)
 			box.set_corner_radius_all(16 if variant == "TerminalButton" else 10)
 			theme.set_stylebox(state, variant, box)
 		theme.set_font_size("font_size", variant, 22 if variant == "TerminalButton" else 18)
@@ -285,7 +285,7 @@ static func build_theme() -> Theme:
 	theme.set_icon("updown", "SpinBox", icon("updown"))
 	for type in ["LineEdit", "TextEdit"]:
 		for state in ["normal", "read_only", "focus"]:
-			theme.set_stylebox(state, type, panel(Color.TRANSPARENT if state == "focus" else INSET, GOLD if state == "focus" else BRONZE.darkened(0.4), 8))
+			theme.set_stylebox(state, type, panel(Color.TRANSPARENT if state == "focus" else INSET, GOLD if state == "focus" else GOLD.darkened(0.4), 8))
 			theme.set_color("caret_color", type, GOLD)
 			theme.set_color("selection_color", type, CRIMSON)
 			theme.set_color("font_selected_color", type, TEXT)
@@ -332,18 +332,18 @@ static func apply_hud(root: Control) -> void:
 	top_bar.theme = get_theme()
 	for side in ["PlayerHealth", "EnemyHealth"]:
 		var health := top_bar.get_node(side) if side == "PlayerHealth" else root.get_node(side)
-		# Muted bronze fills retain the existing delayed damage bar.
-		var hp_fill := bar(BRONZE.darkened(0.28))
+		# Muted gold fills retain the existing delayed damage bar.
+		var hp_fill := bar(GOLD.darkened(0.2))
 		hp_fill.set_corner_radius_all(0)
 		hp_fill.set_border_width_all(2)
-		hp_fill.border_color = Color("0e0b0b")
+		hp_fill.border_color = BACKGROUND
 		health.get_node("Bar").add_theme_stylebox_override("fill", hp_fill)
 		var lag_fill := bar(GOLD.darkened(0.1))
 		lag_fill.set_corner_radius_all(0)
-		lag_fill.border_color = Color("0e0b0b")
+		lag_fill.border_color = BACKGROUND
 		health.get_node("LagBar").add_theme_stylebox_override("fill", lag_fill)
 		# Dark empty track behind both bars, thin gold rim.
-		var track := panel(INSET, BRONZE.darkened(0.2), 0)
+		var track := panel(INSET, GOLD.darkened(0.3), 0)
 		track.set_corner_radius_all(0)
 		track.set_border_width_all(1)
 		health.get_node("LagBar").add_theme_stylebox_override("background", track)
@@ -369,9 +369,10 @@ static func style_health_panel(health: Control) -> void:
 	plate.offset_top = 0
 	plate.offset_right = 0
 	plate.offset_bottom = 0
-	var frame := panel(PANEL, BRONZE.darkened(0.2), 0)
+	# Same cut corners as the shared buttons.
+	var frame := sharp_panel(PANEL, GOLD.darkened(0.3), 0)
 	frame.set_border_width_all(1)
-	frame.set_corner_radius_all(3)
+	frame.set_corner_radius_all(6)
 	plate.add_theme_stylebox_override("panel", frame)
 	var caption: Label = health.get_node("Caption")
 	caption.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
