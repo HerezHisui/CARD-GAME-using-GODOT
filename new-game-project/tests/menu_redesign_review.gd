@@ -50,6 +50,30 @@ func extra_states() -> void:
 	await shot("confirm-abandon", director.confirm_abandon)
 	await shot("defeat", func(): director.battle_finished(false), true)
 
+## Map, coin call and the battle HUD (full energy, then empty).
+func battle_states() -> void:
+	director.new_run()
+	director.close_modal()
+	director.screen = ""
+	director.battle_active = false
+	director.show_map()
+	await capture("map")
+	director.close_modal()
+	director.screen = ""
+	director.battle_active = true
+	director.modal.hide()
+	game.start_encounter(director.collection, "battle", 1, 0)
+	await create_timer(1.2, true).timeout
+	await capture("coin")
+	game.presentation.choice_buttons[0].pressed.emit()
+	for i in 80:
+		if game.phase == game.Phase.PLAYER_PLAY and not game.presentation.blocking: break
+		await create_timer(0.1, true).timeout
+	await create_timer(1.0, true).timeout
+	await capture("battle")
+	game.preparedness = 0
+	await capture("battle-empty")
+
 func run() -> void:
 	if DisplayServer.get_name() == "headless":
 		quit(2)
@@ -63,6 +87,8 @@ func run() -> void:
 	director = game.run_director
 	director.persistence.enabled = false
 	await process_frame
+	director.show_title()
+	await capture("title")
 	director.show_characters()
 	await capture("characters")
 	director.show_character_preview(0)
@@ -86,6 +112,7 @@ func run() -> void:
 		director.show_event()
 		await capture("event-" + event)
 	await extra_states()
+	await battle_states()
 	game.queue_free()
 	await process_frame
 	quit()
