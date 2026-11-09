@@ -76,7 +76,7 @@ func _build() -> void:
 	var frame := PanelContainer.new()
 	frame.name = "Frame"
 	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-	frame.add_theme_stylebox_override("panel", UI.panel(UI.BACKGROUND, UI.BRONZE, 16))
+	frame.add_theme_stylebox_override("panel", UI.sharp_panel(UI.BACKGROUND, UI.GOLD, 16))
 	add_child(frame)
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 24)
@@ -102,12 +102,12 @@ func _build_list() -> Control:
 	card_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(card_list)
 	if side == VersusDecks.SIDE_DISASTER:
-		card_list.add_child(_label("Main deck (base and spells)", UI.BODY_SIZE, UI.BRONZE))
+		card_list.add_child(_label("Main deck (base and spells)", UI.BODY_SIZE, UI.GOLD))
 		_add_rows("main", main_pool)
-		card_list.add_child(_label("Evolution pile", UI.BODY_SIZE, UI.BRONZE))
+		card_list.add_child(_label("Evolution pile", UI.BODY_SIZE, UI.GOLD))
 		_add_rows("evolutions", evolution_pool)
 	else:
-		card_list.add_child(_label("Main deck", UI.BODY_SIZE, UI.BRONZE))
+		card_list.add_child(_label("Main deck", UI.BODY_SIZE, UI.GOLD))
 		_add_rows("main", main_pool)
 	return left
 
@@ -125,7 +125,7 @@ func _build_side_column() -> Control:
 		evolution_label.name = "EvolutionCount"
 		right.add_child(evolution_label)
 	if side == VersusDecks.SIDE_PREP:
-		right.add_child(_label("Tactics: Brace plus 2 more", UI.BODY_SIZE, UI.BRONZE))
+		right.add_child(_label("Tactics: Brace plus 2 more", UI.BODY_SIZE, UI.GOLD))
 		for tactic: Dictionary in ContingencyRules.TACTICS:
 			right.add_child(_tactic_box(tactic))
 	error_label = _label("", UI.SMALL_SIZE, UI.DANGER)

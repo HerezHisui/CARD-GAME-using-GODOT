@@ -326,6 +326,8 @@ func button(text: String, action: Callable, parent: Node) -> Button:
 	parent.add_child(b)
 	if text.begins_with("Confirm") or text.begins_with("Abandon") or text.begins_with("Destroy"):
 		b.theme_type_variation = "PrimaryButton"
+	# Every made-in-code button gets the one shared look; Abandon and Destroy get the crimson line.
+	UI.style_button(b, text.begins_with("Abandon") or text.begins_with("Destroy"))
 	game.presentation.button_feedback(b)
 	return b
 
@@ -429,6 +431,7 @@ func _build_ui() -> void:
 	board_prompt = root.get_node("BoardPrompt")
 	board_prompt_label = board_prompt.get_node("%PromptLabel")
 	var cancel_button: Button = board_prompt.get_node("%CancelButton")
+	UI.style_button(cancel_button)
 	cancel_button.pressed.connect(func(): game.board_input.cancel())
 	game.presentation.button_feedback(cancel_button)
 	# Disaster panel for a human Versus Disaster turn. Below the modal, so a popup covers it.
@@ -436,6 +439,8 @@ func _build_ui() -> void:
 	root.add_child(disaster_panel)
 	root.move_child(disaster_panel, modal_frame.get_index())
 	var end_button: Button = disaster_panel.get_node("%EndButton")
+	# Disaster panel buttons use the shared look too.
+	for panel_button in disaster_panel.find_children("*", "Button", true, false): UI.style_button(panel_button)
 	end_button.pressed.connect(func(): game.disaster_actions.end_turn())
 	game.presentation.button_feedback(end_button)
 	disaster_panel.get_node("%Reason").add_theme_color_override("font_color", UI.GOLD)
@@ -451,6 +456,7 @@ func _build_ui() -> void:
 	privacy_screen = PrivacyScreenScene.instantiate()
 	add_child(privacy_screen)
 	var ready_button: Button = privacy_screen.get_node("%ReadyButton")
+	UI.style_button(ready_button)
 	ready_button.pressed.connect(_hide_privacy_screen)
 	game.presentation.button_feedback(ready_button)
 
@@ -570,6 +576,7 @@ func _add_disaster_row(list: Control, card: Dictionary) -> void:
 	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	row.disabled = state != "on"
+	UI.style_button(row)
 	if state == "on": row.pressed.connect(_disaster_row_clicked.bind(card))
 	list.add_child(row)
 

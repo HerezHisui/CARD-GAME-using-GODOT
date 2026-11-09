@@ -89,10 +89,10 @@ func style_text() -> void:
 		label.add_theme_color_override("font_outline_color", UI.INSET)
 		label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.65))
 		label.add_theme_constant_override("shadow_offset_y", 4)
-	# Bronze glow copies add a soft halo behind the sharp title.
+	# Dark gold glow copies add a soft halo behind the sharp title.
 	for label in [glow_label, sub_glow_label]:
-		label.add_theme_color_override("font_color", UI.BRONZE)
-		label.add_theme_color_override("font_outline_color", UI.BRONZE)
+		label.add_theme_color_override("font_color", UI.GOLD.darkened(0.2))
+		label.add_theme_color_override("font_outline_color", UI.GOLD.darkened(0.2))
 	rays.modulate = Color(UI.TEXT, RAY_ALPHA)
 	dust.modulate = Color(UI.TEXT, 0.55)
 	if cpu_dust: cpu_dust.modulate = dust.modulate

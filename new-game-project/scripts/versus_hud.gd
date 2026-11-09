@@ -112,7 +112,7 @@ static func make_turn_plate(parent: Control) -> Dictionary:
 	var plate := PanelContainer.new()
 	plate.name = "VersusTurnPlate"
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_theme_stylebox_override("panel", _plate_style(UI.BRONZE.darkened(0.2)))
+	plate.add_theme_stylebox_override("panel", _plate_style(UI.GOLD.darkened(0.3)))
 	plate.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	plate.offset_top = 7
@@ -133,7 +133,8 @@ static func set_turn_text(side_label: Label, side: String, tag: String) -> void:
 
 static func _plate_style(border: Color, width: int = 1, margin: int = 8) -> StyleBoxFlat:
 	var frame := UI.panel(UI.PANEL, border, 0)
-	frame.set_corner_radius_all(3)
+	# Small 45 degree cuts, like the other dark plates.
+	frame.set_corner_radius_all(6)
 	frame.set_border_width_all(width)
 	frame.content_margin_left = margin + 2
 	frame.content_margin_right = margin + 2
