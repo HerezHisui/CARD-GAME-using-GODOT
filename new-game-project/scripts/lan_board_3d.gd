@@ -955,9 +955,11 @@ func _build_over() -> void:
 	var back: Button = director.button("Back to title", func() -> void: panel.back_pressed.emit(), box)
 	back.name = "BackButton"
 	back.custom_minimum_size = Vector2(200, 52)
-	# The host's cream result notice: icon, ink title and the same button style.
+	# The host's dark result notice: icon, title and the same button style.
 	box.set_meta("style_kind", "result")
 	RoomMenuStyle.result(over_box, box, "result")
+	# Over LAN the words say who won, so the title stays gold for both players.
+	over_label.add_theme_color_override("font_color", UI.GOLD)
 
 
 func show_note(head: String, body: String) -> void:

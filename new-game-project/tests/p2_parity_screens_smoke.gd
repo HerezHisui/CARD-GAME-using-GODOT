@@ -1,6 +1,6 @@
 extends SceneTree
 ## p2-parity Part 3. The LAN client (Player 2) end screen and hover hint match the host:
-## the result notice has the host's words and cream result style, and a hovered sealed card shows the
+## the result notice has the host's words and dark result style, and a hovered sealed card shows the
 ## host's seal tooltip. Fake views, no network, real mouse events.
 
 const LanSession = preload("res://scripts/lan_session.gd")
@@ -129,7 +129,7 @@ func check_seal_tooltip() -> void:
 	await hover(Vector2(20, 360))
 
 
-# The host's result words, the cream result notice, and Back to title through a real click.
+# The host's result words, the dark result notice, and Back to title through a real click.
 func check_result(winner: String, title: String, note: String) -> void:
 	session.match_over.emit(winner)
 	await frames(3)
@@ -137,7 +137,8 @@ func check_result(winner: String, title: String, note: String) -> void:
 	expect(board.over_label.text == title, winner + ": the host's title")
 	expect(board.over_note.text == note, winner + ": the host's subtitle")
 	var paper: StyleBox = board.over_box.get_theme_stylebox("panel")
-	expect(paper is StyleBoxFlat and paper.bg_color == Color("ead3a5"), winner + ": the cream result style")
+	expect(paper is StyleBoxFlat and paper.bg_color == preload("res://scripts/room_menu_style.gd").dark_fill(),
+		winner + ": the dark result style")
 	expect(board.over_box.find_child("ResultIcon", true, false) != null, winner + ": the result icon")
 	expect(root.get_visible_rect().encloses(board.over_box.get_global_rect()), winner + ": inside the screen")
 	var before := backs

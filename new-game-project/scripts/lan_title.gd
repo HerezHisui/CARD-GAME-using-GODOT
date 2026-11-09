@@ -16,7 +16,7 @@ const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusDecks = preload("res://scripts/versus_decks.gd")
 const DeckBuilder = preload("res://scripts/deck_builder.gd")
 const UI = preload("res://scripts/ui_theme.gd")
-# p2-parity Part 2: the client menu uses the host's menu layout and its cream skin.
+# p2-parity Part 2: the client menu uses the host's menu layout and its dark hanging skin.
 const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
 const MenuSkin = preload("res://scripts/suspended_menu.gd")
 

@@ -158,8 +158,9 @@ static func catalog(modal: Control, content_node, kind: String) -> void:
 			action.size_flags_horizontal = Control.SIZE_SHRINK_END
 			action.custom_minimum_size.x = 220
 
+## Character cards: the open one has a gold line and gold corner brackets; locked ones are dim.
 static func identity(panel: PanelContainer, available: bool) -> void:
-	var paper := Route.plate(Color("ead3a5") if available else Color("b3a58b"), Color("987046"))
+	var paper := Route.plate(dark_fill() if available else UI.INSET, UI.GOLD if available else UI.MUTED.darkened(0.45))
 	paper.content_margin_left = 20
 	paper.content_margin_right = 20
 	paper.content_margin_top = 18
@@ -167,11 +168,29 @@ static func identity(panel: PanelContainer, available: bool) -> void:
 	panel.add_theme_stylebox_override("panel", paper)
 	panel.custom_minimum_size.y = 220
 	var description: Label = panel.get_node("Box/Details")
-	description.add_theme_color_override("font_color", Color("332a21"))
+	description.add_theme_color_override("font_color", UI.TEXT if available else UI.MUTED)
 	description.add_theme_font_size_override("font_size", 20)
 	var pick: Button = panel.get_node("Box/PickButton")
 	pick.add_theme_font_size_override("font_size", 24)
-	pick.add_theme_color_override("font_disabled_color", Color("b7a68a"))
+	pick.add_theme_color_override("font_disabled_color", UI.MUTED)
+	if available and not panel.has_node("IdentityMark"):
+		var mark := Control.new()
+		mark.name = "IdentityMark"
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mark.draw.connect(_draw_identity_mark.bind(mark))
+		panel.add_child(mark)
+
+## Gold corner brackets inside the top-left and bottom-right corners of a character card.
+static func _draw_identity_mark(mark: Control) -> void:
+	var card := mark.get_parent() as Control
+	if card == null: return
+	# The mark sits inside the card's margins, so move back to the card's own corner.
+	var area := Rect2(-mark.position, card.size).grow(-7)
+	var arm := 16.0
+	var p := area.position
+	var q := area.end
+	mark.draw_polyline(PackedVector2Array([Vector2(p.x, p.y + arm), p, Vector2(p.x + arm, p.y)]), UI.GOLD, 3.0)
+	mark.draw_polyline(PackedVector2Array([Vector2(q.x, q.y - arm), q, Vector2(q.x - arm, q.y)]), UI.GOLD, 3.0)
 
 ## The note right under a heading was 16 px gray; make it readable but still quieter than buttons.
 static func readable_notes(content: Control) -> void:
@@ -210,14 +229,15 @@ static func focus_button(content: Control, last: bool = false) -> void:
 	if buttons.is_empty(): return
 	(buttons.back() if last else buttons.front()).grab_focus()
 
-## Victory and defeat: a centered cream noticeboard with an ink icon, title and stats.
+## Victory and defeat: a centered charcoal notice with an icon, title and stats.
+## Victory is gold, defeat is crimson.
 static func result(modal: Control, content_node, kind: String) -> void:
 	if not current(content_node, kind): return
 	var content: Control = content_node
 	if content.has_node("ResultIcon"): return
 	var heading := content.get_child(0) as Label
 	if heading == null: return
-	var ink := Color("2b241f")
+	var ink := UI.GOLD if kind == "victory" else UI.ACTION
 	var icon := TextureRect.new()
 	icon.name = "ResultIcon"
 	icon.texture = Route.icon("boss" if kind == "victory" else "battle")
@@ -225,7 +245,7 @@ static func result(modal: Control, content_node, kind: String) -> void:
 	icon.custom_minimum_size = Vector2(56, 56)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	content.add_child(icon)
 	content.move_child(icon, 0)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -236,10 +256,10 @@ static func result(modal: Control, content_node, kind: String) -> void:
 			child.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			child.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			child.add_theme_font_size_override("font_size", 22)
-			child.add_theme_color_override("font_color", Color("5a4632"))
+			child.add_theme_color_override("font_color", UI.TEXT)
 	if content is BoxContainer: content.alignment = BoxContainer.ALIGNMENT_CENTER
-	var paper := Route.plate(Color("ead3a5"), Color("987046"))
-	paper.set_border_width_all(6)
+	var paper := Route.plate(dark_fill(), ink)
+	paper.set_border_width_all(2)
 	paper.set_content_margin_all(40)
 	paper.shadow_color = Color(0, 0, 0, 0.6)
 	paper.shadow_size = 10

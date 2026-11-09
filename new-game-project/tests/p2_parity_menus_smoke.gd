@@ -1,6 +1,6 @@
 extends SceneTree
 ## p2-parity Part 2. The LAN client (Player 2) screens use the game's UI: the wait before the first view,
-## the coin page buttons and the Esc menu (the host's ui_menu.tscn with its cream skin). The old 2D panel
+## the coin page buttons and the Esc menu (the host's ui_menu.tscn with its dark skin). The old 2D panel
 ## stays hidden in a normal match. Real loopback: the real client lan_title joins a plain LanSession host.
 
 const LanSession = preload("res://scripts/lan_session.gd")
@@ -121,7 +121,7 @@ func check_menu() -> void:
 	expect(lan.client_layer.get_child(-1) == menu, "menu: on top of the coin page")
 	expect(menu.theme == director.root.theme, "menu: the game theme")
 	var frame: StyleBox = menu.get_theme_stylebox("panel")
-	expect(frame is StyleBoxFlat and frame.bg_color == MenuSkin.CREAM, "menu: the host's cream frame")
+	expect(frame is StyleBoxFlat and frame.bg_color == MenuSkin.frame_fill(), "menu: the host's dark frame")
 	expect(menu.find_child("SuspendedFrame", true, false) != null, "menu: the straps above the frame")
 	var labels: Array = menu.find_children("*", "Label", true, false).map(func(label: Label) -> String:
 		return label.text)

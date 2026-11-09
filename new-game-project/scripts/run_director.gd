@@ -930,8 +930,8 @@ func _panel_layout(kind: String) -> void:
 	var suspended := kind in ["plans", "menu", "settings", "buff", "reward", "contingency_reward", "floor_buff"]
 	modal.set_meta("suspended_menu", suspended)
 	modal.get_node("IndustrialTrim").visible = not suspended
-	# Dark game screens get corner brackets and a faint hatch; the cream result notices do not.
-	modal.get_node("IndustrialTrim").chrome = not suspended and kind not in ["victory", "result"]
+	# Dark game screens get corner brackets and a faint hatch; the result notices are dark now too.
+	modal.get_node("IndustrialTrim").chrome = not suspended
 	modal.get_node("IndustrialTrim").queue_redraw()
 	compact_layout = suspended or kind in ["confirm", "debug_password", "debug", "log", "choice", "remove_confirm"]
 	modal.custom_minimum_size = Vector2.ZERO
@@ -1375,7 +1375,7 @@ func show_contingency_reward(next_screen: String, restore_offers: bool = false) 
 func _style_reward_choice(pick: Button, symbol: String) -> void:
 	pick.clip_text = false
 	pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	pick.icon = UI.icon(symbol, MenuSkin.INK)
+	pick.icon = UI.icon(symbol, UI.GOLD)
 	pick.expand_icon = true
 	pick.add_theme_constant_override("icon_max_width", 28)
 	pick.add_theme_font_size_override("font_size", 23)
@@ -2527,7 +2527,7 @@ func show_buff_choices(restore_offers: bool = false) -> void:
 		var pick := choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
 		pick.clip_text = false
 		pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		pick.icon = UI.icon(symbols.get(buff.id, "strength"), MenuSkin.INK)
+		pick.icon = UI.icon(symbols.get(buff.id, "strength"), UI.GOLD)
 		pick.expand_icon = true
 		pick.add_theme_constant_override("icon_max_width", 28)
 		pick.custom_minimum_size.y = 76

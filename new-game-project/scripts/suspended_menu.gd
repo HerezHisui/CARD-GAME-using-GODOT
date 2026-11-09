@@ -1,9 +1,7 @@
 extends Control
 ## Menu-only skin. The existing controls keep their callbacks and focus behavior.
-const INK := Color("2b241f")
-const CREAM := Color("ead3a5")
-const BRONZE := Color("987046")
-const METAL := Color("302d29")
+## Dark hanging sign: charcoal panel with gold lines, the shared button look, chains above.
+const UI = preload("res://scripts/ui_theme.gd")
 var panel: Control
 var previous_rect := Rect2()
 
@@ -12,13 +10,19 @@ static func box(fill: Color, border: Color, inset: int = 14) -> StyleBoxFlat:
 	result.bg_color = fill
 	result.border_color = border
 	result.set_border_width_all(2)
-	result.set_corner_radius_all(3)
+	# Cut corners like the other dark panels.
+	result.set_corner_radius_all(8)
+	result.corner_detail = 1
 	result.set_content_margin_all(inset)
 	return result
 
+## Charcoal fill of the hanging sign; the same as the dark room panels.
+static func frame_fill() -> Color:
+	return UI.PANEL.darkened(0.15)
+
 static func apply_skin(modal: Control, content: Control) -> void:
-	var frame := box(CREAM, BRONZE, 26)
-	frame.set_border_width_all(12)
+	var frame := box(frame_fill(), UI.GOLD, 26)
+	frame.set_corner_radius_all(10)
 	frame.shadow_color = Color(0, 0, 0, 0.6)
 	frame.shadow_size = 10
 	modal.add_theme_stylebox_override("panel", frame)
@@ -28,23 +32,14 @@ static func style_children(parent: Node) -> void:
 	for child in parent.get_children():
 		# Card preview viewports own their typography and colors.
 		if child is Node3D or child is SubViewport: continue
+		# Labels keep their own dark-screen colours (gold title, light text, muted notes).
 		if child is Label or child is Button or child is RichTextLabel:
-			child.add_theme_color_override("font_color", INK)
-			child.add_theme_color_override("default_color", INK)
 			child.add_theme_constant_override("outline_size", 0)
-		if child is Button:
-			for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-				var fill := CREAM.lightened(0.15) if state == "normal" else CREAM
-				if state == "hover": fill = Color("ffe5ac")
-				if state in ["pressed", "hover_pressed"]: fill = Color("d0b37e")
-				if state == "disabled": fill = Color("c1b39a")
-				if state == "focus": fill = Color.TRANSPARENT
-				child.add_theme_stylebox_override(state, box(fill, INK if state != "focus" else BRONZE))
-			for state in ["font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-				child.add_theme_color_override(state, INK)
-			child.add_theme_color_override("font_disabled_color", Color("6c6458"))
+		if child is RichTextLabel: child.add_theme_color_override("default_color", UI.TEXT)
+		# The shared button look from ui_theme.gd, with its focus mark.
+		if child is Button: UI.style_button(child)
 		if child is PanelContainer:
-			child.add_theme_stylebox_override("panel", box(CREAM.lightened(0.08), BRONZE))
+			child.add_theme_stylebox_override("panel", box(UI.INSET, UI.GOLD.darkened(0.3)))
 		if child is VBoxContainer or child is HBoxContainer:
 			child.add_theme_constant_override("separation", 14)
 		style_children(child)
@@ -69,11 +64,11 @@ func _draw() -> void:
 	for fraction in [0.17, 0.83]:
 		var x: float = bounds.position.x + bounds.size.x * fraction
 		var start := 0.0
-		draw_line(Vector2(x, start), Vector2(x, bounds.position.y + 5), METAL, 12)
-		draw_line(Vector2(x - 2, start), Vector2(x - 2, bounds.position.y + 5), BRONZE, 2)
+		draw_line(Vector2(x, start), Vector2(x, bounds.position.y + 5), UI.RAISED, 12)
+		draw_line(Vector2(x - 2, start), Vector2(x - 2, bounds.position.y + 5), UI.GOLD.darkened(0.2), 2)
 		for y in range(int(start + 12), int(bounds.position.y + 4), 24):
-			draw_circle(Vector2(x, y), 6, METAL)
-			draw_arc(Vector2(x, y), 5, 0, TAU, 16, BRONZE, 2)
+			draw_circle(Vector2(x, y), 6, UI.RAISED)
+			draw_arc(Vector2(x, y), 5, 0, TAU, 16, UI.GOLD.darkened(0.2), 2)
 		for y in [bounds.position.y + 6, bounds.end.y - 6]:
-			draw_circle(Vector2(x, y), 4, METAL)
-			draw_line(Vector2(x - 2, y), Vector2(x + 2, y), BRONZE, 1)
+			draw_circle(Vector2(x, y), 4, UI.RAISED)
+			draw_line(Vector2(x - 2, y), Vector2(x + 2, y), UI.GOLD.darkened(0.2), 1)

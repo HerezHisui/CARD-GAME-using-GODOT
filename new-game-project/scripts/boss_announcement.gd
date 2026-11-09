@@ -11,7 +11,7 @@ func _ready() -> void:
 	MenuSkin.apply_skin($Parchment, self)
 	# Keep the existing white intent text readable on an inset inside the parchment.
 	$IntentLabel.add_theme_color_override("font_color", Color.WHITE)
-	$IntentLabel.add_theme_stylebox_override("normal", MenuSkin.box(UI.PANEL, MenuSkin.BRONZE, 14))
+	$IntentLabel.add_theme_stylebox_override("normal", MenuSkin.box(UI.INSET, UI.GOLD.darkened(0.3), 14))
 	$CloseButton.pressed.connect(_dismiss)
 
 func _dismiss() -> void:

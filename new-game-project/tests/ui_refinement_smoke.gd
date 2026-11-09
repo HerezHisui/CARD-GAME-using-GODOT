@@ -41,7 +41,7 @@ func run() -> void:
 		await create_timer(0.16).timeout
 	for state in states:
 		check(button.get_theme_stylebox(state) == states[state], "Feedback preserves " + state)
-	check(button.get_theme_stylebox("normal").bg_color == original_color, "Exit restores cream normal fill")
+	check(button.get_theme_stylebox("normal").bg_color == original_color, "Exit restores the normal fill")
 	button.disabled = true
 	button.mouse_exited.emit()
 	await create_timer(0.16).timeout

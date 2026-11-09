@@ -132,6 +132,8 @@ static func style_button(button: Button, danger: bool = false) -> void:
 		button.add_theme_stylebox_override(state, button_box(state, danger))
 	var focus = load("res://scripts/ui_focus_box.gd").new()
 	focus.color = GOLD.lightened(0.2)
+	# A button with an icon on the left keeps only the double line, so the triangle does not cover it.
+	focus.marker = button.icon == null
 	button.add_theme_stylebox_override("focus", focus)
 	var light := GOLD.lightened(0.5)
 	button.add_theme_color_override("font_color", TEXT)
