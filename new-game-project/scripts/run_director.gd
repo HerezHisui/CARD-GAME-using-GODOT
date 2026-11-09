@@ -304,7 +304,7 @@ func start_character(index: int) -> void:
 	last_character = index
 	new_run()
 
-func style(color: Color = UI.PANEL, border: Color = UI.BRONZE) -> StyleBoxFlat:
+func style(color: Color = UI.PANEL, border: Color = UI.GOLD) -> StyleBoxFlat:
 	return UI.panel(color, border)
 
 func label(text: String, font_size: int = 20, color: Color = UI.TEXT, wrap_text: bool = false) -> Label:
@@ -1304,7 +1304,7 @@ func show_versus_closed() -> void:
 	column.add_child(cords)
 	for cord in 2:
 		var line := ColorRect.new()
-		line.color = UI.BRONZE.darkened(0.2)
+		line.color = UI.GOLD.darkened(0.3)
 		line.custom_minimum_size = Vector2(8, 90)
 		cords.add_child(line)
 	var sign_panel := PanelContainer.new()
@@ -1317,7 +1317,7 @@ func show_versus_closed() -> void:
 	column.add_child(sign_panel)
 	# A thin inner frame, like the plate of a real shop sign.
 	var inner := PanelContainer.new()
-	var rim := UI.panel(Color(0, 0, 0, 0), UI.BRONZE, 30)
+	var rim := UI.panel(Color(0, 0, 0, 0), UI.GOLD, 30)
 	rim.set_border_width_all(2)
 	rim.set_corner_radius_all(4)
 	inner.add_theme_stylebox_override("panel", rim)
