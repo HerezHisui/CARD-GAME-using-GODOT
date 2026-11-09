@@ -16,6 +16,8 @@ const FIT_KINDS := ["event", "shop", "confirm", "choice", "remove_confirm", "log
 static func fit_height(modal: Control, content_node, kind: String) -> void:
 	_fit_once(modal, content_node, kind)
 	if not modal.is_inside_tree(): return
+	# Stay invisible until the second fit, so the one-frame size jump is never seen.
+	modal.modulate.a = 0.0
 	var again := _fit_again.bind(modal, content_node, kind)
 	var frame := modal.get_tree().process_frame
 	if not frame.is_connected(again): frame.connect(again, CONNECT_ONE_SHOT)
@@ -31,7 +33,10 @@ static func _fit_once(modal: Control, content_node, kind: String) -> void:
 
 ## Untyped: the modal can be freed (return to title) before the next frame.
 static func _fit_again(modal, content_node, kind: String) -> void:
-	if not is_instance_valid(modal) or not modal.is_inside_tree(): return
+	if not is_instance_valid(modal): return
+	# Always show the panel again, even when another screen replaced this one.
+	modal.modulate.a = 1.0
+	if not modal.is_inside_tree(): return
 	_fit_once(modal, content_node, kind)
 	# The battle log grows with its text, so open it at the newest line.
 	if kind != "log" or not current(content_node, kind): return

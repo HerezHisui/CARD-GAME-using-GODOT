@@ -135,6 +135,12 @@ var last_attack_turn := -1
 var _tween: Tween
 var _vp: SubViewport
 var _pulse_tween: Tween
+# True while this card is a lit board pick target (blinking, or steady with effects off).
+var _pulse_on := false
+var _pulse_color := Color.WHITE
+# True while a board pick is open and this card cannot be picked.
+var _pick_dim := false
+const PICK_DIM := Color(0.45, 0.45, 0.45)
 var _hp_label: Label
 var _atk_label: Label
 var _cost_label: Label
@@ -1012,16 +1018,30 @@ func refresh_cost() -> void:
 	_refresh_face()
 
 ## Gold blink while this card is a valid board pick target (Coordinated Response, Brace, Rally...).
+## Red instead of gold when the pick is an attack on an enemy card.
+## With effects off (animate false) the card stays lit and does not blink.
 ## Safe to call every frame.
-func set_target_pulse(on: bool) -> void:
-	if on == (_pulse_tween != null): return
-	if on:
-		# Bound to this card, so the tween ends when the card is freed.
-		_pulse_tween = _manager().blink_tween(self, art_sprite, "modulate", UI.GOLD, Color.WHITE)
-	else:
+func set_target_pulse(on: bool, color: Color = UI.GOLD, animate: bool = true) -> void:
+	if on == _pulse_on and (not on or (color == _pulse_color and animate == (_pulse_tween != null))): return
+	if _pulse_tween:
 		_pulse_tween.kill()
 		_pulse_tween = null
-		art_sprite.modulate = Color.WHITE
+	_pulse_on = on
+	_pulse_color = color
+	if on and animate:
+		# Bound to this card, so the tween ends when the card is freed.
+		_pulse_tween = _manager().blink_tween(self, art_sprite, "modulate", color, Color.WHITE)
+	elif on:
+		art_sprite.modulate = color
+	else:
+		art_sprite.modulate = PICK_DIM if _pick_dim else Color.WHITE
+
+## Dims the art while a board pick is open and this card is not a valid target. Safe to call every frame.
+func set_pick_dim(on: bool) -> void:
+	if on == _pick_dim: return
+	_pick_dim = on
+	if _pulse_on or sacrifice_mark != "" or not is_instance_valid(art_sprite): return
+	art_sprite.modulate = PICK_DIM if on else Color.WHITE
 
 ## Sacrifice pick marks. "pick" = may be sacrificed (outline and SACRIFICE tag), "chosen" = already picked,
 ## "dim" = cannot be picked, "" = no mark. Safe to call every frame.
@@ -1034,7 +1054,7 @@ func set_sacrifice_mark(mode: String) -> void:
 		_sacrifice_tag.visible = mode in ["pick", "chosen"]
 		_sacrifice_tag.text = "CHOSEN" if mode == "chosen" else "SACRIFICE"
 		_sacrifice_outline.modulate = UI.DANGER if mode == "chosen" else UI.GOLD
-	if _pulse_tween == null and is_instance_valid(art_sprite):
+	if not _pulse_on and is_instance_valid(art_sprite):
 		art_sprite.modulate = Color(0.4, 0.4, 0.4) if mode == "dim" else Color.WHITE
 
 func _build_sacrifice_marks() -> void:

@@ -55,7 +55,9 @@ func run() -> void:
 	all_styled("broke shop")
 	var buy: Button = director.content.find_child("ActionButton", true, false)
 	check(buy != null and buy.disabled, "unaffordable card stays disabled")
-	check(buy != null and buy.tooltip_text.is_empty(), "no tooltip repeating the price")
+	# The hover text says how much is missing, not the price again.
+	check(buy != null and buy.tooltip_text.begins_with("Need ") and buy.tooltip_text.ends_with(" more supplies"),
+		"unaffordable card says how much is missing")
 	director.coins = 100
 
 	director.current = 0

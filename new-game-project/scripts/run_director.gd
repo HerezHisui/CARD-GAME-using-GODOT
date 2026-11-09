@@ -121,6 +121,8 @@ var buff_choices: Array = []
 var intel_revealed := false
 var idle_hint: Label
 var seal_tooltip: Label
+var hand_tip: PanelContainer # small panel over a hovered hand card: what it does and where it goes
+var hand_tip_card: Node
 var boss_intent: Label
 var plans_button: Button
 var versus_hud: Node # Versus-only HUD look, see versus_hud.gd
@@ -414,6 +416,7 @@ func _build_ui() -> void:
 	seal_tooltip.add_theme_stylebox_override("normal", style(UI.PANEL, UI.GOLD))
 	seal_tooltip.hide()
 	root.add_child(seal_tooltip)
+	_build_hand_tip()
 	var intent_panel: Control = root.get_node("BossIntent")
 	boss_intent = intent_panel.get_node("%IntentLabel")
 	plans_button = scene_hud.get_node("PlansBox/PlansButton")
@@ -758,6 +761,7 @@ func _process(_delta: float) -> void:
 	game.disaster_draw.refresh_button()
 	_refresh_disaster_panel()
 	_refresh_seal_tooltip()
+	_refresh_hand_tip()
 	prep.max_value = game.energy_cap
 	prep.value = game.preparedness
 	threat.max_value = game.tension_cap
@@ -904,6 +908,72 @@ func _input(event: InputEvent) -> void:
 					show_menu()
 			_: return
 		get_viewport().set_input_as_handled()
+
+## The hand card hover panel: name, rule text and a line about valid targets.
+func _build_hand_tip() -> void:
+	hand_tip = PanelContainer.new()
+	hand_tip.name = "HandTip"
+	hand_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hand_tip.add_theme_stylebox_override("panel", UI.sharp_panel(UI.INSET, UI.GOLD, 12))
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 4)
+	hand_tip.add_child(box)
+	for line in [["TipName", UI.GOLD], ["TipRules", UI.TEXT], ["TipTargets", UI.GOLD]]:
+		var tip_label := label("", 18, line[1], true)
+		tip_label.name = line[0]
+		tip_label.custom_minimum_size.x = 320
+		box.add_child(tip_label)
+	hand_tip.hide()
+	root.add_child(hand_tip)
+
+## Shows the panel above the hovered hand card and hides it at once when the mouse leaves.
+func _refresh_hand_tip() -> void:
+	var card: Node = game.hovered_hand_card if battle_active and not modal.visible else null
+	if not is_instance_valid(card) or not card.in_hand or game.seat_prep != "local": card = null
+	if card != hand_tip_card:
+		hand_tip_card = card
+		hand_tip.visible = card != null
+		if card == null: return
+		var box: Control = hand_tip.get_child(0)
+		box.get_node("TipName").text = str(card.card_data.get("name", "Card"))
+		# The same rule text as the card dossier, without its empty lines.
+		box.get_node("TipRules").text = card_rules(live_definition(card)).strip_edges().replace("\n\n", "\n")
+		var targets := hand_tip_targets(card)
+		box.get_node("TipTargets").text = targets
+		box.get_node("TipTargets").add_theme_color_override("font_color",
+			UI.GOLD if targets.begins_with("Drop") else UI.DANGER)
+		hand_tip.reset_size()
+	if card == null: return
+	# Above the card face, kept inside the screen.
+	var corners: PackedVector2Array = game.hand_card_polygon(card, false)
+	var top := INF
+	var middle := 0.0
+	for point in corners:
+		top = minf(top, point.y)
+		middle += point.x / corners.size()
+	var view := get_viewport().get_visible_rect().size
+	var x := clampf(middle - hand_tip.size.x / 2, 8, view.x - hand_tip.size.x - 8)
+	var y := clampf(top - hand_tip.size.y - 8, 60, view.y - hand_tip.size.y - 8)
+	hand_tip.position = Vector2(x, y)
+
+## One line about where this hand card can go now, from the same rule check the play uses.
+func hand_tip_targets(card: Node) -> String:
+	var index: int = game.get_hand_cards().find(card)
+	var problem: String = game.preparedness_actions.hand_problem(index)
+	var cost := int(card.card_data.get("cost", 0))
+	match problem:
+		"no_energy": return "Need %d more energy" % (cost - game.preparedness)
+		"sealed": return "Sealed this turn"
+		"lane_full": return "No empty lane"
+		"no_target": return "No valid target"
+		"draw_first": return "Draw a card first"
+	var free := 0
+	for slot in game._response_slots():
+		if game._get_card_in_slot(slot) == null: free += 1
+	if free == 0: return "No empty lane"
+	if card.card_data.get("utility", false): return "Drop on an empty lane to cast"
+	return "Drop on a lit empty lane · %d free" % free
 
 func _refresh_seal_tooltip() -> void:
 	seal_tooltip.hide()
@@ -1310,8 +1380,11 @@ func show_rest() -> void:
 	var rest_button: Button = content.get_node("RestButton")
 	rest_button.text = "Rest · +%d HP · free" % healing_gain(7)
 	hook_button(rest_button, rest).disabled = healing_gain(7) == 0
+	if rest_button.disabled: rest_button.tooltip_text = "Already at full health"
 	hook_button(content.get_node("TrainButton"), show_upgrade)
-	hook_button(content.get_node("DestroyButton"), show_remove_cards.bind("rest")).disabled = collection.size() <= 5
+	var destroy: Button = content.get_node("DestroyButton")
+	hook_button(destroy, show_remove_cards.bind("rest")).disabled = collection.size() <= 5
+	if destroy.disabled: destroy.tooltip_text = "Your deck needs more than 5 cards"
 	hook_button(content.get_node("LeaveButton"), finish_room)
 
 func healing_gain(amount: int) -> int:

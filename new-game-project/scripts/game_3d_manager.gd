@@ -747,8 +747,13 @@ func _update_target_pulse() -> void:
 		for slot in _response_slots():
 			var ally := _get_card_in_slot(slot)
 			if ally != null and ally != source and ally.is_alive() and plans.eligible(ally): targets.append(ally)
+	# Enemy targets blink red (an attack), own targets blink gold (support). Effects off: no blink.
+	# While a pick is open, board cards that cannot be picked are dimmed.
+	var threat := _threat_slots()
 	for card in get_tree().get_nodes_in_group("cards"):
-		card.set_target_pulse(card in targets)
+		var lit: bool = card in targets
+		card.set_target_pulse(lit, UI.ACTION if card.current_slot in threat else UI.GOLD, effects_enabled)
+		card.set_pick_dim(not targets.is_empty() and not lit and not card.in_hand)
 	# A dragged card (hand or relocating ally) or a lane pick lights the empty lanes.
 	var want_slots: bool = is_instance_valid(dragged_hand_card) or kind == "place"
 	if want_slots != _slots_lit: show_drop_targets(want_slots)

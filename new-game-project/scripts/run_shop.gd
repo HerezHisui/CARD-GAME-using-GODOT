@@ -42,14 +42,24 @@ static func show_shop(director: Node) -> void:
 			# Too expensive: keep the price on a grayed-out, disabled Buy button.
 			var buy_button: Button = row.get_child(row.get_child_count() - 1).get_node("Box/ActionButton")
 			buy_button.disabled = true
+			buy_button.tooltip_text = need_text(director.coins, price)
 	var heal: Button = director.content.get_node("HealButton")
 	heal.text = "First aid · +%d HP · -15 supplies" % director.healing_gain(5)
 	director.hook_button(heal, Callable(director, "buy_heal")).disabled = director.coins < 15 \
 		or director.game.player_hp >= director.game.hero_max_hp()
-	director.hook_button(director.content.get_node("DestroyButton"),
+	if director.game.player_hp >= director.game.hero_max_hp(): heal.tooltip_text = "Already at full health"
+	elif director.coins < 15: heal.tooltip_text = need_text(director.coins, 15)
+	var destroy: Button = director.content.get_node("DestroyButton")
+	director.hook_button(destroy,
 		Callable(director, "show_remove_cards").bind("shop")).disabled = director.coins < 30 \
 		or director.collection.size() <= 5
+	if director.collection.size() <= 5: destroy.tooltip_text = "Your deck needs more than 5 cards"
+	elif director.coins < 30: destroy.tooltip_text = need_text(director.coins, 30)
 	director.hook_button(director.content.get_node("LeaveButton"), Callable(director, "finish_room"))
+
+## Hover text on an option the player cannot afford, for example "Need 10 more supplies".
+static func need_text(coins: int, price: int) -> String:
+	return "Need %d more supplies" % (price - coins)
 
 static func shop_price(card: Dictionary) -> int:
 	return CardRules.shop_price(card)

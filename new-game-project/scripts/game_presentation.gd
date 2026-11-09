@@ -313,8 +313,10 @@ func reveal(control: Control) -> void:
 	control.pivot_offset = control.size / 2
 	control.scale = Vector2.ONE * 0.985
 	var tween := control.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.tween_property(control, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(control, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# Short fade and scale (0.15 s, ease-out) when a panel opens.
+	tween.tween_property(control, "modulate:a", 1.0, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var grow := tween.parallel().tween_property(control, "scale", Vector2.ONE, 0.15)
+	grow.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 func clear_banner() -> void:
 	if banner_tween: banner_tween.kill()
