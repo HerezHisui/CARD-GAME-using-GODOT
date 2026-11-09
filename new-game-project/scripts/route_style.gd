@@ -13,7 +13,8 @@ static func plate(fill: Color, rim: Color) -> StyleBoxFlat:
 	result.bg_color = fill
 	result.border_color = rim
 	result.set_border_width_all(2)
-	result.set_corner_radius_all(12)
+	# Same 45 degree cut as the shared buttons.
+	result.set_corner_radius_all(8)
 	result.corner_detail = 1
 	result.content_margin_left = 14
 	result.content_margin_right = 14
@@ -41,13 +42,17 @@ static func node(button: Button, kind: String, current: bool, cleared: bool) -> 
 	button.add_theme_stylebox_override("normal", plate(UI.PANEL, UI.GOLD))
 	button.add_theme_stylebox_override("hover", plate(UI.PANEL.lerp(UI.TEXT, 0.07), UI.GOLD.lightened(0.3)))
 	button.add_theme_stylebox_override("pressed", plate(UI.CRIMSON, UI.TEXT))
-	button.add_theme_stylebox_override("focus", plate(Color(0, 0, 0, 0), UI.TEXT))
+	# Keyboard and controller focus: the shared second gold line and triangle.
+	var focus = load("res://scripts/ui_focus_box.gd").new()
+	focus.color = UI.GOLD.lightened(0.2)
+	button.add_theme_stylebox_override("focus", focus)
 	var edge := UI.MUTED.darkened(0.35)
 	if cleared: edge = UI.GOLD.darkened(0.3)
 	if current: edge = UI.GOLD.lightened(0.3)
 	if kind == "boss" and not cleared: edge = UI.ACTION
 	button.add_theme_stylebox_override("disabled", plate(UI.INSET, edge))
-	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Vector glyphs: smooth filtering keeps the cut edges clean when scaled.
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	button.tooltip_text += "\n" + str(PURPOSE[kind])
 	button.tooltip_text += "\n" + ("Current room" if current else "Cleared" if cleared
 		else "Locked" if button.disabled else "Available")
@@ -74,7 +79,7 @@ static func screen(content: Control, floor_number: int) -> void:
 		mark.custom_minimum_size = Vector2(22, 22)
 		mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		mark.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		mark.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		entry.add_child(mark)
 		var description := VBoxContainer.new()
 		description.add_theme_constant_override("separation", 0)

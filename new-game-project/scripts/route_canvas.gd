@@ -23,7 +23,7 @@ func _draw() -> void:
 	for room in rooms:
 		if int(room.lane) == 0:
 			var p := point(room)
-			draw_string(UI.font(true), Vector2(12, p.y + 7), "%02d" % (int(room.row) + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, UI.BRONZE)
+			draw_string(UI.font(true), Vector2(12, p.y + 7), "%02d" % (int(room.row) + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, UI.GOLD)
 		for next_id in room.links:
 			var next: Dictionary = rooms[next_id]
 			var visited: bool = room.id in cleared and (next_id in cleared or next_id == current)

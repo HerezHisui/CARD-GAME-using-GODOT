@@ -97,6 +97,31 @@ GLYPHS = {
     "utility_power": ("nonzero", "M14 1 L4 14 H11 L9 23 L20 9.5 H13 Z"),
 }
 
+# Map room glyphs, same 24 x 24 grid and method. Written to assets/ui/map/<kind>.svg.
+MAP_GLYPHS = {
+    # Two crossed blades, each with a short grip.
+    "battle": ("nonzero", "M22 2 L21.5 6 L9 18.5 L5.5 15 L18 2.5 Z M4 15.5 L8.5 20 L7 21.5 L2.5 17 Z "
+               "M4.5 18.5 L5.5 19.5 L3 22 L2 21 Z "
+               "M2 2 L2.5 6 L15 18.5 L18.5 15 L6 2.5 Z M20 15.5 L15.5 20 L17 21.5 L21.5 17 Z "
+               "M19.5 18.5 L18.5 19.5 L21 22 L22 21 Z"),
+    # Horned helmet with two eye slits.
+    "elite": ("evenodd", "M2 3 L7 8 H17 L22 3 V11 L19 14 V19 L16 22 H8 L5 19 V14 L2 11 Z "
+              "M7.5 12.5 H11 V15.5 H7.5 Z M13 12.5 H16.5 V15.5 H13 Z"),
+    # Crown with a cut diamond, on a base bar.
+    "boss": ("evenodd", "M2 5 L7.5 10.5 L12 2.5 L16.5 10.5 L22 5 V18 H2 Z M12 11 L14.5 14 L12 17 L9.5 14 Z "
+             "M2 19.5 H22 V22.5 H2 Z"),
+    # Square-cut cross: heal.
+    "rest": ("nonzero", "M9 2 H15 V9 H22 V15 H15 V22 H9 V15 H2 V9 H9 Z"),
+    # Supply bag with a handle and a cut coin.
+    "shop": ("evenodd", "M4 8.5 H20 L21.5 22 H2.5 Z M12 11.5 L15 14.75 L12 18 L9 14.75 Z "
+             "M7.5 8 V5 L10 2 H14 L16.5 5 V8 H14.5 V5.75 L13.25 4 H10.75 L9.5 5.75 V8 Z"),
+    # Sharp question mark.
+    "event": ("nonzero", "M5.5 8.5 V6 L9 2.5 H15 L18.5 6 V10.5 L14 14.5 V16.5 H10 V12.75 L14.5 8.75 V7 "
+              "L13.5 6 H10.5 L9.5 7 V8.5 Z M10 18.5 H14 V22.5 H10 Z"),
+    # Double chevron pointing up.
+    "upgrade": ("nonzero", "M12 2 L21 11 L18 14 L12 8 L6 14 L3 11 Z M12 10 L21 19 L18 22 L12 16 L6 22 L3 19 Z"),
+}
+
 # Glyphs that were not readable as vectors after two tries keep the old pixel mask.
 KEEP_PIXEL: set = set()
 
@@ -114,8 +139,8 @@ def old_pixel_svg(name: str) -> str:
             'viewBox="0 0 24 24"><g fill="#ffffff">' + ''.join(pixels) + '</g></svg>\n')
 
 
-def vector_svg(name: str) -> str:
-    rule, path = GLYPHS[name]
+def vector_svg(name: str, table: dict = GLYPHS) -> str:
+    rule, path = table[name]
     return ('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'
             f'<path fill="#ffffff" fill-rule="{rule}" d="{path}"/></svg>\n')
 
@@ -127,6 +152,10 @@ def main():
         # LF line endings, like the old masks.
         with open(destination / f"{name}.svg", "w", encoding="utf-8", newline="\n") as handle:
             handle.write(svg)
+    for name in sorted(MAP_GLYPHS):
+        path = ROOT / "assets" / "ui" / "map" / f"{name}.svg"
+        with open(path, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(vector_svg(name, MAP_GLYPHS))
 
 
 if __name__ == "__main__":
