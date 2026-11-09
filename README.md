@@ -37,4 +37,19 @@ documentation update.
 
 ## AI assistance
 
-Parts of the code, tests and docs were written with AI coding assistants. Design decisions and playtesting are the team's.
+Parts of the code, tests and docs were written with AI coding assistants. The card art, card frames and UI icons were
+made with AI tools under the team's direction, and the game board, Preparedness figure and janitor 3D models were
+made with Meshy. Design decisions and playtesting are the team's.
+
+## Credits
+
+Team: Stefan Zuri F. Modelo (design, code, card art), Ezekiel Gabriel Lopez (team leader; title screen, 3D board and
+Preparedness figure), Jade Tan (audio). The logos were made by the team.
+
+3D models:
+
+- Game board, Preparedness figure and janitor: model created with Meshy (free plan), CC BY 4.0 License.
+- Classroom: "Classroom" by Pino_156 on Sketchfab, CC BY 4.0,
+  https://sketchfab.com/3d-models/classroom-d4553cc2008242849214e4cbf8ad8551
+
+Font: Caveat Brush, SIL Open Font License 1.1 (see `new-game-project/assets/fonts/CaveatBrush-OFL.txt`).
