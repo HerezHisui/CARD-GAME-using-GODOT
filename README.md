@@ -43,8 +43,9 @@ made with Meshy. Design decisions and playtesting are the team's.
 
 ## Credits
 
-Team: Stefan Zuri F. Modelo (design, code, card art), Ezekiel Gabriel Lopez (team leader; title screen, 3D board and
-Preparedness figure), Jade Tan (audio). The logos were made by the team.
+Team Catacomb Coders, Notre Dame of Marbel University (SPAWN entry): Stefan Zuri F. Modelo (programmer, game designer;
+card art), Ezekiel Gabriel Lopez (team leader; programmer, game designer; title screen, 3D board and Preparedness
+figure), Jade Kayne Tan (programmer, sound designer, game designer; audio). The logos were made by the team.
 
 3D models:
 
