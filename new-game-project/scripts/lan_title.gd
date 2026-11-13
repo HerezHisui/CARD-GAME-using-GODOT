@@ -9,9 +9,10 @@ extends Node
 ## that shows who is connected. Only the host's Start match begins the match.
 
 const LanSession = preload("res://scripts/lan_session.gd")
-const LanClientPanel = preload("res://scripts/lan_client_panel.gd")
-const LanPrepPanel = preload("res://scripts/lan_prep_panel.gd")
-const LanBoard3D = preload("res://scripts/lan_board_3d.gd")
+# The client panels and the client 3D table load when first used, not at the title (faster start).
+const LAN_CLIENT_PANEL_PATH := "res://scripts/lan_client_panel.gd"
+const LAN_PREP_PANEL_PATH := "res://scripts/lan_prep_panel.gd"
+const LAN_BOARD_3D_PATH := "res://scripts/lan_board_3d.gd"
 const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusDecks = preload("res://scripts/versus_decks.gd")
 const DeckBuilder = preload("res://scripts/deck_builder.gd")
@@ -488,7 +489,7 @@ func _show_client_panel() -> void:
 	client_layer.add_child(background)
 	client_cover = background
 	_add_waiting_text(background)
-	client_panel = LanClientPanel.new()
+	client_panel = load(LAN_CLIENT_PANEL_PATH).new()
 	client_layer.add_child(client_panel)
 	_hide_old_panel()
 	client_panel.setup_evolutions(director)
@@ -529,7 +530,7 @@ func _mount_board_3d(side: String) -> void:
 	_free_board_3d()
 	if not VersusMatch.LAN_BOARD_3D:
 		return
-	board_3d = LanBoard3D.new()
+	board_3d = load(LAN_BOARD_3D_PATH).new()
 	client_layer.add_child(board_3d)
 	board_3d.setup(game, director, session, client_panel, side, client_cover)
 
@@ -880,7 +881,7 @@ func _on_seat(side: String) -> void:
 	_free_board_3d()
 	if is_instance_valid(client_panel):
 		client_panel.queue_free()
-	client_panel = LanPrepPanel.new()
+	client_panel = load(LAN_PREP_PANEL_PATH).new()
 	client_layer.add_child(client_panel)
 	_hide_old_panel()
 	if is_instance_valid(esc_menu):
