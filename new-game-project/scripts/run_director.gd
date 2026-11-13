@@ -13,6 +13,7 @@ const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
 const Workshop = preload("res://scripts/run_workshop.gd")
 const Events = preload("res://scripts/run_events.gd")
+const Buffs = preload("res://scripts/run_buffs.gd")
 ## Header, gauges, modal frame, idle hint, boss intent and board prompt, placed in the editor.
 const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
@@ -36,8 +37,6 @@ const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
 const DisasterPanelScene = preload("res://scenes/ui/ui_disaster_panel.tscn")
 const PrivacyScreenScene = preload("res://scenes/ui/ui_privacy_screen.tscn")
 const VersusDecks = preload("res://scripts/versus_decks.gd")
-const BuffChoicesScene = preload("res://scenes/ui/ui_buff_choices.tscn")
-const FloorBuffsScene = preload("res://scenes/ui/ui_floor_buffs.tscn")
 ## Pieces that many screens reuse.
 const ChoiceTileScene = preload("res://scenes/ui/ui_choice_tile.tscn")
 const CardTileScene = preload("res://scenes/ui/ui_card_tile.tscn")
@@ -2293,89 +2292,15 @@ func show_intel() -> void:
 	for card in game.enemy_hand: _card_tile(card, row)
 	hook_button(content.get_node("ReturnButton"), close_modal)
 
-func show_buff_choices(restore_offers: bool = false) -> void:
-	Sfx.play("adaptation_offered")
-	if not restore_offers: buff_choices.clear()
-	var pool: Array = Rules.BUFFS.duplicate(true)
-	if not restore_offers:
-		for i in range(3):
-			var index := rng.randi_range(0, pool.size() - 1)
-			buff_choices.append(pool.pop_at(index))
-	reset_panel("ROUND %d · BATTLE ADAPTATION" % game.turn,
-		"Choose one adaptation · lasts this battle", "buff")
-	# The layout lives in ui_buff_choices.tscn; the buff tiles are made here.
-	var box := centered_screen(BuffChoicesScene)
-	box.custom_minimum_size.x = maxf(300, modal.size.x - 100)
-	var heading: Label = box.get_child(0)
-	heading.add_theme_font_size_override("font_size", 32)
-	var row: Control = box.get_node("Row")
-	var symbols := {
-		"strength": "strength", "health": "regenerating", "energy": "refund_energy", "burn": "burn",
-		"poison": "poison", "bleed": "bleed", "draw": "draw", "glass": "strength",
-		"overclock": "refund_energy", "blood_pact": "bleed", "patient": "regenerating",
-		"toxic_ward": "poison", "formation": "rally_all", "spines": "thorns", "precision": "piercing"
-	}
-	for buff in buff_choices:
-		var pick := choice_tile(buff.name, buff.description, select_buff.bind(buff.id), row)
-		pick.clip_text = false
-		pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		pick.icon = UI.icon(symbols.get(buff.id, "strength"), UI.GOLD)
-		pick.expand_icon = true
-		pick.add_theme_constant_override("icon_max_width", 28)
-		pick.custom_minimum_size.y = 76
-		pick.add_theme_font_size_override("font_size", 24)
-		var tile: Control = pick.get_parent().get_parent()
-		tile.custom_minimum_size = Vector2(0, 290)
-		var details: Label = tile.get_node("Box/Details")
-		details.add_theme_font_size_override("font_size", 22)
-	box.get_node("Summary").text = "CURRENT ADAPTATIONS\n" + buff_summary(game.player_buffs)
-	box.get_node("Summary").add_theme_font_size_override("font_size", 22)
-	# Skip the focus if the screen changed before this deferred call ran.
-	var first_pick: Button = row.get_child(0).get_node("Box/PickButton")
-	var focus_first := func(button) -> void:
-		if is_instance_valid(button) and button.is_inside_tree():
-			button.grab_focus()
-	focus_first.call_deferred(first_pick)
+func show_buff_choices(restore_offers: bool = false) -> void: Buffs.show_buff_choices(self, restore_offers)
 
-func select_buff(id: String) -> void:
-	if screen != "buff" or not buff_choices.any(func(buff): return buff.id == id): return
-	game.add_global_buff(true, id)
-	Sfx.play("adaptation_selected")
-	close_modal()
-	game.continue_round()
+func select_buff(id: String) -> void: Buffs.select_buff(self, id)
 
-func show_floor_buffs(restore_offers: bool = false) -> void:
-	if not restore_offers: buff_choices.clear()
-	var pool: Array = Rules.RUN_BUFFS.duplicate(true)
-	if not restore_offers:
-		for i in range(3): buff_choices.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
-	reset_panel("FLOOR %d CLEARED · PERMANENT REWARD" % floor_number,
-		"Lasts the whole run.", "floor_buff")
-	# The layout lives in ui_floor_buffs.tscn; the buff tiles are made here.
-	var box := centered_screen(FloorBuffsScene)
-	box.custom_minimum_size.x = maxf(300, modal.size.x - 100)
-	var row: Control = box.get_node("Row")
-	for buff in buff_choices:
-		var pick := choice_tile(buff.name, buff.description, select_floor_buff.bind(buff.id), row)
-		_style_reward_choice(pick, "strength")
-	hook_button(box.get_node("ReturnButton"), return_title)
+func show_floor_buffs(restore_offers: bool = false) -> void: Buffs.show_floor_buffs(self, restore_offers)
 
-func select_floor_buff(id: String) -> void:
-	if screen != "floor_buff" or not buff_choices.any(func(buff): return buff.id == id): return
-	game.add_global_buff(true, id, true)
-	Sfx.play("adaptation_selected")
-	next_floor()
+func select_floor_buff(id: String) -> void: Buffs.select_floor_buff(self, id)
 
-func buff_summary(buffs: Dictionary) -> String:
-	var names: PackedStringArray = []
-	for id in buffs:
-		var title: String = str(id).capitalize()
-		for option in Rules.BUFFS + Rules.RUN_BUFFS + Rules.CHARACTER_BUFFS:
-			if option.id == id:
-				title = option.name
-				break
-		names.append("%s ×%d" % [title, int(buffs[id])])
-	return "None" if names.is_empty() else " / ".join(names)
+func buff_summary(buffs: Dictionary) -> String: return Buffs.buff_summary(buffs)
 
 
 func _notification(what: int) -> void:
