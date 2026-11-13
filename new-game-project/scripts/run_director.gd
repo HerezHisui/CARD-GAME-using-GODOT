@@ -12,6 +12,7 @@ const Routes = preload("res://scripts/run_routes.gd")
 const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
 const Workshop = preload("res://scripts/run_workshop.gd")
+const Events = preload("res://scripts/run_events.gd")
 ## Header, gauges, modal frame, idle hint, boss intent and board prompt, placed in the editor.
 const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
@@ -27,7 +28,6 @@ const ResultScene = preload("res://scenes/ui/ui_result.tscn")
 const VictoryScene = preload("res://scenes/ui/ui_victory.tscn")
 const RewardsScene = preload("res://scenes/ui/ui_rewards.tscn")
 const ContingencyRewardScene = preload("res://scenes/ui/ui_contingency_reward.tscn")
-const EventScene = preload("res://scenes/ui/ui_event.tscn")
 const CharactersScene = preload("res://scenes/ui/ui_characters.tscn")
 const CharacterPreviewScene = preload("res://scenes/ui/ui_character_preview.tscn")
 const BattleLogScene = preload("res://scenes/ui/ui_battle_log.tscn")
@@ -2078,96 +2078,9 @@ func catalog_card(id: String) -> Dictionary:
 		if card.id == id: return card.duplicate(true)
 	return {}
 
-func show_event() -> void:
-	var key := "%d:%d" % [floor_number, current]
-	if event_key != key:
-		event_key = key
-		event_type = str(rooms[current].get("event", "locked")) if current >= 0 and current < rooms.size() else "locked"
-		if event_type == "": event_type = "locked"
-		event_resolved = false
-		event_cards.clear()
-		if event_type == "locked": event_cards = offers(1)
-		elif event_type == "science":
-			var burn := catalog_card("steam_team")
-			burn.name = "Experimental Steam Team"
-			burn.on_hit.burn = int(burn.on_hit.burn) + 2
-			var poison := catalog_card("hazmat_team")
-			poison.name = "Experimental Hazmat Team"
-			poison.on_hit.poison = int(poison.on_hit.poison) + 1
-			event_cards.assign([burn, poison])
-	var group_name: String
-	match event_type:
-		"radio":
-			reset_panel("THE EMERGENCY RADIO", "Kit: Hazard Forecast, Search and Rescue.", "event")
-			group_name = "Radio"
-		"rooftop":
-			reset_panel("ROOFTOP DRILLS", "Energy loss lasts the rest of the run.", "event")
-			group_name = "Rooftop"
-		"science":
-			reset_panel("THE SCIENCE LAB", "", "event")
-			group_name = "Science"
-		"infirmary":
-			reset_panel("A VOLUNTEER'S OFFER", "Paperwork: spend 1 energy to discard it.", "event")
-			group_name = "Infirmary"
-		"lost_found":
-			reset_panel("LOST AND FOUND", "", "event")
-			group_name = "LostFound"
-		_:
-			reset_panel("A LOCKED CLASSROOM", "", "event")
-			group_name = "Locked"
-	# The layout lives in ui_event.tscn: one group of buttons per event. Only this event's group stays.
-	var box := centered_screen(EventScene)
-	for other in box.get_children():
-		if other is VBoxContainer and other.name != group_name: other.free()
-	var group: Control = box.get_node(group_name)
-	match group_name:
-		"Radio":
-			hook_button(group.get_node("BuyButton"), resolve_event.bind("radio_buy")).disabled = coins < 20
-		"Rooftop":
-			hook_button(group.get_node("TrainButton"), resolve_event.bind("training"))
-		"Science":
-			var row: Control = group.get_node("Stock")
-			for i in range(event_cards.size()): _card_tile(event_cards[i], row, resolve_event.bind("science_%d" % i) if game.player_hp > 3 else Callable(), "Take card · -3 HP")
-		"Infirmary":
-			var treatment: Button = group.get_node("TreatmentButton")
-			treatment.text = "Full treatment · +%d HP · add Paperwork" % healing_gain(8)
-			hook_button(treatment, resolve_event.bind("treatment")).disabled = game.player_hp >= game.hero_max_hp()
-			var short_break: Button = group.get_node("RestButton")
-			short_break.text = "Short break · +%d HP · free" % healing_gain(3)
-			hook_button(short_break, resolve_event.bind("rest"))
-		"LostFound":
-			hook_button(group.get_node("TradeButton"), show_remove_cards.bind("event")).disabled = collection.size() <= 5
-		"Locked":
-			hook_button(group.get_node("RiskButton"), event_risk).disabled = game.player_hp <= 3
-	if group.has_node("SafeButton"): hook_button(group.get_node("SafeButton"), resolve_event.bind("safe"))
+func show_event() -> void: Events.show_event(self)
 
-func resolve_event(choice: String) -> void:
-	if screen != "event" or event_resolved: return
-	if choice in ["risk", "science_0", "science_1"] and game.player_hp <= 3: return
-	if choice == "radio_buy" and coins < 20: return
-	event_resolved = true
-	match choice:
-		"risk":
-			game.player_hp -= 3
-			coins += 30
-			Sfx.play("supplies_gained")
-			add_collection_card(event_cards[0].duplicate(true))
-		"radio_buy":
-			coins -= 20
-			add_collection_card(catalog_card("scout"))
-			add_collection_card(catalog_card("tutor"))
-		"training": game.add_global_buff(true, "drill_tactics", true)
-		"science_0", "science_1":
-			game.player_hp -= 3
-			add_collection_card(event_cards[int(choice.right(1))].duplicate(true))
-		"treatment":
-			game.player_hp = mini(game.hero_max_hp(), game.player_hp + 8)
-			add_collection_card({"id":"paperwork", "name":"Paperwork", "type":"response", "element":"clearance", "cost":1, "attack":0, "health":1, "utility":true, "effect":"delay"})
-		"rest": game.player_hp = mini(game.hero_max_hp(), game.player_hp + 3)
-		_:
-			coins += 10
-			Sfx.play("supplies_gained")
-	finish_room()
+func resolve_event(choice: String) -> void: Events.resolve_event(self, choice)
 
 func event_risk() -> void: resolve_event("risk")
 
