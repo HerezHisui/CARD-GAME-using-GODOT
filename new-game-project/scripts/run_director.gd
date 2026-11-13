@@ -18,8 +18,6 @@ const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
 const TitleScene = preload("res://scenes/ui/ui_title.tscn")
 const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
-const DebugPasswordScene = preload("res://scenes/ui/ui_debug_password.tscn")
-const DebugScene = preload("res://scenes/ui/ui_debug.tscn")
 const MapScene = preload("res://scenes/ui/ui_map.tscn")
 const DeckScene = preload("res://scenes/ui/ui_deck.tscn")
 const GraveyardScene = preload("res://scenes/ui/ui_graveyard.tscn")
@@ -2136,124 +2134,13 @@ func cancel_debug_password() -> void:
 	if debug_from_menu: show_menu()
 	else: close_modal()
 
-func show_debug() -> void:
-	if screen == "debug":
-		close_modal()
-		return
-	if not debug_available() or (modal.visible and screen != "menu"): return
-	debug_from_menu = screen == "menu"
-	reset_panel("DEBUG ACCESS", "", "debug_password")
-	# The layout lives in ui_debug_password.tscn.
-	unpack_screen(DebugPasswordScene)
-	var password: LineEdit = content.get_node("DebugPassword")
-	var error: Label = content.get_node("PasswordError")
-	var submit := func():
-		if password.text != "*****":
-			error.text = "Incorrect password."
-			return
-		password.text = ""
-		if not debug_available():
-			cancel_debug_password()
-			return
-		_open_debug("*****")
-	password.text_submitted.connect(func(_text): submit.call())
-	hook_button(content.get_node("UnlockButton"), submit)
-	hook_button(content.get_node("CancelButton"), cancel_debug_password)
-	password.grab_focus()
+func show_debug() -> void: RunDebug.show_debug(self)
 
-func _open_debug(password: String) -> void:
-	if password != "*****" or screen != "debug_password" or not debug_available(): return
-	reset_panel("DEBUG VALUES", "", "debug")
-	# The layout lives in ui_debug.tscn; each SpinBox there is named after its value.
-	unpack_screen(DebugScene)
-	var fields := {}
-	for spec in [
-		["player_hp", "Player HP", 1, game.hero_max_hp()], ["enemy_hp", "Enemy HP", 1, game.enemy_max_hp],
-		["energy_cap", "Energy cap", 1, 30], ["preparedness", "Energy", 0, 30],
-		["tension_cap", "Tension cap", 1, 30], ["tension", "Tension", 0, 30],
-		["coins", "Supplies", 0, 9999], ["plans", "Plans", 0, 2],
-	]:
-		var field: SpinBox = content.get_node("Values/" + spec[0])
-		field.min_value = spec[2]
-		field.max_value = spec[3]
-		field.value = coins if spec[0] == "coins" else (game.plans.tokens if spec[0] == "plans" else game.get(spec[0]))
-		fields[spec[0]] = field
-	hook_button(content.get_node("ApplyButton"), func():
-		for key in fields:
-			if key == "coins": coins = int(fields[key].value)
-			elif key == "plans": game.plans.tokens = int(fields[key].value)
-			else: game.set(key, int(fields[key].value))
-		game.preparedness = mini(game.preparedness, game.energy_cap)
-		game.tension = mini(game.tension, game.tension_cap)
-		game._refresh_bars()
-		game.log_event("Debug values applied.")
-		close_modal()
-		persistence.checkpoint()
-	)
-	_debug_card_controls()
-	var boss_row := HBoxContainer.new()
-	boss_row.name = "BossSelection"
-	content.add_child(boss_row)
-	var bosses := OptionButton.new()
-	bosses.name = "BossPicker"
-	for title in ["Floor 1 · Janitor", "Floor 2 · Janitor", "Floor 3 · Midnight Warden"]:
-		bosses.add_item(title)
-	bosses.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	boss_row.add_child(bosses)
-	button("Enter boss", func(): debug_enter_boss(bosses.selected + 1), boss_row)
-	hook_button(content.get_node("CancelButton"), close_modal)
+func _open_debug(password: String) -> void: RunDebug.open_debug(self, password)
 
-func debug_enter_boss(boss_floor: int) -> bool:
-	if screen != "debug" or boss_floor not in [1, 2, 3]: return false
-	# Reuse the run collection and normal encounter initializer; never bypass the coin or Warden setup.
-	if collection.is_empty(): new_run()
-	floor_number = boss_floor
-	generate_map()
-	current = int(rooms.back().id)
-	encounter = "boss"
-	intel_revealed = false
-	battle_active = true
-	run_active = true
-	game.player_hp = game.hero_max_hp()
-	action_cancel = Callable()
-	modal.hide()
-	screen = ""
-	get_tree().paused = false
-	game.start_encounter(collection, encounter, floor_number, rng.randi_range(0, 3))
-	return true
+func debug_enter_boss(boss_floor: int) -> bool: return RunDebug.debug_enter_boss(self, boss_floor)
 
-func _debug_card_controls() -> void:
-	var status_row: Control = content.get_node("StatusRow")
-	var targets := game.get_tree().get_nodes_in_group("cards").filter(func(card):
-		return card.is_alive() and not card.preview_only and (card.in_hand or is_instance_valid(card.current_slot)))
-	var target: OptionButton = status_row.get_node("DebugCard")
-	for i in targets.size():
-		var card: Node = targets[i]
-		var location := "HAND" if card.in_hand else str(card.card_data.get("type", "")).to_upper()
-		target.add_item("%d / %s / %s" % [i + 1, location, card.card_data.name])
-	if targets.is_empty(): target.add_item("No cards")
-	target.disabled = targets.is_empty()
-	var fields := {}
-	for spec in [["cost", "Cost"], ["attack", "ATK"], ["health", "HP"]]:
-		var field: SpinBox = status_row.get_node("Stats/Debug" + str(spec[1]))
-		fields[spec[0]] = field
-		field.value_changed.connect(_debug_set_card_stat.bind(targets, target, spec[0]))
-	target.item_selected.connect(func(_index): _debug_load_card_stats(targets, target, fields))
-	_debug_load_card_stats(targets, target, fields)
-	var status: OptionButton = status_row.get_node("Status")
-	for key in ["strength", "bleed", "burn", "poison", "barrier", "healing_reduced"]: status.add_item(key)
-	var amount: SpinBox = status_row.get_node("Amount")
-	hook_button(status_row.get_node("SetStatusButton"), func():
-		var card := _debug_selected_card(targets, target)
-		if card == null: return
-		var key := status.get_item_text(status.selected)
-		if amount.value == 0: card.statuses.erase(key)
-		else: card.statuses[key] = int(amount.value)
-		card._refresh_face()
-		game.vfx.sync_status(card)
-		game.log_event("Debug status: %s · %s %d" % [card.card_data.name, key, int(amount.value)])
-		persistence.checkpoint()
-	).disabled = targets.is_empty()
+func _debug_card_controls() -> void: RunDebug.debug_card_controls(self)
 
 func _debug_selected_card(targets: Array, picker: OptionButton) -> Node:
 	return RunDebug._debug_selected_card(targets, picker.selected)
