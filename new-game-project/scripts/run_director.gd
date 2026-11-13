@@ -11,6 +11,7 @@ const CardRules = preload("res://scripts/run_card_rules.gd")
 const Routes = preload("res://scripts/run_routes.gd")
 const RunDebug = preload("res://scripts/run_debug.gd")
 const Shop = preload("res://scripts/run_shop.gd")
+const Workshop = preload("res://scripts/run_workshop.gd")
 ## Header, gauges, modal frame, idle hint, boss intent and board prompt, placed in the editor.
 const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
@@ -26,8 +27,6 @@ const ResultScene = preload("res://scenes/ui/ui_result.tscn")
 const VictoryScene = preload("res://scenes/ui/ui_victory.tscn")
 const RewardsScene = preload("res://scenes/ui/ui_rewards.tscn")
 const ContingencyRewardScene = preload("res://scenes/ui/ui_contingency_reward.tscn")
-const UpgradeScene = preload("res://scenes/ui/ui_upgrade.tscn")
-const UpgradePreviewScene = preload("res://scenes/ui/ui_upgrade_preview.tscn")
 const EventScene = preload("res://scenes/ui/ui_event.tscn")
 const CharactersScene = preload("res://scenes/ui/ui_characters.tscn")
 const CharacterPreviewScene = preload("res://scenes/ui/ui_character_preview.tscn")
@@ -2035,27 +2034,9 @@ func reverse_sort(workshop: bool) -> void:
 		var order := content.get_node_or_null("SortRow/OrderButton") as Button
 		if order: order.text = "Descending ↓" if deck_descending else "Ascending ↑"
 
-func show_upgrade() -> void:
-	reset_panel("THE WORKSHOP", "Each card can upgrade twice.", "upgrade")
-	# The layout lives in ui_upgrade.tscn; the card tiles are made here.
-	unpack_screen(UpgradeScene)
-	setup_sort_controls(content.get_node("SortRow"), true)
-	var scroll: ScrollContainer = content.get_node("Cards")
-	var grid: GridContainer = scroll.get_node("Grid")
-	fit_card_grid(grid, scroll)
-	for i in sorted_indices(collection, upgrade_sort, upgrade_descending):
-		var card := collection[i]
-		_card_tile(card, grid, show_upgrade_preview.bind(i) if can_upgrade(card) else Callable(), "Preview upgrade")
-		if not can_upgrade(card):
-			grid.get_child(grid.get_child_count() - 1).tooltip_text = "This card has reached its two-upgrade limit."
-			grid.get_child(grid.get_child_count() - 1).get_child(0).add_child(label("Fully upgraded", 14, UI.GOLD))
-	hook_button(content.get_node("LeaveButton"), finish_room)
+func show_upgrade() -> void: Workshop.show_upgrade(self)
 
-func upgrade(index: int) -> void:
-	if index < 0 or index >= collection.size() or not can_upgrade(collection[index]): return
-	collection[index] = upgraded_definition(collection[index])
-	Sfx.play("upgrade_confirmed")
-	finish_room()
+func upgrade(index: int) -> void: Workshop.upgrade(self, index)
 
 func upgrade_level(card: Dictionary) -> int:
 	return CardRules.upgrade_level(card)
@@ -2063,78 +2044,9 @@ func upgrade_level(card: Dictionary) -> int:
 func can_upgrade(card: Dictionary) -> bool:
 	return CardRules.can_upgrade(card, MAX_UPGRADES)
 
-func upgraded_definition(card: Dictionary) -> Dictionary:
-	var result: Dictionary = card.duplicate(true)
-	if not can_upgrade(card): return result
-	var tier := upgrade_level(card) + 1
-	result.upgrades = tier
-	if result.get("utility", false):
-		if tier == 1 and int(result.cost) > 0: result.cost = int(result.cost) - 1
-		elif result.get("effect", "") in ["move", "tutor", "scout", "recover"]:
-			if tier == 2: result.refund_energy = int(result.get("refund_energy", 0)) + 1
-		else: result.utility_power = int(result.get("utility_power", 0)) + 1
-	else:
-		match str(result.get("element", "")):
-			"evac":
-				if tier == 1:
-					result.attack = int(result.attack) + 1
-					if int(result.get("on_play_draw", 0)) > 0:
-						result.on_play_draw = int(result.on_play_draw) + 1
-				else:
-					result.health = int(result.health) + 1
-					result.cost = maxi(0, int(result.cost) - 1)
-					if int(result.get("on_play_draw", 0)) == 0: result.on_play_draw = 1
-			"douse":
-				if tier == 1:
-					result.attack = int(result.attack) + 1
-				var has_burn: bool = int(result.get("on_hit", {}).get("burn", 0)) > 0
-				if (tier == 1 and has_burn) or (tier == 2 and not has_burn):
-					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
-					hits.burn = int(hits.get("burn", 0)) + 1
-					result.on_hit = hits
-				if tier == 2:
-					result.health = int(result.health) + 1
-					result.leech = int(result.get("leech", 0)) + 1
-			"clearance":
-				if tier == 1:
-					result.attack = int(result.attack) + 1
-				var has_poison: bool = int(result.get("on_hit", {}).get("poison", 0)) > 0
-				if (tier == 1 and has_poison) or (tier == 2 and not has_poison):
-					var hits: Dictionary = result.get("on_hit", {}).duplicate(true)
-					hits.poison = int(hits.get("poison", 0)) + 1
-					result.on_hit = hits
-				if tier == 2:
-					result.health = int(result.health) + 1
-					result.status_bonus = int(result.get("status_bonus", 0)) + 2
-			"brace":
-				if tier == 1:
-					result.health = int(result.health) + 2
-				var armored: bool = game.definition_has_modifier(result, "armored")
-				if (tier == 1 and armored) or (tier == 2 and not armored):
-					result.armor_value = int(result.get("armor_value", 1 if game.definition_has_modifier(result, "armored") else 0)) + 1
-					var traits: Array = result.get("modifiers", []).duplicate()
-					if result.get("modifier", "") != "armored" and "armored" not in traits: traits.append("armored")
-					result.modifiers = traits
-				if tier == 2:
-					result.health = int(result.health) + 1
-					result.thorns = int(result.get("thorns", 0)) + 1
-			_:
-				result.attack = int(result.attack) + 1
-				result.health = int(result.health) + 1
-	result.name = str(result.name) + "+"
-	return result
+func upgraded_definition(card: Dictionary) -> Dictionary: return Workshop.upgraded_definition(self, card)
 
-func show_upgrade_preview(index: int) -> void:
-	if not can_upgrade(collection[index]): return
-	reset_panel("UPGRADE PREVIEW", "", "upgrade_preview")
-	# The layout lives in ui_upgrade_preview.tscn; the two card tiles go on each side of the arrow.
-	unpack_screen(UpgradePreviewScene)
-	var row: Control = content.get_node("Row")
-	_card_tile(collection[index], row)
-	row.move_child(row.get_child(row.get_child_count() - 1), 0)
-	_card_tile(upgraded_definition(collection[index]), row)
-	hook_button(content.get_node("ConfirmButton"), upgrade.bind(index))
-	hook_button(content.get_node("BackButton"), show_upgrade)
+func show_upgrade_preview(index: int) -> void: Workshop.show_upgrade_preview(self, index)
 
 func show_shop() -> void: Shop.show_shop(self)
 
