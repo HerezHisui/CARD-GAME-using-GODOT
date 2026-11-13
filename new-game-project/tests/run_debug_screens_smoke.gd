@@ -46,18 +46,18 @@ func run() -> void:
 	# Wrong password, then cancel.
 	director.show_debug()
 	results.append([director.screen, controls(director.modal, [])])
-	var password: LineEdit = director.content.get_node("DebugPassword")
-	password.text = "wrong"
-	password.text_submitted.emit(password.text)
+	var debug_pw_field: LineEdit = director.content.get_node("DebugPassword")
+	debug_pw_field.text = "wrong"
+	debug_pw_field.text_submitted.emit(debug_pw_field.text)
 	results.append([director.screen, director.content.get_node("PasswordError").text])
 	director.cancel_debug_password()
 	results.append([director.screen, director.modal.visible])
 	check(not director.modal.visible, "cancel closes the password screen")
 	# Right password opens the value screen.
 	director.show_debug()
-	password = director.content.get_node("DebugPassword")
-	password.text = "*****"
-	password.text_submitted.emit(password.text)
+	debug_pw_field = director.content.get_node("DebugPassword")
+	debug_pw_field.text = "*****"
+	debug_pw_field.text_submitted.emit(debug_pw_field.text)
 	check(director.screen == "debug", "right password opens the debug values")
 	results.append([director.screen, controls(director.modal, [])])
 	# Set a status on the hand card, then apply new values.
