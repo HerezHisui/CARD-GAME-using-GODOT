@@ -37,9 +37,11 @@ These rules apply to every task. A prompt file can add to them.
 
 ## Running tests
 - Godot: `C:/Users/0stef/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe`
-- One suite: `godot --headless --path . -s tests/<name>_smoke.gd`, with a 200 second time limit.
-- For the full run, use batches of 8 suites, each with timeout 200.
-- Test baseline (2026-11-09, branch bloat2): 135 suites, 135 pass, 0 fail, 0 timeouts.
+- One suite: `godot --headless --fixed-fps 60 --path . -s tests/<name>_smoke.gd`, with a 200 second time limit.
+  `--fixed-fps 60` gives every frame 1/60 s of game time, so timers and tweens do not wait on the clock.
+  Same checks, about 3 times faster. Drop the flag only to look at real-time feel.
+- For the full run, use batches of 8 suites, each with timeout 200. Run lan_* suites and versus_smoke one at a time.
+- Test baseline (2026-11-13, branch perf-clean, --fixed-fps 60): 135 suites, 135 pass, full run about 135 s.
 - Report exit codes, and any of: SCRIPT ERROR, FAILED, Parse Error, null instance, Index, ERROR, WARNING.
   Ignore "Unreferenced static string". It only appears when a timeout kills the run.
 - Exit 124 means a hang. A runtime error in a signal handler, or a paused tree, hangs a suite.
