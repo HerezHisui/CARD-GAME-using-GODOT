@@ -84,7 +84,7 @@ private cards (Preparedness hand, Plan unlocks, saved tokens, armed Plans) show 
 
 ## Validation notes
 
-The repo has 134 smoke suites. No suites were run for this documentation update.
+The repo has 141 smoke suites. No suites were run for this documentation update.
 Some tests intentionally read malformed save/config files, including `deck_builder_smoke.gd` and
 `lan_room_smoke.gd`. Their expected parse-error diagnostics are fixture behavior, not proof of a gameplay fault.
 Check each suite's result and unexpected errors; an exit code alone does not establish a clean run.

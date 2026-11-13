@@ -25,7 +25,7 @@ Remote Preparedness plays its utility cards and every tactic. Moves (Lane Marsha
 Extraction) are drags onto an empty lane. LAN evolution draws use the pick offer.
 Player 2 presses L for the battle log, D for its own deck and G for its own graveyard. Disconnect ends the match.
 
-The repo has 134 smoke suites. No suites were run for this documentation update.
+The repo has 141 smoke suites. No suites were run for this documentation update.
 The remaining sections describe singleplayer unless stated otherwise.
 
 ## Starting a run

@@ -26,7 +26,7 @@ encounters and the Janitor while climbing the school map. Current work is on the
   Player 2 opens the battle log (L), its own deck (D) and its own graveyard (G) on request.
   Local human Versus uses the evolution draw choice (`EVOLUTION_DRAW_CHOICE := true`).
 
-The repo has 135 smoke suites (`tests/*_smoke.gd`). This is a file count, not a claim that they were run for this
+The repo has 141 smoke suites (`tests/*_smoke.gd`). This is a file count, not a claim that they were run for this
 documentation update.
 
 ## Docs

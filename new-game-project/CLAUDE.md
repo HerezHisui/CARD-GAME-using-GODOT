@@ -41,7 +41,7 @@ These rules apply to every task. A prompt file can add to them.
   `--fixed-fps 60` gives every frame 1/60 s of game time, so timers and tweens do not wait on the clock.
   Same checks, about 3 times faster. Drop the flag only to look at real-time feel.
 - For the full run, use batches of 8 suites, each with timeout 200. Run lan_* suites and versus_smoke one at a time.
-- Test baseline (2026-11-13, branch perf-clean, --fixed-fps 60): 135 suites, 135 pass, full run about 135 s.
+- Test baseline (2026-11-13, branch perf-clean, --fixed-fps 60): 141 suites, 141 pass, full run about 160 s.
 - Report exit codes, and any of: SCRIPT ERROR, FAILED, Parse Error, null instance, Index, ERROR, WARNING.
   Ignore "Unreferenced static string". It only appears when a timeout kills the run.
 - Exit 124 means a hang. A runtime error in a signal handler, or a paused tree, hangs a suite.
