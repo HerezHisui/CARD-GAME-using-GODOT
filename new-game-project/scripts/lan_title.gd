@@ -56,8 +56,6 @@ var room := ""  # "host" or "client" while a room shows, "" otherwise
 var ping_ms := -1  # the last ping in a room, -1 when none yet
 var ping_wait := 0.0
 var room_status: Label  # the Connected / Waiting / Disconnected line at the top of a room
-var player1_row: Label  # client room: the host's row
-var player2_row: Label  # host room: the client's row
 var start_button: Button  # host room
 
 
@@ -116,34 +114,23 @@ func _ensure_session() -> void:
 
 # --- Lobby hub and rooms ---
 
-## The LAN lobby hub: Host a game, Join a game, Back to the title.
+## The LAN lobby hub: Host a game, Join a game, Back to the Multiplayer panel.
 func show_lobby() -> void:
 	room = ""
 	if session != null and session.is_open():
 		session.close()
-	director.reset_panel("LAN LOBBY", "Host a game, or join a game another player hosts.", "title_help")
+	director.reset_panel("LAN VERSUS", "", "title_help")
 	var box: VBoxContainer = director.content
-	var status: Label = director.label("Not connected", 18, UI.MUTED)
-	status.name = "StatusLine"
-	box.add_child(status)
 	director.button("Host a game", show_host, box).name = "HostButton"
 	director.button("Join a game", show_join, box).name = "JoinButton"
-	director.button("Back", director.show_title, box).name = "BackButton"
+	director.button("Back", director.show_multiplayer, box).name = "BackButton"
 
 
-# The one-line status at the top of a room.
+# The one-line status at the top of a room. It also carries who is connected and the ping.
 func _add_room_status(box: VBoxContainer) -> void:
 	room_status = director.label("", 20, UI.AMBER)
 	room_status.name = "StatusLine"
 	box.add_child(room_status)
-
-
-# A room row label, for example "PLAYER 2   Waiting for a player...".
-func _add_row(box: VBoxContainer, row_name: String, text: String) -> Label:
-	var row: Label = director.label(text, 18)
-	row.name = row_name
-	box.add_child(row)
-	return row
 
 
 # Host: Player 2 has joined and has the same build.
@@ -156,25 +143,21 @@ func room_connected() -> bool:
 # Update the status line, the rows and the Start button. Text changes only when it differs.
 func _refresh_room() -> void:
 	var connected := room_connected()
-	var text := "Connected" if connected else "Waiting"
+	var ping_text := "" if ping_ms < 0 else "  %d ms" % ping_ms
+	var text := "Waiting for a player..."
+	if room == "host" and connected:
+		text = "Player 2 connected" + ping_text
+	elif room == "client":
+		text = "Connected to %s, waiting for the host to start%s" % [last_ip, ping_text]
 	var color: Color = UI.GOLD if connected else UI.AMBER
 	if room == "":
 		text = "Disconnected"
 		color = UI.DANGER
-	var ping_text := "" if ping_ms < 0 else "  %d ms" % ping_ms
 	if is_instance_valid(room_status) and room_status.text != text:
 		room_status.text = text
 		room_status.add_theme_color_override("font_color", color)
-	if room == "host" and is_instance_valid(player2_row):
-		var row_text := "PLAYER 2   Connected" + ping_text if connected else "PLAYER 2   Waiting for a player..."
-		if player2_row.text != row_text:
-			player2_row.text = row_text
 	if is_instance_valid(start_button):
 		start_button.disabled = room != "host" or not connected
-	if room == "client" and is_instance_valid(player1_row):
-		var host_text := "PLAYER 1 (host, %s)   Connected%s" % [last_ip, ping_text]
-		if player1_row.text != host_text:
-			player1_row.text = host_text
 
 
 # In a room, ping the other side every 2 seconds. Counted with the _process delta, no timer.
@@ -220,26 +203,24 @@ func show_host() -> void:
 	ping_ms = -1
 	var error: Error = session.host_game(port)
 	room = "host" if error == OK else ""
-	director.reset_panel("LAN ROOM", "You host. Start the match when Player 2 is connected.", "title_help")
+	director.reset_panel("LAN ROOM", "", "title_help")
 	var box: VBoxContainer = director.content
 	_add_room_status(box)
 	start_button = null
 	if error != OK:
 		box.add_child(director.label("Could not open port %d (error %d)." % [port, error], 18, UI.TEXT, true))
 	else:
-		_add_row(box, "Player1Row", "PLAYER 1 (you, host)   Ready")
-		player2_row = _add_row(box, "Player2Row", "")
-		box.add_child(director.label("Port %d" % port, 18))
+		# One line: the host addresses, then the port.
 		var lines := host_addresses(Array(IP.get_local_addresses()))
 		if lines.is_empty():
 			lines = ["No network address found"]
-		for line in lines:
-			box.add_child(director.label(line, 18))
-		var firewall := "Allow UDP %d in Windows Firewall (Private and Radmin networks)." % port
-		box.add_child(director.label(firewall, 16, UI.MUTED, true))
+		var address_text := "   ".join(lines) + "   Port %d" % port
+		var address_label: Label = director.label(address_text, 18, UI.TEXT, true)
+		address_label.name = "AddressLine"
+		box.add_child(address_label)
 		start_button = director.button("Start match", start_match, box)
 		start_button.name = "StartButton"
-	director.button("Cancel", cancel_host, box).name = "CancelButton"
+	director.button("Back", cancel_host, box).name = "BackButton"
 	_refresh_room()
 
 
@@ -409,7 +390,7 @@ func show_join() -> void:
 	# Lobby step: the last IP comes from user://lan.cfg the first time.
 	if last_ip == "":
 		last_ip = read_last_ip(cfg_path)
-	director.reset_panel("JOIN LAN", "Type the host's IP address.", "title_help")
+	director.reset_panel("JOIN LAN", "", "title_help")
 	var box: VBoxContainer = director.content
 	ip_edit = LineEdit.new()
 	ip_edit.name = "IpEdit"
@@ -421,7 +402,7 @@ func show_join() -> void:
 	status_label = director.label("", 18, UI.MUTED, true)
 	box.add_child(status_label)
 	director.button("Connect", connect_to_host, box).name = "ConnectButton"
-	director.button("Cancel", cancel_join, box).name = "CancelButton"
+	director.button("Back", cancel_join, box).name = "BackButton"
 
 
 func connect_to_host() -> void:
@@ -436,7 +417,7 @@ func connect_to_host() -> void:
 	session.last_view = {}
 	status_label.text = "Connecting..."
 	if session.join_game(last_ip, port) != OK:
-		status_label.text = "Could not connect"
+		status_label.text = connect_error_text()
 
 
 # Lobby step: Cancel goes back to the hub, not the title.
@@ -449,8 +430,6 @@ func cancel_join() -> void:
 func _on_joined_host() -> void:
 	if session.is_host:
 		return
-	if is_instance_valid(status_label):
-		status_label.text = "Connected"
 	_show_client_room()
 
 
@@ -458,13 +437,10 @@ func _show_client_room() -> void:
 	room = "client"
 	ping_ms = -1
 	ping_wait = PING_EVERY  # ping at once
-	director.reset_panel("LAN ROOM", "You joined. The host starts the match.", "title_help")
+	director.reset_panel("LAN ROOM", "", "title_help")
 	var box: VBoxContainer = director.content
 	_add_room_status(box)
 	start_button = null
-	player1_row = _add_row(box, "Player1Row", "")
-	_add_row(box, "Player2Row", "PLAYER 2 (you)   Ready")
-	box.add_child(director.label("Waiting for the host to start...", 18, UI.MUTED))
 	director.button("Leave", leave_room, box).name = "LeaveButton"
 	_refresh_room()
 
@@ -640,7 +616,12 @@ func back_to_title() -> void:
 
 
 func _on_join_failed() -> void:
-	_client_message("Could not connect")
+	_client_message(connect_error_text())
+
+
+# One short sentence with the likely cause of a failed connect.
+func connect_error_text() -> String:
+	return "Could not connect. Check the IP, and that the host allows UDP %d." % port
 
 
 func _on_join_refused(reason: String) -> void:

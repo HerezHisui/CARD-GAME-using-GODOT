@@ -1,7 +1,6 @@
 extends SceneTree
 ## LAN Part E: Host LAN and Join LAN on the title screen (scripts/lan_title.gd).
-## LAN_ENABLED is a const and stays false, so the title has no LAN buttons here. The test adds them
-## with run_director.add_lan_buttons, the same call show_title makes when the flag is true.
+## The title has one Multiplayer button. Its panel opens the LAN lobby (director.open_lan_lobby).
 ## The other side of each link is a plain LanSession in its own subtree, as in lan_smoke.gd.
 
 const LanSession = preload("res://scripts/lan_session.gd")
@@ -83,9 +82,9 @@ func check_title_without_lan() -> void:
 	director.show_title()
 	expect(find_button("Host LAN") == null, "title: no Host LAN button")
 	expect(find_button("Join LAN") == null, "title: no Join LAN button")
-	expect(is_instance_valid(director.lan_title), "title: the lan_title node is made")
-	expect(find_button("LAN Versus") != null, "title: the LAN Versus button is there")
-	expect(find_button("Versus") != null, "title: the Versus button is there")
+	expect(not is_instance_valid(director.lan_title), "title: the lan_title node is not made yet")
+	expect(find_button("LAN Versus") == null, "title: no LAN Versus button on the title")
+	expect(find_button("Multiplayer") != null, "title: the Multiplayer button is there")
 
 
 func make_other() -> void:
@@ -109,41 +108,35 @@ func make_other() -> void:
 # Lobby step: LAN Versus opens the hub; Host a game and Join a game are there, Cancel goes back to the hub.
 func check_real_buttons() -> void:
 	director.show_title()
-	var title_screen: Control = director.content.get_child(0)
-	director.add_lan_buttons(title_screen)
+	await frames(3)
+	await click(find_button("Multiplayer"))
+	await frames(3)
+	await click(find_button("LAN Versus"))
 	lan = director.lan_title
 	lan.port = TEST_PORT
 	lan.cfg_path = "user://test_lan_title_smoke.cfg"  # never the real user://lan.cfg
-	expect(is_instance_valid(lan), "buttons: lan_title made")
-	var lan_button := find_button("LAN Versus")
-	expect(lan_button != null, "buttons: LAN Versus added")
-	var menu: Node = title_screen.get_node("%Menu")
-	var versus_index: int = title_screen.get_node("%VersusButton").get_index()
-	expect(lan_button.get_parent() == menu and lan_button.get_index() == versus_index + 1,
-		"buttons: LAN Versus sits under Versus")
-	await frames(3)
-	await click(lan_button)
-	expect(director.screen == "title_help" and find_label("LAN LOBBY") != null, "buttons: LAN Versus opens the hub")
+	expect(is_instance_valid(lan), "buttons: lan_title made on the first LAN Versus press")
+	expect(director.screen == "title_help" and find_label("LAN VERSUS") != null, "buttons: LAN Versus opens the hub")
 	await frames(3)
 	await click(find_button("Host a game"))
 	expect(director.screen == "title_help" and lan.session.is_open() and lan.session.is_host,
 		"buttons: Host LAN opens the host panel and listens")
-	expect(find_label("Port %d" % TEST_PORT) != null, "host panel: shows the port")
-	expect(find_label_part("Windows Firewall") != null, "host panel: shows the firewall line")
+	expect(find_label_part("Port %d" % TEST_PORT) != null, "host panel: shows the port")
+	expect(find_label_part("Windows Firewall") == null, "host panel: no firewall paragraph")
 	await frames(3)
-	await click(find_button("Cancel"))
-	expect(not lan.session.is_open(), "host panel: Cancel closes the session")
-	expect(find_label("LAN LOBBY") != null, "host panel: Cancel goes back to the hub")
+	await click(find_button("Back"))
+	expect(not lan.session.is_open(), "host panel: Back closes the session")
+	expect(find_label("LAN VERSUS") != null, "host panel: Back goes back to the hub")
 	await frames(3)
 	await click(find_button("Join a game"))
 	expect(director.screen == "title_help" and find_node_named("IpEdit") != null,
 		"buttons: Join LAN opens the join panel with an IP field")
 	await frames(3)
-	await click(find_button("Cancel"))
-	expect(find_label("LAN LOBBY") != null, "join panel: Cancel goes back to the hub")
+	await click(find_button("Back"))
+	expect(find_label("LAN VERSUS") != null, "join panel: Back goes back to the hub")
 	await frames(3)
 	await click(find_button("Back"))
-	expect(director.screen == "title", "hub: Back goes back to the title")
+	expect(find_label("MULTIPLAYER") != null, "hub: Back goes back to the Multiplayer panel")
 
 
 # Host starts a session, the other side joins, the Versus match starts.

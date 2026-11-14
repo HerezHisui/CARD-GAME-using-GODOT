@@ -1,6 +1,6 @@
 extends SceneTree
-## LAN lobby step: LAN Versus on the title, the lobby hub, the host room and the client room
-## (scripts/lan_title.gd, run_director.add_lan_buttons). The other side of each link is a plain
+## LAN lobby step: Multiplayer on the title, the lobby hub, the host room and the client room
+## (scripts/lan_title.gd, run_director.open_lan_lobby). The other side of each link is a plain
 ## LanSession in its own subtree, as in lan_title_smoke.gd.
 
 const LanSession = preload("res://scripts/lan_session.gd")
@@ -11,6 +11,7 @@ const UI = preload("res://scripts/ui_theme.gd")
 # Not the game port and not a port another LAN suite uses.
 const TEST_PORT := 24701
 const MAX_FRAMES := 3000
+const WAITING := "Waiting for a player..."
 const CFG_PATH := "user://test_lan_room_smoke.cfg"  # never the real user://lan.cfg
 
 var failures := 0
@@ -81,19 +82,17 @@ func check_last_ip_file() -> void:
 	remove_cfg()
 
 
-# The real title: one LAN Versus button, no Host LAN or Join LAN, also after a second add_lan_buttons.
+# The real title: one Multiplayer button, no LAN Versus, Host LAN or Join LAN button.
 func check_title() -> void:
 	expect(VersusMatch.LAN_ENABLED, "title: LAN_ENABLED is true in the repo")
 	director.show_title()
-	var title_screen: Control = director.content.get_child(0)
-	director.add_lan_buttons(title_screen)
+	expect(count_buttons("Multiplayer") == 1, "title: one Multiplayer button")
+	expect(count_buttons("LAN Versus") == 0, "title: no LAN Versus button")
+	expect(find_button("Host LAN") == null and find_button("Join LAN") == null, "title: no Host LAN or Join LAN")
+	director.ensure_lan_title()
 	lan = director.lan_title
 	lan.port = TEST_PORT
 	lan.cfg_path = CFG_PATH
-	expect(count_buttons("LAN Versus") == 1, "title: one LAN Versus button")
-	expect(find_button("Host LAN") == null and find_button("Join LAN") == null, "title: no Host LAN or Join LAN")
-	var versus_index: int = title_screen.get_node("%VersusButton").get_index()
-	expect(find_button("LAN Versus").get_index() == versus_index + 1, "title: LAN Versus sits under Versus")
 
 
 func make_other() -> void:
@@ -112,24 +111,25 @@ func make_other() -> void:
 	other.peer_left.connect(func(id: int) -> void: other_lefts.append(id))
 
 
-# Real clicks: LAN Versus, Host a game, Start match. Waiting, Connected, leave, rejoin, start.
+# Real clicks: Multiplayer, LAN Versus, Host a game, Start match. Waiting, Connected, leave, rejoin, start.
 func check_host_room() -> void:
 	director.show_title()
 	await frames(3)
+	await click(find_button("Multiplayer"))
+	expect(find_label("MULTIPLAYER") != null, "hub: Multiplayer opens the panel")
+	await frames(3)
 	await click(find_button("LAN Versus"))
-	expect(find_label("LAN LOBBY") != null, "hub: LAN Versus opens the hub")
+	expect(find_label("LAN VERSUS") != null, "hub: LAN Versus opens the hub")
 	expect(find_button("Host a game") != null and find_button("Join a game") != null, "hub: Host and Join buttons")
 	expect(find_button("Back") != null, "hub: Back button")
-	expect(status_text() == "Not connected", "hub: status says Not connected")
 	await frames(3)
 	await click(find_button("Host a game"))
 	expect(lan.room == "host" and lan.session.is_open() and lan.session.is_host, "host room: listening")
-	expect(status_text() == "Waiting", "host room: status Waiting")
+	expect(status_text() == WAITING, "host room: status Waiting")
 	expect(status_color() == UI.AMBER, "host room: Waiting in the theme amber")
-	expect(row_text("Player1Row").contains("Ready"), "host room: Player 1 is Ready")
-	expect(row_text("Player2Row").contains("Waiting for a player..."), "host room: Player 2 is waiting")
-	expect(find_label("Port %d" % TEST_PORT) != null, "host room: shows the port")
-	expect(find_label_part("Windows Firewall") != null, "host room: shows the firewall line")
+	expect(find_label_part("Port %d" % TEST_PORT) != null, "host room: shows the port")
+	expect(find_label_part("Windows Firewall") == null, "host room: no firewall paragraph")
+	expect(find_in(director.content, "Player1Row") == null, "host room: no player rows")
 	var start: Button = find_in(director.content, "StartButton")
 	expect(start != null and start.disabled, "host room: Start match is off before a join")
 	await frames(3)
@@ -137,16 +137,15 @@ func check_host_room() -> void:
 	expect(not lan.in_match and not versus_running(), "host room: a click on the off button does nothing")
 	await join_host_room()
 	expect(not lan.in_match and not versus_running(), "host room: a join does not start the match")
-	expect(status_text() == "Connected", "host room: status Connected")
+	expect(status_text().begins_with("Player 2 connected"), "host room: status Connected")
 	expect(status_color() == UI.GOLD, "host room: Connected in the theme gold")
 	expect(not start.disabled, "host room: Start match is on after the join")
-	expect(await wait_until(func() -> bool: return row_text("Player2Row").ends_with(" ms")),
-		"host room: Player 2 shows the ping in ms")
+	expect(await wait_until(func() -> bool: return status_text().ends_with(" ms")),
+		"host room: the status line shows the ping in ms")
 	# Player 2 leaves the room: back to Waiting, the port stays open.
 	other.close()
 	expect(await wait_until(func() -> bool: return lan.remote_id == 0), "host room: the host saw Player 2 leave")
-	expect(status_text() == "Waiting" and row_text("Player2Row").contains("Waiting for a player..."),
-		"host room: back to Waiting")
+	expect(status_text() == WAITING, "host room: back to Waiting")
 	expect(start.disabled, "host room: Start match is off again")
 	expect(lan.room == "host" and lan.session.is_open() and lan.session.is_host, "host room: the port stays open")
 	expect(not lan.in_match and not versus_running(), "host room: nothing started")
@@ -173,7 +172,7 @@ func check_host_version_refused() -> void:
 	other.build = "0|old build"
 	expect(other.join_game("127.0.0.1", TEST_PORT) == OK, "host refused: join starts")
 	expect(await wait_until(func() -> bool: return other_refused == "version"), "host refused: client is refused")
-	expect(lan.room == "host" and lan.remote_id == 0 and status_text() == "Waiting", "host refused: still Waiting")
+	expect(lan.room == "host" and lan.remote_id == 0 and status_text() == WAITING, "host refused: still Waiting")
 	other.build = LanSession.build_string()
 	other.close()
 	lan.session.close()
@@ -183,15 +182,11 @@ func check_host_version_refused() -> void:
 # The real client room against a plain host. Start comes, then a coin event right after it.
 func check_client_room() -> void:
 	await join_as_client()
-	expect(status_text() == "Connected", "client room: status Connected")
+	expect(status_text().begins_with("Connected to 127.0.0.1"), "client room: status shows Connected and the host IP")
 	expect(status_color() == UI.GOLD, "client room: Connected in the theme gold")
-	expect(row_text("Player1Row").contains("127.0.0.1") and row_text("Player1Row").contains("Connected"),
-		"client room: Player 1 shows the host IP and Connected")
-	expect(row_text("Player2Row").contains("Ready"), "client room: Player 2 (you) is Ready")
-	expect(find_label("Waiting for the host to start...") != null, "client room: waits for the host")
 	expect(find_button("Leave") != null, "client room: Leave button")
-	expect(await wait_until(func() -> bool: return row_text("Player1Row").ends_with(" ms")),
-		"client room: Player 1 shows the ping in ms")
+	expect(await wait_until(func() -> bool: return status_text().ends_with(" ms")),
+		"client room: the status line shows the ping in ms")
 	expect(not is_instance_valid(lan.client_panel), "client room: no panel before start")
 	expect(LanTitle.read_last_ip(CFG_PATH) == "127.0.0.1", "client room: the last IP is saved")
 	# Start and the first coin event back to back, as the host sends them.
@@ -214,7 +209,7 @@ func check_client_leave() -> void:
 	await frames(3)
 	await click(find_button("Leave"))
 	expect(not lan.session.is_open(), "leave: the client session is closed")
-	expect(lan.room == "" and find_label("LAN LOBBY") != null, "leave: back to the hub")
+	expect(lan.room == "" and find_label("LAN VERSUS") != null, "leave: back to the hub")
 	expect(await wait_until(func() -> bool: return other_lefts.size() == 1), "leave: the host saw the client leave")
 	other.close()
 	await frames(5)
@@ -230,7 +225,7 @@ func check_host_left_in_room() -> void:
 	expect(not lan.session.is_open() and lan.room == "", "host left: the client session is closed")
 	await frames(3)
 	await click(find_button("Back to lobby"))
-	expect(find_label("LAN LOBBY") != null, "host left: the button goes back to the hub")
+	expect(find_label("LAN VERSUS") != null, "host left: the button goes back to the hub")
 	await frames(5)
 
 
@@ -296,11 +291,6 @@ func status_text() -> String:
 func status_color() -> Color:
 	var status: Label = find_in(director.content, "StatusLine")
 	return status.get_theme_color("font_color") if status != null else Color.BLACK
-
-
-func row_text(row_name: String) -> String:
-	var row: Label = find_in(director.content, row_name)
-	return row.text if row != null else ""
 
 
 func wait_until(check: Callable) -> bool:
