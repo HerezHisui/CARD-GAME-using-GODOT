@@ -172,6 +172,7 @@ func _ready() -> void:
 	else:
 		game.clear_battle()
 		show_title()
+		preload("res://scripts/lan_autostart.gd").run(self)  # Debug only, needs "-- host" or "-- join <ip>"
 
 func show_title() -> void:
 	Sfx.map_screen(false)

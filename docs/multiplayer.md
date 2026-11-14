@@ -71,6 +71,13 @@ Player 2 opens lists on request: L for the battle log, D for its own deck, G or 
 own graveyard. The host answers with the asking seat's own cards only. Log lines that name the other seat's
 private cards (Preparedness hand, Plan unlocks, saved tokens, armed Plans) show public words instead.
 
+### Testing on one PC
+
+In the editor, open Debug > Customize Run Instances, turn on 2 instances and set their launch arguments.
+Instance 1: `-- host`. Instance 2: `-- join 127.0.0.1`. Press Run: the first window hosts, the second joins,
+and the host starts the match once Player 2 is connected. This only works in debug builds with LAN on;
+without these arguments the game starts normally.
+
 ### LAN limits
 
 - LAN Disaster draws stay automatic. The manual draw step is hot-seat only.
