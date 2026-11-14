@@ -24,7 +24,7 @@ A Windows build will be published on itch.io.
 
 ## Tests
 
-143 headless smoke suites live in `new-game-project/tests/`. Run one with:
+147 headless smoke suites live in `new-game-project/tests/`. Run one with:
 
     godot --headless --path new-game-project -s tests/<name>_smoke.gd
 

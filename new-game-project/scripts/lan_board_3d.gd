@@ -27,9 +27,11 @@ const Contingency = preload("res://scripts/contingency_rules.gd")
 # DESK_VIEW seen from the far side of the table, the Disaster seat.
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
 const SEAT_HAND_DROP := 0.26
-const DRAG_START_PIXELS := 8.0
+const DRAG_START_PIXELS := 8.0  # p2-feel: the card lifts at once; a release closer than this is still a click
 const NOTE_SECONDS := 2.6
-const HAND_SCALE_HOVER := 1.3
+# p2-feel: the host lifts a hovered card but does not grow it (card_3d._apply_hover), so neither does P2.
+const HAND_SCALE_HOVER := 1.0
+const HOVER_LIFT_SECONDS := 0.14  # same lift time as the host (card_3d._apply_hover)
 const REASONS := {"busy": "Wait, the host is still playing.", "not_supported": "Not available in LAN",
 	"choice_pending": "Finish or cancel the open choice first.", "draw_first": "DRAW A CARD FIRST"}
 # Flag on: the lane stages of an open utility choice. The other stages pick from a list.
@@ -113,7 +115,7 @@ var inspection: Control
 var inspection_dossier: Control
 var inspection_card = null  # the Card3D the overlay shows, or null for a choice entry
 var inspect_target = null  # a Card3D or a card Dictionary that a held press may inspect
-var inspect_since := 0
+var inspect_elapsed := 0.0  # p2-feel: game time since the press, the same clock as the host's hold timer
 var inspect_origin := Vector2.ZERO
 var suppress_release := false
 # P2 lists: L (log), D (deck) and G (graveyard) ask the host; the answer opens this box.
@@ -234,6 +236,9 @@ func _on_event(kind: String, data: Dictionary) -> void:
 	if kind != "reject":
 		return
 	var reason := str(data.get("reason", ""))
+	# p2-feel: a card hidden at the play comes back when the host refuses it.
+	for card in hand_cards: card.visible = true
+	Sfx.play("invalid_action")
 	show_note("Refused", REASONS.get(reason, reason.replace("_", " ").capitalize()))
 
 
@@ -367,6 +372,7 @@ func _sync_hand() -> void:
 				break
 		if found != null:
 			pool.erase(found)
+			found.visible = true  # p2-feel: undo the hide at the play if the card is still in the hand
 		else:
 			found = _make_card(definition, hand_root)
 			found.set_meta("def", definition)
@@ -407,7 +413,7 @@ func _arrange_hand() -> void:
 			continue
 		var smooth: bool = VersusMatch.SIDE_BY_SIDE_HUD and side == "disaster"
 		if i == hovered or i == selected:
-			card.move_in_hand(pos + card.HOVER_LIFT, game.UPRIGHT, 100, 0.14 if smooth else 0.25)
+			card.move_in_hand(pos + card.HOVER_LIFT, game.UPRIGHT, 100, HOVER_LIFT_SECONDS)
 		else:
 			card.move_in_hand(pos, card_basis, i, 0.15 if smooth else 0.25)
 
@@ -495,9 +501,6 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		mouse = event.position
-		if held >= 0 and not dragging and mouse.distance_to(press_pos) > DRAG_START_PIXELS:
-			dragging = true
-			hand_cards[held].set_layer(100)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		_on_release(event.position)
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE \
@@ -508,6 +511,8 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		# With nothing to cancel, a right click on a card inspects it.
 		if held < 0 and not _picking() and _right_click_inspect(event.position): return
+		# The host plays this when a right click drops the dragged card back.
+		if held >= 0 and dragging: Sfx.play("card_cancel_return")
 		_cancel_pick(true)
 		_cancel_choice()
 		move_ally = -1
@@ -539,9 +544,14 @@ func _on_press(point: Vector2) -> void:
 		if not _usable(index):
 			_explain(index)
 			return
+		# p2-feel: like the host, the card lifts and follows the mouse from the press, not after 8 px.
 		held = index
-		dragging = false
+		dragging = true
 		press_pos = point
+		var card: Node3D = hand_cards[index]
+		if card._tween: card._tween.kill()
+		card.set_layer(100)
+		Sfx.play("card_select")
 		return
 	# Nothing picked: a press on a lane card may become a hold that inspects it, like the host.
 	if not _picking():
@@ -561,7 +571,8 @@ func _on_release(point: Vector2) -> void:
 	if held < 0:
 		return
 	var index := held
-	var was_drag := dragging
+	# The card lifted at the press. A release that barely moved is still a click that picks the card.
+	var was_drag := dragging and point.distance_to(press_pos) > DRAG_START_PIXELS
 	held = -1
 	dragging = false
 	if not was_drag:
@@ -577,6 +588,9 @@ func _on_release(point: Vector2) -> void:
 			click_hand(index)
 			click_lane(lane)
 			return
+	# The host's drop sounds: a wrong lane is refused, no lane sends the card back.
+	var on_lane := not _is_spell(index) and _lane_at(point) >= 0
+	Sfx.play("invalid_action" if on_lane else "card_cancel_return")
 	_arrange_hand()
 
 
@@ -592,6 +606,7 @@ func _process(delta: float) -> void:
 	else:
 		mouse = get_viewport().get_mouse_position()
 		_update_hover()
+	inspect_elapsed += delta
 	_check_inspect_hold()
 	for i in hand_cards.size():
 		var grow := HAND_SCALE_HOVER if i == hovered or i == selected else 1.0
@@ -607,6 +622,7 @@ func _update_hover() -> void:
 	if index == hovered:
 		return
 	hovered = index
+	if index >= 0: Sfx.play("card_hover")  # same as the host's update_hand_hover
 	_arrange_hand()
 
 
@@ -650,10 +666,11 @@ func _polygon(index: int, raised: bool) -> PackedVector2Array:
 
 func _hand_at(point: Vector2) -> int:
 	for index in [hovered, selected]:
-		if index >= 0 and index < hand_cards.size() and Geometry2D.is_point_in_polygon(point, _polygon(index, true)):
+		if index < 0 or index >= hand_cards.size() or not hand_cards[index].visible: continue
+		if Geometry2D.is_point_in_polygon(point, _polygon(index, true)):
 			return index
 	for index in range(hand_cards.size() - 1, -1, -1):
-		if index == held and dragging:
+		if index == held and dragging or not hand_cards[index].visible:
 			continue
 		if hand_cards[index].has_meta("hand_slot_pos") and Geometry2D.is_point_in_polygon(point, _polygon(index, false)):
 			return index
@@ -739,11 +756,18 @@ func click_lane(lane: int) -> void:
 	if over or (selected < 0 and selected_tactic == "" and selected_held.is_empty()):
 		return
 	if lane not in _open_lanes_for(selected):
+		Sfx.play("invalid_action")
 		show_note("Pick a lit lane", "")
 		return
 	chosen.append(lane)
 	if not selected_held.is_empty() and chosen.size() >= int(_held_entry().get("card", {}).get("cost", 1)):
 		evolution_play_sent = true
+	# p2-feel: a hand unit leaves the fan at once, with the host's deploy sound. The next view shows the truth:
+	# _sync_hand shows a kept card again, and a refusal shows the hand again.
+	if selected >= 0 and selected < hand_cards.size() and selected_held.is_empty() and selected_tactic == "" \
+			and not _is_spell(selected):
+		hand_cards[selected].visible = false
+		Sfx.play("unit_deploy")
 	panel.lane_pressed.emit(lane)
 
 
@@ -812,6 +836,7 @@ func _explain(index: int) -> void:
 		show_note("Not your turn", "")
 		return
 	var problem := str(_hint(index).get("problem", ""))
+	Sfx.play("invalid_action")  # the host refuses an unplayable card with this sound
 	show_note("Can't play that", REASONS.get(problem, problem if problem != "" else "Not now."))
 
 
@@ -1599,7 +1624,7 @@ func _has_inspect_target() -> bool:
 
 func _start_inspect_hold(target, point: Vector2) -> void:
 	inspect_target = target
-	inspect_since = Time.get_ticks_msec()
+	inspect_elapsed = 0.0
 	inspect_origin = point
 	_inspect_log("hold starts on " + _inspect_name(target))
 
@@ -1621,13 +1646,17 @@ func _inspect_name(target) -> String:
 func _check_inspect_hold() -> void:
 	if is_instance_valid(inspection) and inspection_card != null and not is_instance_valid(inspection_card):
 		close_inspection()
-	if not _has_inspect_target() or dragging or is_instance_valid(inspection): return
-	if Time.get_ticks_msec() - inspect_since < int(director.INSPECT_HOLD_SECONDS * 1000.0): return
+	# p2-feel: a held card is lifted at once now, so only a real drag (moved past the hold distance) stops it.
+	var moved := dragging and mouse.distance_to(press_pos) > HOLD_MOVE_PIXELS
+	if not _has_inspect_target() or moved or is_instance_valid(inspection): return
+	# Game time, like the host's create_timer(INSPECT_HOLD_SECONDS).
+	if inspect_elapsed < director.INSPECT_HOLD_SECONDS: return
 	var target = inspect_target
 	inspect_target = null
 	_inspect_log("hold time reached")
 	# A held hand card goes back to the fan, so the release does not play it.
 	held = -1
+	dragging = false
 	_arrange_hand()
 	open_inspection(target)
 

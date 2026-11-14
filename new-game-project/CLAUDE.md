@@ -38,6 +38,8 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - Singleplayer must not change. New multiplayer behaviour stays behind its flag
   (for example `game.disaster_seat_on`).
 
+- Direction (14 Nov): contingency plans will be replaced per leader by that leader's own mechanic and toolkit (Sam, Robin, Sage, Kai; see the project doc club-leaders-design.md). Do not remove, rename or reshape plans, tactics or the Plans screen unless a prompt names it; versus and LAN still read them.
+
 ## Files you may edit
 - Edit the files the prompt lists, the files an AUTHORIZED message lists, and any NEW file (tests, scripts,
   docs/notes). A prompt that lists no files means the files its steps name.
@@ -62,7 +64,7 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
   `--fixed-fps 60` gives every frame 1/60 s of game time, so timers and tweens do not wait on the clock.
   Same checks, about 3 times faster. Drop the flag only to look at real-time feel.
 - For the full run, use batches of 8 suites, each with timeout 200. Run lan_* suites and versus_smoke one at a time.
-- Test baseline (2026-11-14, branch lan-prototype 27a0b19, --fixed-fps 60): 143 suites, 143 pass, full run about 160 s.
+- Test baseline (2026-11-14, branch lan-prototype, --fixed-fps 60): 147 suites, 147 pass, full run about 250 s.
   lan_smoke alone takes about 33 s (ENet's own timeout). "resources still in use at exit" is known noise.
 - Report exit codes, and any of: SCRIPT ERROR, FAILED, Parse Error, null instance, Index, ERROR, WARNING.
   Ignore "Unreferenced static string". It only appears when a timeout kills the run.

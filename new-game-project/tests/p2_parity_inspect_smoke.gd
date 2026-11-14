@@ -245,10 +245,14 @@ func key(code: Key) -> void:
 	await frames(2)
 
 
+## p2-feel: the hold timer runs on game time like the host, so wait in game time (frames, capped), not the clock.
 func wait_ms(ms: int) -> void:
-	var start := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - start < ms:
+	var waited := 0.0
+	var count := 0
+	while waited * 1000.0 < ms and count < 600:
 		await process_frame
+		waited += root.get_process_delta_time()
+		count += 1
 
 
 func frames(count: int) -> void:
