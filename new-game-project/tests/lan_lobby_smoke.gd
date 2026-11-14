@@ -48,7 +48,7 @@ func run() -> void:
 	check_texts()
 	make_other()
 	director.show_title()
-	director.add_lan_buttons(director.content.get_child(0))
+	director.ensure_lan_title()
 	lan = director.lan_title
 	lan.port = TEST_PORT
 	lan.cfg_path = "user://test_lan_lobby_smoke.cfg"  # lobby step: never the real user://lan.cfg

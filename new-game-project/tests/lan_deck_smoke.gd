@@ -49,7 +49,7 @@ func run() -> void:
 	check_shape()
 	make_other()
 	director.show_title()
-	director.add_lan_buttons(director.content.get_child(0))
+	director.ensure_lan_title()
 	lan = director.lan_title
 	lan.port = TEST_PORT
 	lan.cfg_path = "user://test_lan_deck_smoke_lan.cfg"

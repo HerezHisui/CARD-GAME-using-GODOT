@@ -64,7 +64,7 @@ func new_game() -> void:
 	director = game.run_director
 	await process_frame
 	director.show_title()
-	director.add_lan_buttons(director.content.get_child(0))
+	director.ensure_lan_title()
 	lan = director.lan_title
 	lan.port = TEST_PORT
 	lan.cfg_path = "user://test_lan_leftover_deck_opening_lan.cfg"

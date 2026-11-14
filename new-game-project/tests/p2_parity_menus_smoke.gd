@@ -41,7 +41,7 @@ func run() -> void:
 	await process_frame
 	make_other()
 	director.show_title()
-	director.add_lan_buttons(director.content.get_child(0))
+	director.ensure_lan_title()
 	lan = director.lan_title
 	lan.port = TEST_PORT
 	lan.cfg_path = "user://test_p2_parity_menus_smoke.cfg"

@@ -75,6 +75,7 @@ func check_case(mode: String) -> void:
 	var other: Node
 	var holder: Node
 	if not mode.begins_with("hotseat"):
+		director.ensure_lan_title()
 		var lan: Node = director.lan_title
 		lan._ensure_session()
 		holder = Node.new()

@@ -199,35 +199,29 @@ func show_title() -> void:
 		start_button.pressed.connect(show_characters)
 		start_button.grab_focus()
 	title_screen.get_node("%QuitButton").pressed.connect(quit_game)
-	title_screen.get_node("%VersusButton").pressed.connect(start_versus_match)
-	if preload("res://scripts/versus_match.gd").LAN_ENABLED: add_lan_buttons(title_screen)
-
-## LAN Part E: Host LAN and Join LAN under Versus, with the same look as the other menu items.
-## Lobby step: one LAN Versus button instead. It opens the LAN lobby hub (lan_title.show_lobby).
-func add_lan_buttons(title_screen: Control) -> void:
-	if not is_instance_valid(lan_title):
-		lan_title = preload("res://scripts/lan_title.gd").new()
-		lan_title.name = "LanTitle"
-		add_child(lan_title)
-		lan_title.setup(self)
 	var versus_button: Button = title_screen.get_node("%VersusButton")
-	# Called twice on one title (show_title, then a test): keep one button.
-	if versus_button.get_parent().has_node("LanVersusButton"):
-		return
-	var lan_button := _lan_menu_button(title_screen, versus_button, "LanVersusButton", "LAN Versus")
-	lan_button.pressed.connect(lan_title.show_lobby)
+	if preload("res://scripts/versus_match.gd").LAN_ENABLED:
+		# The node keeps its name. With LAN on it opens the Multiplayer panel instead of a match.
+		versus_button.text = "Multiplayer"
+		versus_button.pressed.connect(show_multiplayer)
+	else:
+		versus_button.pressed.connect(start_versus_match)
 
-## One title menu item, copied from the Versus button's size and font, placed under after.
-func _lan_menu_button(title_screen: Control, after: Button, button_name: String, text: String) -> Button:
-	var b := Button.new()
-	b.name = button_name
-	b.text = text
-	b.custom_minimum_size = after.custom_minimum_size
-	b.mouse_default_cursor_shape = after.mouse_default_cursor_shape
-	b.add_theme_font_size_override("font_size", after.get_theme_font_size("font_size"))
-	after.add_sibling(b)
-	title_screen.style_menu_button(b)
-	return b
+## Title: the Multiplayer panel (Versus, LAN Versus, Back). See multiplayer_menu.gd.
+func show_multiplayer() -> void:
+	preload("res://scripts/multiplayer_menu.gd").show_panel(self)
+
+## The LAN lobby. The lan_title node is made on the first press, not at the title.
+func open_lan_lobby() -> void:
+	ensure_lan_title()
+	lan_title.show_lobby()
+
+func ensure_lan_title() -> void:
+	if is_instance_valid(lan_title): return
+	lan_title = preload("res://scripts/lan_title.gd").new()
+	lan_title.name = "LanTitle"
+	add_child(lan_title)
+	lan_title.setup(self)
 
 ## Starts a Versus match. The match node is made once and never touches the save file.
 func start_versus_match() -> void:
