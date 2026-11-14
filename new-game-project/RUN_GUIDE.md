@@ -2,7 +2,7 @@
 
 Open `project.godot` in Godot 4.7 and run the main scene. Choose Singleplayer, then Steve.
 The other characters are not playable yet. A saved run offers Continue or Abandon.
-Choose Versus on the title screen for a single Preparedness versus Disaster battle.
+Choose Multiplayer, then Versus, on the title screen for a single Preparedness versus Disaster battle.
 Human Disaster uses hot-seat play with a pass-the-laptop privacy cover. `DISASTER_IS_HUMAN` selects human or AI
 Disaster. The toss winner chooses a side, which plays first. One Versus HUD shows HP, Energy and Tension bars.
 Matches start from preset decks. Crosswind is a drag: take another ally and drop it on an empty lane.
@@ -13,7 +13,7 @@ See the [multiplayer guide](../docs/multiplayer.md) for controls and limits.
 
 LAN Versus uses ENet UDP 24680, protocol 6, over the same network or Radmin VPN.
 ZeL and Tssy tested LAN Versus over the network on an earlier build. The network re-test of this build is pending.
-Choose LAN Versus, then host or join using the host's displayed network address. Both peers need the same build.
+Choose Multiplayer, then LAN Versus, then host or join using the host's displayed network address. Both peers need the same build.
 The LAN deck step supports Standard presets and saved custom decks.
 
 On the host, allow the game executable through Windows Firewall for the local or Radmin network profile.
