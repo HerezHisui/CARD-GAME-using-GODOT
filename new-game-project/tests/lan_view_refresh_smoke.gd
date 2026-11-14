@@ -63,16 +63,16 @@ func run() -> void:
 	await process_frame
 	var card: Node3D = board.lane_cards.response[0]
 	var other: Node3D = board.lane_cards.response[1]
-	var button: Button = board.tactic_box.get_node("Tactic_brace")
+	var button: Button = board.tactic_tile_button("brace")
 	var face_before: int = card.get_meta("lan_signature")
 	var other_before: int = other.get_meta("lan_signature")
 	session.view_received.emit(make_view(3, 3))
 	await process_frame
-	expect(board.tactic_box.get_node("Tactic_brace") == button, "an identical view keeps the tactic button")
+	expect(board.tactic_tile_button("brace") == button, "an identical view keeps the tactic button")
 	expect(card.get_meta("lan_signature") == face_before, "an identical view keeps the card signature")
 	session.view_received.emit(make_view(3, 2))
 	await process_frame
-	expect(board.tactic_box.get_node("Tactic_brace") == button, "an energy-only change keeps the tactic button")
+	expect(board.tactic_tile_button("brace") == button, "an energy-only change keeps the tactic button")
 	expect(card.get_meta("lan_signature") == face_before and other.get_meta("lan_signature") == other_before,
 		"an energy-only change repaints no card")
 	session.view_received.emit(make_view(1, 2))
@@ -81,7 +81,7 @@ func run() -> void:
 	expect(other.get_meta("lan_signature") == other_before, "the other card is not repainted")
 	session.view_received.emit(make_view(1, 2, false))
 	await process_frame
-	var rebuilt: Button = board.tactic_box.get_node("Tactic_brace")
+	var rebuilt: Button = board.tactic_tile_button("brace")
 	expect(rebuilt != button and rebuilt.disabled, "a changed tactic rebuilds the buttons")
 	board.queue_free()
 	session.queue_free()

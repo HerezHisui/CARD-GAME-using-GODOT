@@ -160,13 +160,15 @@ func check_client(size: Vector2i, seat: String) -> void:
 		board.end_button, board.draw_button, board.turn_plate, board.plans_toggle, board.prep_grave,
 		board.disaster_plans, board.disaster_grave])
 	if seat == "preparedness":
-		expect(not board.tactic_box.visible, name + ": the tactic list starts closed")
+		expect(not board.plans_open(), name + ": the Plans screen starts closed")
 		board.plans_toggle.pressed.emit()
 		await frames(3)
-		expect(board.tactic_box.visible and board.tactic_box.get_child_count() > 0,
-			name + ": the Plans icon opens the tactic list")
-		check_no_overlap(name + " tactics open", [board.tactic_box, board.draw_button, board.plans_toggle,
-			board.end_button, board.foe_resource])
+		expect(board.plans_open() and board.tactic_box.get_child_count() > 0,
+			name + ": the Plans icon opens the Plans screen")
+		# p2-plans: the host's modal screen now, so it covers the HUD like the host's. It must fit the window.
+		expect(root.get_visible_rect().encloses(board.plans_panel.get_global_rect()),
+			name + ": the Plans screen fits the window")
+		board.close_plans()
 	await capture("client-" + seat, size)
 	board.free()
 	panel.free()

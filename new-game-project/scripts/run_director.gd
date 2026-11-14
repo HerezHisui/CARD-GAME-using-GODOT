@@ -31,6 +31,9 @@ const CharactersScene = preload("res://scenes/ui/ui_characters.tscn")
 const CharacterPreviewScene = preload("res://scenes/ui/ui_character_preview.tscn")
 const BattleLogScene = preload("res://scenes/ui/ui_battle_log.tscn")
 const PlansScene = preload("res://scenes/ui/ui_plans.tscn")
+# The Plans screen words. The LAN client (lan_board_3d.gd) shows the same screen with them.
+const PLANS_TITLE := "PREPAREDNESS · CONTINGENCIES"
+const PLANS_SUBTITLE := "Save 2 unused energy at End Turn for 1 Plan. Unlock more tactics from elite and boss wins."
 const IntelScene = preload("res://scenes/ui/ui_intel.tscn")
 const ConfirmScene = preload("res://scenes/ui/ui_confirm.tscn")
 const ChooseCardsScene = preload("res://scenes/ui/ui_choose_cards.tscn")
@@ -1833,24 +1836,31 @@ func show_battle_log() -> void:
 
 func show_plans() -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty(): return
+	# LAN: the host is the Disaster, so P must not open the Preparedness plans. The client has its own screen.
+	if game.seat_prep != "local": return
 	if screen == "plans":
 		close_modal()
 		return
 	if screen in DECISIONS or saved_content != null: return
-	reset_panel("PREPAREDNESS · CONTINGENCIES", "Save 2 unused energy at End Turn for 1 Plan. Unlock more tactics from elite and boss wins.", "plans")
+	reset_panel(PLANS_TITLE, PLANS_SUBTITLE, "plans")
 	# The layout lives in ui_plans.tscn; the tactic tiles are made here.
 	unpack_screen(PlansScene)
 	content.get_node("Status").text = "PLANS %d / 2" % game.plans.tokens
 	var list: Control = content.get_node("Scroll/List")
 	for id in game.plans.unlocked:
 		var tactic: Dictionary = game.plans.definition(id)
-		var pick := choice_tile(tactic.name + " · %d Plan%s" % [tactic.cost, "s" if int(tactic.cost) > 1 else ""], tactic.description, begin_tactic.bind(id), list)
+		var pick := choice_tile(plans_tile_title(tactic.name, int(tactic.cost)), tactic.description,
+			begin_tactic.bind(id), list)
 		pick.disabled = not tactic_available(id)
 		pick.get_parent().get_parent().custom_minimum_size.y = 125
 	var armed: Label = content.get_node("Armed")
 	if game.plans.armed.is_empty(): armed.free()
 	else: armed.text = "ARMED: " + str(game.plans.definition(game.plans.armed.kind).name)
 	hook_button(content.get_node("ReturnButton"), close_modal)
+
+## A Plans tile title: "Brace · 1 Plan". The LAN client uses it too.
+static func plans_tile_title(tactic_name: String, cost: int) -> String:
+	return tactic_name + " · %d Plan%s" % [cost, "s" if cost > 1 else ""]
 
 func tactic_available(id: String) -> bool:
 	var tactic: Dictionary = game.plans.definition(id)

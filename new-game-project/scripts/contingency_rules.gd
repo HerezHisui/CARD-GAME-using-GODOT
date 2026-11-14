@@ -22,6 +22,10 @@ var armed: Dictionary = {}
 func setup(manager: Node) -> void: game = manager
 
 func definition(id: String) -> Dictionary:
+	return find_tactic(id)
+
+## A tactic by id, without a rules object. The LAN client reads names and descriptions here.
+static func find_tactic(id: String) -> Dictionary:
 	for tactic in TACTICS:
 		if tactic.id == id: return tactic
 	return {}

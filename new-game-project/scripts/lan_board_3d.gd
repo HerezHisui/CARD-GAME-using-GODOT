@@ -19,6 +19,10 @@ const HOLD_MOVE_PIXELS := 12.0  # same as the host's hold check
 const RoomMenuStyle = preload("res://scripts/room_menu_style.gd")
 const CardScript = preload("res://scripts/card_3d.gd")
 const BoardDrag = preload("res://scripts/board_drag.gd")
+# p2-plans: the host's Plans screen parts (run_director.show_plans).
+const PlansScene = preload("res://scenes/ui/ui_plans.tscn")
+const MenuSkin = preload("res://scripts/suspended_menu.gd")
+const Contingency = preload("res://scripts/contingency_rules.gd")
 
 # DESK_VIEW seen from the far side of the table, the Disaster seat.
 const SEAT_VIEW := {"pos": Vector3(0, 1.0, 0.4), "rot": Vector3(-30, 180, 0), "dist": 5.3, "fov": 60.0}
@@ -88,8 +92,12 @@ var resource_label: Label
 var resource_meter: Dictionary
 var end_button: Button
 var draw_button: Button
-var tactic_box: VBoxContainer
-var plans_toggle: Button  # Preparedness: the host's Plans icon box, opens the tactic list
+var tactic_box: VBoxContainer  # the tile list inside the Plans screen
+var plans_screen: ColorRect  # p2-plans: the dimmer that holds the host's Plans screen, hidden when closed
+var plans_panel: PanelContainer
+var plans_status: Label
+var plans_armed: Label
+var plans_toggle: Button  # Preparedness: the host's Plans icon box, opens the Plans screen
 var prep_grave: Button  # Preparedness: the host's graveyard counter
 var tactic_signature := 0
 var note: PanelContainer
@@ -245,7 +253,7 @@ func _on_match_over(winner: String) -> void:
 	end_button.disabled = true
 	# The last view can be stale (old health, "OPPONENT'S TURN"), so the match HUD hides behind the result.
 	for part in _play_hud(): part.visible = false
-	tactic_box.visible = false
+	close_plans()
 
 
 ## The HUD parts that show the running match: health, Energy or Tension, the turn plate and the buttons.
@@ -392,8 +400,9 @@ func _arrange_hand() -> void:
 		var card := hand_cards[i]
 		card.set_meta("hand_slot_pos", pos)
 		card.set_meta("hand_slot_basis", card_basis)
-		var usable := _usable(i)
-		card.art_sprite.modulate = Color.WHITE if usable or not _my_turn() else Color(0.55, 0.55, 0.6)
+		# p2-colors: the host never greys a hand card it cannot play, so the client does not either.
+		# The grey hit every card at the start of a P2 turn, while the host was still busy.
+		card.art_sprite.modulate = Color.WHITE
 		if i == held and dragging:
 			continue
 		var smooth: bool = VersusMatch.SIDE_BY_SIDE_HUD and side == "disaster"
@@ -478,6 +487,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if _inspect_input(event): return
 	if _list_input(event): return
+	if _plans_input(event): return
 	if _evolution_open() or view.get("evolution_waiting", false): return
 	# W and S would move the idle game's camera.
 	if event is InputEventKey and event.keycode in [KEY_W, KEY_S]:
@@ -593,7 +603,7 @@ func _process(delta: float) -> void:
 
 
 func _update_hover() -> void:
-	var index := _hand_at(mouse) if not over and not is_instance_valid(inspection) else -1
+	var index := _hand_at(mouse) if not over and not is_instance_valid(inspection) and not plans_open() else -1
 	if index == hovered:
 		return
 	hovered = index
@@ -603,7 +613,7 @@ func _update_hover() -> void:
 func _update_lane_inspection() -> void:
 	var foe := "response" if side == "disaster" else "disaster"
 	var free := not dragging and hovered < 0 and not over and not _evolution_open() \
-		and not is_instance_valid(inspection)
+		and not is_instance_valid(inspection) and not plans_open()
 	var lane := _lane_at(mouse, foe) if free else -1
 	var card: Node3D = lane_cards[foe][lane] if lane >= 0 else null
 	if card == inspected_lane: return
@@ -764,8 +774,8 @@ func click_tactic(id: String) -> void:
 	chosen.clear()
 	_arrange_hand()
 	panel.tactic_pressed.emit(id)
-	# The list closes once a tactic is picked, like the host Plans screen.
-	tactic_box.visible = false
+	# The screen closes once a tactic is picked, like the host Plans screen.
+	close_plans()
 
 
 func click_end() -> void:
@@ -850,13 +860,8 @@ func _build_hud() -> void:
 	draw_button.name = "ClientDrawButton"
 	hud.add_child(draw_button)
 	draw_button.pressed.connect(_draw_pressed)
-	# Preparedness tactics: a list above the deck counter, opened from the Plans icon box like the host.
-	tactic_box = VBoxContainer.new()
-	tactic_box.name = "TacticList"
-	tactic_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tactic_box.visible = false
-	hud.add_child(tactic_box)
-	_place(tactic_box, Control.PRESET_BOTTOM_RIGHT, Vector2(-16, -142))
+	# Preparedness tactics: the host's Plans screen, opened from the Plans icon box like the host.
+	_build_plans_screen()
 	_build_note()
 	_build_over()
 	_build_seal_tooltip()
@@ -881,7 +886,7 @@ func _build_prep_controls() -> void:
 	plans_toggle.visible = true
 	hud.add_child(plans_toggle)
 	_place_icon_box(plans_toggle, Control.PRESET_BOTTOM_RIGHT, Vector2(-116, -72))
-	plans_toggle.pressed.connect(func() -> void: tactic_box.visible = not tactic_box.visible)
+	plans_toggle.pressed.connect(toggle_plans)
 	prep_grave = director.graveyard_button.duplicate(0)
 	prep_grave.name = "ClientGraveyardButton"
 	prep_grave.disabled = false
@@ -1032,6 +1037,7 @@ func _refresh_hud() -> void:
 		disaster_plans.get_node("CountLabel").text = str(view.held_evolutions.size())
 	if view.get("evolution_waiting", false): turn_label.text = "DISASTER CHOOSES AN EVOLUTION"
 	_fill_tactics()
+	_refresh_plans()
 
 
 func _set_plate(plate: Dictionary, data: Dictionary, title: String, tag: String) -> void:
@@ -1054,13 +1060,128 @@ func _fill_tactics() -> void:
 		child.queue_free()
 	if side != "preparedness":
 		return
+	# One host choice tile per tactic: "Name · N Plan" and the description from contingency_rules.gd.
 	for tactic: Dictionary in view.get("tactics", []):
-		var tactic_button: Button = director.button("%s (%d)" % [tactic.name, tactic.cost],
-			click_tactic.bind(str(tactic.id)), tactic_box)
-		tactic_button.name = "Tactic_" + str(tactic.id)
-		var unsupported: bool = _tactic_unsupported(str(tactic.id))
+		var id := str(tactic.id)
+		var description := str(Contingency.find_tactic(id).get("description", ""))
+		var tactic_button: Button = director.choice_tile(director.plans_tile_title(str(tactic.name),
+			int(tactic.cost)), description, _pick_tactic.bind(id), tactic_box)
+		tactic_button.clip_text = true  # the host's compact Plans layout clips long titles
+		var tile: Control = tactic_button.get_parent().get_parent()
+		tile.name = "Tactic_" + id
+		tile.custom_minimum_size.y = 125
+		var unsupported: bool = _tactic_unsupported(id)
 		tactic_button.disabled = (not bool(tactic.available) and not unsupported) or not _my_turn()
 		if unsupported: tactic_button.tooltip_text = REASONS.not_supported
+	# The host skins the tiles after they are made, so this does too.
+	MenuSkin.style_children(tactic_box)
+
+
+## The Plans status and the ARMED line, from the view, like the host screen.
+func _refresh_plans() -> void:
+	plans_status.text = "PLANS %d / 2" % int(view.get("plan_tokens", 0))
+	var armed := str(view.get("armed", ""))
+	plans_armed.visible = not armed.is_empty()
+	if plans_armed.visible:
+		plans_armed.text = "ARMED: " + str(Contingency.find_tactic(armed).get("name", armed))
+
+
+## The pick button of a tactic tile, or null.
+func tactic_tile_button(id: String) -> Button:
+	return tactic_box.get_node_or_null("Tactic_%s/Box/PickButton" % id)
+
+
+# ------------------------------------------------------------------- Plans screen (p2-plans)
+## The host's Plans screen (run_director.show_plans): same words, ui_plans.tscn, tiles and skin.
+## It is made once and hidden. The host pauses its tree for it; the client does not, so the link keeps running.
+func _build_plans_screen() -> void:
+	# The host's ModalDimmer: same colour, under the top bar.
+	plans_screen = ColorRect.new()
+	plans_screen.name = "ClientPlansScreen"
+	plans_screen.color = Color(0.043137256, 0.043137256, 0.050980393, 0.86)
+	plans_screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	plans_screen.offset_top = 52.0
+	plans_screen.visible = false
+	hud.add_child(plans_screen)
+	plans_panel = PanelContainer.new()
+	plans_panel.name = "PlansPanel"
+	plans_panel.set_meta("suspended_menu", true)
+	plans_screen.add_child(plans_panel)
+	# The host's compact screens hold the content in a scroll (ModalScroll), so wrapped text cannot stretch the panel.
+	var scroll := ScrollContainer.new()
+	scroll.name = "ModalScroll"
+	scroll.follow_focus = true
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	plans_panel.add_child(scroll)
+	var box := VBoxContainer.new()
+	box.name = "Content"
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
+	box.add_child(director.label(director.PLANS_TITLE, 24, UI.GOLD, true))
+	box.add_child(director.label(director.PLANS_SUBTITLE, 18, UI.MUTED, true))
+	var layout := PlansScene.instantiate()
+	# The nodes leave the scene, so they should not keep it as their owner (like run_director.unpack_screen).
+	for node in layout.find_children("*", "", true, false): node.owner = null
+	for child in layout.get_children():
+		layout.remove_child(child)
+		box.add_child(child)
+	layout.free()
+	plans_status = box.get_node("Status")
+	plans_armed = box.get_node("Armed")
+	tactic_box = box.get_node("Scroll/List")
+	director.hook_button(box.get_node("ReturnButton"), close_plans)
+	MenuSkin.apply_skin(plans_panel, box)
+	# The straps above the frame, like the host's screen. Top level, so the panel does not lay it out.
+	var straps := MenuSkin.new()
+	straps.name = "SuspendedFrame"
+	straps.top_level = true
+	straps.panel = plans_panel
+	plans_panel.add_child(straps)
+
+
+func plans_open() -> bool:
+	return is_instance_valid(plans_screen) and plans_screen.visible
+
+
+func toggle_plans() -> void:
+	if plans_open(): close_plans()
+	else: open_plans()
+
+
+## Opens the screen in the host's place: 560 x 680 at most, centred, below the top bar.
+func open_plans() -> void:
+	if side != "preparedness" or over or dragging: return
+	close_inspection()
+	close_list()
+	var viewport := get_viewport().get_visible_rect().size
+	var panel_size := Vector2(minf(560, viewport.x - 32), minf(680, viewport.y - 48))
+	var top := maxf((viewport.y - panel_size.y) / 2, 66)
+	var bottom := viewport.y - (viewport.y - panel_size.y) / 2
+	# The dimmer starts 52 px down, so the panel is placed in its space.
+	plans_panel.position = Vector2((viewport.x - panel_size.x) / 2, top - plans_screen.offset_top)
+	plans_panel.size = Vector2(panel_size.x, bottom - top)
+	plans_screen.visible = true
+	hud.move_child(plans_screen, -1)
+
+
+func close_plans() -> void:
+	if is_instance_valid(plans_screen): plans_screen.visible = false
+
+
+## A tile pick sends the tactic like the old list buttons did, then the screen closes.
+func _pick_tactic(id: String) -> void:
+	click_tactic(id)
+	close_plans()
+
+
+## While the screen is open, Esc closes it and the table ignores the mouse. The tiles still get clicks.
+func _plans_input(event: InputEvent) -> bool:
+	if not plans_open(): return false
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		get_viewport().set_input_as_handled()
+		close_plans()
+	return true
 
 
 ## Energy or Tension as current / cap on the host's bar. The bar is empty at cap 0.
@@ -1480,6 +1601,20 @@ func _start_inspect_hold(target, point: Vector2) -> void:
 	inspect_target = target
 	inspect_since = Time.get_ticks_msec()
 	inspect_origin = point
+	_inspect_log("hold starts on " + _inspect_name(target))
+
+
+## p2-inspect-freeze: debug build in a real window only. One line per inspect step in the Output panel,
+## so a frozen Player 2 window shows the last step it reached.
+func _inspect_log(text: String) -> void:
+	if OS.is_debug_build() and DisplayServer.get_name() != "headless":
+		print("[P2 inspect] frame %d: %s" % [Engine.get_process_frames(), text])
+
+
+func _inspect_name(target) -> String:
+	if target is Dictionary: return str(target.get("name", "?"))
+	if target is Node3D and is_instance_valid(target): return str(target.card_data.get("name", "?"))
+	return "nothing"
 
 
 ## A press that stays still for the host's hold time opens the inspect panel.
@@ -1490,6 +1625,7 @@ func _check_inspect_hold() -> void:
 	if Time.get_ticks_msec() - inspect_since < int(director.INSPECT_HOLD_SECONDS * 1000.0): return
 	var target = inspect_target
 	inspect_target = null
+	_inspect_log("hold time reached")
 	# A held hand card goes back to the fan, so the release does not play it.
 	held = -1
 	_arrange_hand()
@@ -1535,6 +1671,8 @@ func _inspect_input(event: InputEvent) -> bool:
 		close_inspection()
 		suppress_release = true
 		get_viewport().set_input_as_handled()
+	elif left and event.pressed:
+		_inspect_log("click inside the dossier, the panel stays open")
 	return true
 
 
@@ -1544,6 +1682,7 @@ func open_inspection(target) -> void:
 	if over or is_instance_valid(inspection): return
 	var card: Node3D = target if target is Node3D and is_instance_valid(target) else null
 	if card == null and not target is Dictionary: return
+	_inspect_log("open starts: " + _inspect_name(target))
 	var definition: Dictionary = director.live_definition(card) if card != null else target.duplicate(true)
 	inspection = InspectionScene.instantiate()
 	inspection.name = "LanInspection"
@@ -1564,11 +1703,13 @@ func open_inspection(target) -> void:
 	# A held choice button keeps the mouse. Building the list again lets it go, so no pick happens.
 	if card == null: _refresh_choice()
 	hud.move_child(inspection, -1)
+	_inspect_log("open done")
 
 
 func close_inspection() -> void:
 	inspect_target = null
 	if is_instance_valid(inspection):
+		_inspect_log("close")
 		inspection.hide()
 		inspection.queue_free()
 	inspection = null

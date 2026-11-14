@@ -572,7 +572,7 @@ func check_board_flow() -> void:
 	game.plans.tokens = 2
 	game.plans.committed_round = 0
 	await publish(4)
-	var extract_button: Button = board.tactic_box.get_node("Tactic_extract")
+	var extract_button: Button = board.tactic_tile_button("extract")
 	expect(not extract_button.disabled and extract_button.tooltip_text == "", "board: Extraction is playable")
 	board.click_tactic("extract")
 	before = host_results.size()
