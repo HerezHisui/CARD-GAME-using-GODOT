@@ -1,0 +1,31 @@
+{
+	"battle": {
+		"prep_opening": ["quick_dash", "fire_drill", "fire_truck"],
+		"prep_deck": ["fire_truck", "debris_clearance", "quick_dash", "fire_drill", "quick_dash", "fire_drill"],
+		"disaster_deck": ["ember", "ember", "tremor"],
+		"janitor_hp": 8
+	},
+	"steps": [
+		{"id": "draw", "tag": "PREPARE", "text": "Tap the deck to draw a card.",
+			"done": "drew", "give": "", "point": "deck"},
+		{"id": "deploy", "tag": "PREPARE", "text": "Drag a card onto a glowing lane.",
+			"done": "unit_deployed", "give": "", "point": "hand"},
+		{"id": "end_turn", "tag": "PREPARE", "text": "Press End turn (or Space).",
+			"done": "turn_ended", "give": "", "point": "end_turn"},
+		{"id": "lanes", "tag": "RESPOND", "text": "Cards fight the card across from them. An empty lane hits HP.",
+			"done": "combat_ended", "give": "", "point": "none"},
+		{"id": "douse", "tag": "RESPOND",
+			"text": "Ember is Fire. Douse beats Fire. Drag Fire Hose across from Ember.",
+			"done": "douse_faces_fire", "give": "fire_truck", "point": "hand"},
+		{"id": "super", "tag": "RESPOND",
+			"text": "SUPER! means double damage. The chart (top right) shows who beats who.",
+			"done": "super_hit_seen", "give": "", "point": "chart"},
+		{"id": "energy", "tag": "PREPARE", "text": "Cards cost energy. It refills every turn and grows by 1.",
+			"done": "next_draw", "give": "", "point": "none"},
+		{"id": "win", "tag": "RESPOND", "text": "Bring the Janitor's HP to 0 to clear the room.",
+			"done": "battle_won", "give": "", "point": "none"},
+		{"id": "recover", "tag": "RECOVER",
+			"text": "Room cleared. You patch up after every win. Ready for the real run?",
+			"done": "button_pressed", "give": "", "point": "none"}
+	]
+}

@@ -35,6 +35,8 @@ var lan_prep_utilities_override: Variant = null
 var balance_patch_override: Variant = null
 # null follows DISASTER_ENTRY_BARRIER_NERF; only tests override it.
 var entry_barrier_nerf_override: Variant = null
+# null follows TUTORIAL_ENABLED; only tests override it.
+var tutorial_override: Variant = null
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}
@@ -409,6 +411,37 @@ func start_versus(prep_deck: Array[Dictionary], disaster_deck: Array[Dictionary]
 	_refresh_bars()
 	set_board_view(false)
 	_start_match()
+
+## Tutorial start (scripts/tutorial.gd): fixed decks in the given order, no coin, no evolutions. You go first.
+func start_tutorial(prep_opening: Array[Dictionary], prep_deck: Array[Dictionary],
+		disaster_deck: Array[Dictionary], janitor_hp: int) -> void:
+	clear_battle()
+	encounter_kind = "tutorial"
+	boss_fog.set_active(false)
+	Sfx.encounter_music(encounter_kind, 1)
+	run_director.intel_revealed = false
+	turn = 1
+	log_event("The drill begins.")
+	energy_cap = ENERGY_START
+	preparedness = energy_cap
+	plans.tokens = 0
+	tension_cap = TENSION_START
+	tension = tension_cap
+	# Full HP every time, so a restart after a loss is a fresh try.
+	player_hp = hero_max_hp()
+	enemy_max_hp = janitor_hp
+	enemy_hp = enemy_max_hp
+	_enemy_hp_ui.get_node("Caption").text = "JANITOR"
+	# No shuffle: the last card in each list is drawn first.
+	for definition in prep_deck: deck.append(definition.duplicate(true))
+	for definition in disaster_deck: enemy_deck.append(definition.duplicate(true))
+	_refresh_bars()
+	set_board_view(false)
+	presentation.banner("THE DRILL", "Practice battle · You go first", UI.GOLD, true)
+	for definition in prep_opening: add_card_to_hand(definition.duplicate(true))
+	enemy_draw_cards(STARTING_HAND)
+	player_first = true
+	_begin_round()
 
 func fill_elite_reserve(reserve: Array[Dictionary], limit: int) -> void:
 	var theme := reserve.duplicate(true)
@@ -969,9 +1002,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 ## Versus only: a hand card pressed before this turn's draw shows DRAW A CARD FIRST and is not played.
-## Singleplayer keeps its old silent refusal.
+## Singleplayer keeps its old silent refusal. The tutorial drill shows the popup too.
 func warn_draw_first(mouse: Vector2) -> bool:
-	if encounter_kind != "versus" or seat_prep != "local" or phase != Phase.PLAYER_DRAW: return false
+	if encounter_kind not in ["versus", "tutorial"] or seat_prep != "local" or phase != Phase.PLAYER_DRAW:
+		return false
 	if evolution_choice.pending() or not board_input.action.is_empty(): return false
 	if run_director and run_director.privacy_screen.visible: return false
 	var card := card_at_hand_position(mouse)
@@ -1591,9 +1625,10 @@ func _begin_round() -> void:
 		_set_phase(Phase.GAME_OVER, "The Janitor has no threats left")
 		run_director.battle_finished(true)
 		return
-	# Versus has no adaptation buff screen.
+	# Versus has no adaptation buff screen. Neither has the tutorial drill.
 	var buff_interval: int = preload("res://scripts/battle_rules.gd").BUFF_INTERVAL
-	if encounter_kind != "versus" and turn % buff_interval == 0 and adapted_round != turn:
+	if encounter_kind != "versus" and encounter_kind != "tutorial" \
+			and turn % buff_interval == 0 and adapted_round != turn:
 		adapted_round = turn
 		_set_phase(Phase.SETUP, "Choose your adaptation")
 		run_director.show_buff_choices()
@@ -1649,7 +1684,8 @@ func continue_round() -> void:
 
 func _apply_round_modifiers() -> void:
 	if balance_enabled(): return
-	if encounter_kind == "battle" or is_instance_valid(final_boss): return
+	# The tutorial drill keeps plain cards, like a normal battle.
+	if encounter_kind in ["battle", "tutorial"] or is_instance_valid(final_boss): return
 	if turn >= 7:
 		var threats = _threat_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if not threats.is_empty():
@@ -1943,7 +1979,7 @@ func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
 	card.setup(definition)
 
 	# Round 4-6 Janitor modifier chance on spawn
-	if encounter_kind not in ["battle", "versus"] and turn in [4, 5, 6] and randf() < 0.5:
+	if encounter_kind not in ["battle", "versus", "tutorial"] and turn in [4, 5, 6] and randf() < 0.5:
 		var mods = ["armored", "rampaging", "fierce", "regenerating"]
 		card.add_modifier(mods.pick_random())
 

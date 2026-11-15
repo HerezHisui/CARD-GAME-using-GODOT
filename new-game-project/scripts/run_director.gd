@@ -18,6 +18,7 @@ const Buffs = preload("res://scripts/run_buffs.gd")
 const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
 const TitleScene = preload("res://scenes/ui/ui_title.tscn")
+const Tutorial = preload("res://scripts/tutorial.gd")
 const MenuScene = preload("res://scenes/ui/ui_menu.tscn")
 const MapScene = preload("res://scenes/ui/ui_map.tscn")
 const DeckScene = preload("res://scenes/ui/ui_deck.tscn")
@@ -200,9 +201,24 @@ func show_title() -> void:
 	else:
 		for unused in ["%SaveLabel", "%ContinueButton", "%AbandonButton"]: title_screen.get_node(unused).free()
 		var start_button: Button = title_screen.get_node("%StartButton")
-		start_button.pressed.connect(show_characters)
+		# Flag on and the drill never finished: Start Game asks once about the drill first.
+		var ask: bool = Tutorial.enabled(game) and not Tutorial.is_done(game)
+		start_button.pressed.connect(ask_first_run if ask else show_characters)
 		start_button.grab_focus()
 	title_screen.get_node("%QuitButton").pressed.connect(quit_game)
+	# The tutorial drill: one more menu item after Start Game or Continue, only with the flag on.
+	if Tutorial.enabled(game):
+		var anchor: Button = title_screen.get_node("%ContinueButton" if has_save else "%StartButton")
+		var how := Button.new()
+		how.name = "HowToPlayButton"
+		how.text = "How to play"
+		how.custom_minimum_size = anchor.custom_minimum_size
+		how.mouse_default_cursor_shape = anchor.mouse_default_cursor_shape
+		how.add_theme_font_size_override("font_size", anchor.get_theme_font_size("font_size"))
+		anchor.get_parent().add_child(how)
+		anchor.get_parent().move_child(how, anchor.get_index() + 1)
+		title_screen.style_menu_button(how)
+		how.pressed.connect(start_drill)
 	var versus_button: Button = title_screen.get_node("%VersusButton")
 	if preload("res://scripts/versus_match.gd").LAN_ENABLED:
 		# The node keeps its name. With LAN on it opens the Multiplayer panel instead of a match.
@@ -237,6 +253,21 @@ func start_versus_match() -> void:
 		add_child(versus_match)
 		versus_match.setup(self)
 	versus_match.start()
+
+## Starts the tutorial drill from the title. tutorial.gd refuses when the flag is off.
+func start_drill() -> void:
+	Tutorial.start(self)
+
+## First run, flag on only: one question before the character screen.
+func ask_first_run() -> void:
+	reset_panel("FIRST TIME?", "Play the 3-minute drill.", "confirm")
+	confirmation_cancel = show_title
+	confirm_buttons("Play the drill", start_drill, "Skip", skip_first_run)
+
+## Skip at the first-run question: never ask again, then go on as before.
+func skip_first_run() -> void:
+	Tutorial.mark_done(game)
+	show_characters()
 
 func continue_saved_run() -> void:
 	if not persistence.resume(): show_title()
@@ -734,7 +765,8 @@ func _process(_delta: float) -> void:
 	if inspect_hold_pending and not game.board_input.action.is_empty(): cancel_inspect_hold()
 	if battle_active: game.plans.preview_attack()
 	modal_dimmer.visible = modal.visible and battle_active and screen not in ["map", "inspect", "reward"]
-	game.visible = battle_active or screen == "reward"
+	# The tutorial keeps the board in view after its battle, for its last step.
+	game.visible = battle_active or screen == "reward" or encounter == "tutorial"
 	board_prompt.visible = battle_active and not modal.visible and not game.board_input.action.is_empty()
 	if board_prompt.visible: board_prompt_label.text = str(game.board_input.action.get("title", "Choose a board target"))
 	game.opponent_hand.visible = battle_active and not modal.visible and not game.disaster_seat_on
@@ -1403,6 +1435,11 @@ func battle_finished(won: bool) -> void:
 		versus_match.finish(won)
 		# LAN Part E: tell the Disaster client who won.
 		if is_instance_valid(lan_title): lan_title.match_finished(versus_match.winner)
+		return
+	# The tutorial drill ends here too: no supplies, rewards, save or defeat screen.
+	if encounter == "tutorial":
+		var drill: Node = get_node_or_null("Tutorial")
+		if drill: drill.battle_finished(won)
 		return
 	if not won:
 		Sfx.play("defeat")
@@ -2121,7 +2158,12 @@ func show_menu() -> void:
 	hook_button(content.get_node("ResumeButton"), close_modal)
 	var settings := button("Game Settings", show_settings, content)
 	content.move_child(settings, content.get_node("TitleButton").get_index())
-	if battle_active and not versus: hook_button(content.get_node("DebugButton"), show_debug)
+	# The drill keeps Debug hidden and gets its own way out above "Return to starting screen".
+	var drill: bool = encounter == "tutorial"
+	if drill:
+		var skip := button("Skip the drill", return_title, content)
+		content.move_child(skip, content.get_node("TitleButton").get_index())
+	if battle_active and not versus and not drill: hook_button(content.get_node("DebugButton"), show_debug)
 	else: content.get_node("DebugButton").free()
 	hook_button(content.get_node("TitleButton"), confirm_title)
 	hook_button(content.get_node("QuitButton"), quit_game)
