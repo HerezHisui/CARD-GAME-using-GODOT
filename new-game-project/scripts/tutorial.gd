@@ -4,8 +4,8 @@ extends Node
 ## Every way out (Skip, a win, the menu) ends in director.return_title(), which reloads the scene.
 
 const UI = preload("res://scripts/ui_theme.gd")
-## Off until the drill has been played by hand. Tests turn it on with game.tutorial_override.
-const TUTORIAL_ENABLED := false
+## On for players. Under a tests/ command line it is off; tests turn it on with game.tutorial_override.
+const TUTORIAL_ENABLED := true
 const STEPS_PATH := "res://data/tutorial_steps.json"
 ## Frames to wait after a loss before the same battle starts again.
 const RESTART_FRAMES := 60
@@ -44,6 +44,7 @@ var frame: Panel
 ## True when the drill may run: the test override if set, else the flag.
 static func enabled(game_node) -> bool:
 	if game_node.tutorial_override is bool: return game_node.tutorial_override
+	if game_node.running_under_tests(): return false
 	return TUTORIAL_ENABLED
 
 ## Starts the drill from the title. Returns false when it may not start.

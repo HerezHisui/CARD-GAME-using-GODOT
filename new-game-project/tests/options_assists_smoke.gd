@@ -1,6 +1,7 @@
 # Covers: the title Options button, the Auto camera and Auto draw settings (game_3d_manager.gd, run_director.gd,
-# board_actions.gd). ASSISTS_DEFAULT_ON stays false; tests reach "on" through game.assists_default_override,
-# set before the game enters the tree. Buttons and keys go through real input. Every wait is capped at 600 frames.
+# board_actions.gd). ASSISTS_DEFAULT_ON is true but off under tests/; tests reach "on" through
+# game.assists_default_override, set before the game enters the tree. Buttons and keys go through real input.
+# Every wait is capped at 600 frames.
 extends SceneTree
 
 const Tutorial = preload("res://scripts/tutorial.gd")
@@ -141,11 +142,13 @@ func run() -> void:
 	await frames(2)
 	quit(1 if failures else 0)
 
-## 1. Flag false: both off. A saved choice persists in the test config. Override true gives both on.
+## 1. The flag ships true but tests start with both off. A saved choice persists in the test config.
+## Override true gives both on.
 func check_settings() -> void:
 	await new_scene(null)
-	expect(game.ASSISTS_DEFAULT_ON == false, "1: the flag ships off")
-	expect(not game.auto_camera and not game.auto_draw, "1: flag off: both assists start off")
+	expect(game.ASSISTS_DEFAULT_ON == true, "1: the flag ships on")
+	expect(game.running_under_tests() and not game.assists_default(), "1: tests/ command line, override null: off")
+	expect(not game.auto_camera and not game.auto_draw, "1: no override under tests/: both assists start off")
 	expect(settings_path().contains("test_visual_settings"), "1: the test uses its own settings file")
 	game.set_visual_setting("auto_camera", true)
 	game.set_visual_setting("auto_draw", true)
@@ -158,6 +161,16 @@ func check_settings() -> void:
 	DirAccess.remove_absolute(settings_path())
 	await new_scene(true)
 	expect(game.auto_camera and game.auto_draw, "1: override true and no saved choice: both on")
+	DirAccess.remove_absolute(settings_path())
+	# No override, no saved choice, tests/ command line: a normal game node starts with both off.
+	await new_scene(null)
+	expect(game.assists_default_override == null, "1: normal game node has no override")
+	expect(not game.auto_camera and not game.auto_draw, "1: no override under tests/: auto camera and draw false")
+	game.assists_default_override = true
+	expect(game.assists_default(), "1: override true turns the default on")
+	DirAccess.remove_absolute(settings_path())
+	await new_scene(true)
+	expect(game.auto_camera and game.auto_draw, "1: override true: auto camera and draw true")
 	DirAccess.remove_absolute(settings_path())
 
 ## 2. Title Options opens GAME SETTINGS; Return and Esc go back to the title. The battle menu returns to the menu.

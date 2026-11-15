@@ -1,6 +1,6 @@
 # Covers: "The Drill" tutorial (scripts/tutorial.gd, data/tutorial_steps.json). Reached only through
-# game.tutorial_override = true; the TUTORIAL_ENABLED const stays false. Driven with real mouse and key events.
-# Every wait is a frame loop capped at 600 frames.
+# game.tutorial_override = true; the TUTORIAL_ENABLED const is true but off under tests/.
+# Driven with real mouse and key events. Every wait is a frame loop capped at 600 frames.
 extends SceneTree
 
 const Tutorial = preload("res://scripts/tutorial.gd")
@@ -212,9 +212,11 @@ func run() -> void:
 	DirAccess.remove_absolute(settings_path())
 	finish()
 
-## 1. Flag false, override null: nothing changes.
+## 1. The flag ships true; under a tests/ command line it is off unless the override is set.
 func check_flag_off() -> void:
 	await new_scene(null)
+	expect(Tutorial.TUTORIAL_ENABLED == true, "1: the flag ships on")
+	expect(game.running_under_tests() and not Tutorial.enabled(game), "1: tests/ command line, override null: off")
 	expect(title_button("HowToPlayButton") == null, "1: flag off: no How to play on the title")
 	expect(not Tutorial.start(director), "1: flag off: tutorial start refuses")
 	expect(drill() == null, "1: flag off: no drill node")

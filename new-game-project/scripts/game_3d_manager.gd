@@ -37,8 +37,8 @@ var balance_patch_override: Variant = null
 var entry_barrier_nerf_override: Variant = null
 # null follows TUTORIAL_ENABLED; only tests override it.
 var tutorial_override: Variant = null
-## Auto camera and Auto draw start off until they are played by hand. false = today's behaviour.
-const ASSISTS_DEFAULT_ON := false
+## Auto camera and Auto draw start on for players. Under a tests/ command line they start off.
+const ASSISTS_DEFAULT_ON := true
 ## Auto draw waits this long, so the YOUR TURN banner shows before the card comes.
 const AUTO_DRAW_SECONDS := 0.7
 # null follows ASSISTS_DEFAULT_ON; only tests override it (set it before the node enters the tree).
@@ -315,7 +315,15 @@ func set_visual_setting(key: String, enabled: bool) -> void:
 ## Start value of both assists when the settings file has none.
 func assists_default() -> bool:
 	if assists_default_override is bool: return assists_default_override
+	if running_under_tests(): return false
 	return ASSISTS_DEFAULT_ON
+
+## True when a smoke test started this run. Old suites assume the assists and the tutorial are off.
+func running_under_tests() -> bool:
+	for argument in OS.get_cmdline_args():
+		if argument.contains("tests/"):
+			return true
+	return false
 
 func visual_settings_path() -> String:
 	# Match run-save isolation so smoke tests cannot change the player's presentation preferences.
