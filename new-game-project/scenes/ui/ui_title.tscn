@@ -197,8 +197,8 @@ text = "Versus"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
+mouse_default_cursor_shape = 2
 theme_override_font_sizes/font_size = 22
-disabled = true
 text = "Options"
 
 [node name="QuitButton" type="Button" parent="Menu"]

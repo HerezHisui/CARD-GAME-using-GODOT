@@ -37,6 +37,12 @@ var balance_patch_override: Variant = null
 var entry_barrier_nerf_override: Variant = null
 # null follows TUTORIAL_ENABLED; only tests override it.
 var tutorial_override: Variant = null
+## Auto camera and Auto draw start off until they are played by hand. false = today's behaviour.
+const ASSISTS_DEFAULT_ON := false
+## Auto draw waits this long, so the YOUR TURN banner shows before the card comes.
+const AUTO_DRAW_SECONDS := 0.7
+# null follows ASSISTS_DEFAULT_ON; only tests override it (set it before the node enters the tree).
+var assists_default_override: Variant = null
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}
@@ -75,6 +81,9 @@ var vfx: Node3D
 var boss_fog: Node
 var effects_enabled := true
 var boss_fog_enabled := true
+# Assists for new players, saved with the visual settings. Defaults come from ASSISTS_DEFAULT_ON.
+var auto_camera := false
+var auto_draw := false
 var turn_banner: CanvasLayer
 var coin_result := -1
 var coin_pick := -1
@@ -82,6 +91,8 @@ var encounter_serial := 0
 enum View { WIDE, DESK, BOARD }
 var view_mode: View = View.DESK
 var in_board_view := false
+# True once W or S moved the camera since the game last moved it to the board. Auto camera then leaves it.
+var view_changed_by_hand := false
 const BOARD_SCALE := 0.7
 const HAND_SCALE := 0.62
 var run_director: CanvasLayer
@@ -159,6 +170,9 @@ func _ready() -> void:
 	if preferences.load(visual_settings_path()) == OK:
 		effects_enabled = bool(preferences.get_value("visuals", "effects_enabled", true))
 		boss_fog_enabled = bool(preferences.get_value("visuals", "boss_fog_enabled", true))
+	# An empty file gives the default too.
+	auto_camera = bool(preferences.get_value("visuals", "auto_camera", assists_default()))
+	auto_draw = bool(preferences.get_value("visuals", "auto_draw", assists_default()))
 	preload("res://scripts/title_screen.gd").effects_enabled = effects_enabled
 	presentation = preload("res://scripts/game_presentation.gd").new()
 	add_child(presentation)
@@ -284,7 +298,7 @@ func log_event(message: String, private_side: String = "", public_message: Strin
 	while log_private.size() > battle_log.size(): log_private.pop_front()
 
 func set_visual_setting(key: String, enabled: bool) -> void:
-	if key not in ["effects_enabled", "boss_fog_enabled"]: return
+	if key not in ["effects_enabled", "boss_fog_enabled", "auto_camera", "auto_draw"]: return
 	set(key, enabled)
 	if key == "effects_enabled": preload("res://scripts/title_screen.gd").effects_enabled = enabled
 	if is_instance_valid(boss_fog): boss_fog.refresh()
@@ -297,6 +311,11 @@ func set_visual_setting(key: String, enabled: bool) -> void:
 	preferences.load(visual_settings_path())
 	preferences.set_value("visuals", key, enabled)
 	preferences.save(visual_settings_path())
+
+## Start value of both assists when the settings file has none.
+func assists_default() -> bool:
+	if assists_default_override is bool: return assists_default_override
+	return ASSISTS_DEFAULT_ON
 
 func visual_settings_path() -> String:
 	# Match run-save isolation so smoke tests cannot change the player's presentation preferences.
@@ -599,6 +618,8 @@ func view_settings(mode: int) -> Dictionary:
 	return [WIDE_VIEW, DESK_VIEW, BOARD_VIEW][clampi(mode, View.WIDE, View.BOARD)]
 
 func step_view(direction: int) -> void:
+	# Only the W and S keys and buttons come here.
+	view_changed_by_hand = true
 	set_view(clampi(int(view_mode) + direction, View.WIDE, View.BOARD))
 
 func set_view(mode: int) -> void:
@@ -621,7 +642,27 @@ func _update_view_buttons() -> void:
 	_view_back_btn.disabled = view_mode == View.WIDE
 
 func set_board_view(on: bool) -> void:
+	# The game moves to the board (combat, a board pick, a spell): watch for W and S from here.
+	if on: view_changed_by_hand = false
 	set_view(View.BOARD if on else View.DESK)
+
+## Auto camera: singleplayer battles and the drill only, never Versus or LAN.
+## The drill turns it on when the player did, or when the assists are on by default.
+func auto_camera_on() -> bool:
+	if encounter_kind == "versus": return false
+	if encounter_kind == "tutorial": return auto_camera or assists_default()
+	return auto_camera
+
+## True when auto camera may take the camera back to the desk now.
+func auto_camera_may_move() -> bool:
+	if not auto_camera_on() or view_changed_by_hand or view_mode == View.DESK: return false
+	if is_instance_valid(dragged_hand_card) or not board_input.action.is_empty(): return false
+	return not (run_director and run_director.modal.visible)
+
+## Called (deferred) by board_actions.clear() when a board pick or move ends.
+func auto_camera_after_action() -> void:
+	if phase not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: return
+	if auto_camera_may_move(): set_view(View.DESK)
 
 func _apply_view(v: Dictionary) -> void:
 	if lan_side_view(): v = SeatPresentation.seat_camera(lan_remote_prep)
@@ -1701,6 +1742,29 @@ func _begin_player_turn() -> void:
 		_set_phase(Phase.PLAYER_PLAY, "Your turn - play cards, then End Turn")
 	else:
 		_set_phase(Phase.PLAYER_DRAW, "Your turn - draw a card from the deck")
+		if auto_draw_on(): _auto_draw()
+
+## Auto draw: singleplayer battles only. Versus, LAN and the drill (it teaches the draw) keep the button.
+func auto_draw_on() -> bool:
+	return auto_draw and encounter_kind not in ["versus", "tutorial"]
+
+## Waits a moment so the YOUR TURN banner shows, then draws the same way the deck button does.
+func _auto_draw() -> void:
+	var serial := encounter_serial
+	var round_number := turn
+	var waited := 0.0
+	# Frame-capped wait: about AUTO_DRAW_SECONDS, and longer while the TURN banner still plays.
+	for i in 600:
+		var round_banner: bool = is_instance_valid(turn_banner) and turn_banner.is_playing()
+		if waited >= AUTO_DRAW_SECONDS and not round_banner: break
+		await get_tree().process_frame
+		if not is_inside_tree(): return
+		waited += get_process_delta_time()
+	if serial != encounter_serial or turn != round_number or phase != Phase.PLAYER_DRAW: return
+	# Skip when a modal, a choice or an evolution pick is open: the button still works.
+	if evolution_choice.pending() or not board_input.action.is_empty() or presentation.blocking: return
+	if run_director and run_director.modal.visible: return
+	_on_draw_button_pressed()
 
 func _on_draw_button_pressed() -> void:
 	if disaster_draw.waiting:
@@ -2116,7 +2180,9 @@ func _combat() -> void:
 	plans.finish_combat()
 	if phase != Phase.GAME_OVER:
 		await _wait(0.5)
-		set_view(prev_view)
+		# Manual camera: today's view comes back. Auto camera goes to the desk, unless W/S moved it in combat.
+		if not auto_camera_on(): set_view(prev_view)
+		elif auto_camera_may_move(): set_view(View.DESK)
 		await _wait(0.6)
 
 ## response_side = true -> the player's row attacks the Disaster row.

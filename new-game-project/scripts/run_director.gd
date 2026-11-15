@@ -73,6 +73,7 @@ var persistence: Node
 var versus_match: Node
 var lan_title: Node  # LAN Part E: Host / Join on the title. Only made when VersusMatch.LAN_ENABLED is true.
 # Lobby step: the title has one LAN Versus button; Host / Join live in the lobby hub.
+var settings_origin := "menu"  # "title" when GAME SETTINGS was opened from the title Options button.
 var catalog: Array[Dictionary] = []
 var rooms: Array = []
 var cleared: Array = []
@@ -206,6 +207,7 @@ func show_title() -> void:
 		start_button.pressed.connect(ask_first_run if ask else show_characters)
 		start_button.grab_focus()
 	title_screen.get_node("%QuitButton").pressed.connect(quit_game)
+	title_screen.get_node("%OptionsButton").pressed.connect(show_settings_from_title)
 	# The tutorial drill: one more menu item after Start Game or Continue, only with the flag on.
 	if Tutorial.enabled(game):
 		var anchor: Button = title_screen.get_node("%ContinueButton" if has_save else "%StartButton")
@@ -913,6 +915,10 @@ func _input(event: InputEvent) -> void:
 			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if screen in ["title", "title_help", "characters", "character_preview"]: return
+		# Settings opened from the title: Esc goes back to the title, the battle keys do nothing.
+		if screen == "settings" and settings_origin == "title":
+			if event.keycode == KEY_ESCAPE: show_menu_from_settings()
+			return
 		match event.keycode:
 			KEY_F3: show_debug()
 			KEY_D: show_deck()
@@ -1152,17 +1158,34 @@ func _skin_menu() -> void:
 
 func show_settings() -> void:
 	reset_panel("GAME SETTINGS", "Presentation preferences apply immediately.", "settings")
-	for setting in [["effects_enabled", "Attack and status effects"], ["boss_fog_enabled", "Boss fog"]]:
+	# The assists carry a third item: one short hint line shown under the toggle.
+	for setting in [["effects_enabled", "Attack and status effects"], ["boss_fog_enabled", "Boss fog"],
+			["auto_camera", "Auto camera", "Camera goes back to the normal view after each clash."],
+			["auto_draw", "Auto draw", "Your card is drawn for you at the start of your turn."]]:
 		var toggle := CheckButton.new()
 		toggle.name = str(setting[0])
 		toggle.text = str(setting[1])
 		toggle.button_pressed = game.get(setting[0])
 		toggle.toggled.connect(func(enabled: bool): game.set_visual_setting(setting[0], enabled))
 		content.add_child(toggle)
-	button("Return to game menu", show_menu_from_settings, content)
+		if setting.size() > 2:
+			var hint := label(str(setting[2]), 15, UI.MUTED)
+			hint.name = str(setting[0]) + "_hint"
+			content.add_child(hint)
+	var back_text := "Return to title" if settings_origin == "title" else "Return to game menu"
+	button(back_text, show_menu_from_settings, content)
+
+## The title Options button: the same GAME SETTINGS panel, with Return going back to the title.
+func show_settings_from_title() -> void:
+	settings_origin = "title"
+	show_settings()
 
 func show_menu_from_settings() -> void:
 	screen = ""
+	if settings_origin == "title":
+		settings_origin = "menu"
+		show_title()
+		return
 	show_menu()
 
 func close_modal() -> void:

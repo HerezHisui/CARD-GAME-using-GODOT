@@ -6,7 +6,11 @@ var action: Dictionary = {}
 func setup(manager: Node) -> void:
 	game = manager
 
-func clear() -> void: action.clear()
+func clear() -> void:
+	var had_action := not action.is_empty()
+	action.clear()
+	# Auto camera: back to the desk once the pick or move is over. Deferred, so a new pick can start first.
+	if had_action: game.call_deferred("auto_camera_after_action")
 
 func pick(title: String, cards: Array, callback: Callable, cancel_callback: Callable, tactic: String = "") -> void:
 	game.set_board_view(true)
