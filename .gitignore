@@ -2,3 +2,6 @@
 .claude/
 .agents/
 *.blend1
+
+# Local holding area for files to delete by hand
+_to_delete/
