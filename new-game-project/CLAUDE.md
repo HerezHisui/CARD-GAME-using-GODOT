@@ -2,7 +2,7 @@
 
 Core rule: fit Claude, Claude Code and the work. Be fast, never skip a check: run the suites, report every changed test with a reason, never push.
 
-## The three shapes (Simple's design philosophy, full text in the project doc design-philosophy.md)
+## The three shapes (Simple's design philosophy)
 Triangle = stability. Filter for every change: it must serve at least one corner and hurt none, or it is cut.
 - Clean: the screen reads at a glance, short text, no clutter, no dead code, tidy scripts.
 - Simple: learned in seconds, fewer buttons and words, no paragraph needed to use it.
@@ -38,7 +38,7 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - Singleplayer must not change. New multiplayer behaviour stays behind its flag
   (for example `game.disaster_seat_on`).
 
-- Direction (14 Nov): contingency plans will be replaced per leader by that leader's own mechanic and toolkit (Sam, Robin, Sage, Kai; see the project doc club-leaders-design.md). Do not remove, rename or reshape plans, tactics or the Plans screen unless a prompt names it; versus and LAN still read them.
+- Direction (14 Nov): contingency plans will be replaced per leader by that leader's own mechanic and toolkit (Sam, Robin, Sage, Kai; see docs/notes/leader-kits.md under github-publish). Do not remove, rename or reshape plans, tactics or the Plans screen unless a prompt names it; versus and LAN still read them.
 
 ## Files you may edit
 - Edit the files the prompt lists, the files an AUTHORIZED message lists, and any NEW file (tests, scripts,
