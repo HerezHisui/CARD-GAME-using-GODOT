@@ -72,8 +72,8 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
   Show the last 20 lines and stop.
 
 ## Tools
-- Godot skills copied from GodotPrompter (MIT, pinned 60c28fd) sit in `~/.claude/skills/godot-*`. They give general
-  Godot advice only. These rules and the prompt win when they disagree. Do not install other plugins or MCP servers.
+- General Godot advice skills are switched off in the user settings (16 Nov 2026: unused for a month). These rules
+  and the prompt win over any skill. Do not install other plugins or MCP servers.
 - Two-window LAN test in the editor: Debug > Customize Run Instances, 2 instances, launch args `-- host` and
   `-- join 127.0.0.1` (debug builds only, scripts/lan_autostart.gd). Both instances share user://.
 
