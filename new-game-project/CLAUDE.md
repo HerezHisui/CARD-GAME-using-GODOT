@@ -91,6 +91,7 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - Fixtures that call `_enemy_turn()` need `game.disaster_is_human = false`.
 - A card under the mouse stays raised. Move the mouse away before an "at rest" check.
 - A direct handler call can pass while the real click fails. Test through the real input path.
+- A real board drag must send the mouse position in both board and window coordinates, or the drop lands on no lane.
 - A parse error in a preloaded script hangs every suite until timeout. Run one suite right after any scripted edit.
 - Wait in frames with a cap (600), never in unbounded loops. A bug can freeze a real window that headless never shows.
 - JSON numbers are floats. Compare with int(), and turn whole numbers into int before they reach cards or a digest.
