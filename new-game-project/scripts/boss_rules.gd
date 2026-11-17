@@ -9,6 +9,8 @@ const PATH := "res://data/bosses.json"
 const GUARDIAN_ENABLED := false
 ## The Janitor's CLOSING TIME. Off until it is play-tested, the same way.
 const JANITOR_ENABLED := false
+## The Midnight Warden reads his numbers from his row. Off until it is play-tested, the same way.
+const WARDEN_DATA_ENABLED := false
 
 # The parsed file, read once. null until the first read.
 static var _rows: Variant = null
@@ -24,11 +26,16 @@ static func rows() -> Dictionary:
 				_rows = json.data
 	return _rows
 
+## The Midnight Warden's row. {} when it is missing. boss_id() never returns "warden".
+static func warden_row() -> Dictionary:
+	return rows().get("warden", {})
+
 ## A String override picks one boss id. Otherwise the boss's own flag decides.
 static func on(id: String, override: Variant) -> bool:
 	if override is String: return id == override
 	if id == "guardian": return GUARDIAN_ENABLED
 	if id == "janitor": return JANITOR_ENABLED
+	if id == "warden": return WARDEN_DATA_ENABLED
 	return false
 
 ## The boss rule for this fight, or "" when none is on.

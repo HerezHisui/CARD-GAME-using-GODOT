@@ -16,5 +16,44 @@
 			{"name": "NIGHT SHIFT", "hp_at_or_below": 0.5, "to_hand": "midnight_cataclysm", "every_by_floor": {"2": 1}}
 		],
 		"replaces_random_modifiers": true
+	},
+	"warden": {
+		"name": "MIDNIGHT WARDEN", "room": "boss", "floors": [3],
+		"units": {
+			"night_watch": {"name": "Night Watch", "role": "guard", "lane": 1,
+				"attack": 1, "health": 4, "counter": "brace"},
+			"hall_monitor": {"name": "Hall Monitor", "role": "guard", "lane": 2,
+				"attack": 1, "health": 4, "counter": "evac"},
+			"shackle": {"name": "Emergency Shackle", "role": "shackle", "lane": 3,
+				"attack": 0, "health": 3, "counter": "evac"},
+			"west_pillar": {"name": "West Circuit Pillar", "role": "pillar", "lane": 0,
+				"attack": 0, "health": 5, "counter": "brace"},
+			"east_pillar": {"name": "East Circuit Pillar", "role": "pillar", "lane": 3,
+				"attack": 0, "health": 5, "counter": "evac"},
+			"shield_guardian": {"name": "Shield Guardian", "role": "taunt", "lane": 1,
+				"attack": 0, "health": 4, "counter": "brace"}
+		},
+		"opening": ["night_watch", "hall_monitor"],
+		"guards": {"damage": 1, "on_boss_damaged": "Night Watch", "on_response": "Hall Monitor", "response_every": 2},
+		"shield_at": 0.5,
+		"empty_lane_cap": 2,
+		"moves": {
+			"shackle": {"every": 2, "unit": "shackle"},
+			"blade_rush": {"lanes": [0, 2], "damage": 1, "bleed": 1},
+			"punishment": {"lane": 1, "damage": 3, "damage_with_shackle": 4, "healing_reduced": 2},
+			"shield_pulse": {"damage": 1, "spawn": ["west_pillar", "east_pillar", "shield_guardian"]},
+			"lights_out": {"lock_rounds": 2, "bleed": 1, "lanes": [0, 2], "damage": 2}
+		},
+		"pillars": {"echo_from": "pillar0", "heal_from": "pillar3", "heal": 1},
+		"static_echo": {"hand_full_damage": 1, "unresolved_damage": 1, "card": {"id": "static_echo",
+			"name": "Static Echo", "type": "response", "element": "douse", "cost": 0, "utility": true,
+			"effect": "draw", "draw_count": 1, "curse": true}},
+		"intents": {
+			"pulse_next": "PHASE 2: next round, Shield Pulse (1 to all units) + two 5-HP pillars. Boss shielded.",
+			"pillars": "PHASE 2: break both pillars. Guardian draws attacks; AoE and Ignore Taunt bypass it. Static Echo costs 1 HP.",
+			"phase_3": "PHASE 3: seal one hand card for 2 rounds; all units +1 Bleed, lanes 1 and 3 take 2 damage.",
+			"phase_1_even": "PHASE 1: summon Shackle; Punishment hits lane 2 for 3 (4 with Shackle), healing reduced for 2 rounds.",
+			"phase_1_odd": "PHASE 1: Blade Rush hits lanes 1 and 3 for 1 + Bleed; Punishment hits lane 2 for 3 (4 if Shackle survives), healing reduced for 2 rounds."
+		}
 	}
 }
