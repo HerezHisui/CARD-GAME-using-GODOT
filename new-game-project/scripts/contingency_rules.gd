@@ -1,5 +1,6 @@
 extends Node
 const UI = preload("res://scripts/ui_theme.gd")
+const LeaderKits = preload("res://scripts/leader_kits.gd")
 ## Response trades unused energy for a limited, delayed combat plan.
 const TACTICS := [
 	{"id":"brace", "name":"Brace", "cost":1, "description":"One ally blocks up to 2 damage from its next attack hit this combat."},
@@ -18,10 +19,15 @@ var auto_save := true
 var saved_round := -1
 var committed_round := -1
 var armed: Dictionary = {}
+# The run's leader kit id. "" means today's plans.
+var kit := ""
+# Second Wind is spent for this battle.
+var kit_used := false
 
 func setup(manager: Node) -> void: game = manager
 
 func definition(id: String) -> Dictionary:
+	if kit_id() != "": return LeaderKits.effect(kit_id(), id)
 	return find_tactic(id)
 
 ## A tactic by id, without a rules object. The LAN client reads names and descriptions here.
@@ -33,6 +39,23 @@ static func find_tactic(id: String) -> Dictionary:
 func reset_run() -> void:
 	reset()
 	unlocked.assign(["brace", "coordinate"])
+	kit = ""
+
+## The kit in play, or "" for today's plans. Versus always uses plans.
+func kit_id() -> String:
+	if game.encounter_kind == "versus": return ""
+	return kit
+
+## Give this run a leader kit. An unknown id or "" keeps today's plans.
+func set_kit(id: String) -> void:
+	var data := LeaderKits.kit(id)
+	kit = id if not data.is_empty() else ""
+	kit_used = false
+	if not data.is_empty(): unlocked.assign(data.start)
+
+## The most charges the counter holds.
+func cap() -> int:
+	return int(LeaderKits.kit(kit_id()).get("cap", 2))
 
 func unlock(id: String) -> bool:
 	if definition(id).is_empty() or id in unlocked: return false
@@ -46,13 +69,14 @@ func reset() -> void:
 	tokens = 0
 	saved_round = -1
 	committed_round = -1
+	kit_used = false
 
 func bank_unused_energy() -> bool:
-	if not auto_save or tokens >= 2 or game.preparedness < 2 or saved_round == game.turn: return false
+	if not auto_save or tokens >= cap() or game.preparedness < 2 or saved_round == game.turn: return false
 	game.preparedness -= 2
 	tokens += 1
 	saved_round = game.turn
-	game.log_event("Saved 2 energy for a Plan token (%d/2)." % tokens, "preparedness",
+	game.log_event("Saved 2 energy for a Plan token (%d/%d)." % [tokens, cap()], "preparedness",
 		"Preparedness saves 2 energy.")
 	game._refresh_bars()
 	return true
@@ -62,6 +86,62 @@ func eligible(card: Variant) -> bool:
 
 func can_arm() -> bool:
 	return tokens > 0 and game.can_player_act() and committed_round != game.turn and armed.is_empty() and not game.get_hand_cards().any(func(card): return card.is_dragging)
+
+## Statuses that Clean Up clears.
+const BAD_STATUSES := ["burn", "poison", "bleed", "healing_reduced"]
+
+## The deployed ally with the lowest health. A tie keeps the leftmost lane.
+## with_status: only allies that carry a bad status.
+func weakest(with_status := false) -> Node:
+	var result = null
+	for slot in game._response_slots():
+		var card = game._get_card_in_slot(slot)
+		if not eligible(card): continue
+		if with_status and not BAD_STATUSES.any(func(status): return int(card.statuses.get(status, 0)) > 0): continue
+		if result == null or int(card.card_data.health) < int(result.card_data.health): result = card
+	return result
+
+## A kit effect can be used now: your play phase, enough charge, one per round, and its target exists.
+func kit_available(id: String) -> bool:
+	var row := definition(id)
+	if kit_id() == "" or row.is_empty() or id not in unlocked: return false
+	if game.phase != game.Phase.PLAYER_PLAY or tokens < int(row.cost) or committed_round == game.turn: return false
+	if not armed.is_empty(): return false
+	if row.does == "recover":
+		return not game.recoverable_units().is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
+	if row.target == "weakest": return weakest() != null
+	if row.target == "weakest_status": return weakest(true) != null
+	return true
+
+## Use a kit effect. "now" effects happen at once; "combat" effects arm and fire when combat starts.
+func use_kit_effect(id: String) -> bool:
+	if not kit_available(id): return false
+	var row := definition(id)
+	tokens -= int(row.cost)
+	committed_round = game.turn
+	if row.when == "combat":
+		# Same four keys as a Plan: preview_attack reads them every frame.
+		armed = {"kind":id, "targets":[], "destination":null, "triggered":false}
+		game.log_event("Armed %s for this combat." % row.name, "preparedness", "Preparedness arms a Plan.")
+		return true
+	if row.does == "heal":
+		var unit = weakest()
+		game.log_event("%s helps %s." % [row.name, unit.card_data.name], "preparedness", "Preparedness uses Aid.")
+		unit.heal(int(row.amount))
+	elif row.does == "cleanse":
+		var unit = weakest(true)
+		game.log_event("%s helps %s." % [row.name, unit.card_data.name], "preparedness", "Preparedness uses Aid.")
+		unit.cleanse()
+	elif row.does == "recover":
+		# The same steps as the recover utility, on the last destroyed unit, with no picker.
+		var entries: Array = game.recoverable_units()
+		var entry: Dictionary = entries[entries.size() - 1]
+		var received: Dictionary = game.recovered_definition(entry)
+		game.log_event("%s brings back %s." % [row.name, entry.get("name", "a unit")], "preparedness",
+			"Preparedness uses Aid.")
+		game.apply_utility_pick("recover", entry, 0)
+		game.add_card_to_hand(received)
+	return true
 
 func coordination_targets(center: Node) -> Array:
 	if not eligible(center): return []
@@ -110,6 +190,7 @@ func preview_attack() -> void:
 		if card.plan_attack_bonus != amount: card.set_plan_attack_bonus(amount)
 
 func try_extract(card: Node, damage: int) -> bool:
+	if kit_id() != "": return _second_wind(card, damage)
 	if armed.get("kind", "") != "extract" or armed.get("triggered", false) or damage < int(card.card_data.health): return false
 	if armed.targets[0] != card or not eligible(card): return false
 	var slot: Node3D = armed.destination
@@ -126,8 +207,23 @@ func try_extract(card: Node, damage: int) -> bool:
 	card.spawn_popup("EXTRACTED", UI.RESPONSE)
 	return true
 
+## Robin's Second Wind: once per battle, a lethal attack hit leaves the unit at 1 health.
+## It runs inside take_damage, so it never calls take_damage or heal.
+func _second_wind(card: Node, damage: int) -> bool:
+	if not LeaderKits.kit(kit_id()).get("save_once", false) or kit_used: return false
+	if not eligible(card) or damage < int(card.card_data.health): return false
+	card.card_data.health = 1
+	kit_used = true
+	card._refresh_face()
+	card.spawn_popup("SECOND WIND", UI.RESPONSE)
+	game.log_event("Second Wind keeps %s at 1 HP." % card.card_data.name)
+	return true
+
 func apply_combat() -> void:
 	if armed.is_empty(): return
+	if kit_id() != "":
+		_apply_kit_combat()
+		return
 	var targets: Array = armed.targets
 	if armed.kind == "brace" and eligible(targets[0]):
 		targets[0].planned_guard = 2
@@ -151,6 +247,20 @@ func apply_combat() -> void:
 	elif armed.kind == "shelter": game.plan_hero_barrier = 3
 	elif armed.kind == "extract": pass
 	else: game.log_event("Contingency expired: its target or formation changed.")
+
+## A kit's "combat" effect fires. Cover picks the weakest unit now, not when it was pressed.
+func _apply_kit_combat() -> void:
+	var row := definition(str(armed.kind))
+	if row.get("does", "") == "guard":
+		var unit = weakest()
+		if unit == null:
+			game.log_event("Aid expired: no unit to cover.")
+			return
+		unit.planned_guard = int(row.amount)
+		unit._refresh_face()
+		game.log_event("%s protects %s against its next hit this combat." % [row.name, unit.card_data.name])
+	elif row.get("does", "") == "hero_block":
+		game.plan_hero_barrier = int(row.amount)
 
 func finish_combat() -> void:
 	for card in game.get_tree().get_nodes_in_group("cards"):

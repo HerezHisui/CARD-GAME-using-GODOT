@@ -92,7 +92,10 @@ func checkpoint() -> bool:
 		for card in game.plans.armed.targets:
 			if not game.plans.eligible(card): return false
 			armed.targets.append(game._response_slots().find(card.current_slot))
-	var snapshot := {"version":1, "screen":destination, "director":fields(director, DIRECTOR_FIELDS), "rng":str(director.rng.state), "game":fields(game, GAME_FIELDS), "phase":int(game.phase), "cards":cards, "enemy_caption":game._enemy_hp_ui.get_node("Caption").text, "plans":fields(game.plans, ["tokens", "auto_save", "saved_round", "committed_round", "unlocked"]), "armed":armed, "boss":fields(game.final_boss, BOSS_FIELDS) if is_instance_valid(game.final_boss) else {}}
+	var plan_fields := ["tokens", "auto_save", "saved_round", "committed_round", "unlocked"]
+	# A leader kit adds its two keys. With no kit the save text is the same as before.
+	if game.plans.kit != "": plan_fields += ["kit", "kit_used"]
+	var snapshot := {"version":1, "screen":destination, "director":fields(director, DIRECTOR_FIELDS), "rng":str(director.rng.state), "game":fields(game, GAME_FIELDS), "phase":int(game.phase), "cards":cards, "enemy_caption":game._enemy_hp_ui.get_node("Caption").text, "plans":fields(game.plans, plan_fields), "armed":armed, "boss":fields(game.final_boss, BOSS_FIELDS) if is_instance_valid(game.final_boss) else {}}
 	var encoded := JSON.stringify(snapshot)
 	if encoded == last_json: return true
 	var file := FileAccess.open(save_path() + ".tmp", FileAccess.WRITE)
@@ -116,7 +119,11 @@ func resume() -> bool:
 	apply_fields(game, snapshot.game, GAME_FIELDS)
 	game.boss_fog.set_active(director.battle_active and game.encounter_kind == "boss")
 	game.player_hp = clampi(game.player_hp, 0, game.hero_max_hp())
-	apply_fields(game.plans, snapshot.plans, ["tokens", "auto_save", "saved_round", "committed_round", "unlocked"])
+	# A save with no "kit" key is a run with today's plans.
+	game.plans.kit = ""
+	game.plans.kit_used = false
+	apply_fields(game.plans, snapshot.plans, ["tokens", "auto_save", "saved_round", "committed_round", "unlocked",
+		"kit", "kit_used"])
 	for entry in snapshot.cards:
 		var card = game.Card3DScene.instantiate()
 		game.add_child(card)

@@ -40,6 +40,8 @@ var entry_barrier_nerf_override: Variant = null
 var tutorial_override: Variant = null
 # null follows the boss flags; only tests set a boss id here.
 var boss_rule_override: Variant = null
+# null follows the leader flags; only tests set a leader id here.
+var leader_kit_override: Variant = null
 ## Auto camera and Auto draw start on for players. Under a tests/ command line they start off.
 const ASSISTS_DEFAULT_ON := true
 ## Auto draw waits this long, so the YOUR TURN banner shows before the card comes.

@@ -14,6 +14,7 @@ const Shop = preload("res://scripts/run_shop.gd")
 const Workshop = preload("res://scripts/run_workshop.gd")
 const Events = preload("res://scripts/run_events.gd")
 const Buffs = preload("res://scripts/run_buffs.gd")
+const LeaderKits = preload("res://scripts/leader_kits.gd")
 ## Header, gauges, modal frame, idle hint, boss intent and board prompt, placed in the editor.
 const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
@@ -60,7 +61,7 @@ const CHARACTERS := [
 	{"name":"Steve · Student", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
 	{"name":"Evacuation Club · Leader", "available":false, "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
 	{"name":"Science Club · Leader", "available":false, "description":"Burn and Poison combinations. Apply +2 Burn and +1 Poison; units lose 1 health.", "buff":"chemist", "deck":["fire_truck", "fire_truck", "steam_team", "steam_team", "hazmat_team", "hazmat_team", "debris_clearance", "debris_clearance", "heat_seeker", "toxin_hunter", "cleanse", "tutor"]},
-	{"name":"Safety Club · Leader", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
+	{"name":"Safety Club · Leader", "leader":"robin", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
 ]
 var selected_character := 0
 const SORT_KEYS = CardRules.SORT_KEYS
@@ -293,12 +294,18 @@ func show_characters() -> void:
 	var grid: Control = box.get_node("Grid")
 	for i in CHARACTERS.size():
 		var character: Dictionary = CHARACTERS[i]
-		var pick := choice_tile(character.name, "IDENTITY %02d / %s\n%s" % [i + 1, "ACTIVE" if character.available else "AVAILABLE SOON", character.description], show_character_preview.bind(i), grid)
-		pick.disabled = not character.available
-		preload("res://scripts/room_menu_style.gd").identity(pick.get_parent().get_parent(), character.available)
+		var pick := choice_tile(character.name, "IDENTITY %02d / %s\n%s" % [i + 1, "ACTIVE" if character_available(i) else "AVAILABLE SOON", character.description], show_character_preview.bind(i), grid)
+		pick.disabled = not character_available(i)
+		preload("res://scripts/room_menu_style.gd").identity(pick.get_parent().get_parent(), character_available(i))
 	hook_button(box.get_node("BackButton"), show_title)
 	# Back sits on the dark backdrop, so it uses the dark button style like every other Back.
 	preload("res://scripts/room_menu_style.gd").style_button(box.get_node("BackButton"))
+
+## A character can start a run: its row says so, or its leader kit is on.
+func character_available(index: int) -> bool:
+	var row: Dictionary = CHARACTERS[index]
+	if not row.has("leader"): return row.available
+	return row.available or LeaderKits.leader_on(str(row.leader), game.leader_kit_override)
 
 func character_deck(index: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -321,12 +328,12 @@ func show_character_preview(index: int) -> void:
 	fit_card_grid(grid, scroll)
 	for card in character_deck(index): _card_tile(card, grid)
 	var begin: Button = content.get_node("BeginButton")
-	begin.text = "Begin run" if CHARACTERS[index].available else "Available soon"
-	hook_button(begin, start_character.bind(index)).disabled = not CHARACTERS[index].available
+	begin.text = "Begin run" if character_available(index) else "Available soon"
+	hook_button(begin, start_character.bind(index)).disabled = not character_available(index)
 	hook_button(content.get_node("BackButton"), show_characters)
 
 func start_character(index: int) -> void:
-	if index < 0 or index >= CHARACTERS.size() or not CHARACTERS[index].available: return
+	if index < 0 or index >= CHARACTERS.size() or not character_available(index): return
 	selected_character = index
 	last_character = index
 	new_run()
@@ -779,7 +786,7 @@ func _process(_delta: float) -> void:
 	game.get_node("HUD/Root/EndTurnButton").disabled = end_off
 	plans_button.visible = battle_active and not modal.visible
 	plans_button.disabled = game.phase not in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY] or _dragging() or not game.board_input.action.is_empty()
-	plans_button.get_node("CountLabel").text = "%d/2" % game.plans.tokens
+	plans_button.get_node("CountLabel").text = "%d/%d" % [game.plans.tokens, game.plans.cap()]
 	dashboard.visible = battle_active and not modal.visible
 	graveyard_button.visible = battle_active and not modal.visible and not game.presentation.blocking \
 		and not game.disaster_seat_on
@@ -1216,7 +1223,7 @@ func close_modal() -> void:
 		show_map()
 
 func new_run() -> void:
-	if selected_character < 0 or selected_character >= CHARACTERS.size() or not CHARACTERS[selected_character].available: selected_character = 0
+	if selected_character < 0 or selected_character >= CHARACTERS.size() or not character_available(selected_character): selected_character = 0
 	last_character = selected_character
 	get_tree().paused = false
 	if saved_content:
@@ -1227,6 +1234,8 @@ func new_run() -> void:
 	action_cancel = Callable()
 	intel_revealed = false
 	game.plans.reset_run()
+	var leader := str(CHARACTERS[selected_character].get("leader", ""))
+	game.plans.set_kit(leader if LeaderKits.leader_on(leader, game.leader_kit_override) else "")
 	event_key = ""
 	event_cards.clear()
 	game.player_buffs.clear()
@@ -1247,6 +1256,8 @@ func new_run() -> void:
 	persistence.discard()
 	game.get_node("HUD/TopBar/PlayerHealth/Caption").text = CHARACTERS[selected_character].name
 	coins = 35
+	# A leader kit can start with other supplies.
+	if game.plans.kit != "": coins = int(LeaderKits.kit(game.plans.kit).get("supplies", coins))
 	floor_number = 1
 	game.player_hp = game.hero_max_hp()
 	game.energy_cap = game.ENERGY_START
@@ -1497,19 +1508,24 @@ func battle_finished(won: bool) -> void:
 func show_contingency_reward(next_screen: String, restore_offers: bool = false) -> void:
 	unlock_after = next_screen
 	if not restore_offers: buff_choices.clear()
-	var locked: Array = game.plans.TACTICS.filter(func(tactic): return tactic.id not in game.plans.unlocked)
+	# A leader kit offers its own effects that the run does not have yet.
+	var kit: Dictionary = LeaderKits.kit(game.plans.kit_id())
+	var pool: Array = game.plans.TACTICS if kit.is_empty() else kit.effects
+	var locked: Array = pool.filter(func(tactic): return tactic.id not in game.plans.unlocked)
 	if locked.is_empty():
 		finish_unlock_reward()
 		return
 	if not restore_offers:
 		for i in range(mini(3, locked.size())): buff_choices.append(locked.pop_at(rng.randi_range(0, locked.size() - 1)))
-	reset_panel("NEW CONTINGENCY", "Unlock one tactic for this run.", "contingency_reward")
+	if kit.is_empty(): reset_panel("NEW CONTINGENCY", "Unlock one tactic for this run.", "contingency_reward")
+	else: reset_panel(kit.reward_title, kit.reward_subtitle, "contingency_reward")
 	# The layout lives in ui_contingency_reward.tscn; the tactic tiles are made here.
 	var box := centered_screen(ContingencyRewardScene)
 	box.custom_minimum_size.x = maxf(300, modal.size.x - 100)
 	var row: Control = box.get_node("Row")
 	for tactic in buff_choices:
 		var title := "%s · %d Plan%s" % [tactic.name, tactic.cost, "s" if int(tactic.cost) > 1 else ""]
+		if not kit.is_empty(): title = "%s · %d %s" % [tactic.name, tactic.cost, kit.charge]
 		var pick := choice_tile(title, tactic.description, select_contingency_reward.bind(tactic.id), row)
 		_style_reward_choice(pick, "armored")
 
@@ -1909,6 +1925,10 @@ func show_plans() -> void:
 		close_modal()
 		return
 	if screen in DECISIONS or saved_content != null: return
+	var kit: Dictionary = LeaderKits.kit(game.plans.kit_id())
+	if not kit.is_empty():
+		show_kit_plans(kit)
+		return
 	reset_panel(PLANS_TITLE, PLANS_SUBTITLE, "plans")
 	# The layout lives in ui_plans.tscn; the tactic tiles are made here.
 	unpack_screen(PlansScene)
@@ -1925,11 +1945,29 @@ func show_plans() -> void:
 	else: armed.text = "ARMED: " + str(game.plans.definition(game.plans.armed.kind).name)
 	hook_button(content.get_node("ReturnButton"), close_modal)
 
+## The Plans screen for a leader kit: same scene, the kit's words. Tiles read "Patch Up · 1 Aid".
+func show_kit_plans(kit: Dictionary) -> void:
+	reset_panel(kit.name, kit.subtitle, "plans")
+	unpack_screen(PlansScene)
+	content.get_node("Status").text = "%s %d / %d" % [str(kit.charge).to_upper(), game.plans.tokens, game.plans.cap()]
+	var list: Control = content.get_node("Scroll/List")
+	for id in game.plans.unlocked:
+		var row: Dictionary = game.plans.definition(id)
+		var pick := choice_tile("%s · %d %s" % [row.name, int(row.cost), kit.charge], row.description,
+			begin_tactic.bind(id), list)
+		pick.disabled = not game.plans.kit_available(id)
+		pick.get_parent().get_parent().custom_minimum_size.y = 125
+	var armed: Label = content.get_node("Armed")
+	if game.plans.armed.is_empty(): armed.free()
+	else: armed.text = "ARMED: " + str(game.plans.definition(game.plans.armed.kind).name)
+	hook_button(content.get_node("ReturnButton"), close_modal)
+
 ## A Plans tile title: "Brace · 1 Plan". The LAN client uses it too.
 static func plans_tile_title(tactic_name: String, cost: int) -> String:
 	return tactic_name + " · %d Plan%s" % [cost, "s" if cost > 1 else ""]
 
 func tactic_available(id: String) -> bool:
+	if game.plans.kit_id() != "": return game.plans.kit_available(id)
 	var tactic: Dictionary = game.plans.definition(id)
 	if game.phase != game.Phase.PLAYER_PLAY or game.plans.tokens < int(tactic.cost) or game.plans.committed_round == game.turn: return false
 	var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)
@@ -1942,6 +1980,12 @@ func tactic_available(id: String) -> bool:
 func begin_tactic(id: String) -> void:
 	# LAN: a remote Preparedness player arms tactics by message, not from this screen.
 	if game.seat_prep != "local": return
+	# A leader kit never asks for a board pick.
+	if game.plans.kit_id() != "":
+		if not game.plans.kit_available(id): return
+		close_modal()
+		game.plans.use_kit_effect(id)
+		return
 	if not tactic_available(id): return
 	close_modal()
 	if id == "coordinate":
