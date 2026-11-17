@@ -15,6 +15,13 @@ Circle = perfection, for the loop and polish: whole (no dead ends), flowing (few
 (no best pick), consistent (same look, words and behaviour on every screen and mode, P1 and P2 alike), polished
 (text fits, every action gives feedback), replayable. A direction, never a gate: it does not block shipping.
 Stack: triangle sets the rules, hexagon builds under them, circle finishes on top.
+Evolve, never sprawl. Every mission audits what it touches and leaves it a little better, inside its FILES list:
+- Small upgrades in the lines you edit (dead code, a duplicate, a stale comment, a magic number the data already
+  holds): do them and list them under DIFF.
+- Anything bigger you find broken or weak (a system, an architecture smell, a feel problem): one line under FRICTION
+  with file, line and the fix you would make. Do not fix it in this mission; it becomes its own mission.
+- Refactors are their own missions: pin the old behaviour first (a parity digest), then change one function at a
+  time and rerun it. Game feel is judged by a frame or a BY EYE item, never guessed.
 
 Cowork writes the prompt files in `new-game-project/prompts/` and reviews your diff. A prompt path like `prompts/x.txt`
 means that folder. Read the prompt file you are told to read and follow it.
@@ -31,7 +38,7 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - Work on the branch the prompt names. You may create branches. Do not delete branches.
 - Never run two Godot processes on this project at once, and never run Godot while Simple has the editor playing.
 - Do not `cd`. You start in the project folder (`new-game-project`).
-- Keep CRLF in files that use CRLF. Keep lines at most 120 characters.
+- Keep CRLF in files that use CRLF. Keep lines at most 120 characters (a JSON string that cannot split may be longer).
 - Tests may be edited, fixed or retired when the test is stale or wrong. List every changed test and why in the report.
   Never weaken a test to hide a real code bug: fix the code instead.
 - Do not touch the nested old copy of the docs. Docs live in `github-publish/docs/`.
@@ -86,6 +93,7 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - A direct handler call can pass while the real click fails. Test through the real input path.
 - A parse error in a preloaded script hangs every suite until timeout. Run one suite right after any scripted edit.
 - Wait in frames with a cap (600), never in unbounded loops. A bug can freeze a real window that headless never shows.
+- JSON numbers are floats. Compare with int(), and turn whole numbers into int before they reach cards or a digest.
 - Do not put variable names like password or tool names in tests or docs: check-public.sh blocks them.
 
 ## Report format
