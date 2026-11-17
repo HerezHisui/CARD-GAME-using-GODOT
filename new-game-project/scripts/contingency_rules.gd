@@ -23,6 +23,8 @@ var armed: Dictionary = {}
 var kit := ""
 # Second Wind is spent for this battle.
 var kit_used := false
+# True while a Eureka deals its damage, so that hit cannot start a second one.
+var eureka_running := false
 
 func setup(manager: Node) -> void: game = manager
 
@@ -109,14 +111,27 @@ func kit_available(id: String) -> bool:
 	if not armed.is_empty(): return false
 	if row.does == "recover":
 		return not game.recoverable_units().is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
+	if row.does == "draw":
+		return not game.deck.is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
+	if row.target == "enemy": return not enemy_units().is_empty()
 	if row.target == "weakest": return weakest() != null
 	if row.target == "weakest_status": return weakest(true) != null
 	return true
 
+## Living Disaster units on the board, in lane order.
+func enemy_units() -> Array:
+	var result: Array = []
+	for slot in game._threat_slots():
+		var card = game._get_card_in_slot(slot)
+		if is_instance_valid(card) and card.is_alive() and not card.in_hand: result.append(card)
+	return result
+
 ## Use a kit effect. "now" effects happen at once; "combat" effects arm and fire when combat starts.
-func use_kit_effect(id: String) -> bool:
+## target: the enemy unit picked on the board, for effects that target "enemy".
+func use_kit_effect(id: String, target: Node = null) -> bool:
 	if not kit_available(id): return false
 	var row := definition(id)
+	if row.target == "enemy" and target not in enemy_units(): return false
 	tokens -= int(row.cost)
 	committed_round = game.turn
 	if row.when == "combat":
@@ -128,6 +143,10 @@ func use_kit_effect(id: String) -> bool:
 		var unit = weakest()
 		game.log_event("%s helps %s." % [row.name, unit.card_data.name], "preparedness", "Preparedness uses Aid.")
 		unit.heal(int(row.amount))
+	elif row.does == "status":
+		# Exact amount: the chemist buff only adds to card hits.
+		game.log_event("%s on %s." % [row.name, target.card_data.name], "preparedness", "Preparedness uses a Sample.")
+		target.add_status(str(row.status), int(row.amount))
 	elif row.does == "cleanse":
 		var unit = weakest(true)
 		game.log_event("%s helps %s." % [row.name, unit.card_data.name], "preparedness", "Preparedness uses Aid.")
@@ -261,6 +280,29 @@ func _apply_kit_combat() -> void:
 		game.log_event("%s protects %s against its next hit this combat." % [row.name, unit.card_data.name])
 	elif row.get("does", "") == "hero_block":
 		game.plan_hero_barrier = int(row.amount)
+	elif row.get("does", "") == "draw":
+		game.draw_cards(int(row.amount))
+
+## Statuses that make a Eureka when one enemy unit has all three.
+const REAGENTS := ["burn", "poison", "bleed"]
+
+## Sage's Eureka. card_3d.add_status calls this for every card, both sides and the boss.
+## It does nothing unless the kit has "eureka" and a living enemy unit has all three reagents above 0.
+func status_added(card: Node) -> void:
+	if eureka_running or kit_id() == "": return
+	var damage := int(LeaderKits.kit(kit_id()).get("eureka", 0))
+	if damage <= 0 or card not in enemy_units(): return
+	# Burn can sit at 0 after it halves. A 0 does not count.
+	if REAGENTS.any(func(status): return int(card.statuses.get(status, 0)) <= 0): return
+	eureka_running = true
+	for status in REAGENTS: card.statuses.erase(status)
+	card._refresh_face()
+	game.vfx.sync_status(card, false)
+	card.spawn_popup("EUREKA", UI.AMBER)
+	game.log_event("Eureka! %s takes %d." % [card.card_data.name, damage])
+	# bypass_armor: armor is ignored, and take_damage never reaches the Disaster's HP.
+	card.take_damage(damage, 1.0, true)
+	eureka_running = false
 
 func finish_combat() -> void:
 	for card in game.get_tree().get_nodes_in_group("cards"):

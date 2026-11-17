@@ -1101,6 +1101,7 @@ func add_status(status: String, amount: int) -> void:
 	_manager().vfx.sync_status(self)
 	spawn_popup("%s +%d" % [status.to_upper(), amount], UI.DANGER if status != "strength" else UI.RESPONSE)
 	if status == "strength": Sfx.play("strength_gain")
+	_manager().plans.status_added(self)
 
 func status_upkeep() -> void:
 	if card_data.get("utility", false): return

@@ -60,7 +60,7 @@ const MAX_UPGRADES := 2
 const CHARACTERS := [
 	{"name":"Steve · Student", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
 	{"name":"Evacuation Club · Leader", "available":false, "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
-	{"name":"Science Club · Leader", "available":false, "description":"Burn and Poison combinations. Apply +2 Burn and +1 Poison; units lose 1 health.", "buff":"chemist", "deck":["fire_truck", "fire_truck", "steam_team", "steam_team", "hazmat_team", "hazmat_team", "debris_clearance", "debris_clearance", "heat_seeker", "toxin_hunter", "cleanse", "tutor"]},
+	{"name":"Science Club · Leader", "leader":"sage", "available":false, "description":"Burn and Poison combinations. Apply +2 Burn and +1 Poison; units lose 1 health.", "buff":"chemist", "deck":["fire_truck", "steam_team", "steam_team", "hazmat_team", "hazmat_team", "debris_clearance", "debris_clearance", "debris_clearance", "heat_seeker", "toxin_hunter", "cleanse", "tutor"]},
 	{"name":"Safety Club · Leader", "leader":"robin", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
 ]
 var selected_character := 0
@@ -1981,10 +1981,15 @@ func begin_tactic(id: String) -> void:
 	# LAN: a remote Preparedness player arms tactics by message, not from this screen.
 	if game.seat_prep != "local": return
 	# A leader kit never asks for a board pick.
+	# Only an effect with target "enemy" (Sage) picks one enemy unit. Esc cancels the pick and spends nothing.
 	if game.plans.kit_id() != "":
 		if not game.plans.kit_available(id): return
 		close_modal()
-		game.plans.use_kit_effect(id)
+		var row: Dictionary = game.plans.definition(id)
+		if row.target == "enemy":
+			game.board_input.pick("Click an enemy unit for " + str(row.name) + ".", game.plans.enemy_units(),
+				func(card: Node): game.plans.use_kit_effect(id, card), Callable())
+		else: game.plans.use_kit_effect(id)
 		return
 	if not tactic_available(id): return
 	close_modal()
