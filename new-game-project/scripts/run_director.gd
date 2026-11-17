@@ -59,7 +59,7 @@ const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
 const CHARACTERS := [
 	{"name":"Steve · Student", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
-	{"name":"Evacuation Club · Leader", "available":false, "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
+	{"name":"Evacuation Club · Leader", "leader":"kai", "available":false, "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
 	{"name":"Science Club · Leader", "leader":"sage", "available":false, "description":"Burn and Poison combinations. Apply +2 Burn and +1 Poison; units lose 1 health.", "buff":"chemist", "deck":["fire_truck", "steam_team", "steam_team", "hazmat_team", "hazmat_team", "debris_clearance", "debris_clearance", "debris_clearance", "heat_seeker", "toxin_hunter", "cleanse", "tutor"]},
 	{"name":"Safety Club · Leader", "leader":"robin", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
 ]
@@ -1980,8 +1980,9 @@ func tactic_available(id: String) -> bool:
 func begin_tactic(id: String) -> void:
 	# LAN: a remote Preparedness player arms tactics by message, not from this screen.
 	if game.seat_prep != "local": return
-	# A leader kit never asks for a board pick.
+	# A leader kit asks for a board pick only when its effect needs a target.
 	# Only an effect with target "enemy" (Sage) picks one enemy unit. Esc cancels the pick and spends nothing.
+	# Kai's effects pick allies: one unit, two neighbours, or a unit dragged onto an empty lane.
 	if game.plans.kit_id() != "":
 		if not game.plans.kit_available(id): return
 		close_modal()
@@ -1989,6 +1990,17 @@ func begin_tactic(id: String) -> void:
 		if row.target == "enemy":
 			game.board_input.pick("Click an enemy unit for " + str(row.name) + ".", game.plans.enemy_units(),
 				func(card: Node): game.plans.use_kit_effect(id, card), Callable())
+		elif row.target == "ally":
+			game.board_input.pick("Click a unit for " + str(row.name) + ".", game.plans.allies(),
+				func(card: Node): game.plans.use_kit_effect(id, card), Callable())
+		elif row.target == "two_allies":
+			var firsts: Array = game.plans.allies().filter(
+				func(card): return game.plans.coordination_targets(card).size() > 1)
+			game.board_input.pick("Click a unit for " + str(row.name) + ".", firsts,
+				pick_swap_partner.bind(id), Callable())
+		elif row.target == "ally_to_lane":
+			game.board_input.extraction(func(slot: Node3D, ally: Node): game.plans.use_kit_effect(id, ally, slot))
+			game.board_input.action.title = "Drag a unit onto an empty lane for " + str(row.name) + "."
 		else: game.plans.use_kit_effect(id)
 		return
 	if not tactic_available(id): return
@@ -2013,6 +2025,12 @@ func arm_brace(card: Node) -> void:
 func select_coordination() -> void: begin_tactic("coordinate")
 func arm_extraction(slot: Node3D, card: Node) -> void:
 	game.plans.arm("extract", [card], slot)
+
+## Lane Swap, second pick: one of the first unit's neighbours. Esc here also spends nothing.
+func pick_swap_partner(first: Node, id: String) -> void:
+	var neighbours: Array = game.plans.coordination_targets(first).slice(1)
+	game.board_input.pick("Click a neighbour to trade lanes with.", neighbours,
+		func(card: Node): game.plans.use_kit_effect(id, first, card), Callable())
 
 func show_graveyard(side: String = "preparedness") -> void:
 	if not battle_active or _dragging() or not game.board_input.action.is_empty() or screen in DECISIONS or saved_content != null: return

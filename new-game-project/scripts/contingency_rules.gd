@@ -25,6 +25,8 @@ var kit := ""
 var kit_used := false
 # True while a Eureka deals its damage, so that hit cannot start a second one.
 var eureka_running := false
+# False while Lane Swap moves units: a swap gives no Tempo.
+var _count_moves := true
 
 func setup(manager: Node) -> void: game = manager
 
@@ -74,6 +76,8 @@ func reset() -> void:
 	kit_used = false
 
 func bank_unused_energy() -> bool:
+	# A kit that never banks (Kai): unused energy is lost.
+	if LeaderKits.kit(kit_id()).get("bank", "") == "none": return false
 	if not auto_save or tokens >= cap() or game.preparedness < 2 or saved_round == game.turn: return false
 	game.preparedness -= 2
 	tokens += 1
@@ -113,9 +117,32 @@ func kit_available(id: String) -> bool:
 		return not game.recoverable_units().is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
 	if row.does == "draw":
 		return not game.deck.is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
+	if row.does == "energy": return game.preparedness < game.energy_cap
 	if row.target == "enemy": return not enemy_units().is_empty()
 	if row.target == "weakest": return weakest() != null
 	if row.target == "weakest_status": return weakest(true) != null
+	if row.target == "ally": return not allies().is_empty()
+	if row.target == "ally_to_lane":
+		var empty_lane: bool = game._response_slots().any(func(slot): return game._get_card_in_slot(slot) == null)
+		return empty_lane and not allies().is_empty()
+	if row.target == "two_allies": return allies().any(func(card): return coordination_targets(card).size() > 1)
+	return true
+
+## Living deployed allies, in lane order.
+func allies() -> Array:
+	var result: Array = []
+	for slot in game._response_slots():
+		var card = game._get_card_in_slot(slot)
+		if eligible(card): result.append(card)
+	return result
+
+## The picked target fits the effect. second: the lane (a move or Duck) or the other unit (Lane Swap).
+func _kit_target_ok(row: Dictionary, target: Node, second: Node) -> bool:
+	if row.target == "enemy": return target in enemy_units()
+	if row.target == "ally": return eligible(target)
+	if row.target == "ally_to_lane":
+		return eligible(target) and second in game._response_slots() and game._get_card_in_slot(second) == null
+	if row.target == "two_allies": return target != second and second in coordination_targets(target)
 	return true
 
 ## Living Disaster units on the board, in lane order.
@@ -127,17 +154,22 @@ func enemy_units() -> Array:
 	return result
 
 ## Use a kit effect. "now" effects happen at once; "combat" effects arm and fire when combat starts.
-## target: the enemy unit picked on the board, for effects that target "enemy".
-func use_kit_effect(id: String, target: Node = null) -> bool:
+## target: the unit picked on the board (an enemy for Sage, an ally for Kai).
+## second: the empty lane for a move or Duck, or the neighbour for Lane Swap.
+func use_kit_effect(id: String, target: Node = null, second: Node = null) -> bool:
 	if not kit_available(id): return false
 	var row := definition(id)
-	if row.target == "enemy" and target not in enemy_units(): return false
+	if not _kit_target_ok(row, target, second): return false
 	tokens -= int(row.cost)
 	committed_round = game.turn
 	if row.when == "combat":
 		# Same four keys as a Plan: preview_attack reads them every frame.
 		armed = {"kind":id, "targets":[], "destination":null, "triggered":false}
+		# Rally and Duck keep their unit; Duck also keeps its lane.
+		if row.target in ["ally", "ally_to_lane"]: armed.targets = [target]
+		if row.target == "ally_to_lane": armed.destination = second
 		game.log_event("Armed %s for this combat." % row.name, "preparedness", "Preparedness arms a Plan.")
+		preview_attack()
 		return true
 	if row.does == "heal":
 		var unit = weakest()
@@ -160,7 +192,34 @@ func use_kit_effect(id: String, target: Node = null) -> bool:
 			"Preparedness uses Aid.")
 		game.apply_utility_pick("recover", entry, 0)
 		game.add_card_to_hand(received)
+	elif row.does == "move":
+		# The Tempo comes from the ally_moved hook in apply_relocation.
+		game.apply_relocation(target, second, null)
+	elif row.does == "swap":
+		# A swap is not a move: no Tempo, or it would pay for itself.
+		var first_slot: Node3D = target.current_slot
+		_count_moves = false
+		target.place_on_slot(second.current_slot)
+		second.place_on_slot(first_slot)
+		_count_moves = true
+		game.log_event("%s: %s and %s trade lanes." % [row.name, target.card_data.name, second.card_data.name],
+			"preparedness", "Preparedness uses Tempo.")
+	elif row.does == "energy":
+		game.preparedness = mini(game.energy_cap, game.preparedness + int(row.amount))
+		game.log_event("%s gives back energy." % row.name, "preparedness", "Preparedness uses Tempo.")
+		game._refresh_bars()
 	return true
+
+## Kai's Drill: one of your units changed lane, so gain Tempo up to the cap.
+## apply_relocation calls this for both sides; it does nothing without a kit that has "tempo_on_move".
+func ally_moved(card: Node) -> void:
+	if kit_id() == "" or not _count_moves: return
+	var gain := int(LeaderKits.kit(kit_id()).get("tempo_on_move", 0))
+	if gain <= 0 or not is_instance_valid(card) or card.current_slot not in game._response_slots(): return
+	tokens = mini(cap(), tokens + gain)
+	game.log_event("%s changes lane: Tempo %d/%d." % [card.card_data.name, tokens, cap()], "preparedness",
+		"Preparedness gains Tempo.")
+	game._refresh_bars()
 
 func coordination_targets(center: Node) -> Array:
 	if not eligible(center): return []
@@ -199,7 +258,7 @@ func preview_attack() -> void:
 	var bonus := {}
 	var targets: Array = armed.get("targets", [])
 	if not targets.is_empty() and eligible(targets[0]):
-		if armed.kind == "coordinate":
+		if armed.kind in ["coordinate", "rally"]:
 			for card in coordination_targets(targets[0]): bonus[card] = 1
 		elif armed.kind == "precision":
 			bonus[targets[0]] = 2
@@ -209,7 +268,9 @@ func preview_attack() -> void:
 		if card.plan_attack_bonus != amount: card.set_plan_attack_bonus(amount)
 
 func try_extract(card: Node, damage: int) -> bool:
-	if kit_id() != "": return _second_wind(card, damage)
+	if kit_id() != "":
+		if armed.get("kind", "") == "duck": return _duck(card, damage)
+		return _second_wind(card, damage)
 	if armed.get("kind", "") != "extract" or armed.get("triggered", false) or damage < int(card.card_data.health): return false
 	if armed.targets[0] != card or not eligible(card): return false
 	var slot: Node3D = armed.destination
@@ -236,6 +297,21 @@ func _second_wind(card: Node, damage: int) -> bool:
 	card._refresh_face()
 	card.spawn_popup("SECOND WIND", UI.RESPONSE)
 	game.log_event("Second Wind keeps %s at 1 HP." % card.card_data.name)
+	return true
+
+## Kai's Duck: the armed unit dodges one lethal attack hit into its empty lane, like Emergency Extraction.
+## The dodge is a lane change, so it gives Tempo.
+func _duck(card: Node, damage: int) -> bool:
+	if armed.triggered or damage < int(card.card_data.health): return false
+	if armed.targets.is_empty() or armed.targets[0] != card or not eligible(card): return false
+	var slot = armed.destination
+	if not is_instance_valid(slot) or game._get_card_in_slot(slot) != null: return false
+	armed.triggered = true
+	card.place_on_slot(slot)
+	card.last_evaded_hit = true
+	game.log_event("Duck saves %s from a lethal attack." % card.card_data.name)
+	card.spawn_popup("DUCKED", UI.RESPONSE)
+	ally_moved(card)
 	return true
 
 func apply_combat() -> void:
@@ -282,6 +358,15 @@ func _apply_kit_combat() -> void:
 		game.plan_hero_barrier = int(row.amount)
 	elif row.get("does", "") == "draw":
 		game.draw_cards(int(row.amount))
+	elif row.get("does", "") == "attack_adjacent":
+		# Rally works like Coordinated Response: an empty lane breaks the link.
+		var targets: Array = armed.targets
+		if targets.is_empty() or not eligible(targets[0]):
+			game.log_event("%s expired: its unit is gone." % row.name)
+			return
+		for card in coordination_targets(targets[0]): card.set_plan_attack_bonus(int(row.amount))
+		game.log_event("%s gives %s and its neighbours +%d attack this combat." % [row.name,
+			targets[0].card_data.name, int(row.amount)])
 
 ## Statuses that make a Eureka when one enemy unit has all three.
 const REAGENTS := ["burn", "poison", "bleed"]

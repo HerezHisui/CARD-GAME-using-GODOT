@@ -6,6 +6,8 @@ extends RefCounted
 const ROBIN_ENABLED := false
 # Sage's kit stays off until it has been played.
 const SAGE_ENABLED := false
+# Kai's kit stays off until it has been played.
+const KAI_ENABLED := false
 
 const KITS := {
 	"robin": {
@@ -50,6 +52,28 @@ const KITS := {
 				"when":"combat", "description":"Draw 1 when the fight starts."},
 		],
 	},
+	"kai": {
+		"name": "THE DRILL", "charge": "Tempo", "cap": 3, "bank": "none",
+		# Supplies at the start of a run.
+		"supplies": 35,
+		# Tempo for each of your units that changes lane.
+		"tempo_on_move": 1,
+		"subtitle": "Each unit that changes lane gives 1 Tempo. Unused energy is not saved.",
+		"reward_title": "NEW FORMATION", "reward_subtitle": "Add one to your kit for this run.",
+		"start": ["fall_in", "double_time"],
+		"effects": [
+			{"id":"fall_in", "name":"Fall In", "cost":0, "does":"move", "amount":1, "target":"ally_to_lane",
+				"when":"now", "description":"Move one unit to an empty lane."},
+			{"id":"double_time", "name":"Double Time", "cost":2, "does":"energy", "amount":2, "target":"none",
+				"when":"now", "description":"Get 2 energy back."},
+			{"id":"lane_swap", "name":"Lane Swap", "cost":1, "does":"swap", "amount":0, "target":"two_allies",
+				"when":"now", "description":"Two neighbours trade lanes."},
+			{"id":"rally", "name":"Rally", "cost":2, "does":"attack_adjacent", "amount":1, "target":"ally",
+				"when":"combat", "description":"One unit and its neighbours get +1 attack this fight."},
+			{"id":"duck", "name":"Duck", "cost":1, "does":"extract", "amount":0, "target":"ally_to_lane",
+				"when":"combat", "description":"One unit dodges a killing hit into an empty lane."},
+		],
+	},
 }
 
 ## The kit by id, or {} when there is none.
@@ -67,4 +91,5 @@ static func leader_on(leader: String, override: Variant) -> bool:
 	if override is String: return leader == override
 	if leader == "robin": return ROBIN_ENABLED
 	if leader == "sage": return SAGE_ENABLED
+	if leader == "kai": return KAI_ENABLED
 	return false

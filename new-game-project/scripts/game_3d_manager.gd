@@ -1234,6 +1234,7 @@ func apply_relocation(ally: Node, slot: Node3D, source: Node) -> void:
 		if slot not in lanes or _get_card_in_slot(slot) != null: return
 		if ally.current_slot == null or ally.current_slot == slot: return
 	ally.place_on_slot(slot)
+	plans.ally_moved(ally)
 	if balance_enabled() and int(ally.card_data.get("relocation_attack", 0)) > 0:
 		if int(ally.get_meta("dash_round", -1)) != turn:
 			ally.set_meta("dash_round", turn)
