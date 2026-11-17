@@ -1,0 +1,11 @@
+{
+	"guardian": {
+		"name": "HALLWAY GUARDIAN", "room": "elite",
+		"rule": {"id": "checkpoint", "barrier": 1, "lanes": [0, 1, 2, 3]},
+		"phases": [
+			{"name": "PATROL", "hp_at_or_below": 1.0},
+			{"name": "LOCKDOWN", "hp_at_or_below": 0.5, "to_hand": "elite_guardian", "stay_on": "elite_guardian"}
+		],
+		"replaces_random_modifiers": true
+	}
+}

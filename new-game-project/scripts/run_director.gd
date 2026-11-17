@@ -1029,7 +1029,14 @@ func _update_boss_intent() -> void:
 	var valid := is_instance_valid(boss)
 	var message: String = boss.intent() if valid else ""
 	var key := "%d:%d:%s" % [boss.get_instance_id(), game.turn, message] if valid else ""
-	var active: bool = valid and battle_active and not modal.visible and game.board_input.action.is_empty()
+	# An elite boss rule uses the same panel. The caption tooltip below stays Warden only.
+	const BossRules = preload("res://scripts/boss_rules.gd")
+	var rule_on: bool = not valid and BossRules.boss_id(game) != ""
+	if rule_on:
+		message = BossRules.intent(game)
+		key = "rule:%d:%s" % [game.turn, message]
+	var active: bool = (valid or rule_on) and battle_active and not modal.visible \
+		and game.board_input.action.is_empty()
 	boss_intent.get_parent().update_intent(key, message, active)
 	var caption: Label = game._enemy_hp_ui.get_node("Caption")
 	caption.mouse_filter = Control.MOUSE_FILTER_STOP if valid else Control.MOUSE_FILTER_IGNORE

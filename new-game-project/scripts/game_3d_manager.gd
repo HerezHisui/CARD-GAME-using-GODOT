@@ -7,6 +7,7 @@ const BattleQueries = preload("res://scripts/battle_query_adapter.gd")
 const VersusBalance = preload("res://scripts/versus_balance.gd")
 const BattleRules = preload("res://scripts/battle_rules.gd")
 const UI = preload("res://scripts/ui_theme.gd")
+const BossRules = preload("res://scripts/boss_rules.gd")
 ## Main game manager: builds the creepy classroom, the pixel-art board,
 ## the gothic HUD, and controls the deck + fanned card hand.
 
@@ -37,6 +38,8 @@ var balance_patch_override: Variant = null
 var entry_barrier_nerf_override: Variant = null
 # null follows TUTORIAL_ENABLED; only tests override it.
 var tutorial_override: Variant = null
+# null follows the boss flags; only tests set a boss id here.
+var boss_rule_override: Variant = null
 ## Auto camera and Auto draw start on for players. Under a tests/ command line they start off.
 const ASSISTS_DEFAULT_ON := true
 ## Auto draw waits this long, so the YOUR TURN banner shows before the card comes.
@@ -1715,6 +1718,7 @@ func continue_round() -> void:
 
 	# Disaster modifier escalation based on round count (from GDD)
 	_apply_round_modifiers()
+	BossRules.prepare_round(self)
 
 	if is_instance_valid(final_boss):
 		final_boss.prepare_round()
@@ -1736,6 +1740,7 @@ func _apply_round_modifiers() -> void:
 	if balance_enabled(): return
 	# The tutorial drill keeps plain cards, like a normal battle.
 	if encounter_kind in ["battle", "tutorial"] or is_instance_valid(final_boss): return
+	if BossRules.blocks_random_modifiers(self): return
 	if turn >= 7:
 		var threats = _threat_slots().map(func(s): return _get_card_in_slot(s)).filter(func(c): return c != null and c.is_alive())
 		if not threats.is_empty():
@@ -2052,7 +2057,8 @@ func disaster_play_base(definition: Dictionary, slot: Node3D) -> bool:
 	card.setup(definition)
 
 	# Round 4-6 Janitor modifier chance on spawn
-	if encounter_kind not in ["battle", "versus", "tutorial"] and turn in [4, 5, 6] and randf() < 0.5:
+	if encounter_kind not in ["battle", "versus", "tutorial"] and turn in [4, 5, 6] \
+			and not BossRules.blocks_random_modifiers(self) and randf() < 0.5:
 		var mods = ["armored", "rampaging", "fierce", "regenerating"]
 		card.add_modifier(mods.pick_random())
 
