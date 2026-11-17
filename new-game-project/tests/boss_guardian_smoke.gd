@@ -84,7 +84,7 @@ func run() -> void:
 	var lanes: Array = row.get("rule", {}).get("lanes", [])
 	check(not lanes.is_empty() and lanes.all(func(lane): return int(lane) >= 0 and int(lane) <= 3),
 		"every checkpoint lane is 0 to 3")
-	check(BossRules.rows().has("guardian") and not BossRules.rows().has("janitor"), "only the guardian row is read")
+	check(BossRules.rows().has("guardian"), "the guardian row is read")
 
 	# 1. Override null: no rule, no Barrier over three preparations, intent panel hidden.
 	await fresh(null)

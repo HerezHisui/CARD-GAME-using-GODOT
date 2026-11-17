@@ -7,5 +7,14 @@
 			{"name": "LOCKDOWN", "hp_at_or_below": 0.5, "to_hand": "elite_guardian", "stay_on": "elite_guardian"}
 		],
 		"replaces_random_modifiers": true
+	},
+	"janitor": {
+		"name": "JANITOR", "room": "boss", "floors": [1, 2],
+		"rule": {"id": "closing_time", "every": 2, "lock_rounds": 2, "pick": "newest"},
+		"phases": [
+			{"name": "DAY SHIFT", "hp_at_or_below": 1.0},
+			{"name": "NIGHT SHIFT", "hp_at_or_below": 0.5, "to_hand": "midnight_cataclysm", "every_by_floor": {"2": 1}}
+		],
+		"replaces_random_modifiers": true
 	}
 }
