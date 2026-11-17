@@ -368,7 +368,10 @@ func start_encounter(collection: Array[Dictionary], kind: String, floor_level: i
 	load_deck_from_json("res://data/disaster_deck.json", threats)
 	load_deck_from_json("res://data/disaster_expansion.json", threats)
 	var favored: String = ["fire", "earthquake", "flood", "typhoon"][specialty]
-	_enemy_hp_ui.get_node("Caption").text = "JANITOR"
+	# Plate caption: the Janitor's own boss room, a hallway guardian, or the room's element alert.
+	var alert: String = ["FIRE ALERT", "QUAKE ALERT", "FLOOD ALERT", "TYPHOON ALERT"][specialty]
+	var caption: String = "HALLWAY GUARDIAN" if kind == "elite" else alert
+	_enemy_hp_ui.get_node("Caption").text = "JANITOR" if kind == "boss" else caption
 	for definition in threats:
 		if kind == "elite" and definition.element != favored: continue
 		var c: Dictionary = definition.duplicate(true)
@@ -459,7 +462,7 @@ func start_tutorial(prep_opening: Array[Dictionary], prep_deck: Array[Dictionary
 	player_hp = hero_max_hp()
 	enemy_max_hp = janitor_hp
 	enemy_hp = enemy_max_hp
-	_enemy_hp_ui.get_node("Caption").text = "JANITOR"
+	_enemy_hp_ui.get_node("Caption").text = "PRACTICE DRILL"
 	# No shuffle: the last card in each list is drawn first.
 	for definition in prep_deck: deck.append(definition.duplicate(true))
 	for definition in disaster_deck: enemy_deck.append(definition.duplicate(true))
@@ -1122,7 +1125,7 @@ func recovered_definition(entry: Dictionary) -> Dictionary:
 	return result
 
 func record_enemy_spell(definition: Dictionary) -> void:
-	log_event("Janitor casts %s." % definition.get("name", "a utility"))
+	log_event("Disaster casts %s." % definition.get("name", "a utility"))
 
 ## Tight, overlapping, upright hand along the bottom of the screen.
 func arrange_hand_centered() -> void:
@@ -1493,7 +1496,7 @@ func _set_phase(p: Phase, text: String = "") -> void:
 	if is_instance_valid(presentation) and run_director and run_director.battle_active and not presentation.blocking \
 			and not round_banner:
 		if p in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY] and previous not in [Phase.PLAYER_DRAW, Phase.PLAYER_PLAY]: presentation.banner("YOUR TURN", "Round %d" % turn, UI.RESPONSE)
-		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("JANITOR'S TURN", "Watch the opposing formation")
+		elif p == Phase.ENEMY and previous != Phase.ENEMY: presentation.banner("DISASTER'S TURN", "Watch the opposing formation")
 		elif p == Phase.COMBAT and previous != Phase.COMBAT: presentation.banner("CLASH", "The first side attacks first")
 	$HUD/Root/DeckDrawButton.disabled = (p != Phase.PLAYER_DRAW
 		or (encounter_kind == "versus" and seat_prep != "local"))
@@ -1560,9 +1563,9 @@ func resume_coin() -> void:
 		_resume_versus_coin(serial)
 		return
 	player_first = coin_pick == coin_result
-	log_event("Coin: called %s, landed %s. %s takes the first turn." % ["Heads" if coin_pick == 0 else "Tails", "Heads" if coin_result == 0 else "Tails", "Response" if player_first else "The Janitor"])
+	log_event("Coin: called %s, landed %s. %s takes the first turn." % ["Heads" if coin_pick == 0 else "Tails", "Heads" if coin_result == 0 else "Tails", "Response" if player_first else "The Disaster"])
 	run_director.screen = ""
-	_set_phase(Phase.SETUP, "You take the first turn" if player_first else "The Janitor takes the first turn")
+	_set_phase(Phase.SETUP, "You take the first turn" if player_first else "The Disaster takes the first turn")
 	_begin_round()
 
 ## Versus only: wait for the toss winner's side. The picked side takes the first turn.
@@ -1669,7 +1672,7 @@ func _begin_round() -> void:
 		run_director.battle_finished(false)
 		return
 	if not is_instance_valid(final_boss) and not (enemy_deck + enemy_hand).any(func(card): return int(card.get("cost", 0)) == 0 and not card.get("utility", false)) and _threat_slots().all(func(s): return _get_card_in_slot(s) == null):
-		_set_phase(Phase.GAME_OVER, "The Janitor has no threats left")
+		_set_phase(Phase.GAME_OVER, "The Disaster has no threats left")
 		run_director.battle_finished(true)
 		return
 	# Versus has no adaptation buff screen. Neither has the tutorial drill.
@@ -1988,7 +1991,7 @@ func disaster_cast(definition: Dictionary, target: Node) -> bool:
 	apply_enemy_utility(definition, target)
 	record_disaster_definition(definition, "Cast")
 	tension -= int(definition.get("tension_cost", 1))
-	_set_phase(Phase.ENEMY, "The Janitor casts %s" % definition.name)
+	_set_phase(Phase.ENEMY, "The Disaster casts %s" % definition.name)
 	_refresh_bars()
 	return true
 

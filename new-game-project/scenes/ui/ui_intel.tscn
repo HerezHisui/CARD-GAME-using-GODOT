@@ -21,7 +21,7 @@ layout_mode = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.91764706, 0.89411765, 0.8627451, 1)
 theme_override_font_sizes/font_size = 20
-text = "The Janitor's hand is empty."
+text = "The Disaster's hand is empty."
 
 [node name="ReturnButton" type="Button" parent="."]
 custom_minimum_size = Vector2(130, 42)

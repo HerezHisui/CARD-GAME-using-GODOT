@@ -102,7 +102,7 @@ func choose_coin(result: int, previous_pick: int = -1) -> int:
 	coin_pivot.position = Vector3.ZERO
 	coin_pivot.rotation = Vector3(PI * result, 0, 0)
 	title.text = "HEADS" if result == 0 else "TAILS"
-	hint.text = "You take the first turn." if pick == result else "The Janitor takes the first turn."
+	hint.text = "You take the first turn." if pick == result else "The Disaster takes the first turn."
 	if versus_flip: hint.text = "Player %d wins the toss." % VersusMatch.resolve_winner(pick, result)
 	for button in choice_buttons: button.hide()
 	var linger := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)

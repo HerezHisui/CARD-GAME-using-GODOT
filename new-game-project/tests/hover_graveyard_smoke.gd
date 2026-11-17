@@ -122,7 +122,7 @@ func run() -> void:
 	check(game.try_utility(spell, game._response_slots()[3]), "cast utility succeeds")
 	check(game.player_graveyard.size() == 3 and game.player_graveyard[2].graveyard_reason == "Cast", "cast spell enters graveyard")
 	game.enemy_utility({"id":"Tax", "name":"Tax", "type":"disaster", "element":"flood", "cost":0, "attack":0, "health":1, "utility":true, "effect":"tax"})
-	check(game.player_graveyard.size() == 3 and game.battle_log.any(func(line): return "Janitor casts Tax" in line), "enemy spell is logged without entering the Response graveyard")
+	check(game.player_graveyard.size() == 3 and game.battle_log.any(func(line): return "Disaster casts Tax" in line), "enemy spell is logged without entering the Response graveyard")
 	var failed := data("Failed Exit")
 	failed.utility = true
 	failed.effect = "move"

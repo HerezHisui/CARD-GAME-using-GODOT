@@ -72,7 +72,7 @@ const EFFECTS := {
 	"tutor":"Choose an unlocked card from your draw pile and put it into your hand.",
 	"seal":"Choose a deployed Disaster. It cannot evolve or be sacrificed for one round. "
 		+ "Active this round if Response plays first; next round if Response plays second. Attacks are allowed.",
-	"scout":"Reveal the Janitor's hand for the rest of this encounter. Inspect it again through the deck viewer.",
+	"scout":"Reveal the Disaster's hand for the rest of this encounter. Inspect it again through the deck viewer.",
 	"tax":"Choose an opposing hand card. Raise its energy, sacrifice, or base tension cost by %d, capped at +2. "
 		+ "Expires after this round and the next.",
 	"rally":"Choose a deployed ally. It gains %d Strength for this encounter; each Strength adds 1 attack.",

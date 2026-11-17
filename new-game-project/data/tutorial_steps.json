@@ -22,7 +22,7 @@
 			"done": "super_hit_seen", "give": "", "point": "chart"},
 		{"id": "energy", "tag": "PREPARE", "text": "Cards cost energy. It refills every turn and grows by 1.",
 			"done": "next_draw", "give": "", "point": "none"},
-		{"id": "win", "tag": "RESPOND", "text": "Bring the Janitor's HP to 0 to clear the room.",
+		{"id": "win", "tag": "RESPOND", "text": "Bring the Disaster's HP to 0 to clear the room.",
 			"done": "battle_won", "give": "", "point": "none"},
 		{"id": "recover", "tag": "RECOVER",
 			"text": "Room cleared. You patch up after every win. Ready for the real run?",

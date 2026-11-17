@@ -2333,7 +2333,7 @@ func choose_enemy_hand(cards: Array, callback: Callable, cancel: Callable) -> vo
 		choose_card("CHOOSE AN ENEMY HAND CARD", cards, callback, cancel)
 		return
 	card_picker = true
-	reset_panel("CHOOSE AN ENEMY HAND CARD", "Only cards currently held by the Janitor can be targeted. Cast Hazard Forecast to reveal their faces first.", "choice")
+	reset_panel("CHOOSE AN ENEMY HAND CARD", "Only cards currently held by the Disaster can be targeted. Cast Hazard Forecast to reveal their faces first.", "choice")
 	action_cancel = cancel
 	# Same layout as choose_card(), from ui_choose_cards.tscn.
 	unpack_screen(ChooseCardsScene)

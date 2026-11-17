@@ -127,7 +127,7 @@ func game_checks() -> void:
 	picks[2].disabled = true
 	await capture("adaptation_states")
 	battle()
-	for title in ["JANITOR'S TURN", "CLASH"]:
+	for title in ["DISASTER'S TURN", "CLASH"]:
 		game.presentation.banner(title, "Watch the opposing formation")
 		await capture(title.to_lower().replace("'", "").replace(" ", "_"))
 		await create_timer(1.0).timeout
