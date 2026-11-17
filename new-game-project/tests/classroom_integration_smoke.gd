@@ -51,7 +51,7 @@ func run() -> void:
 			game.complete_draw_choice(game.deck[0])
 	check(game.can_player_act(), "actual encounter remains playable")
 	await create_timer(0.7).timeout
-	for mode in [game.View.WIDE, game.View.DESK, game.View.BOARD, game.View.WIDE]:
+	for mode in [game.View.DESK, game.View.BOARD, game.View.DESK]:
 		game.set_view(mode)
 		for sample in 7:
 			await create_timer(0.1).timeout
@@ -95,7 +95,7 @@ func check_background() -> void:
 	environment.background_color = Color(1, 0, 1)
 	for viewport_size in [Vector2i(1280, 800), Vector2i(1600, 900), Vector2i(1920, 810)]:
 		root.size = viewport_size
-		for mode in [game.View.WIDE, game.View.DESK, game.View.BOARD]:
+		for mode in [game.View.DESK, game.View.BOARD]:
 			game._apply_view(game.view_settings(mode))
 			await process_frame
 			await RenderingServer.frame_post_draw

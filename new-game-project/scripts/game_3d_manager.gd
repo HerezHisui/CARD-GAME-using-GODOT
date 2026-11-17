@@ -88,8 +88,10 @@ var turn_banner: CanvasLayer
 var coin_result := -1
 var coin_pick := -1
 var encounter_serial := 0
-enum View { WIDE, DESK, BOARD }
-var view_mode: View = View.DESK
+# Two views. The numbers stay 1 and 2 so old saves load; an old wide view (0) loads as DESK.
+enum View { DESK = 1, BOARD = 2 }
+var view_mode: View = View.DESK:
+	set(value): view_mode = View.BOARD if value == View.BOARD else View.DESK
 var in_board_view := false
 # True once W or S moved the camera since the game last moved it to the board. Auto camera then leaves it.
 var view_changed_by_hand := false
@@ -143,7 +145,6 @@ var side_camera_on := false
 var lan_disaster_camera_on := false
 const SeatPresentation = preload("res://scripts/versus_match.gd")
 const DESK_VIEW := {"pos": Vector3(0, 1.0, -0.4), "rot": Vector3(-30, 0, 0), "dist": 5.3, "fov":60.0}
-const WIDE_VIEW := {"pos": Vector3(-0.8, 2.4, -1.0), "rot": Vector3(-12, -12, 0), "dist":10.0, "fov":68.0}
 const BOARD_VIEW := {"pos": Vector3(0, 1.0, 0.0), "rot": Vector3(-90, 0, 0), "dist": 3.8, "fov":56.0}
 
 # HUD references
@@ -610,7 +611,7 @@ func view_button_pressed(direction: int) -> void:
 	if presentation.blocking: return
 	step_view(direction)
 
-# W and S move one step through Room <-> Table <-> Overhead.
+# W and S move one step between Table and Overhead.
 func _unhandled_key_input(event: InputEvent) -> void:
 	if presentation.blocking: return
 	if run_director and (run_director.modal.visible or not run_director.battle_active): return
@@ -623,23 +624,23 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_S: step_view(-1)
 
 func view_settings(mode: int) -> Dictionary:
-	return [WIDE_VIEW, DESK_VIEW, BOARD_VIEW][clampi(mode, View.WIDE, View.BOARD)]
+	return BOARD_VIEW if mode == View.BOARD else DESK_VIEW
 
 func step_view(direction: int) -> void:
 	# Only the W and S keys and buttons come here.
 	view_changed_by_hand = true
-	set_view(clampi(int(view_mode) + direction, View.WIDE, View.BOARD))
+	set_view(clampi(int(view_mode) + direction, View.DESK, View.BOARD))
 
 func set_view(mode: int) -> void:
 	# The Disaster seat owns the camera until its turn ends.
 	if disaster_seat_on or lan_side_view() or lan_disaster_view(): return
-	view_mode = clampi(mode, View.WIDE, View.BOARD) as View
+	view_mode = clampi(mode, View.DESK, View.BOARD) as View
 	in_board_view = view_mode == View.BOARD
 	clear_hand_hover()
 	_shift_camera(view_settings(view_mode))
 	_update_view_buttons()
 
-# Dim W at the overhead view and S at the wide view.
+# Dim W at the overhead view and S at the desk view.
 func _update_view_buttons() -> void:
 	if _view_forward_btn == null or _view_back_btn == null: return
 	if lan_disaster_view():
@@ -647,7 +648,7 @@ func _update_view_buttons() -> void:
 		_view_back_btn.disabled = true
 		return
 	_view_forward_btn.disabled = view_mode == View.BOARD
-	_view_back_btn.disabled = view_mode == View.WIDE
+	_view_back_btn.disabled = view_mode == View.DESK
 
 func set_board_view(on: bool) -> void:
 	# The game moves to the board (combat, a board pick, a spell): watch for W and S from here.
@@ -812,9 +813,6 @@ func _process(_delta: float) -> void:
 		if not is_hand_tucked: set_hand_tucked(true)
 		return
 
-	if view_mode == View.WIDE:
-		if not is_hand_tucked: set_hand_tucked(true)
-		return
 	if in_board_view:
 		if not is_hand_tucked: set_hand_tucked(true)
 	else:
@@ -1530,8 +1528,8 @@ func _start_match() -> void:
 	_set_phase(Phase.SETUP, "Call Heads or Tails")
 	var serial := encounter_serial
 	presentation.blocking = true
-	_apply_view(WIDE_VIEW)
-	_shift_camera(DESK_VIEW, 1.0)
+	if camera_tween: camera_tween.kill()
+	_apply_view(DESK_VIEW)
 	presentation.banner("DISASTER ENCOUNTER", encounter_kind.capitalize() + " · Prepare your formation", UI.GOLD, true)
 	await _wait(1.1)
 	if serial != encounter_serial: return

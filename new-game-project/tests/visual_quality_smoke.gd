@@ -65,9 +65,9 @@ func run() -> void:
 	check(effect.size.is_equal_approx(root.get_visible_rect().size), "sharpness grade covers the viewport without lowering resolution")
 	if DisplayServer.get_name() != "headless":
 		if "--msaa-only" in OS.get_cmdline_user_args(): root.use_taa = false
-		game.set_view(game.View.WIDE)
+		game.set_view(game.View.BOARD)
 		await create_timer(1.0).timeout
-		await capture("quality_room")
+		await capture("quality_board")
 		game.set_view(game.View.DESK)
 		await create_timer(0.8).timeout
 		game.clear_hand_hover()

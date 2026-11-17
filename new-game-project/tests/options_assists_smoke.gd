@@ -232,12 +232,14 @@ func check_camera_after_combat() -> void:
 	await key(KEY_SPACE)
 	expect(await wait_until(func(): return game.phase == game.Phase.COMBAT), "3: hand: combat began")
 	# The W/S keys are off in combat; the HUD view buttons still work.
+	# S then W: the player picks the board by hand (there is no wide view now).
 	await view_button(-1)
-	await view_button(-1)
-	expect(game.view_mode == game.View.WIDE, "3: hand: the S button twice in combat gives the wide view")
+	expect(game.view_mode == game.View.DESK, "3: hand: the S button in combat gives the desk")
+	await view_button(1)
+	expect(game.view_mode == game.View.BOARD, "3: hand: the W button in combat gives the board")
 	await wait_until(func(): return game.phase != game.Phase.COMBAT)
 	await settle()
-	expect(game.view_mode == game.View.WIDE, "3: hand: auto camera does not undo the player's view")
+	expect(game.view_mode == game.View.BOARD, "3: hand: auto camera does not undo the player's view")
 	# Manual camera: today's behaviour, the view from before combat comes back.
 	DirAccess.remove_absolute(settings_path())
 	await new_scene(null)

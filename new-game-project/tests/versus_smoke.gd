@@ -748,7 +748,7 @@ func check_disaster_seat(game: Node, director: Node) -> void:
 	expect(done[0] and not game.disaster_waiting, "Disaster seat: the End turn button ends the turn")
 	expect(not game.disaster_seat_on and game.camera.global_position.z > 3.0, "Disaster seat: the camera flips back")
 	expect(game.opponent_hand.visible and game.view_mode == view_before, "Disaster seat: Janitor and view are back")
-	expect(not game._view_forward_btn.disabled or view_before == game.View.WIDE, "Disaster seat: view buttons are back")
+	expect(not game._view_forward_btn.disabled or view_before == game.View.BOARD, "Disaster seat: view buttons are back")
 	await create_timer(0.3, false).timeout
 	var all_back := true
 	for card: Node in get_nodes_in_group("cards"):

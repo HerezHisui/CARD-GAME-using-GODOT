@@ -61,9 +61,6 @@ func run() -> void:
 	var hood: Vector2 = game.camera.unproject_position(character.to_global(Vector3(0, 1.99, 0)))
 	check(hood.y > 60 and hood.y < target_size.y * .4, "Desk camera frames hood below HUD")
 	await capture("janitor_desk")
-	game._apply_view(game.WIDE_VIEW)
-	await create_timer(0.3).timeout
-	await capture("janitor_wide")
 	game._apply_view(game.BOARD_VIEW)
 	await create_timer(0.3).timeout
 	await capture("janitor_board")

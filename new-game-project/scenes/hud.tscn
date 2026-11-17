@@ -297,7 +297,7 @@ mouse_default_cursor_shape = 2
 text = "W"
 
 [node name="ViewBackButton" type="Button" parent="Root"]
-editor_description = "S: move the view one step back (toward the wide room view)."
+editor_description = "S: move the view one step back (toward the desk view)."
 custom_minimum_size = Vector2(40, 40)
 layout_mode = 0
 offset_left = 72.0

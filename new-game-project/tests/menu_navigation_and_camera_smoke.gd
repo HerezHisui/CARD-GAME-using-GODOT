@@ -105,24 +105,23 @@ func run() -> void:
 	game.set_view(game.View.DESK)
 	await create_timer(0.65).timeout
 	await capture("table")
+	# The room (wide) view is gone: the table is the lower limit.
 	key(KEY_S)
-	check(game.view_mode == game.View.WIDE, "S selects room view from default")
+	check(game.view_mode == game.View.DESK, "table is the lower camera limit")
+	key(KEY_W, true)
+	check(game.view_mode == game.View.DESK, "held key repeats do not skip a view")
+	key(KEY_W)
+	check(game.view_mode == game.View.BOARD and game.in_board_view, "W selects overhead from default")
 	var before: float = game.camera.fov
 	await create_timer(0.22).timeout
-	check(game.camera.fov > before and game.camera.fov < game.WIDE_VIEW.fov, "FOV blends through intermediate values")
+	check(game.camera.fov < before and game.camera.fov > game.BOARD_VIEW.fov, "FOV blends through intermediate values")
 	await create_timer(0.45).timeout
-	check(game.camera.position.is_equal_approx(Vector3(0, 0, game.WIDE_VIEW.dist)), "room transition reaches its target")
-	await capture("room")
+	check(game.camera.position.is_equal_approx(Vector3(0, 0, game.BOARD_VIEW.dist)), "overhead move reaches its target")
 	key(KEY_S)
-	check(game.view_mode == game.View.WIDE, "room is the lower camera limit")
-	key(KEY_W, true)
-	check(game.view_mode == game.View.WIDE, "held key repeats do not skip a view")
-	key(KEY_W)
-	check(game.view_mode == game.View.DESK, "W returns to table")
 	await create_timer(0.12).timeout
 	key(KEY_W)
 	await create_timer(0.65).timeout
-	check(game.view_mode == game.View.BOARD and game.in_board_view, "rapid W presses reach overhead without competing tweens")
+	check(game.view_mode == game.View.BOARD and game.in_board_view, "rapid S then W reach overhead, no tween fight")
 	check(game.get_node("CameraPivot").rotation_degrees.is_equal_approx(game.BOARD_VIEW.rot), "overhead ends facing straight down")
 	check(is_equal_approx(game.camera.fov, game.BOARD_VIEW.fov), "FOV reaches overhead target")
 	await capture("overhead")
@@ -132,10 +131,11 @@ func run() -> void:
 	key(KEY_S)
 	check(game.view_mode == game.View.BOARD, "combat blocks manual camera changes")
 	game._set_phase(game.Phase.PLAYER_PLAY)
-	game.set_view(game.View.WIDE)
+	game.set_view(game.View.DESK)
 	await create_timer(0.65).timeout
-	check(director.persistence.checkpoint() and director.persistence.resume(), "room-view battle checkpoint restores")
-	check(game.view_mode == game.View.WIDE and is_equal_approx(game.camera.fov, game.WIDE_VIEW.fov), "Continue preserves the third camera state")
+	check(director.persistence.checkpoint() and director.persistence.resume(), "table-view battle checkpoint restores")
+	check(game.view_mode == game.View.DESK, "Continue preserves the table view")
+	check(is_equal_approx(game.camera.fov, game.DESK_VIEW.fov), "Continue restores the table camera")
 	await create_timer(0.65).timeout
 	var card = game._get_card_in_slot(game._response_slots()[0])
 	check(is_equal_approx(card.scale.x, game.BOARD_SCALE), "deployed cards retain their smaller world scale after Continue")
@@ -144,7 +144,7 @@ func run() -> void:
 	game.clear_battle()
 	game._set_phase(game.Phase.PLAYER_PLAY)
 	await game._combat()
-	check(game.view_mode == game.View.WIDE, "combat restores room view after its overhead animation")
+	check(game.view_mode == game.View.DESK, "combat restores table view after its overhead animation")
 	game._set_phase(game.Phase.PLAYER_PLAY)
 	var legacy: Dictionary = director.persistence.read_save()
 	legacy.game.erase("view_mode")
@@ -153,6 +153,15 @@ func run() -> void:
 	save.store_string(JSON.stringify(legacy))
 	save.close()
 	check(director.persistence.resume() and game.view_mode == game.View.BOARD, "older two-view saves migrate to overhead")
+	# A save made in the old wide view (0) loads at the table.
+	legacy.game.view_mode = 0
+	legacy.game.in_board_view = false
+	save = FileAccess.open(director.persistence.save_path(), FileAccess.WRITE)
+	save.store_string(JSON.stringify(legacy))
+	save.close()
+	check(director.persistence.resume(), "an old wide-view save resumes")
+	check(game.view_mode == game.View.DESK and not game.in_board_view, "old wide-view saves load at the table")
+	check(is_equal_approx(game.camera.fov, game.DESK_VIEW.fov), "old wide-view saves use the table camera")
 	director.battle_active = false
 	director.show_map()
 	check(not game.visible, "returning to map hides battle geometry")
