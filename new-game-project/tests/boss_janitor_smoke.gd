@@ -298,7 +298,11 @@ func run() -> void:
 	check(intent_panel().visible, "rule on: the intent panel shows")
 	check(label.text.contains("CLOSING TIME next round"), "round 1 warns one round early (got '%s')" % label.text)
 	check(label_fits(label), "round 1 text fits the panel")
+	# A real lock first, so the round 2 line names a locked card.
+	var locked_hand := hand_of(1)
 	game.turn = 2
+	BossRules.prepare_round(game)
+	check(locked(locked_hand, 4).size() == 1, "round 2: the hand card is locked")
 	await wait_frames(2)
 	check(label.text.contains("CLOSING TIME: one card is locked. Next lock in 2 rounds."),
 		"round 2 says a card is locked (got '%s')" % label.text)

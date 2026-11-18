@@ -47,7 +47,8 @@ func reset_run() -> void:
 
 ## The kit in play, or "" for today's plans. Versus always uses plans.
 func kit_id() -> String:
-	if game.encounter_kind == "versus": return ""
+	# Versus and the tutorial use today's plans for every leader.
+	if game.encounter_kind in ["versus", "tutorial"]: return ""
 	return kit
 
 ## Give this run a leader kit. An unknown id or "" keeps today's plans.

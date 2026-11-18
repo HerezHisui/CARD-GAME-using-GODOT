@@ -158,6 +158,11 @@ static func closing_intent(game: Node, row: Dictionary) -> String:
 	var prefix := "%s. " % step.name if phase(game) > 1 else ""
 	var turn := int(game.turn)
 	if lock_round(game, turn):
+		# closing_time writes exactly turn + lock_rounds. No such card means nothing was locked.
+		var until := turn + lock_rounds
+		var cards: Array = game.get_hand_cards()
+		if not cards.any(func(card): return int(card.card_data.get("locked_until", 0)) == until):
+			return prefix + "CLOSING TIME: nothing to lock. Next lock in %d rounds." % gap
 		return prefix + "CLOSING TIME: one card is locked. Next lock in %d rounds." % gap
 	var wait := gap - turn % gap
 	if wait == 1:
