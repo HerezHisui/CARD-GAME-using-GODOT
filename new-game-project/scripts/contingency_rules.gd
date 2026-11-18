@@ -12,7 +12,9 @@ const TACTICS := [
 	{"id":"precision", "name":"Precision Team", "cost":2, "description":"One ally gains +2 attack for this combat."},
 	{"id":"extract", "name":"Emergency Extraction", "cost":1, "description":"Move an ally to a chosen empty lane instead of taking one lethal attack."}
 ]
-var unlocked: Array[String] = ["brace", "coordinate"]
+# The plans every run starts with.
+const START_PLANS: Array[String] = ["brace", "coordinate"]
+var unlocked: Array[String] = START_PLANS.duplicate()
 var game: Node
 var tokens := 0
 var auto_save := true
@@ -42,7 +44,7 @@ static func find_tactic(id: String) -> Dictionary:
 
 func reset_run() -> void:
 	reset()
-	unlocked.assign(["brace", "coordinate"])
+	unlocked.assign(START_PLANS)
 	kit = ""
 
 ## The kit in play, or "" for today's plans. Versus always uses plans.
@@ -50,6 +52,12 @@ func kit_id() -> String:
 	# Versus and the tutorial use today's plans for every leader.
 	if game.encounter_kind in ["versus", "tutorial"]: return ""
 	return kit
+
+## The plans the player may use now. With a stored kit and today's plans (the tutorial), unlocked holds the
+## kit's start ids, so the start plans are used instead. Versus keeps its chosen plans in unlocked.
+func plan_ids() -> Array:
+	if kit_id() == "" and kit != "" and game.encounter_kind != "versus": return START_PLANS.duplicate()
+	return unlocked.duplicate()
 
 ## Give this run a leader kit. An unknown id or "" keeps today's plans.
 func set_kit(id: String) -> void:
@@ -277,7 +285,7 @@ func coordination_targets(center: Node) -> Array:
 
 func arm(kind: String, cards: Array, destination: Node3D = null) -> bool:
 	var tactic := definition(kind)
-	if not can_arm() or kind not in unlocked or tactic.is_empty() or tokens < int(tactic.cost): return false
+	if not can_arm() or kind not in plan_ids() or tactic.is_empty() or tokens < int(tactic.cost): return false
 	if kind == "coordinate":
 		if cards.size() != 1 or not eligible(cards[0]): return false
 	elif kind in ["brace", "medicine", "flank", "precision", "extract"]:

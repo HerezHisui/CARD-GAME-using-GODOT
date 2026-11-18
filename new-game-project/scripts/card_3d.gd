@@ -509,18 +509,24 @@ func _refresh_face() -> void:
 		if card_data.get("curse", false): _add_effect_icon("bleed")
 		# A Janitor lock (boss_rules.closing_time) uses the delay icon; every other lock keeps the seal icon.
 		if not preview_only and _manager().is_sealed(card_data):
-			if card_data.get("lock_source", "") == "janitor":
+			if is_janitor_lock(card_data):
 				var badge := _add_effect_icon("delay")
-				badge.tooltip_text = "Locked by the Janitor. Playable from round %d." % int(card_data.locked_until)
+				badge.tooltip_text = seal_hint(card_data, _manager().turn)
 			else: _add_effect_icon("sealed")
 		if not preview_only and not _manager().field_seal_text(card_data).is_empty():
 			_add_effect_icon("sealed", 0, _manager().field_seal_text(card_data))
 		if has_modifier("sluggish") and not can_attack(_manager().turn): _add_effect_icon("resting")
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
+## A lock the Janitor wrote and nothing has changed since (boss_rules.closing_time).
+static func is_janitor_lock(definition: Dictionary) -> bool:
+	return definition.get("lock_source", "") == "janitor" \
+		and int(definition.get("janitor_until", -1)) == int(definition.get("locked_until", 0))
+
 static func seal_hint(definition: Dictionary, round_number: int) -> String:
 	var until := int(definition.get("locked_until", 0))
 	if until > round_number:
+		if is_janitor_lock(definition): return "Locked by the Janitor. Playable from round %d." % until
 		return "Sealed by a Disaster effect. Cannot play this card until round %d." % until
 	var field_round := int(definition.get("seal_round", -1))
 	if field_round >= round_number:

@@ -145,6 +145,8 @@ static func closing_time(game: Node, row: Dictionary) -> void:
 	target.card_data.locked_until = until
 	# card_3d shows a Janitor lock with its own icon, not the seal icon.
 	target.card_data["lock_source"] = "janitor"
+	# A later seal by anything else changes locked_until, so the card shows the seal look again.
+	target.card_data["janitor_until"] = until
 	target._refresh_face()
 	game.log_event("CLOSING TIME: %s is locked for %d rounds." % [str(target.card_data.get("name", "A card")),
 		lock_rounds])

@@ -15,7 +15,6 @@ const Workshop = preload("res://scripts/run_workshop.gd")
 const Events = preload("res://scripts/run_events.gd")
 const Buffs = preload("res://scripts/run_buffs.gd")
 const LeaderKits = preload("res://scripts/leader_kits.gd")
-const ContingencyRules = preload("res://scripts/contingency_rules.gd")
 ## Header, gauges, modal frame, idle hint, boss intent and board prompt, placed in the editor.
 const ShellScene = preload("res://scenes/ui/ui_shell.tscn")
 ## Screen layouts that go inside the modal. Edit them in the editor.
@@ -1936,7 +1935,7 @@ func show_plans() -> void:
 	unpack_screen(PlansScene)
 	content.get_node("Status").text = "PLANS %d / 2" % game.plans.tokens
 	var list: Control = content.get_node("Scroll/List")
-	for id in plan_ids():
+	for id in game.plans.plan_ids():
 		var tactic: Dictionary = game.plans.definition(id)
 		var pick := choice_tile(plans_tile_title(tactic.name, int(tactic.cost)), tactic.description,
 			begin_tactic.bind(id), list)
@@ -1969,21 +1968,13 @@ func show_kit_plans(kit: Dictionary) -> void:
 static func plans_tile_title(tactic_name: String, cost: int) -> String:
 	return tactic_name + " · %d Plan%s" % [cost, "s" if cost > 1 else ""]
 
-## Today's plans shown on the Plans screen: the unlocked ids that are plans.
-## The tutorial keeps a stored kit's ids in unlocked; then the plans a new run starts with come first.
-func plan_ids() -> Array:
-	var ids: Array = game.plans.unlocked.filter(func(id): return not game.plans.definition(id).is_empty())
-	if ids.size() == game.plans.unlocked.size(): return ids
-	# A fresh rules object holds the start list, so it is written in one place only.
-	var fresh: Node = ContingencyRules.new()
-	var start: Array = fresh.unlocked.duplicate()
-	fresh.free()
-	return start + ids.filter(func(id): return id not in start)
+## Today's plans shown on the Plans screen. The rules own the list (plans.plan_ids); tests read it here.
+func plan_ids() -> Array: return game.plans.plan_ids()
 
 func tactic_available(id: String) -> bool:
 	if game.plans.kit_id() != "": return game.plans.kit_available(id)
-	# Only a shown plan that the rules can arm (plans.arm needs it in unlocked).
-	if id not in plan_ids() or id not in game.plans.unlocked: return false
+	# Only a plan the player may use now: the same list plans.arm checks.
+	if id not in game.plans.plan_ids(): return false
 	var tactic: Dictionary = game.plans.definition(id)
 	if game.phase != game.Phase.PLAYER_PLAY or game.plans.tokens < int(tactic.cost) or game.plans.committed_round == game.turn: return false
 	var allies: Array = game._response_slots().map(func(slot): return game._get_card_in_slot(slot)).filter(func(card): return card != null)

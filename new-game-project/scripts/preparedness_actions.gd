@@ -188,7 +188,7 @@ func utility_cancel(msg: Dictionary) -> Dictionary:
 func use_tactic(id, ally_lane) -> Dictionary:
 	var problem := _common_problem()
 	if not problem.is_empty(): return _result(false, problem)
-	if typeof(id) != TYPE_STRING or id not in game.plans.unlocked: return _result(false, "bad_tactic")
+	if typeof(id) != TYPE_STRING or id not in game.plans.plan_ids(): return _result(false, "bad_tactic")
 	var no_ally: bool = utilities_on() and id in NO_ALLY_TACTICS
 	# Flag on: Emergency Extraction opens a pick (ally, then empty lane) and arms at the last pick.
 	var pick_first: bool = utilities_on() and id == "extract"
