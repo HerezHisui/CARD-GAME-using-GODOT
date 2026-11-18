@@ -76,14 +76,42 @@ func reset() -> void:
 	kit_used = false
 
 func bank_unused_energy() -> bool:
+	var data := LeaderKits.kit(kit_id())
 	# A kit that never banks (Kai): unused energy is lost.
-	if LeaderKits.kit(kit_id()).get("bank", "") == "none": return false
+	if data.get("bank", "") == "none": return false
+	# A kit that banks all of it (Sam's Last Bell).
+	if data.get("bank", "") == "all": return _bank_all(data)
 	if not auto_save or tokens >= cap() or game.preparedness < 2 or saved_round == game.turn: return false
 	game.preparedness -= 2
 	tokens += 1
 	saved_round = game.turn
 	game.log_event("Saved 2 energy for a Plan token (%d/%d)." % [tokens, cap()], "preparedness",
 		"Preparedness saves 2 energy.")
+	game._refresh_bars()
+	return true
+
+## Sam's Last Bell: all unused energy goes into the Bell, 1 for 1, up to the cap. The rest is lost.
+## Skip: End Turn at full energy with no kit effect used also draws and blocks hero damage this combat.
+## Returns true when energy was saved, so the save sound plays.
+func _bank_all(data: Dictionary) -> bool:
+	if saved_round == game.turn: return false
+	saved_round = game.turn
+	# Judged before the energy moves. Only energy and the kit effect count: a 0-cost card does not break a skip.
+	var skipped: bool = game.preparedness == game.energy_cap and committed_round != game.turn
+	if skipped and data.has("skip"):
+		var skip: Dictionary = data.skip
+		if not game.deck.is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX:
+			game.draw_cards(int(skip.draw))
+		# Set, not add: an armed Excuse Slip also sets 3. finish_combat clears it after this round's combat.
+		game.plan_hero_barrier = int(skip.hero_block)
+		game.log_event("Sam skips the turn: draw %d, block %d." % [int(skip.draw), int(skip.hero_block)],
+			"preparedness", "Preparedness skips the turn.")
+	var saved := mini(game.preparedness, cap() - tokens)
+	if not auto_save or saved <= 0: return false
+	game.preparedness -= saved
+	tokens += saved
+	game.log_event("Saved %d energy in the Bell (%d/%d)." % [saved, tokens, cap()], "preparedness",
+		"Preparedness saves energy.")
 	game._refresh_bars()
 	return true
 
@@ -117,6 +145,8 @@ func kit_available(id: String) -> bool:
 		return not game.recoverable_units().is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
 	if row.does == "draw":
 		return not game.deck.is_empty() and game.get_hand_cards().size() < game.HAND_SIZE_MAX
+	# Cram: at least 1 Bell (its cost), and it may fill energy past this round's cap, up to ENERGY_MAX.
+	if row.does == "energy" and str(row.amount) == "all": return game.preparedness < game.ENERGY_MAX
 	if row.does == "energy": return game.preparedness < game.energy_cap
 	if row.target == "enemy": return not enemy_units().is_empty()
 	if row.target == "weakest": return weakest() != null
@@ -160,7 +190,8 @@ func use_kit_effect(id: String, target: Node = null, second: Node = null) -> boo
 	if not kit_available(id): return false
 	var row := definition(id)
 	if not _kit_target_ok(row, target, second): return false
-	tokens -= int(row.cost)
+	# Cram pays with the Bell it moves, below, not with its cost.
+	if str(row.amount) != "all": tokens -= int(row.cost)
 	committed_round = game.turn
 	if row.when == "combat":
 		# Same four keys as a Plan: preview_attack reads them every frame.
@@ -204,6 +235,15 @@ func use_kit_effect(id: String, target: Node = null, second: Node = null) -> boo
 		_count_moves = true
 		game.log_event("%s: %s and %s trade lanes." % [row.name, target.card_data.name, second.card_data.name],
 			"preparedness", "Preparedness uses Tempo.")
+	elif row.does == "energy" and str(row.amount) == "all":
+		# Cram: the Bell that fits under ENERGY_MAX moves into energy. The rest stays in the Bell.
+		# kit_available made sure at least 1 moves.
+		var moved := mini(tokens, game.ENERGY_MAX - game.preparedness)
+		tokens -= moved
+		game.preparedness += moved
+		game.log_event("%s moves %d Bell into energy." % [row.name, moved], "preparedness",
+			"Preparedness uses the Bell.")
+		game._refresh_bars()
 	elif row.does == "energy":
 		game.preparedness = mini(game.energy_cap, game.preparedness + int(row.amount))
 		game.log_event("%s gives back energy." % row.name, "preparedness", "Preparedness uses Tempo.")

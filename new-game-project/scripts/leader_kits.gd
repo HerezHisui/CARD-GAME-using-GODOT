@@ -8,6 +8,8 @@ const ROBIN_ENABLED := false
 const SAGE_ENABLED := false
 # Kai's kit stays off until it has been played.
 const KAI_ENABLED := false
+# Sam's kit stays off. Character 0 plays it, and every test plays character 0.
+const SAM_ENABLED := false
 
 const KITS := {
 	"robin": {
@@ -74,6 +76,25 @@ const KITS := {
 				"when":"combat", "description":"One unit dodges a killing hit into an empty lane."},
 		],
 	},
+	"sam": {
+		"name": "LAST BELL", "charge": "Bell", "cap": 4, "bank": "all",
+		# Supplies at the start of a run.
+		"supplies": 35,
+		# End Turn at full energy with no kit effect used: draw this many and your HP blocks this much.
+		"skip": {"draw":1, "hero_block":3},
+		"subtitle": "All unused energy is saved at End Turn. Spend nothing and you also draw 1 and block 3.",
+		"reward_title": "NEW EXCUSE", "reward_subtitle": "Add it to your kit for this run.",
+		"start": ["cram", "borrow_notes"],
+		"effects": [
+			# Cram costs at least 1 Bell and takes all the Bell that fits.
+			{"id":"cram", "name":"Cram", "cost":1, "cost_text":"all Bell", "does":"energy", "amount":"all",
+				"target":"none", "when":"now", "description":"Dump the Bell into your energy."},
+			{"id":"borrow_notes", "name":"Borrow Notes", "cost":2, "does":"draw", "amount":1, "target":"none",
+				"when":"combat", "description":"Draw 1 when the fight starts."},
+			{"id":"excuse_slip", "name":"Excuse Slip", "cost":2, "does":"hero_block", "amount":3, "target":"none",
+				"when":"combat", "description":"Your HP blocks 3 this fight."},
+		],
+	},
 }
 
 ## The kit by id, or {} when there is none.
@@ -92,4 +113,5 @@ static func leader_on(leader: String, override: Variant) -> bool:
 	if leader == "robin": return ROBIN_ENABLED
 	if leader == "sage": return SAGE_ENABLED
 	if leader == "kai": return KAI_ENABLED
+	if leader == "sam": return SAM_ENABLED
 	return false

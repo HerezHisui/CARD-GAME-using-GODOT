@@ -58,7 +58,7 @@ const DECISIONS := [
 const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
 const CHARACTERS := [
-	{"name":"Steve · Student", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
+	{"name":"Steve · Student", "leader":"sam", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
 	{"name":"Evacuation Club · Leader", "leader":"kai", "available":false, "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
 	{"name":"Science Club · Leader", "leader":"sage", "available":false, "description":"Burn and Poison combinations. Apply +2 Burn and +1 Poison; units lose 1 health.", "buff":"chemist", "deck":["fire_truck", "steam_team", "steam_team", "hazmat_team", "hazmat_team", "debris_clearance", "debris_clearance", "debris_clearance", "heat_seeker", "toxin_hunter", "cleanse", "tutor"]},
 	{"name":"Safety Club · Leader", "leader":"robin", "available":false, "description":"Brace formations and Strength. Surviving blockers retaliate for 1 fixed damage.", "buff":"warden", "deck":["shelter_brace", "shelter_brace", "shard_barrier", "shard_barrier", "captain", "captain", "drill_leader", "momentum_team", "fire_truck", "field_medic", "rally", "cleanse"]}
@@ -1953,8 +1953,9 @@ func show_kit_plans(kit: Dictionary) -> void:
 	var list: Control = content.get_node("Scroll/List")
 	for id in game.plans.unlocked:
 		var row: Dictionary = game.plans.definition(id)
-		var pick := choice_tile("%s · %d %s" % [row.name, int(row.cost), kit.charge], row.description,
-			begin_tactic.bind(id), list)
+		# A row can name its own cost ("Cram · all Bell"); the rest read "Patch Up · 1 Aid".
+		var cost := str(row.get("cost_text", "%d %s" % [int(row.cost), kit.charge]))
+		var pick := choice_tile("%s · %s" % [row.name, cost], row.description, begin_tactic.bind(id), list)
 		pick.disabled = not game.plans.kit_available(id)
 		pick.get_parent().get_parent().custom_minimum_size.y = 125
 	var armed: Label = content.get_node("Armed")
