@@ -48,6 +48,8 @@ const ASSISTS_DEFAULT_ON := true
 const AUTO_DRAW_SECONDS := 0.7
 # null follows ASSISTS_DEFAULT_ON; only tests override it (set it before the node enters the tree).
 var assists_default_override: Variant = null
+# null follows STANDEE_ENABLED; only tests set a leader id here (before the node enters the tree).
+var standee_override: Variant = null
 var evolution_choice: RefCounted = preload("res://scripts/evolution_choice.gd").new(self)
 # Versus: the whole deck each side started with, for the Deck button. The Disaster list holds its evolutions too.
 var versus_master := {"preparedness": [], "disaster": []}

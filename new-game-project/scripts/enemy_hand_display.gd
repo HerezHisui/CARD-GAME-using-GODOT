@@ -15,7 +15,7 @@ func setup(manager: Node) -> void:
 	character.position.y += 0.25
 	# The Preparedness figure on the other seat. Hidden unless the camera is at the Disaster seat.
 	# It hangs off the game, not this node, because this node is hidden at the Disaster seat.
-	figure = preload("res://scripts/preparedness_figure.gd").new()
+	figure = preload("res://scripts/standee_figure.gd").make_for(game)
 	game.add_child(figure)
 	figure.place_at(game.find_child("PlayerPosition", true, false))
 
