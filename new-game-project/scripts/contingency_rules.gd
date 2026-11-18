@@ -320,20 +320,27 @@ func try_extract(card: Node, damage: int) -> bool:
 	if kit_id() != "":
 		if armed.get("kind", "") == "duck": return _duck(card, damage)
 		return _second_wind(card, damage)
-	if armed.get("kind", "") != "extract" or armed.get("triggered", false) or damage < int(card.card_data.health): return false
-	if armed.targets[0] != card or not eligible(card): return false
-	var slot: Node3D = armed.destination
-	if not is_instance_valid(slot) or game._get_card_in_slot(slot) != null: return false
-	armed.triggered = true
-	card.place_on_slot(slot)
+	if armed.get("kind", "") != "extract": return false
+	if not _dodge(card, damage, "Emergency Extraction", "EXTRACTED"): return false
 	if game.balance_enabled():
 		if int(card.card_data.get("relocation_attack", 0)) > 0 and int(card.get_meta("dash_round", -1)) != game.turn:
 			card.set_meta("dash_round", game.turn)
 			card.set_meta("dash_attack", 1)
 			card.set_plan_attack_bonus(card.plan_attack_bonus + 1)
+	return true
+
+## Emergency Extraction and Kai's Duck: the armed unit dodges one lethal attack hit into its empty lane.
+## plan_name starts the log line; popup is the word shown over the unit.
+func _dodge(card: Node, damage: int, plan_name: String, popup: String) -> bool:
+	if armed.get("triggered", false) or damage < int(card.card_data.health): return false
+	if armed.targets.is_empty() or armed.targets[0] != card or not eligible(card): return false
+	var slot = armed.destination
+	if not is_instance_valid(slot) or game._get_card_in_slot(slot) != null: return false
+	armed.triggered = true
+	card.place_on_slot(slot)
 	card.last_evaded_hit = true
-	game.log_event("Emergency Extraction saves %s from a lethal attack." % card.card_data.name)
-	card.spawn_popup("EXTRACTED", UI.RESPONSE)
+	game.log_event("%s saves %s from a lethal attack." % [plan_name, card.card_data.name])
+	card.spawn_popup(popup, UI.RESPONSE)
 	return true
 
 ## Robin's Second Wind: once per battle, a lethal attack hit leaves the unit at 1 health.
@@ -351,15 +358,7 @@ func _second_wind(card: Node, damage: int) -> bool:
 ## Kai's Duck: the armed unit dodges one lethal attack hit into its empty lane, like Emergency Extraction.
 ## The dodge is a lane change, so it gives Tempo.
 func _duck(card: Node, damage: int) -> bool:
-	if armed.triggered or damage < int(card.card_data.health): return false
-	if armed.targets.is_empty() or armed.targets[0] != card or not eligible(card): return false
-	var slot = armed.destination
-	if not is_instance_valid(slot) or game._get_card_in_slot(slot) != null: return false
-	armed.triggered = true
-	card.place_on_slot(slot)
-	card.last_evaded_hit = true
-	game.log_event("Duck saves %s from a lethal attack." % card.card_data.name)
-	card.spawn_popup("DUCKED", UI.RESPONSE)
+	if not _dodge(card, damage, "Duck", "DUCKED"): return false
 	ally_moved(card)
 	return true
 
