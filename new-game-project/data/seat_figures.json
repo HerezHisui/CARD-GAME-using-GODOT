@@ -1,0 +1,12 @@
+{
+	"rooms": {
+		"battle": {"figure": "dealer"},
+		"tutorial": {"figure": "dealer"},
+		"elite": {"figure": "guardian"},
+		"boss": {"figure": "janitor"},
+		"warden": {"figure": "warden"}
+	},
+	"figures": {
+		"robin": {"hand": [-0.25, 0.55]}
+	}
+}
