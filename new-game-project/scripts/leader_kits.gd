@@ -70,7 +70,7 @@ const KITS := {
 				"when":"now", "description":"Get 2 energy back."},
 			{"id":"lane_swap", "name":"Lane Swap", "cost":1, "does":"swap", "amount":0, "target":"two_allies",
 				"when":"now", "description":"Two neighbours trade lanes."},
-			{"id":"rally", "name":"Rally", "cost":2, "does":"attack_adjacent", "amount":1, "target":"ally",
+			{"id":"rally", "name":"Huddle", "cost":2, "does":"attack_adjacent", "amount":1, "target":"ally",
 				"when":"combat", "description":"One unit and its neighbours get +1 attack this fight."},
 			{"id":"duck", "name":"Duck", "cost":1, "does":"extract", "amount":0, "target":"ally_to_lane",
 				"when":"combat", "description":"One unit dodges a killing hit into an empty lane."},

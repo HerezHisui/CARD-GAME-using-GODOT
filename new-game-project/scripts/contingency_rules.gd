@@ -205,7 +205,7 @@ func use_kit_effect(id: String, target: Node = null, second: Node = null) -> boo
 	if row.when == "combat":
 		# Same four keys as a Plan: preview_attack reads them every frame.
 		armed = {"kind":id, "targets":[], "destination":null, "triggered":false}
-		# Rally and Duck keep their unit; Duck also keeps its lane.
+		# Huddle and Duck keep their unit; Duck also keeps its lane.
 		if row.target in ["ally", "ally_to_lane"]: armed.targets = [target]
 		if row.target == "ally_to_lane": armed.destination = second
 		game.log_event("Armed %s for this combat." % row.name, "preparedness", "Preparedness arms a Plan.")
@@ -407,7 +407,7 @@ func _apply_kit_combat() -> void:
 	elif row.get("does", "") == "draw":
 		game.draw_cards(int(row.amount))
 	elif row.get("does", "") == "attack_adjacent":
-		# Rally works like Coordinated Response: an empty lane breaks the link.
+		# Huddle works like Coordinated Response: an empty lane breaks the link.
 		var targets: Array = armed.targets
 		if targets.is_empty() or not eligible(targets[0]):
 			game.log_event("%s expired: its unit is gone." % row.name)
