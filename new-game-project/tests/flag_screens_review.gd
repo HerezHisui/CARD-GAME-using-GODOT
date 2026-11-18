@@ -297,14 +297,10 @@ func tutorial_screens() -> void:
 	await mouse_away()
 	await click(game.get_node("HUD/Root/DeckDrawButton"))
 	await wait_until(func(): return game.phase == game.Phase.PLAYER_PLAY)
-	# The kit's ids stay in unlocked, but the tutorial reads today's plans: show_plans would fail on them.
-	var unknown: Array = game.plans.unlocked.filter(func(id): return game.plans.definition(id).is_empty())
-	if not unknown.is_empty():
-		skip("tutorial-plans", "unlocked holds kit ids %s with no plan definition" % [unknown])
-	else:
-		await key(KEY_P)
-		if director.screen == "plans": await capture("tutorial-plans")
-		else: skip("tutorial-plans", "P did not open the plans screen")
+	# The kit's ids stay in unlocked; show_plans lists today's plans instead of them.
+	await key(KEY_P)
+	if director.screen == "plans": await capture("tutorial-plans")
+	else: skip("tutorial-plans", "P did not open the plans screen")
 	await close_popup()
 	game.leader_kit_override = null
 	game.plans.set_kit("")

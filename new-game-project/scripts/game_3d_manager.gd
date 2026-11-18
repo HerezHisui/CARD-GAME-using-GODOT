@@ -119,7 +119,12 @@ var log_private: Array[Dictionary] = []
 var moving_source: Node
 var board_input: Node
 var opponent_hand: Node3D
-var plan_hero_barrier := 0
+# Hero damage blocked this combat (Shelter, Sam's skip, Safe Room, Fume Hood).
+# Every change also updates the shield beside the player HP.
+var plan_hero_barrier := 0:
+	set(value):
+		plan_hero_barrier = value
+		_show_hero_shield()
 var moving_ally: Node
 var adapted_round := 0
 var pending_utility: Node
@@ -538,6 +543,36 @@ func _set_health(ui: Control, hp: int, max_hp: int, animate: bool) -> void:
 	t.tween_property(bar, "value", float(hp), 0.15).set_ease(Tween.EASE_OUT)
 	t.tween_interval(0.35)
 	t.tween_property(lag, "value", float(hp), 0.45).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+
+## The hero shield: barrier icon and number on the left end of the player HP bar.
+## Shown while plan_hero_barrier > 0. Made the first time it is needed.
+func _show_hero_shield() -> void:
+	if _player_hp_ui == null: return
+	var shield: TextureRect = _player_hp_ui.get_node_or_null("HeroShield")
+	if shield == null:
+		if plan_hero_barrier <= 0: return
+		shield = TextureRect.new()
+		shield.name = "HeroShield"
+		# Light shield, dark number: it reads on the gold bar and on the dark plate.
+		shield.texture = UI.icon("barrier", UI.TEXT)
+		shield.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		shield.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		# Over the bar's left end, where the centred HP number never reaches.
+		shield.position = Vector2(2, 20)
+		shield.size = Vector2(28, 28)
+		var count := Label.new()
+		count.name = "Count"
+		count.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		count.add_theme_font_size_override("font_size", 16)
+		count.add_theme_color_override("font_color", UI.INSET)
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shield.add_child(count)
+		_player_hp_ui.add_child(shield)
+	shield.visible = plan_hero_barrier > 0
+	shield.get_node("Count").text = str(plan_hero_barrier)
+	shield.tooltip_text = "Shield: blocks the next %d hero damage this combat." % plan_hero_barrier
 
 ## Unblocked hit on a side's HP: drain bar, shake the widget, float the number.
 func _damage_side(player_side: bool, amt: int, bypass_barrier: bool = false) -> void:

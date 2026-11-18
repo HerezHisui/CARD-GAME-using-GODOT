@@ -507,7 +507,12 @@ func _refresh_face() -> void:
 		if plan_attack_bonus > 0: _add_effect_icon("strength", plan_attack_bonus, "Plan attack")
 		if plan_ignore_taunt or card_data.get("ignore_taunt", false): _add_effect_icon("piercing")
 		if card_data.get("curse", false): _add_effect_icon("bleed")
-		if not preview_only and _manager().is_sealed(card_data): _add_effect_icon("sealed")
+		# A Janitor lock (boss_rules.closing_time) uses the delay icon; every other lock keeps the seal icon.
+		if not preview_only and _manager().is_sealed(card_data):
+			if card_data.get("lock_source", "") == "janitor":
+				var badge := _add_effect_icon("delay")
+				badge.tooltip_text = "Locked by the Janitor. Playable from round %d." % int(card_data.locked_until)
+			else: _add_effect_icon("sealed")
 		if not preview_only and not _manager().field_seal_text(card_data).is_empty():
 			_add_effect_icon("sealed", 0, _manager().field_seal_text(card_data))
 		if has_modifier("sluggish") and not can_attack(_manager().turn): _add_effect_icon("resting")
@@ -570,7 +575,8 @@ func _layout_effect_icons() -> void:
 			label.add_theme_font_size_override("font_size", maxi(4, font_size))
 			label.size = cell
 
-func _add_effect_icon(kind: String, stacks: int = 0, detail: String = "") -> void:
+## Returns the badge, so a caller can set its own tooltip.
+func _add_effect_icon(kind: String, stacks: int = 0, detail: String = "") -> TextureRect:
 	var badge := TextureRect.new()
 	badge.name = kind.capitalize().replace(" ", "")
 	badge.texture = UI.icon(kind)
@@ -603,6 +609,7 @@ func _add_effect_icon(kind: String, stacks: int = 0, detail: String = "") -> voi
 		UI.outline(count, 1)
 		badge.add_child(count)
 	_layout_effect_icons()
+	return badge
 
 ## Overlay mode: draw on top of the 3D world (hand / dragging).
 func _set_overlay(on: bool) -> void:

@@ -18,7 +18,9 @@ func _dismiss() -> void:
 	dismissed = true
 	hide.call_deferred()
 
-func update_intent(key: String, message: String, active: bool) -> void:
+## title: the fight's boss name, as the enemy HP caption shows it.
+func update_intent(key: String, message: String, active: bool, title: String = "") -> void:
+	if not title.is_empty(): $Title.text = title
 	if key != announcement_key:
 		announcement_key = key
 		if active: Sfx.play("attack_warning")
