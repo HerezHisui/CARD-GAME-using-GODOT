@@ -15,7 +15,8 @@ Circle = perfection, for the loop and polish: whole (no dead ends), flowing (few
 (no best pick), consistent (same look, words and behaviour on every screen and mode, P1 and P2 alike), polished
 (text fits, every action gives feedback), replayable. A direction, never a gate: it does not block shipping.
 Stack: triangle sets the rules, hexagon builds under them, circle finishes on top.
-Evolve, never sprawl. Every mission audits what it touches and leaves it a little better, inside its FILES list:
+Read what is. Adapt. Evolve, never sprawl. Every mission audits what it touches, follows its existing patterns
+and leaves it a little better, inside its ALLOWED: files:
 - Small upgrades in the lines you edit (dead code, a duplicate, a stale comment, a magic number the data already
   holds): do them and list them under DIFF.
 - Anything bigger you find broken or weak (a system, an architecture smell, a feel problem): one line under FRICTION
@@ -60,6 +61,9 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - Never change a LAN message shape, `PROTOCOL`, `lan_session.gd` or `lan_actions.gd` unless the prompt names them.
 
 ## Working through a goal
+- Start with `bash prompts/state.sh`; read only what the task needs.
+- Never turn a flag on unless the mission names it.
+- Never `cd` in your own shell; paths are relative to new-game-project.
 - A mission file's `ALLOWED:` line lists the files it may edit (new tests are always allowed). mission-check.sh
   enforces it. A cause in another file: skip that item and report it (Files you may edit, below).
 - Every new hook gets one mutation check: remove the line, a test must fail, put it back. Say so in RESULTS.
@@ -112,6 +116,7 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 
 ## Report format
 End every report with five headings: DIFF, RESULTS, BY EYE, FRICTION, SHAPES.
+RESULTS lists every changed test with its old and new expectation and a one-line reason.
 SHAPES is three short lines: triangle (clean, simple, solid: what you checked), hexagon (what you reused or left
 alone instead of adding), circle (any screen or mode that now differs from the others).
 BY EYE lists what Simple must check by hand, because headless tests cannot show feel.
