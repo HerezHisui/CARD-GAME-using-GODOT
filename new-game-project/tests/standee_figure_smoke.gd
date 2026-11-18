@@ -58,6 +58,7 @@ func run() -> void:
 	expect(figure.get_script() == StandeeFigure, "Override robin: the figure is a standee")
 	expect(not figure.visible, "Override robin: hidden at start")
 	check_unknown_id(game)
+	check_outline(figure)
 	check_size()
 	check_single_player(game, figure)
 	await check_boss_seats(game)
@@ -77,9 +78,14 @@ func free_game(game: Node) -> void:
 
 
 ## Copied from preparedness_figure_smoke.gd: the figure's box in world space (its first mesh).
+## The standee has no full-height card any more, so the box covers all its meshes: rim, picture, post and base.
 func figure_box(figure: Node3D) -> AABB:
-	var mesh := figure.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
-	return mesh.global_transform * mesh.get_aabb()
+	var meshes := figure.find_children("*", "MeshInstance3D", true, false)
+	var first := meshes[0] as MeshInstance3D
+	var box := first.global_transform * first.get_aabb()
+	for mesh: MeshInstance3D in meshes:
+		box = box.merge(mesh.global_transform * mesh.get_aabb())
+	return box
 
 
 ## Copied from preparedness_figure_smoke.gd: a card-sized box around a lane slot.
@@ -110,6 +116,21 @@ func check_unknown_id(game: Node) -> void:
 	expect(other.get_script() == PrepFigure, "Unknown id: the Preparedness figure")
 	other.free()
 	game.standee_override = "robin"
+
+
+## No dark board: the card behind the picture is the cut-out's own shape, and only the thin post is tall.
+func check_outline(figure: Node3D) -> void:
+	var rim := figure.get_node("Rim") as MeshInstance3D
+	var picture := figure.get_node("Picture") as MeshInstance3D
+	var rim_material := rim.material_override as StandardMaterial3D
+	expect(rim_material.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR,
+		"Outline: the card behind the picture is cut by alpha, not a box")
+	expect(rim.position.z < picture.position.z, "Outline: the card sits behind the picture")
+	expect(rim.get_aabb().size.x > picture.get_aabb().size.x, "Outline: the card is a little larger, a rim")
+	for mesh: MeshInstance3D in figure.find_children("*", "MeshInstance3D", true, false):
+		var size := mesh.get_aabb().size
+		expect(size.y <= rim.get_aabb().size.y + 0.001 or size.x <= StandeeFigure.POST_WIDTH + 0.001,
+			"Outline: no full-height board (" + mesh.name + ")")
 
 
 func check_size() -> void:
