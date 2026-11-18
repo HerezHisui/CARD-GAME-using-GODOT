@@ -60,6 +60,9 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - Never change a LAN message shape, `PROTOCOL`, `lan_session.gd` or `lan_actions.gd` unless the prompt names them.
 
 ## Working through a goal
+- A mission file's `ALLOWED:` line lists the files it may edit (new tests are always allowed). mission-check.sh
+  enforces it. A cause in another file: skip that item and report it (Files you may edit, below).
+- Every new hook gets one mutation check: remove the line, a test must fail, put it back. Say so in RESULTS.
 - Prompts name code by file and function. A line number in a prompt is a hint: find the function, list any line
   that moved in Part 0, and never stop because a line moved.
 - "Run the next mission in prompts/QUEUE.txt": take the first line not marked DONE, run that mission file, and when
@@ -77,7 +80,10 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - One suite: `godot --headless --fixed-fps 60 --path . -s tests/<name>_smoke.gd`, with a 200 second time limit.
   `--fixed-fps 60` gives every frame 1/60 s of game time, so timers and tweens do not wait on the clock.
   Same checks, about 3 times faster. Drop the flag only to look at real-time feel.
-- For the full run, use batches of 8 suites, each with timeout 200. Run lan_* suites and versus_smoke one at a time.
+- Full run: `bash prompts/run-suites.sh reset` after the last code edit, then `bash prompts/run-suites.sh` until it
+  prints DONE. It resumes. Give each call a 600 s shell timeout: a slow suite may run 200 s past its 100 s budget.
+  A suspected flake: `bash prompts/run-suites.sh one <name>`. mission-check.sh reads the results and fails if
+  any suite is missing, not 0, or older than the change. Do not write your own suite loops.
 - Test baseline: every suite on disk passes (17 Nov: 155 suites, full run about 320 s with --fixed-fps 60).
   lan_smoke alone takes about 33 s (ENet's own timeout). "resources still in use at exit" is known noise.
 - Report exit codes, and any of: SCRIPT ERROR, FAILED, Parse Error, null instance, Index, ERROR, WARNING.
@@ -110,4 +116,5 @@ SHAPES is three short lines: triangle (clean, simple, solid: what you checked), 
 alone instead of adding), circle (any screen or mode that now differs from the others).
 BY EYE lists what Simple must check by hand, because headless tests cannot show feel.
 FRICTION lists anything slow, confusing or missing, so Cowork can log it.
+Keep the report file under 60 lines and the chat summary under 12 lines: facts, no restating the prompt.
 Show the diff summary and stop.
