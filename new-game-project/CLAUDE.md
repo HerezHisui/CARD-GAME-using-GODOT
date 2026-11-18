@@ -30,9 +30,12 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 (its plan-first and wait-for-OK lines are for refactors only).
 
 ## Hard rules
-- Do not commit unless the prompt says to. Simple commits from PowerShell with named paths. Never `git add -A`.
-  Never `git push`. Never add a Co-Authored-By or Claude trailer to any commit message.
-  Never commit docs/notes, prompts, Claude outputs, repos-out or export_presets.cfg.
+- Commit at the end of a mission when it is green, unless the prompt says No commit: `git add` the named paths only
+  (never `git add -A` or `git add .`), run `bash prompts/mission-check.sh`, and commit only if it prints CHECK OK.
+  One plain commit message saying what the player or the code gains. On CHECK FAIL do not commit: report it.
+  An approved test edit is passed as ALLOW_TESTS="<file>.gd" and listed in the report.
+  Never `git push`, never amend or rewrite a commit, never tag unless told. Never add a Co-Authored-By or Claude
+  trailer. Never commit docs/notes, prompts, Claude outputs, repos-out or export_presets.cfg.
 - Public repo rule: no AI tool names or attribution in any file that reaches the public repo (code, tests, docs,
   README). Write "AI tools" if a doc must say it. check-public.sh blocks the rest. Never weaken that guard.
 - Work on the branch the prompt names. You may create branches. Do not delete branches.
@@ -57,6 +60,10 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
 - Never change a LAN message shape, `PROTOCOL`, `lan_session.gd` or `lan_actions.gd` unless the prompt names them.
 
 ## Working through a goal
+- Prompts name code by file and function. A line number in a prompt is a hint: find the function, list any line
+  that moved in Part 0, and never stop because a line moved.
+- "Run the next mission in prompts/QUEUE.txt": take the first line not marked DONE, run that mission file, and when
+  it is committed with CHECK OK, mark the line `DONE <hash>`. One mission per run, then report and stop.
 - Stop between parts only if the prompt says STOP AFTER EACH PART. Otherwise run the parts in order and report once
   at the end, saving a cumulative `docs/notes/<name>-after-part-N.patch` after each part.
 - Items the prompt lists as DEFERRED or SKIPPED are decided: note them in the report and continue.
@@ -71,7 +78,7 @@ When a prompt file names parts to run in a row, these rules and the prompt win o
   `--fixed-fps 60` gives every frame 1/60 s of game time, so timers and tweens do not wait on the clock.
   Same checks, about 3 times faster. Drop the flag only to look at real-time feel.
 - For the full run, use batches of 8 suites, each with timeout 200. Run lan_* suites and versus_smoke one at a time.
-- Test baseline (2026-11-14, branch lan-prototype, --fixed-fps 60): 149 suites, 149 pass, full run about 250 s.
+- Test baseline: every suite on disk passes (17 Nov: 155 suites, full run about 320 s with --fixed-fps 60).
   lan_smoke alone takes about 33 s (ENet's own timeout). "resources still in use at exit" is known noise.
 - Report exit codes, and any of: SCRIPT ERROR, FAILED, Parse Error, null instance, Index, ERROR, WARNING.
   Ignore "Unreferenced static string". It only appears when a timeout kills the run.
