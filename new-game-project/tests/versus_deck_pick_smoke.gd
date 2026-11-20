@@ -164,9 +164,31 @@ func pick_both(p1_side: String, p1_figure: String, p2_figure: String) -> bool:
 	return await wait_for(func(): return coin_logs() == 1)
 
 
-func capture(shot_name: String) -> void:
+## The Disaster's opening evolution offer (local Versus): Ready on its cover, then the first card, as the
+## offer's double click picks it (evolution_choice._choose). True when the Preparedness turn has started.
+func answer_offer() -> bool:
+	var choice: RefCounted = game.evolution_choice
+	if not await wait_for(func(): return cover().visible or not choice.pending()): return false
+	if cover().visible: await click(cover().get_node("%ReadyButton"))
+	if choice.pending():
+		await wait_for(func(): return director.modal.visible)
+		choice._choose(choice.offer[0].definition)
+	if not await wait_for(func(): return game.phase in [game.Phase.PLAYER_DRAW, game.Phase.PLAYER_PLAY]):
+		return false
+	# The first Preparedness turn may raise its own cover.
+	await frames(3)
+	if cover().visible: await click(cover().get_node("%ReadyButton"))
+	await frames(3)
+	return not choice.pending()
+
+
+func capture(shot_name: String, table := false) -> void:
 	if shot_folder == "" or DisplayServer.get_name() == "headless": return
 	root.size = Vector2i(1280, 720)
+	# The pass-the-laptop cover and the evolution offer would hide the table.
+	if table:
+		cover().hide()
+		director.modal.hide()
 	await frames(8)
 	var path := shot_folder.path_join(shot_name + ".png")
 	expect(root.get_texture().get_image().save_png(path) == OK, shot_name + " frame saved")
@@ -321,12 +343,24 @@ func check_seats() -> void:
 	var hand: Node = game.opponent_hand
 	expect(is_instance_valid(hand.far_standee) and hand.far_standee.visible and not body().visible,
 		"Seats: a far Robin is a standee, the JanitorMesh is hidden")
-	# Preparedness goes first. The Disaster's opening evolution offer may still hold the phase at SETUP.
-	expect(game.player_first and hand.visible, "Seats: the far seat is in view (Preparedness first)")
+	expect(await answer_offer(), "Seats: the opening evolution is picked, the Preparedness turn starts")
+	expect(game.player_first and hand.visible, "Seats: the far seat is in view on the Preparedness turn")
 	expect(game.enemy_hand.size() > 0 and hand.character.holding.get_child_count() == game.enemy_hand.size(),
 		"Seats: the fan holds the Disaster hand")
 	await frames(120)
 	expect(is_instance_valid(hand.far_standee), "Seats: 120 frames with both standees")
+	await capture("versus-prep-turn-1280", true)
+	# The real seat switch (disaster_seat._wants_seat), as in tests/preparedness_figure_smoke.gd.
+	game.phase = game.Phase.ENEMY
+	game.disaster_waiting = true
+	await frames(3)
+	# The "your turn" cover rises for the Disaster. Ready lifts it, as a player would.
+	if cover().visible: await click(cover().get_node("%ReadyButton"))
+	director.versus_hud.update()
+	expect(await wait_for(func(): return game.opponent_hand.figure.visible and not hand.visible),
+		"Seats: from the Disaster seat Robin's near standee shows, the far seat does not")
+	await capture("versus-disaster-seat-1280", true)
+	game.disaster_waiting = false
 	end_match()
 	await frames(3)
 	expect(game.opponent_hand.far_standee == null and body().visible, "Seats: the match end brings back the Janitor")

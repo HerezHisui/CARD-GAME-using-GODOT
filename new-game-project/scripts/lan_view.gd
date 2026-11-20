@@ -9,6 +9,7 @@ extends RefCounted
 ## Counts only: the Disaster hand, every draw pile, the evolution deck, the graveyards.
 
 const BattleSnapshot = preload("res://scripts/battle_snapshot.gd")
+const SeatFigures = preload("res://scripts/seat_figures.gd")
 
 
 # The whole view for the client. Plain data, so it fits an RPC.
@@ -47,6 +48,8 @@ static func build(game: Node, side: String = "disaster") -> Dictionary:
 	view["lane_notes"] = lane_notes(game)
 	# Flag on: the Disaster's own graveyard as a list. The Preparedness view keeps the count only.
 	if game.preparedness_actions.flag_on(): view["disaster_graveyard_list"] = _graveyard_list(game)
+	# Figure pick on: the host's figure, for the client's far seat. A figure is public.
+	if SeatFigures.on(game): view["foe_figure"] = SeatFigures.foe_of_client(game)
 	return view
 
 
@@ -90,6 +93,8 @@ static func build_prep(game: Node) -> Dictionary:
 		# Scout: the Disaster hand as it was at the cast, only while the reveal lasts. Never in the Disaster view.
 		if game.preparedness_actions.scout_active():
 			view["disaster_hand_revealed"] = game.preparedness_actions.scout_hand.duplicate(true)
+	# Figure pick on: the host's figure, as in build.
+	if SeatFigures.on(game): view["foe_figure"] = SeatFigures.foe_of_client(game)
 	return view
 
 

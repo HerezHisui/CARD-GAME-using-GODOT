@@ -10,6 +10,7 @@ const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusHud = preload("res://scripts/versus_hud.gd")
 const Janitor = preload("res://scripts/janitor_character.gd")
 const PrepFigure = preload("res://scripts/preparedness_figure.gd")
+const StandeeFigure = preload("res://scripts/standee_figure.gd")
 const Card3DScene = preload("res://scenes/card_3d.tscn")
 const Sfx = preload("res://scripts/sfx_call.gd")
 # p2-parity Part 1: the host's catalog inspect overlay, with the same dossier and card face.
@@ -78,6 +79,7 @@ var disaster_grave: Button
 var grave_note: PanelContainer
 var janitor: Node3D
 var prep_figure: Node3D
+var foe_standee: Node3D # The host's figure at the far seat (figure pick on). null = today's Janitor.
 var foe_resource: Control
 var foe_resource_label: Label
 var foe_meter: Dictionary
@@ -152,6 +154,7 @@ func setup(manager: Node, owner_director: Node, lan_session: Node, lan_panel: Co
 func _exit_tree() -> void:
 	if is_instance_valid(janitor): janitor.queue_free()
 	if is_instance_valid(prep_figure): prep_figure.queue_free()
+	if is_instance_valid(foe_standee): foe_standee.queue_free()
 	if is_instance_valid(hand_root):
 		hand_root.queue_free()
 	if is_instance_valid(foe_root):
@@ -224,12 +227,31 @@ func _reveal() -> void:
 		janitor.transform = game.opponent_hand.character.global_transform
 		janitor.set_fixed_pose(true)
 		janitor.set_encounter(true)
+	# Figure pick on: the host's figure ("foe_figure"). Only an id with a cut-out is built; else today's nodes.
+	var foe := str(view.get("foe_figure", ""))
+	if not StandeeFigure.CUTS.has(foe): foe = ""
 	# The Disaster seat sees the Preparedness figure across the table, like the host's Disaster seat.
 	if flipped:
-		prep_figure = PrepFigure.new()
-		game.add_child(prep_figure)
-		prep_figure.transform = game.opponent_hand.figure.global_transform
+		if foe != "":
+			prep_figure = StandeeFigure.new()
+			prep_figure.build(foe)
+			game.add_child(prep_figure)
+			prep_figure.place_at(game.find_child("PlayerPosition", true, false))
+		else:
+			prep_figure = PrepFigure.new()
+			game.add_child(prep_figure)
+			prep_figure.transform = game.opponent_hand.figure.global_transform
 		prep_figure.show()
+	elif foe != "" and is_instance_valid(janitor):
+		# The Preparedness seat: the standee stands where the Janitor stands, his body hidden.
+		janitor.find_child("JanitorMesh", true, false).visible = false
+		foe_standee = StandeeFigure.new()
+		foe_standee.build(foe)
+		game.add_child(foe_standee)
+		foe_standee.place_at(game.find_child("OpponentPosition", true, false))
+		# Faces the player (+Z), like the Janitor's mesh (enemy_hand_display._set_far).
+		foe_standee.rotation_degrees.y = 0.0
+		foe_standee.show()
 
 
 func _on_event(kind: String, data: Dictionary) -> void:

@@ -19,12 +19,22 @@ static func table() -> Dictionary:
 ## A Dictionary override turns it on; else the flag decides.
 ## Versus has its own flag: the override needs "versus": true there, else VersusMatch.SEAT_FIGURES_VERSUS decides.
 static func on(game: Node) -> bool:
-	if game.encounter_kind == "versus":
-		var override: Variant = game.seat_figures_override
-		if override is Dictionary and override.get("versus", false) == true: return true
-		return VersusMatch.SEAT_FIGURES_VERSUS
+	if game.encounter_kind == "versus": return versus_hook(game)
 	if game.seat_figures_override is Dictionary: return true
 	return SEAT_FIGURES_ENABLED
+
+## The Versus hook alone. The LAN client asks this: its own game is not in a Versus encounter.
+static func versus_hook(game: Node) -> bool:
+	var override: Variant = game.seat_figures_override
+	if override is Dictionary and override.get("versus", false) == true: return true
+	return VersusMatch.SEAT_FIGURES_VERSUS
+
+## LAN host: the figure the client sees across the table, Player 1's (the host's). "" when the hook is off.
+static func foe_of_client(game: Node) -> String:
+	if not on(game): return ""
+	var director: Node = game.run_director
+	if not is_instance_valid(director) or not is_instance_valid(director.versus_match): return ""
+	return director.versus_match.seat_figures.p1
 
 ## Versus: the figure the player on this side picked. "" before the pick.
 static func versus_figure(game: Node, side: String) -> String:

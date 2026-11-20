@@ -12,9 +12,11 @@ const LanView = preload("res://scripts/lan_view.gd")
 # UDP port the host listens on. Open it in the Windows firewall for private networks.
 const PORT := 24680
 # Part E: raise this when the messages change. Host and client must send the same build string.
-# 3 = base, +1 for evolution picks, +2 for prep utilities, so no flag combination shares a number.
+# 3 = base, +1 for evolution picks, +2 for prep utilities, +4 for seat figures, so no flag combination
+# shares a number.
 const PROTOCOL := 3 + (1 if preload("res://scripts/versus_match.gd").LAN_EVOLUTION_PICKS else 0) \
-	+ (2 if preload("res://scripts/versus_match.gd").LAN_PREP_UTILITIES else 0)
+	+ (2 if preload("res://scripts/versus_match.gd").LAN_PREP_UTILITIES else 0) \
+	+ (4 if preload("res://scripts/versus_match.gd").SEAT_FIGURES_VERSUS else 0)
 
 signal peer_joined(id: int)
 signal peer_left(id: int)

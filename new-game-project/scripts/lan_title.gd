@@ -15,6 +15,7 @@ const LAN_PREP_PANEL_PATH := "res://scripts/lan_prep_panel.gd"
 const LAN_BOARD_3D_PATH := "res://scripts/lan_board_3d.gd"
 const VersusMatch = preload("res://scripts/versus_match.gd")
 const VersusDecks = preload("res://scripts/versus_decks.gd")
+const SeatFigures = preload("res://scripts/seat_figures.gd")
 const DeckBuilder = preload("res://scripts/deck_builder.gd")
 const UI = preload("res://scripts/ui_theme.gd")
 # p2-parity Part 2: the client menu uses the host's menu layout and its dark hanging skin.
@@ -363,14 +364,21 @@ func _on_deck_requested(deck) -> void:
 	var side: String = versus.player2_side
 	if not versus.deck_ready.has(side) or versus.deck_ready[side]:
 		return
+	# Figure pick on: the "figure" key leaves the deck before the shape check, so {} is still Standard.
+	# choose_deck keeps it only when it is a String in the list for this side.
+	var figure: Variant = ""
+	if deck is Dictionary and SeatFigures.on(game):
+		deck = deck.duplicate()
+		figure = deck.get("figure", "")
+		deck.erase("figure")
 	var ok := deck_shape_ok(deck)
 	if ok and not deck.is_empty():
 		ok = VersusDecks.validate(side, deck).ok
 	if not ok:
-		versus.choose_deck(side, {})
+		versus.choose_deck(side, {}, figure)
 		session.send_event("deck_note", {"text": DECK_NOTE})
 		return
-	versus.choose_deck(side, deck)
+	versus.choose_deck(side, deck, figure)
 
 
 ## run_director.battle_finished calls this when a Versus match ends.
@@ -775,10 +783,24 @@ func _show_deck_page(side: String) -> void:
 	title.name = "DeckTitle"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
-	var hint: Label = director.label("Play the Standard deck, or build your own.", 19)
+	# Figure pick on: the same row as the host's page (game_presentation.show_deck_choice).
+	var figure_pick := SeatFigures.versus_hook(game)
+	var hint_text := "Play the Standard deck, or build your own."
+	if figure_pick:
+		hint_text = "Pick your %s, then your deck." % ("leader" if side == VersusDecks.SIDE_PREP else "boss")
+	var hint: Label = director.label(hint_text, 19)
 	hint.name = "DeckHint"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
+	var row: HBoxContainer = null
+	if figure_pick:
+		# The picked figure is kept as "figure" meta on the row. _send_deck reads it.
+		row = HBoxContainer.new()
+		row.name = "FigureRow"
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 16)
+		row.set_meta("figure", "")
+		box.add_child(row)
 	var buttons := HBoxContainer.new()
 	buttons.name = "DeckButtons"
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -790,6 +812,21 @@ func _show_deck_page(side: String) -> void:
 	custom.name = "CustomizeButton"
 	for button: Button in [standard, custom]:
 		button.custom_minimum_size = Vector2(240, 56)
+		# Off until a figure is picked.
+		button.disabled = figure_pick
+	if row == null:
+		return
+	var group := ButtonGroup.new()
+	for id: String in VersusMatch.figure_ids(side):
+		var pick := func():
+			row.set_meta("figure", id)
+			standard.disabled = false
+			custom.disabled = false
+		var figure_button: Button = director.button(VersusMatch.figure_name(id), pick, row)
+		figure_button.name = "Figure_" + id
+		figure_button.toggle_mode = true
+		figure_button.button_group = group
+		figure_button.custom_minimum_size = Vector2(160, 48)
 
 
 func _deck_hint() -> Label:
@@ -843,6 +880,12 @@ func _send_deck(deck: Dictionary) -> void:
 	for button in deck_page.find_child("DeckButtons", true, false).get_children():
 		button.disabled = true
 	_deck_hint().text = "Waiting for Player 1..."
+	# Figure pick on: one more key, "figure", on a copy of the deck. No row: the deck as before.
+	var row: Node = deck_page.find_child("FigureRow", true, false)
+	if row != null:
+		for button in row.get_children(): button.disabled = true
+		deck = deck.duplicate()
+		deck["figure"] = str(row.get_meta("figure", ""))
 	session.request_deck(deck)
 
 
