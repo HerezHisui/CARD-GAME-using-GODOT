@@ -15,8 +15,9 @@ Circle = perfection, for the loop and polish: whole (no dead ends), flowing (few
 (no best pick), consistent (same look, words and behaviour on every screen and mode, P1 and P2 alike), polished
 (text fits, every action gives feedback), replayable. A direction, never a gate: it does not block shipping.
 Stack: triangle sets the rules, hexagon builds under them, circle finishes on top.
-Read what is. Adapt. Evolve, never sprawl. Every mission audits what it touches, follows its existing patterns
-and leaves it a little better, inside its ALLOWED: files:
+Inspect. Adapt. Forge. Evolve: zero waste, optimal form, never sprawl. Every mission audits what it touches,
+follows its existing patterns and leaves it a little better, inside its ALLOWED: files. Forge means: a step you
+repeat or a check you wish existed goes under FRICTION as a proposed tool, never as a new file in this mission:
 - Small upgrades in the lines you edit (dead code, a duplicate, a stale comment, a magic number the data already
   holds): do them and list them under DIFF.
 - Anything bigger you find broken or weak (a system, an architecture smell, a feel problem): one line under FRICTION
