@@ -3,6 +3,7 @@ extends SceneTree
 ## Not a _smoke file: run-suites.sh never runs it. Every flag stays false; features turn on only through the
 ## test overrides (game.boss_rule_override, game.leader_kit_override and game.plans.set_kit).
 ## Run: godot --path . -s tests/flag_screens_review.gd -- out=<folder>   (default user://frames)
+## Add only=<name>[,<name>...] (for example only=kai-hud,kai-drill) to capture just those screens.
 const BossRules = preload("res://scripts/boss_rules.gd")
 const Tutorial = preload("res://scripts/tutorial.gd")
 const SIZES := [Vector2i(1280, 800), Vector2i(1920, 1080)]
@@ -14,8 +15,14 @@ var out_dir := "user://frames"
 var width := 0
 var saved := 0
 var skipped: Array = []
+# Screen names from only=; empty means every screen.
+var only: Array = []
 
 func _initialize() -> void: call_deferred("run")
+
+# True when one of these screens should be captured. Without only=, every screen is.
+func wanted(screens: Array) -> bool:
+	return only.is_empty() or screens.any(func(screen): return screen in only)
 
 # Waits in frames, capped at 600.
 func frames(count: int) -> void:
@@ -29,6 +36,7 @@ func wait_until(predicate: Callable) -> bool:
 
 # desk: the desk view, so every HUD frame uses the same camera. A board pick keeps the board view.
 func capture(screen: String, desk: bool = true) -> void:
+	if not wanted([screen]): return
 	if desk: game.set_view(game.View.DESK)
 	await mouse_away()
 	await frames(30)
@@ -160,18 +168,20 @@ func run() -> void:
 	Engine.max_fps = 60
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("out="): out_dir = arg.substr(4).rstrip("/")
+		if arg.begins_with("only="): only.assign(arg.substr(5).split(",", false))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(out_dir))
 	for size in SIZES:
 		width = size.x
 		root.size = size
 		await frames(5)
-		await guardian_screens()
-		await janitor_screens()
-		await robin_screens()
-		await sage_screens()
-		await kai_screens()
-		await sam_screens()
-		await tutorial_screens()
+		# A group whose screens are not wanted is skipped before its setup runs.
+		if wanted(["guardian-p1", "guardian-p2"]): await guardian_screens()
+		if wanted(["janitor-warn", "janitor-lock", "janitor-locked-card", "janitor-none"]): await janitor_screens()
+		if wanted(["robin-hud", "robin-aid"]): await robin_screens()
+		if wanted(["sage-hud", "sage-lab", "sage-pick"]): await sage_screens()
+		if wanted(["kai-hud", "kai-drill"]): await kai_screens()
+		if wanted(["sam-hud", "sam-skip"]): await sam_screens()
+		if wanted(["tutorial-plans"]): await tutorial_screens()
 	if is_instance_valid(game): game.queue_free()
 	await frames(2)
 	print("SAVED %d frames, SKIPPED %s" % [saved, skipped if not skipped.is_empty() else "none"])
@@ -252,10 +262,11 @@ func sage_screens() -> void:
 	else: await capture("sage-pick", false)
 	await close_popup()
 
-# 5. Kai's Drill kit: the HUD after one lane change fills Tempo to 3/3.
+# 5. Kai's Drill kit: the HUD after one lane change fills Tempo to 3/3, then the Drill screen opened with P.
 func kai_screens() -> void:
 	if not await kit_run("kai", 1):
 		skip("kai-hud", "the Kai run did not start")
+		skip("kai-drill", "the Kai run did not start")
 		return
 	game.plans.tokens = 2
 	var ally := card("Runner", 0, 5)
@@ -263,6 +274,12 @@ func kai_screens() -> void:
 	await frames(2)
 	if director.plans_button.get_node("CountLabel").text == "3/3": await capture("kai-hud")
 	else: skip("kai-hud", "count read '%s'" % director.plans_button.get_node("CountLabel").text)
+	# The Drill screen with Huddle owned, as kai_huddle_smoke owns it, so its tile is in the frame.
+	game.plans.unlocked.append("rally")
+	await key(KEY_P)
+	if director.screen == "plans": await capture("kai-drill")
+	else: skip("kai-drill", "P did not open the Drill screen")
+	await close_popup()
 
 # 6. Sam's Last Bell kit: the HUD with the gauge and pips, then a skipped turn (draw 1, block 3).
 func sam_screens() -> void:

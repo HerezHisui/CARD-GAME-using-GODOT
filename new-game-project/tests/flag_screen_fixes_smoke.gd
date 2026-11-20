@@ -107,6 +107,16 @@ func fresh(override: Variant) -> void:
 	game.enemy_hp = game.enemy_max_hp
 	game._set_phase(game.Phase.PLAYER_PLAY)
 
+# A deployed ally in a lane, as plan_ids_smoke makes one.
+func ally(lane: int) -> Node:
+	var result = game.Card3DScene.instantiate()
+	game.add_child(result)
+	result.add_to_group("cards")
+	result.setup({"name":"Helper", "type":"response", "element":"evac", "cost":1, "attack":2, "health":10})
+	result.in_hand = false
+	result.current_slot = game._response_slots()[lane]
+	return result
+
 # Real starter cards go into the hand through the game's own draw path, as small_fixes_smoke adds them.
 func hand_of(count: int) -> Array:
 	var starters: Array = director.character_deck(0)
@@ -170,8 +180,15 @@ func check_tutorial_plans() -> void:
 		for id in kit_ids:
 			check(not director.plan_ids().has(id), "%s: kit id %s is not shown" % [leader, id])
 			check(not director.tactic_available(id), "%s: kit id %s is not available" % [leader, id])
-		# plans.arm needs the id in unlocked, so a shown plan the rules cannot arm stays disabled.
-		check(not director.tactic_available("brace"), "%s: brace is disabled while it is not unlocked" % leader)
+		# Brace is a usable plan in the tutorial (plan_ids), so it is disabled here only by 0 tokens and no ally.
+		check(not director.tactic_available("brace"), "%s: brace is disabled with 0 tokens and no ally" % leader)
+		# With one token and one ally, as plan_ids_smoke sets them, brace is available.
+		var helper := ally(0)
+		var old_tokens: int = game.plans.tokens
+		game.plans.tokens = 1
+		check(director.tactic_available("brace"), "%s: brace is available with 1 token and 1 ally" % leader)
+		game.plans.tokens = old_tokens
+		helper.free()
 		director.begin_tactic("brace")
 		check(game.board_input.action.is_empty() and game.plans.armed.is_empty(),
 			"%s: a disabled plan starts no pick" % leader)
