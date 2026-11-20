@@ -104,6 +104,12 @@ static func figure_ids(side: String) -> Array:
 	if side == VersusDecks.SIDE_DISASTER: return BossRules.rows().keys()
 	return []
 
+## The name on a figure button: the boss's "name" in bosses.json, else the leader id in capitals.
+static func figure_name(id: String) -> String:
+	var row: Variant = BossRules.rows().get(id)
+	if row is Dictionary and row.has("name"): return str(row.name)
+	return id.to_upper()
+
 ## True when id is a String in the side's list. Anything else, also from the network, is refused.
 static func figure_ok(side: String, id: Variant) -> bool:
 	return id is String and figure_ids(side).has(id)

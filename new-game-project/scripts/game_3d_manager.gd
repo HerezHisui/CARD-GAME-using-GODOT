@@ -1635,7 +1635,9 @@ func _resume_versus_coin(serial: int) -> void:
 		var host_prep: bool = versus_node.player1_side == "preparedness"
 		set_seats("local" if host_prep else "remote", "remote" if host_prep else "local")
 	# Deck builder Part 2: the LAN host picks Standard or a custom deck. The client plays Standard for now.
-	if versus_node.deck_choice and (lan_remote_prep or lan_remote_disaster):
+	# With the figure pick on, one computer gets the deck step too (seat_figures.gd).
+	if versus_node.deck_choice and (lan_remote_prep or lan_remote_disaster \
+			or preload("res://scripts/seat_figures.gd").on(self)):
 		var dealt: bool = await _versus_deck_step(versus_node, serial)
 		if not dealt: return
 	# With no human Disaster there is no cover to close, so show the hand now.
@@ -1655,9 +1657,23 @@ func _resume_versus_coin(serial: int) -> void:
 ## LAN deck step. Returns false when the match ended or the wait was cancelled.
 func _versus_deck_step(versus_node: Node, serial: int) -> bool:
 	versus_node.start_deck_step()
+	# One computer with a human Disaster: Player 2 picks on this screen after Player 1, behind the cover.
+	var hot_seat: bool = disaster_is_human and not lan_remote_prep and not lan_remote_disaster
 	# Part 3: a LAN client sends its own deck (lan_title.gd). Without one it plays Standard.
-	if not versus_node.remote_deck_choice: versus_node.choose_deck(versus_node.player2_side, {})
+	if not versus_node.remote_deck_choice and not hot_seat:
+		versus_node.choose_deck(versus_node.player2_side, {})
 	presentation.show_deck_choice(versus_node.player1_side, versus_node)
+	if hot_seat:
+		var p1_side: String = versus_node.player1_side
+		while versus_node.deck_step_active and not versus_node.deck_ready[p1_side]:
+			await get_tree().process_frame
+		if serial != encounter_serial: return false
+		if not versus_node.deck_step_active:
+			presentation.close_deck_choice()
+			reveal_versus_hand()
+			return false
+		presentation.show_deck_choice(versus_node.player2_side, versus_node, 2)
+		run_director.show_privacy_cover("PLAYER 2, pick your deck")
 	var ok: bool = await versus_node.wait_for_decks()
 	if serial != encounter_serial: return false
 	presentation.close_deck_choice()

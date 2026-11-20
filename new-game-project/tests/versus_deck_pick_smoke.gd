@@ -49,6 +49,9 @@ func run() -> void:
 	await check_hook_off()
 	await check_keeps_deck()
 	await check_match_end()
+	await check_page()
+	await check_seats()
+	await check_no_art()
 	versus.automated_deck = ""
 	versus.automated_figure = ""
 	versus.deck_choice = VersusMatch.DECK_CHOICE_ENABLED
@@ -100,9 +103,73 @@ func start_match(prep_seat: String, disaster_seat: String, p1_side: String) -> b
 	game.set_seats(prep_seat, disaster_seat)
 	director.start_versus_match()
 	if not await wait_for(func(): return versus.prematch_active): return false
-	var other := Decks.SIDE_DISASTER if p1_side == Decks.SIDE_PREP else Decks.SIDE_PREP
-	versus.choose_side(p1_side if versus.coin_winner == 1 else other)
+	# Player 2 won the real toss: the "you won the toss" cover is up. Ready lifts it, as a player would.
+	if cover().visible: await click(cover().get_node("%ReadyButton"))
+	# The fixture fixes the toss: the winner always picks Preparedness, so Preparedness goes first.
+	versus.coin_winner = 1 if p1_side == Decks.SIDE_PREP else 2
+	versus.choose_side(Decks.SIDE_PREP)
 	return versus.player1_side == p1_side
+
+
+## A real mouse click at the centre of a control.
+func click(control: Control) -> void:
+	var point := control.get_global_rect().get_center()
+	var move := InputEventMouseMotion.new()
+	move.position = point
+	move.global_position = point
+	root.push_input(move, true)
+	await process_frame
+	for pressed in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		event.position = point
+		event.global_position = point
+		root.push_input(event, true)
+		await process_frame
+
+
+func deck_page() -> Control:
+	return game.presentation.deck_root if is_instance_valid(game.presentation.deck_root) else null
+
+
+func figure_row() -> Node:
+	if deck_page() == null or not is_instance_valid(game.presentation.deck_box): return null
+	return game.presentation.deck_box.get_node_or_null("FigureRow")
+
+
+func page_title() -> String:
+	return game.presentation.deck_box.get_child(0).text
+
+
+func cover() -> Node:
+	return director.privacy_screen
+
+
+## One computer, hook on: Player 1 picks p1_figure, Player 2 picks p2_figure, both Standard, by real clicks.
+## Returns true when the round starts.
+func pick_both(p1_side: String, p1_figure: String, p2_figure: String) -> bool:
+	game.seat_figures_override = HOOK
+	if not await start_match("local", "local", p1_side): return false
+	if not await wait_for(func(): return figure_row() != null): return false
+	await frames(10)
+	await click(figure_row().get_node("Figure_" + p1_figure))
+	await click(game.presentation.deck_buttons[0])
+	if not await wait_for(func(): return figure_row() != null and page_title().begins_with("PLAYER 2")):
+		return false
+	await frames(10)
+	await click(cover().get_node("%ReadyButton"))
+	await click(figure_row().get_node("Figure_" + p2_figure))
+	await click(game.presentation.deck_buttons[0])
+	return await wait_for(func(): return coin_logs() == 1)
+
+
+func capture(shot_name: String) -> void:
+	if shot_folder == "" or DisplayServer.get_name() == "headless": return
+	root.size = Vector2i(1280, 720)
+	await frames(8)
+	var path := shot_folder.path_join(shot_name + ".png")
+	expect(root.get_texture().get_image().save_png(path) == OK, shot_name + " frame saved")
 
 
 func ids(cards: Array) -> Array:
@@ -178,6 +245,109 @@ func check_hook_off() -> void:
 		expect(body().visible and game.opponent_hand.far_standee == null, label + "the Janitor shows")
 		expect(game.opponent_hand.figure.get_script() == PrepFigure, label + "today's near figure")
 	game.seat_figures_override = null
+	end_match()
+	# The LAN host page with the hook off: no figure row, the buttons on at once.
+	versus.automated_deck = ""
+	versus.automated_figure = ""
+	expect(await start_match("local", "remote", Decks.SIDE_PREP), "Hook off: the LAN host plays Preparedness")
+	expect(await wait_for(func(): return deck_page() != null), "Hook off: the LAN host has the deck page")
+	await frames(10)
+	expect(figure_row() == null and not game.presentation.deck_buttons[0].disabled,
+		"Hook off: no figure row, the deck buttons are on")
+	expect(page_title() == "PLAYER 1: PREPAREDNESS DECK", "Hook off: the page title is today's")
+	await click(game.presentation.deck_buttons[0])
+	expect(await wait_for(func(): return coin_logs() == 1), "Hook off: a Standard click starts the round")
+	expect(versus.seat_figures.p1 == "", "Hook off: no figure from the page")
+	# One computer with the hook off: no deck step.
+	var seen := [false]
+	expect(await start_match("local", "local", Decks.SIDE_PREP), "Hook off: one computer")
+	expect(await wait_for(func():
+		if deck_page() != null: seen[0] = true
+		return coin_logs() == 1), "Hook off: one computer, the round starts")
+	expect(not seen[0] and not versus.deck_step_active, "Hook off: one computer has no deck step")
+	end_match()
+
+
+## 2 and 3. One computer, hook on: the rows, the order, the deck buttons and the cover, by real clicks.
+func check_page() -> void:
+	game.seat_figures_override = HOOK
+	expect(await start_match("local", "local", Decks.SIDE_PREP), "Page: Player 1 plays Preparedness")
+	expect(await wait_for(func(): return figure_row() != null), "Page: the deck step shows the figure row")
+	await frames(10)
+	var row := figure_row()
+	var names: Array = row.get_children().map(func(button): return button.text)
+	expect(names == ["SAM", "ROBIN", "SAGE", "KAI"], "Page: four leaders in order, got %s" % str(names))
+	expect(page_title() == "PLAYER 1: PREPAREDNESS DECK", "Page: Player 1's title")
+	var standard: Button = game.presentation.deck_buttons[0]
+	expect(standard.disabled and game.presentation.deck_buttons[1].disabled, "Page: deck buttons off before a pick")
+	await click(standard)
+	expect(not versus.deck_ready[Decks.SIDE_PREP], "Page: a click on an off deck button does nothing")
+	await click(row.get_node("Figure_sage"))
+	await click(row.get_node("Figure_robin"))
+	expect(row.get_node("Figure_robin").button_pressed and not row.get_node("Figure_sage").button_pressed,
+		"Page: the press moves to the last pick")
+	expect(row.get_meta("figure") == "robin" and not standard.disabled, "Page: Robin picked, deck buttons on")
+	await capture("versus-pick-page-1280")
+	await click(standard)
+	expect(versus.deck_ready[Decks.SIDE_PREP] and versus.seat_figures.p1 == "robin", "Page: Robin and Standard")
+	expect(await wait_for(func(): return figure_row() != null and page_title().begins_with("PLAYER 2")),
+		"Page: Player 2's page follows")
+	await frames(10)
+	expect(page_title() == "PLAYER 2: DISASTER DECK", "Page: Player 2's title")
+	names = figure_row().get_children().map(func(button): return button.text)
+	expect(names == ["HALLWAY GUARDIAN", "JANITOR", "MIDNIGHT WARDEN"], "Page: three bosses, got %s" % str(names))
+	expect(cover().visible, "Page: the cover hides Player 2's page")
+	await click(figure_row().get_node("Figure_warden"))
+	expect(figure_row().get_meta("figure") == "", "Page: a click through the cover picks nothing")
+	await click(cover().get_node("%ReadyButton"))
+	expect(not cover().visible, "Page: Ready lifts the cover")
+	expect(coin_logs() == 0 and not game.hand_container.visible, "Page: no round and no hand during the step")
+	await click(figure_row().get_node("Figure_warden"))
+	await click(game.presentation.deck_buttons[0])
+	expect(await wait_for(func(): return coin_logs() == 1), "Page: both picks start the round")
+	expect(versus.seat_figures == {"p1": "robin", "p2": "warden"}, "Page: both figures kept")
+	expect(deck_page() == null and versus.custom_decks.is_empty(), "Page: the page closed, both Standard")
+	end_match()
+
+
+## 4. Robin at each seat. The Disaster seat takes Robin only through the fixture (Robin is not a boss).
+func check_seats() -> void:
+	expect(await pick_both(Decks.SIDE_PREP, "robin", "janitor"), "Seats: Robin and the Janitor picked")
+	await frames(5)
+	expect(game.opponent_hand.figure.get_script() == StandeeFigure, "Seats: the near seat is Robin's standee")
+	expect(body().visible and game.opponent_hand.far_standee == null, "Seats: the far seat is the Janitor mesh")
+	versus.seat_figures.p2 = "robin"
+	await frames(5)
+	var hand: Node = game.opponent_hand
+	expect(is_instance_valid(hand.far_standee) and hand.far_standee.visible and not body().visible,
+		"Seats: a far Robin is a standee, the JanitorMesh is hidden")
+	# Preparedness goes first. The Disaster's opening evolution offer may still hold the phase at SETUP.
+	expect(game.player_first and hand.visible, "Seats: the far seat is in view (Preparedness first)")
+	expect(game.enemy_hand.size() > 0 and hand.character.holding.get_child_count() == game.enemy_hand.size(),
+		"Seats: the fan holds the Disaster hand")
+	await frames(120)
+	expect(is_instance_valid(hand.far_standee), "Seats: 120 frames with both standees")
+	end_match()
+	await frames(3)
+	expect(game.opponent_hand.far_standee == null and body().visible, "Seats: the match end brings back the Janitor")
+	expect(game.opponent_hand.figure.get_script() == PrepFigure, "Seats: the match end brings back the near figure")
+
+
+## 5. Figures with no art yet show today's bodies, with no error.
+func check_no_art() -> void:
+	for pair: Array in [["sam", "guardian"], ["sage", "warden"], ["kai", "janitor"]]:
+		var label := "No art, %s and %s: " % pair
+		expect(await pick_both(Decks.SIDE_PREP, pair[0], pair[1]), label + "picked")
+		await frames(120)
+		expect(versus.seat_figures == {"p1": pair[0], "p2": pair[1]}, label + "kept")
+		expect(game.opponent_hand.figure.get_script() == PrepFigure, label + "today's near figure")
+		expect(body().visible and game.opponent_hand.far_standee == null, label + "the Janitor mesh")
+		end_match()
+	expect(await pick_both(Decks.SIDE_DISASTER, "guardian", "robin"), "No art: Player 1 on the Disaster")
+	expect(versus.seat_figures == {"p1": "guardian", "p2": "robin"}, "No art: Player 1's boss, Player 2's leader")
+	await frames(5)
+	expect(game.opponent_hand.figure.get_script() == StandeeFigure and body().visible,
+		"No art: Player 2's Robin stands at the near seat")
 	end_match()
 
 

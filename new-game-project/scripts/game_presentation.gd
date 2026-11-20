@@ -216,7 +216,9 @@ func close_side_choice() -> void:
 	blocking = false
 
 ## Versus deck step (LAN host): Standard deck or Customize deck for this side.
-func show_deck_choice(side: String, versus_node: Node) -> void:
+## player is 2 only on one computer, when Player 2 picks after Player 1.
+## With the figure pick on (SeatFigures in Versus) a row of figures shows above the two deck buttons.
+func show_deck_choice(side: String, versus_node: Node, player := 1) -> void:
 	close_deck_choice()
 	blocking = true
 	deck_root = ColorRect.new()
@@ -233,12 +235,37 @@ func show_deck_choice(side: String, versus_node: Node) -> void:
 	deck_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	deck_box.add_theme_constant_override("separation", 24)
 	center.add_child(deck_box)
-	var title = game.run_director.label("PLAYER 1: %s DECK" % side.to_upper(), 34, UI.GOLD)
+	var title = game.run_director.label("PLAYER %d: %s DECK" % [player, side.to_upper()], 34, UI.GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	deck_box.add_child(title)
-	deck_hint = game.run_director.label("Play the Standard deck, or build your own.", 19)
+	var figure_pick: bool = preload("res://scripts/seat_figures.gd").on(game)
+	var hint := "Play the Standard deck, or build your own."
+	if figure_pick:
+		var who := "leader" if side == VersusDecks.SIDE_PREP else "boss"
+		hint = "Pick your %s, then your deck." % who
+	deck_hint = game.run_director.label(hint, 19)
 	deck_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	deck_box.add_child(deck_hint)
+	if figure_pick:
+		# The picked figure is kept as "figure" meta on the row. _deck_chosen reads it.
+		var row := HBoxContainer.new()
+		row.name = "FigureRow"
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 16)
+		row.set_meta("figure", "")
+		deck_box.add_child(row)
+		var group := ButtonGroup.new()
+		for id: String in VersusMatch.figure_ids(side):
+			var pick := func():
+				row.set_meta("figure", id)
+				for button in deck_buttons: button.disabled = false
+			var figure_button = game.run_director.button(VersusMatch.figure_name(id), pick, row)
+			figure_button.name = "Figure_" + id
+			figure_button.toggle_mode = true
+			figure_button.button_group = group
+			figure_button.custom_minimum_size = Vector2(160, 48)
+			figure_button.theme_type_variation = "TerminalButton"
+			UI.decorate(figure_button)
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 24)
@@ -250,6 +277,8 @@ func show_deck_choice(side: String, versus_node: Node) -> void:
 		button.custom_minimum_size = Vector2(240, 56)
 		button.theme_type_variation = "TerminalButton"
 		UI.decorate(button)
+		# Off until a figure is picked.
+		button.disabled = figure_pick
 		deck_buttons.append(button)
 	reveal(deck_box)
 
@@ -287,7 +316,13 @@ func _close_deck_builder() -> void:
 func _deck_chosen(side: String, deck: Dictionary, versus_node: Node) -> void:
 	for button in deck_buttons: button.disabled = true
 	deck_hint.text = "Waiting for the other player..."
-	versus_node.choose_deck(side, deck)
+	# The figure goes with the deck. No figure row: "", as before.
+	var figure := ""
+	var row: Node = deck_box.get_node_or_null("FigureRow") if is_instance_valid(deck_box) else null
+	if row != null:
+		figure = str(row.get_meta("figure", ""))
+		for button: Button in row.get_children(): button.disabled = true
+	versus_node.choose_deck(side, deck, figure)
 
 func close_deck_choice() -> void:
 	if not is_instance_valid(deck_root): return
