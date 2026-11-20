@@ -4,6 +4,7 @@ extends Node
 ## The Disaster side is a human (see DISASTER_IS_HUMAN), or the existing AI when that is false.
 
 const VersusDecks = preload("res://scripts/versus_decks.gd")
+const BossRules = preload("res://scripts/boss_rules.gd")
 
 # Local human Versus balance experiment. Existing rules remain the default.
 const BALANCE_PATCH := true
@@ -46,6 +47,11 @@ const SIDE_BY_SIDE_HUD := true
 const SIDE_BY_SIDE_CAMERA := false
 # Both seats share framing; opposite yaw puts the local row on the left.
 const SIDE_CAMERA := {"pos": Vector3(0, -0.8, 0), "rot": Vector3(-55, 90, 0), "dist": 8.0, "fov": 60.0}
+# true = each player picks a leader or a boss with the deck, and it stands at that player's seat.
+# false = no pick, today's bodies. Tests turn it on with game.seat_figures_override = {"versus": true}.
+const SEAT_FIGURES_VERSUS := false
+# The leader row of the pick page, in this order. The boss row is the keys of data/bosses.json.
+const VERSUS_LEADERS := ["sam", "robin", "sage", "kai"]
 
 static func seat_camera(disaster: bool) -> Dictionary:
 	var view := SIDE_CAMERA.duplicate()
@@ -88,6 +94,30 @@ var automated_deck := "" # "standard" or "custom" for test fixtures, never set b
 # Part 3: true while a LAN host runs the match. The client then sends its own deck.
 # false = the client side is marked Standard at once, as in Part 2.
 var remote_deck_choice := false
+# The figure each player picked with the deck (SEAT_FIGURES_VERSUS). "" = none, today's body.
+var seat_figures := {"p1": "", "p2": ""}
+var automated_figure := "" # Test fixtures only, like automated_deck. Never set by gameplay.
+
+## The figure ids a side may pick: the leaders for Preparedness, the bosses for the Disaster.
+static func figure_ids(side: String) -> Array:
+	if side == VersusDecks.SIDE_PREP: return VERSUS_LEADERS
+	if side == VersusDecks.SIDE_DISASTER: return BossRules.rows().keys()
+	return []
+
+## True when id is a String in the side's list. Anything else, also from the network, is refused.
+static func figure_ok(side: String, id: Variant) -> bool:
+	return id is String and figure_ids(side).has(id)
+
+## The figure of the player on this side. "" before the side pick or the figure pick.
+func figure_for(side: String) -> String:
+	if side == "": return ""
+	if side == player1_side: return seat_figures.p1
+	if side == player2_side: return seat_figures.p2
+	return ""
+
+func _clear_figures() -> void:
+	seat_figures.p1 = ""
+	seat_figures.p2 = ""
 
 ## Player 1 wins the toss when the call matches the result.
 static func resolve_winner(called: int, result: int) -> int:
@@ -113,6 +143,7 @@ func wait_for_side(called: int, result: int) -> String:
 	coin_winner = resolve_winner(called, result)
 	player1_side = ""
 	player2_side = ""
+	_clear_figures()
 	if automated_side != "": choose_side.call_deferred(automated_side)
 	var side: String = await side_chosen
 	if serial != prematch_serial: return ""
@@ -137,6 +168,7 @@ func clear_prematch() -> void:
 	coin_winner = 0
 	player1_side = ""
 	player2_side = ""
+	_clear_figures()
 	# The deck step ends too. The bumped serial stops wait_for_decks on its next frame.
 	_reset_decks()
 	deck_step_active = false
@@ -160,9 +192,12 @@ func decks_are_ready() -> bool:
 	return deck_ready[VersusDecks.SIDE_PREP] and deck_ready[VersusDecks.SIDE_DISASTER]
 
 ## An empty deck means Standard. An invalid deck is refused and counts as Standard.
-## A repeated, late or unknown choice is ignored.
-func choose_deck(side: String, deck: Dictionary) -> void:
+## A repeated, late or unknown choice is ignored. The figure is kept only when it is in the side's list.
+func choose_deck(side: String, deck: Dictionary, figure: Variant = "") -> void:
 	if not deck_step_active or not deck_ready.has(side) or deck_ready[side]: return
+	if figure_ok(side, figure):
+		if side == player1_side: seat_figures.p1 = figure
+		elif side == player2_side: seat_figures.p2 = figure
 	if not deck.is_empty() and VersusDecks.validate(side, deck).ok:
 		custom_decks[side] = deck.duplicate(true)
 	deck_ready[side] = true
@@ -171,9 +206,9 @@ func choose_deck(side: String, deck: Dictionary) -> void:
 ## Wait in frames until both sides have a deck. Returns false when the wait was cancelled.
 func wait_for_decks() -> bool:
 	var serial := prematch_serial
-	if automated_deck == "standard": choose_deck.call_deferred(player1_side, {})
+	if automated_deck == "standard": choose_deck.call_deferred(player1_side, {}, automated_figure)
 	elif automated_deck == "custom":
-		choose_deck.call_deferred(player1_side, VersusDecks.load_custom(player1_side))
+		choose_deck.call_deferred(player1_side, VersusDecks.load_custom(player1_side), automated_figure)
 	while not decks_are_ready() and serial == prematch_serial:
 		await get_tree().process_frame
 	return serial == prematch_serial
@@ -250,6 +285,7 @@ func restore_run_state() -> void:
 	game.player_hp = saved_player_hp
 	director.selected_character = saved_character
 	game._player_hp_ui.get_node("Caption").text = saved_caption
+	_clear_figures()
 
 ## Called by run_director.battle_finished when the encounter is "versus".
 func finish(prep_won: bool) -> void:
