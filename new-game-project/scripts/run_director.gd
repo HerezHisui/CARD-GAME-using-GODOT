@@ -53,10 +53,16 @@ static var last_character := 0
 const DECISIONS := [
 	"coin", "reward", "shop", "event", "upgrade", "upgrade_preview", "result", "choice", "buff", "floor_buff",
 	"intel", "title", "title_help", "characters", "character_preview", "victory", "inspect", "plans", "remove",
-	"remove_confirm", "contingency_reward", "evolution_offer", "disaster_relocation",
+	"remove_confirm", "contingency_reward", "evolution_offer", "disaster_relocation", "intro",
 ]
 const MAP_ROWS = Routes.MAP_ROWS
 const MAX_UPGRADES := 2
+## The Drill Night intro: three lines on the first new run, again from the menu.
+const INTRO_LINES := [
+	"Drill Night. The whole school sleeps over for the emergency drill.",
+	"At midnight, the drill stops being a drill.",
+	"Stay together. Use what you practised. Make it to dawn.",
+]
 const CHARACTERS := [
 	{"name":"Steve · Student", "leader":"sam", "available":true, "description":"Balanced training. Units start with +1 health.", "buff":"cadet", "deck":[]},
 	{"name":"Evacuation Club · Leader", "leader":"kai", "available":false, "description":"Evac formations, movement and draw. Matching neighbors gain +1 extra damage.", "buff":"marshal", "deck":["quick_dash", "quick_dash", "fire_drill", "fire_drill", "lane_marshal", "lane_marshal", "runner", "runner", "evacuation", "tutor", "shelter_brace", "rally"]},
@@ -109,6 +115,8 @@ var card_picker := false
 const CARD_PICKER_WIDTH := 1000.0
 var debug_from_menu := false
 var confirmation_cancel := Callable()
+# Where closing the intro goes next: the map after new_run, the menu after a replay.
+var intro_next := Callable()
 var modal_dimmer: ColorRect
 var reward_selection := -1
 var reward_faces: Array[TextureRect] = []
@@ -863,6 +871,15 @@ func _input(event: InputEvent) -> void:
 				_hide_privacy_screen()
 			get_viewport().set_input_as_handled()
 		return
+	# The intro: Esc, Space, Enter or any click closes it. Other keys do nothing.
+	if screen == "intro":
+		var key: bool = event is InputEventKey and event.pressed and not event.echo \
+			and event.keycode in [KEY_ESCAPE, KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]
+		var click: bool = event is InputEventMouseButton and event.pressed \
+			and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]
+		if key or click: close_intro()
+		if key or click or event is InputEventKey: get_viewport().set_input_as_handled()
+		return
 	if inspect_hold_pending and event is InputEventMouseMotion and event.position.distance_to(inspect_hold_origin) > 12:
 		cancel_inspect_hold()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
@@ -1116,12 +1133,13 @@ func _panel_layout(kind: String) -> void:
 		# The title art runs edge to edge.
 		if kind == "title": panel_style.set_content_margin_all(0)
 	modal.add_theme_stylebox_override("panel", panel_style)
-	if kind in ["event", "shop", "victory", "result"]:
+	if kind in ["event", "shop", "victory", "result", "intro"]:
 		var available := get_viewport().get_visible_rect().size
 		var room_size := Vector2(minf(1180 if kind == "shop" else 1040, available.x - 48),
 			minf(740 if kind == "shop" else 560, available.y - 100))
-		# Victory and defeat are a smaller notice in the middle of the screen.
-		if kind in ["victory", "result"]: room_size = Vector2(minf(760, available.x - 48), minf(460, available.y - 100))
+		# Victory and defeat are a smaller notice in the middle of the screen. The intro uses the same size.
+		if kind in ["victory", "result", "intro"]:
+			room_size = Vector2(minf(760, available.x - 48), minf(300 if kind == "intro" else 460, available.y - 100))
 		modal.offset_left = (available.x - room_size.x) / 2
 		modal.offset_right = -modal.offset_left
 		modal.offset_top = maxf(70, (available.y - room_size.y) / 2)
@@ -1273,6 +1291,8 @@ func new_run() -> void:
 	generate_map()
 	show_map()
 	persistence.checkpoint()
+	# The first run ever opens the intro over the saved map.
+	if game.intro_due(): show_intro(show_map)
 
 func generate_map() -> void:
 	cleared.clear()
@@ -2269,6 +2289,8 @@ func show_menu() -> void:
 	hook_button(content.get_node("ResumeButton"), close_modal)
 	var settings := button("Game Settings", show_settings, content)
 	content.move_child(settings, content.get_node("TitleButton").get_index())
+	var intro := button("Intro", show_intro.bind(show_menu), content)
+	content.move_child(intro, content.get_node("TitleButton").get_index())
 	# The drill keeps Debug hidden and gets its own way out above "Return to starting screen".
 	var drill: bool = encounter == "tutorial"
 	if drill:
@@ -2278,6 +2300,30 @@ func show_menu() -> void:
 	else: content.get_node("DebugButton").free()
 	hook_button(content.get_node("TitleButton"), confirm_title)
 	hook_button(content.get_node("QuitButton"), quit_game)
+
+## The Drill Night intro panel. Begin, a click, Space, Enter or Esc closes it and goes on to next.
+func show_intro(next: Callable) -> void:
+	intro_next = next
+	reset_panel("DRILL NIGHT", "", "intro")
+	var heading: Label = content.get_child(0)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	for line in INTRO_LINES:
+		var text := label(line, 20, UI.TEXT, true)
+		text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content.add_child(text)
+	var begin := button("Begin", close_intro, content)
+	begin.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	begin.grab_focus()
+
+## Closes the intro once and marks it seen. A replay from the menu writes the same mark.
+func close_intro() -> void:
+	if screen != "intro": return
+	game.mark_intro_seen()
+	screen = ""
+	var next := intro_next
+	intro_next = Callable()
+	if next.is_valid(): next.call()
+	else: show_map()
 
 func quit_game() -> void:
 	persistence.checkpoint()

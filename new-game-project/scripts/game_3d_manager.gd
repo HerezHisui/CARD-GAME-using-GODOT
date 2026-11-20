@@ -42,6 +42,8 @@ var tutorial_override: Variant = null
 var boss_rule_override: Variant = null
 # null follows the leader flags; only tests set a leader id here.
 var leader_kit_override: Variant = null
+# null keeps the intro off under tests/; only tests set true here.
+var intro_override: Variant = null
 ## Auto camera and Auto draw start on for players. Under a tests/ command line they start off.
 const ASSISTS_DEFAULT_ON := true
 ## Auto draw waits this long, so the YOUR TURN banner shows before the card comes.
@@ -347,6 +349,22 @@ func visual_settings_path() -> String:
 		if argument.contains("tests/"):
 			return "user://test_visual_settings_%d.cfg" % hash(OS.get_cmdline_args())
 	return "user://visual_settings.cfg"
+
+## True when the Drill Night intro should open: never seen yet, and off under tests/ unless a test asks.
+func intro_due() -> bool:
+	if intro_override is bool:
+		if not intro_override: return false
+	elif running_under_tests(): return false
+	var preferences := ConfigFile.new()
+	preferences.load(visual_settings_path())
+	return not bool(preferences.get_value("visuals", "seen_intro", false))
+
+## Closing the intro stores this mark with the visual settings, never in the run save.
+func mark_intro_seen() -> void:
+	var preferences := ConfigFile.new()
+	preferences.load(visual_settings_path())
+	preferences.set_value("visuals", "seen_intro", true)
+	preferences.save(visual_settings_path())
 
 func is_battle_active() -> bool:
 	return is_instance_valid(run_director) and run_director.battle_active
