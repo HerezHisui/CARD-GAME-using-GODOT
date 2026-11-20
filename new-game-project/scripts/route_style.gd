@@ -65,7 +65,8 @@ static func screen(content: Control, floor_number: int) -> void:
 	dossier.add_theme_stylebox_override("panel", plate(UI.INSET, UI.GOLD.darkened(0.2)))
 	var text: VBoxContainer = dossier.get_node("DossierText")
 	text.add_theme_constant_override("separation", 14)
-	text.get_node("FloorLabel").text = "FLOOR %d" % floor_number
+	var hour: String = load("res://scripts/run_director.gd").floor_hour(floor_number)
+	text.get_node("FloorLabel").text = "FLOOR %d · %s" % [floor_number, hour]
 	var legend := VBoxContainer.new()
 	legend.name = "RoomLegend"
 	legend.add_theme_constant_override("separation", 8)

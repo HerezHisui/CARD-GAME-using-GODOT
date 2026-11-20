@@ -194,7 +194,9 @@ func show_title() -> void:
 	var has_save: bool = persistence.has_run()
 	if has_save:
 		var saved: Dictionary = persistence.read_save()
-		title_screen.get_node("%SaveLabel").text = "UNFINISHED RUN · FLOOR %d" % int(saved.director.floor_number)
+		var saved_floor := int(saved.director.floor_number)
+		title_screen.get_node("%SaveLabel").text = "UNFINISHED RUN · FLOOR %d · %s" % [saved_floor,
+			floor_hour(saved_floor)]
 		var continue_button: Button = title_screen.get_node("%ContinueButton")
 		continue_button.pressed.connect(continue_saved_run)
 		continue_button.grab_focus()
@@ -1487,8 +1489,8 @@ func battle_finished(won: bool) -> void:
 		Sfx.play("defeat")
 		run_active = false
 		persistence.discard()
-		reset_panel("TRAPPED AFTER MIDNIGHT", "Run ended on floor %d · %d cards in deck" % [floor_number, collection.size()],
-			"result")
+		reset_panel("THE NIGHT WON THIS TIME", "Made it to %s · %d cards in deck. Try again." % [floor_hour(floor_number),
+			collection.size()], "result")
 		unpack_screen(ResultScene)
 		hook_button(content.get_node("ReturnButton"), return_title)
 		return
@@ -1573,7 +1575,8 @@ func next_floor() -> void:
 	generate_map()
 	screen = ""
 	show_map()
-	game.presentation.banner("FLOOR %d" % floor_number, "A new route through the school")
+	game.presentation.banner("FLOOR %d · %s" % [floor_number, floor_hour(floor_number)],
+		"%s. The halls have changed." % floor_hour(floor_number))
 
 func add_collection_card(card: Dictionary) -> void:
 	acquisition_serial += 1
@@ -1963,6 +1966,10 @@ func show_kit_plans(kit: Dictionary) -> void:
 	if game.plans.armed.is_empty(): armed.free()
 	else: armed.text = "ARMED: " + str(game.plans.definition(game.plans.armed.kind).name)
 	hook_button(content.get_node("ReturnButton"), close_modal)
+
+# Floors read as hours of the night. Floor numbers stay in code and saves.
+static func floor_hour(floor_number: int) -> String:
+	return {1: "12 AM", 2: "2 AM", 3: "4 AM"}.get(floor_number, "")
 
 ## A Plans tile title: "Brace · 1 Plan". The LAN client uses it too.
 static func plans_tile_title(tactic_name: String, cost: int) -> String:

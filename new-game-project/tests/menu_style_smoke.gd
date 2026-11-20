@@ -94,7 +94,7 @@ func run() -> void:
 	await open(func(): director.battle_finished(false), true)
 	check(director.screen == "result" and director.content.has_node("ResultIcon"), "defeat notice styled")
 	var summary: Label = director.content.get_child(2) as Label
-	check(summary != null and "floor 1" in summary.text, "defeat shows the floor reached")
+	check(summary != null and "Made it to 12 AM" in summary.text, "defeat shows the hour reached")
 
 	print("MENU STYLE: %d failures" % failures)
 	game.queue_free()
