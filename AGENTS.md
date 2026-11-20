@@ -1,12 +1,17 @@
 # Midnight DRRills (Godot 4.7, GDScript)
-- Treat the repo as the source of truth; docs may be outdated.
-- Save usage: do NOT run rendered/viewport/screenshot audits unless I ask. Run only the headless smoke tests that cover files you touched.
-- Edit narrowly: no whole-file rewrites, no reformatting, no balance or card-number changes during refactors.
-- Refactors must be behavior-preserving; tests/*_smoke.gd must pass before and after.
-- Style: typed GDScript, short functions, lines under 120 chars, plain comments, no giant one-liners.
-- One commit per finished step with a plain-English message.
-- Final report: max 5 lines (what changed, tests run, what's next).
-- Stop and tell me if a step fails twice or context passes ~70%.
+The rules for every agent live in new-game-project/CLAUDE.md. Read it first; it wins over this file.
+
+## The loop
+- Work from new-game-project. Start with `bash prompts/state.sh`.
+- "Run the next mission in prompts/QUEUE.txt": take the first line that is not a comment and not marked DONE,
+  read prompts/<name>.txt and do exactly what it says. One mission per run, then report and stop.
+- Edit only the files on the mission's ALLOWED: line (new tests are always allowed).
+- Suites: `bash prompts/run-suites.sh reset`, then `bash prompts/run-suites.sh` until it prints DONE.
+  The scripts need bash (Git Bash). Give each call a 10-minute shell timeout.
+- Before committing: git add the named paths only, then `bash prompts/mission-check.sh`. Commit only on CHECK OK.
+  Mark the QUEUE line `DONE <hash>`.
+- Never push. Never turn a flag on unless the mission names it. No Co-Authored-By or tool names in commits.
+- Report in docs/notes/<name>-report.md under DIFF, RESULTS, BY EYE, FRICTION, SHAPES.
 
 ## Godot notes for this project
 - Godot 4.7 (tested with 4.7.2), GDScript only. The game is 3D (card_3d.gd, game_3d_manager.gd)
