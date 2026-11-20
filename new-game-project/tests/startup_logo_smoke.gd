@@ -15,10 +15,10 @@ func run() -> void:
 	var title := scene.instantiate()
 	root.add_child(title)
 	await process_frame
-	check(not title.get_node("%Title").visible, "Rendered title text is replaced")
-	check(not title.get_node("%Subtitle").visible, "Rendered subtitle text is replaced")
-	check(not title.get_node("%TitleGlow").visible, "Old title glow text is hidden")
-	check(title.get_node_or_null("TitleBox/GameLogo") != null, "Supplied game logo appears on title")
+	check(title.get_node("%Title").visible, "Title text DRILL shows (logo retired in dn-title)")
+	check(title.get_node("%Subtitle").visible, "Subtitle text NIGHT shows")
+	check(not title.get_node("%TitleGlow").visible, "Title glow copy stays hidden")
+	check(title.get_node_or_null("TitleBox/GameLogo") == null, "Old logo picture is not shown")
 	title.queue_free()
 	await process_frame
 	print("STARTUP LOGOS: %d failures" % failures)

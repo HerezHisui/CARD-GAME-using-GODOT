@@ -127,7 +127,7 @@ func check_menu() -> void:
 	expect(menu.find_child("SuspendedFrame", true, false) != null, "menu: the straps above the frame")
 	var labels: Array = menu.find_children("*", "Label", true, false).map(func(label: Label) -> String:
 		return label.text)
-	expect("MIDNIGHT DRRILLS" in labels, "menu: the host's title")
+	expect("DRILL NIGHT" in labels, "menu: the host's title")
 	expect(labels.any(func(text: String) -> bool: return text.begins_with("Counters:")), "menu: the counters rule")
 	var buttons: Array = menu.find_children("*", "Button", true, false).filter(func(b: Button) -> bool:
 		return b.is_visible_in_tree()).map(func(b: Button) -> String: return b.text)

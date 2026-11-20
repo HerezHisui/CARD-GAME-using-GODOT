@@ -568,7 +568,7 @@ func toggle_esc_menu() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
 	esc_menu.add_child(box)
-	box.add_child(director.label("MIDNIGHT DRRILLS", 24, UI.GOLD, true))
+	box.add_child(director.label("DRILL NIGHT", 24, UI.GOLD, true))
 	var layout := MenuScene.instantiate()
 	# The nodes leave the scene, so they should not keep it as their owner (like run_director.unpack_screen).
 	for node in layout.find_children("*", "", true, false): node.owner = null

@@ -47,9 +47,11 @@ func run() -> void:
 	director.persistence.enabled = false
 	await create_timer(0.6).timeout
 	await capture("title")
-	var logo: TextureRect = director.content.get_node("TitleScreen/TitleBox/GameLogo")
-	check(root.get_visible_rect().encloses(logo.get_global_rect()), "Title logo stays within window margins")
-	check(logo.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED, "Title logo keeps supplied aspect ratio")
+	# The text title DRILL NIGHT replaced the logo picture in dn-title.
+	for path in ["TitleScreen/TitleBox/Title", "TitleScreen/TitleBox/Subtitle"]:
+		var title_text: Label = director.content.get_node(path)
+		check(root.get_visible_rect().encloses(title_text.get_global_rect()), "Title text stays within window margins")
+		check(title_text.get_minimum_size().x <= title_text.size.x, "Title text fits its box")
 	director.new_run()
 	battle()
 	game.enemy_hand.assign([{"id":"review_unit", "name":"Review Threat", "type":"disaster",

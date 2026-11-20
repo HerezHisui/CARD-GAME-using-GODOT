@@ -99,7 +99,7 @@ offset_bottom = 150.0
 theme_type_variation = &"HeadingLabel"
 theme_override_constants/outline_size = 16
 theme_override_font_sizes/font_size = 120
-text = "MIDNIGHT"
+text = "DRILL"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -111,7 +111,7 @@ offset_bottom = 243.0
 theme_type_variation = &"HeadingLabel"
 theme_override_constants/outline_size = 12
 theme_override_font_sizes/font_size = 72
-text = "DRRills"
+text = "NIGHT"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -124,7 +124,7 @@ grow_horizontal = 2
 theme_type_variation = &"HeadingLabel"
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 120
-text = "MIDNIGHT"
+text = "DRILL"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -138,7 +138,7 @@ grow_horizontal = 2
 theme_type_variation = &"HeadingLabel"
 theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 72
-text = "DRRills"
+text = "NIGHT"
 horizontal_alignment = 1
 vertical_alignment = 1
 

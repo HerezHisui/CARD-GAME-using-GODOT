@@ -52,7 +52,6 @@ var game_logo: TextureRect
 func _ready() -> void:
 	build_background()
 	style_text()
-	build_logo()
 	for item in menu.get_children():
 		if item is Button: style_menu_button(item)
 	markers.draw.connect(draw_markers)
@@ -82,7 +81,7 @@ func style_text() -> void:
 		label.add_theme_font_override("font", title_face)
 	for label in [subtitle_label, sub_glow_label]:
 		label.add_theme_font_override("font", subtitle_face)
-	# Cream MIDNIGHT and gold DRRills, both with a thin dark outline.
+	# Cream DRILL and gold NIGHT, both with a thin dark outline.
 	title_label.add_theme_color_override("font_color", UI.TEXT)
 	subtitle_label.add_theme_color_override("font_color", UI.GOLD)
 	for label in [title_label, subtitle_label]:
@@ -99,6 +98,7 @@ func style_text() -> void:
 	%SaveLabel.add_theme_color_override("font_color", UI.MUTED)
 	UI.outline(%SaveLabel)
 
+## Not called since the rename to Drill Night: the text title shows. Kept with its image.
 func build_logo() -> void:
 	title_label.hide()
 	subtitle_label.hide()

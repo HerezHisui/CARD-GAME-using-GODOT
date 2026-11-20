@@ -1,4 +1,4 @@
-# Midnight DRRills
+# Drill Night
 
 A school-themed card roguelike made in Godot 4.7. Build a Preparedness deck, survive Disaster encounters, and reach the Warden at the end of the school map.
 

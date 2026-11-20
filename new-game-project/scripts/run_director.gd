@@ -2240,7 +2240,7 @@ func show_menu() -> void:
 		return
 	if saved_content: return
 	if screen in DECISIONS: return
-	reset_panel("MIDNIGHT DRRILLS", "", "menu")
+	reset_panel("DRILL NIGHT", "", "menu")
 	Sfx.play("menu_open_close")
 	# The layout lives in ui_menu.tscn; here we only fill in text and hook up buttons.
 	unpack_screen(MenuScene)

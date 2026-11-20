@@ -1,4 +1,4 @@
-# Midnight DRRills player guide
+# Drill Night player guide
 
 Open `project.godot` in Godot 4.7 and run the main scene. Choose Singleplayer, then Steve.
 The other characters are not playable yet. A saved run offers Continue or Abandon.
