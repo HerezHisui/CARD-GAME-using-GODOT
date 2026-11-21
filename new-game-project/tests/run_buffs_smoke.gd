@@ -2,7 +2,8 @@
 extends SceneTree
 
 # Captured on the original director code, before the move (perf-clean M3).
-const ORIGINAL_SHA256 := "192fca9c693467ea4cb32667b3788dc763b9e8ba5f578ae4862ee9d84d2d6149"
+# Re-captured 21 Nov: buff screen text changed on purpose (Blood Pact shown as Last Stand, no death wording).
+const ORIGINAL_SHA256 := "0e5c60d9e5eb9174202df5b50225dd74346365e2314f614fccf8c841f87fed49"
 
 var game: Node
 var director: Node

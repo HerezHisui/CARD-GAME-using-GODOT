@@ -1784,7 +1784,7 @@ func _combat_text(card: Node3D) -> String:
 	if note.has("condition"):
 		lines.append("[b]Conditional ability: %s[/b]" % ("ACTIVE" if note.condition else "inactive"))
 	if card.plan_ignore_taunt: lines.append("Ignore Taunt")
-	if note.get("blood_pact", false): lines.append("Blood Pact: defeat a card this turn or die")
+	if note.get("blood_pact", false): lines.append("Last Stand: defeat a card this turn or fall")
 	return "" if lines.is_empty() else "[b]THIS COMBAT[/b]\n" + "\n".join(lines) + "\n"
 
 

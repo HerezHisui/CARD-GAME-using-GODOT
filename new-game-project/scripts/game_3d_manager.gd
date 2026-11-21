@@ -2376,7 +2376,7 @@ func resolve_blood_pact() -> void:
 		if card.in_hand or card.current_slot == null or not card.is_alive(): continue
 		if int(buffs_for(card.card_data).get("kill_or_die", 0)) <= 0: continue
 		if card.get_meta("combat_kill", false): continue
-		log_event("Blood Pact destroys %s: no kill this combat." % card.card_data.name)
+		log_event("Last Stand: %s falls, no card defeated this combat." % card.card_data.name)
 		card.card_data.health = 0
 		card._die()
 	_check_game_over()

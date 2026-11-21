@@ -73,7 +73,7 @@ const KITS := {
 			{"id":"rally", "name":"Huddle", "cost":2, "does":"attack_adjacent", "amount":1, "target":"ally",
 				"when":"combat", "description":"One unit and its neighbours get +1 attack this fight."},
 			{"id":"duck", "name":"Duck", "cost":1, "does":"extract", "amount":0, "target":"ally_to_lane",
-				"when":"combat", "description":"One unit dodges a killing hit into an empty lane."},
+				"when":"combat", "description":"One unit dodges a finishing hit into an empty lane."},
 		],
 	},
 	"sam": {

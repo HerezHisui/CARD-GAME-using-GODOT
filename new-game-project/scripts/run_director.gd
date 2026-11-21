@@ -1814,7 +1814,7 @@ func add_dossier(parent: Node, card: Dictionary, hint: String, live_card: Node =
 			var active: bool = game.condition_met(card.condition, live_card, target)
 			combat.append("[b]Conditional ability: %s[/b]" % ("ACTIVE" if active else "inactive"))
 		if live_card.plan_ignore_taunt: combat.append("Ignore Taunt")
-		if game.buff_value(live_card.card_data.type == "response", "kill_or_die") > 0: combat.append("Blood Pact: defeat a card this turn or die")
+		if game.buff_value(live_card.card_data.type == "response", "kill_or_die") > 0: combat.append("Last Stand: defeat a card this turn or fall")
 	if not combat.is_empty(): status_details += "\n[b]THIS COMBAT[/b]\n" + "\n".join(combat) + "\n"
 	var rules: PackedStringArray = []
 	for line in card_rules(card).split("\n"):

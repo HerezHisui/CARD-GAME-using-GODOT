@@ -12,7 +12,7 @@ const BUFFS := [
 	{"id":"glass", "name":"Glass Cannon", "description":
 		"Future units gain +2 attack, but -2 maximum health. Deployed units are unchanged. This battle only."},
 	{"id":"overclock", "name":"Overclock", "description":"Gain 2 capacity now and +1 extra capacity growth each round (2 total normally), but take 50% more damage (rounded up)."},
-	{"id":"blood_pact", "name":"Blood Pact", "description":"Units gain 1 Strength. At combat end, each deployed unit that did not kill a card this combat dies. Hero hits and resting do not count."},
+	{"id":"blood_pact", "name":"Last Stand", "description":"Units gain 1 Strength. At combat end, each deployed unit that did not defeat a card this combat is knocked out. Hero hits and resting do not count."},
 	{"id":"patient", "name":"Patient Formation", "description":"All units regenerate 1 each round, but become Sluggish."},
 	{"id":"toxic_ward", "name":"Toxic Ward", "description":"Apply 2 extra Poison stacks, but all your units lose 1 attack."},
 	{"id":"formation", "name":"Close Ranks", "description":"Matching adjacent units deal 1 extra damage. Isolated deployed units lose 1 attack."},

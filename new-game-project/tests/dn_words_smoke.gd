@@ -1,15 +1,14 @@
 extends SceneTree
 ## Drill Night words: no death, forever or old-name wording in player text.
 ## Scans data JSON values, reset_panel and banner literals, the boss scripts and the combat lines.
-const BANNED := "(?i)\\b(trapped|forever|die|dies|dead|death|kill|killed|drrills|drrm|competition|contest|lesson)\\b"
+const BANNED := "(?i)\\b(trapped|forever|die|dies|dead|death|kill|killed|killing|blood|" \
+	+ "drrills|drrm|competition|contest|lesson)\\b"
 ## Text allowed to keep a banned word, with the reason.
 const KEEP := [
-	# Blood Pact rule line. Its pick tile (battle_rules.gd) and LAN inspect (lan_board_3d.gd) say the same;
-	# all three change together in their own mission.
-	"Blood Pact: defeat a card this turn or die",
 ]
-## Scripts whose every literal is player text (boss intents and banners).
-const WHOLE_SCRIPTS := ["res://scripts/boss_rules.gd", "res://scripts/final_boss.gd"]
+## Scripts whose every literal is player text (boss intents and banners, buff tiles, leader kits).
+const WHOLE_SCRIPTS := ["res://scripts/boss_rules.gd", "res://scripts/final_boss.gd",
+	"res://scripts/battle_rules.gd", "res://scripts/leader_kits.gd"]
 var failures := 0
 var scanned := 0
 var banned := RegEx.new()
@@ -72,8 +71,9 @@ func run() -> void:
 		for line in FileAccess.get_file_as_string(path).split("\n"):
 			number += 1
 			if line.strip_edges().begins_with("#"): continue
+			# lines.append( also covers the LAN inspect's combat lines (lan_board_3d.gd _combat_text).
 			var player_line := line.contains("reset_panel(") or line.contains("banner(") \
-				or line.contains("combat.append(")
+				or line.contains("combat.append(") or line.contains("lines.append(")
 			if not whole and not player_line: continue
 			if player_line: panel_lines += 1
 			for text in literals(line): scan(text, "%s:%d" % [file, number])
